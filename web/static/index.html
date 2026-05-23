@@ -1,248 +1,38 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI 관세조사 Agent Platform</title>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link rel="stylesheet" href="/static/app.css" />
-  </head>
-  <body>
-    <aside class="sidebar" aria-label="분석 설정">
-      <div class="brand">
-        <img class="brand-mark brand-mark--image" src="/static/img/AIAgent2.png" alt="AI 통합플랫폼" />
-        <div>
-          <h1>AI 통합플랫폼</h1>
-          <p>기업 위험 분석 워크벤치</p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 관세행정 통합포털</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/app.js"></script>
+  <!-- paths resolved by web_server.py STATIC_DIR → web/static -->
+</head>
+<body>
+  <div class="app-shell">
+    <main class="main">
+      <header class="topbar">
+        <div class="top-title">
+          <h1>AI 관세행정 통합포털</h1>
+          <p>LLM · ML모델 · DW · RAG · 업무시스템 통합 Workbench</p>
         </div>
-      </div>
-
-      <label class="field">
-        <span>조사 대상 기업</span>
-        <select id="companySelect"></select>
-      </label>
-
-      <section class="source-card source-card--db">
-        <div class="source-card-head">
-          <span>데이터베이스</span>
-          <strong>DB</strong>
+        <div class="prototype-notice" role="note">
+          <strong>관세행정 AI 통합포털은 관세청 직원들이 AI와 협업 파트너가 되어 일하기 위한 업무 효율화 도구입니다.</strong>
         </div>
-        <label class="permission-row">
-          <span>CDW 기업 및 신고 데이터</span>
-          <input type="checkbox" data-source="db_cdw" checked />
-        </label>
-      </section>
-
-      <section class="source-card source-card--rag">
-        <div class="source-card-head">
-          <span>참고 RAG</span>
-          <strong>RAG</strong>
-        </div>
-        <label class="permission-row">
-          <span>관세 업무 매뉴얼 및 내부 규정</span>
-          <input type="checkbox" data-source="rag_customs" checked />
-        </label>
-        <label class="permission-row">
-          <span>통관 정보 RAG</span>
-          <input type="checkbox" data-source="rag_trade" checked />
-        </label>
-        <label class="permission-row">
-          <span>감사 정보 RAG</span>
-          <input type="checkbox" data-source="rag_audit" />
-        </label>
-        <label class="permission-row">
-          <span>조사 정보 RAG</span>
-          <input type="checkbox" data-source="rag_investigation" checked />
-        </label>
-        <label class="permission-row">
-          <span>국제 정보 RAG</span>
-          <input type="checkbox" data-source="rag_global" />
-        </label>
-      </section>
-
-      <section class="source-card source-card--stat">
-        <div class="source-card-head">
-          <span>빅데이터 분석</span>
-          <strong>STAT</strong>
-        </div>
-        <label class="permission-row">
-          <span>동종 업종 수입 통계</span>
-          <input type="checkbox" data-source="bigdata_trade" checked />
-        </label>
-        <label class="permission-row">
-          <span>HS 코드별 수입 통계</span>
-          <input type="checkbox" data-source="bigdata_hs" checked />
-        </label>
-      </section>
-
-      <section class="source-card source-card--web">
-        <div class="source-card-head">
-          <span>외부 정보</span>
-          <strong>WEB</strong>
-        </div>
-        <label class="permission-row">
-          <span>웹 뉴스 및 공급망 검색</span>
-          <input type="checkbox" data-source="web_search" checked />
-        </label>
-      </section>
-
-      <section class="source-card source-card--doc">
-        <div class="source-card-head">
-          <span>보고서</span>
-          <strong>DOC</strong>
-        </div>
-        <label class="permission-row">
-          <span>분석 보고서 생성</span>
-          <input type="checkbox" data-source="report_generate" checked />
-        </label>
-        <label class="permission-row">
-          <span>보고서 근거 검증</span>
-          <input type="checkbox" data-source="report_validate" checked />
-        </label>
-      </section>
-
-      <button id="runButton" class="run-button" type="button">분석 실행</button>
-      <button id="shutdownButton" class="shutdown-button" type="button">플랫폼 종료</button>
-    </aside>
-
-    <main class="app">
-      <header class="app-header">
-        <nav class="top-tabs" aria-label="업무 화면">
-          <button class="top-tab" type="button" data-screen="profile">기업 프로파일</button>
-          <button class="top-tab active" type="button" data-screen="analysis">조사 분석</button>
-          <button class="top-tab" type="button" data-screen="report">분석 보고서</button>
-        </nav>
+        <button class="profile profile-switcher" id="profileSwitcherBtn" title="사용자 변경">
+          <span>🔔</span><span>✉</span>
+          <div class="avatar" id="profileAvatar">김</div>
+          <div><strong id="profileName">김기획</strong><small id="profileTeam">정보국 정보기획담당관</small></div>
+          <span class="profile-switch-hint">▾</span>
+        </button>
       </header>
 
-      <section class="screen" data-screen-panel="profile">
-        <section class="profile-dashboard">
-          <article class="profile-hero">
-            <div class="profile-title-row">
-              <div id="profileLogo" class="profile-logo">AI</div>
-              <div>
-                <div class="profile-name-line">
-                  <h2 id="profileName">기업을 선택하세요</h2>
-                  <span id="profileRiskLevel" class="badge neutral">-</span>
-                  <span id="profileAuditStatus" class="badge warn">-</span>
-                </div>
-                <p id="profileMeta">사업자번호 · 주소 · 설립연도 · 업종</p>
-              </div>
-            </div>
-
-            <div class="profile-kpis">
-              <div><span>연매출</span><strong id="kpiRevenue">-</strong><em>최근 회계 기준</em></div>
-              <div><span>연간 수입 총액</span><strong id="kpiImport">-</strong><em>신고 기준 누적</em></div>
-              <div><span>신고 납부 관세액</span><strong id="kpiDuty">-</strong><em>수입 신고 납부액</em></div>
-              <div><span>FTA 감면 적용률</span><strong id="kpiFta">-</strong><em>감면 신고 비중</em></div>
-              <div><span>AI 위험 점수</span><strong id="kpiRisk">-</strong><em>100점 기준</em></div>
-            </div>
-          </article>
-
-          <section class="profile-grid">
-            <article class="profile-panel">
-              <h3>기업 기본 정보</h3>
-              <div id="profileInfoRows" class="info-rows"></div>
-            </article>
-
-            <article class="profile-panel risk-panel">
-              <div class="risk-panel-head">
-                <h3>AI 위험 지표 분석</h3>
-                <div class="risk-circle"><strong id="riskCircleScore">-</strong><span id="riskCircleLevel">-</span></div>
-              </div>
-              <div id="profileRiskBars" class="risk-bars"></div>
-            </article>
-          </section>
-
-          <article class="profile-panel">
-            <h3>최근 수입 신고 내역</h3>
-            <table class="declaration-table">
-              <thead>
-                <tr>
-                  <th>수입일</th>
-                  <th>품목</th>
-                  <th>HS 코드</th>
-                  <th>원산지</th>
-                  <th>신고금액</th>
-                  <th>상태</th>
-                </tr>
-              </thead>
-              <tbody id="profileDeclarations"></tbody>
-            </table>
-          </article>
-
-          <article class="profile-panel">
-            <h3>조사 일정 사유 및 주요 이상 징후 타임라인</h3>
-            <ul id="profileTimeline" class="profile-timeline"></ul>
-          </article>
-        </section>
-      </section>
-
-      <section class="screen active" data-screen-panel="analysis">
-        <section class="analysis-shell">
-          <aside class="scenario-editor">
-            <section class="editor-box">
-              <h2>분석 단계 구성</h2>
-              <label class="mini-field source-select">
-                <select id="scenarioSource" aria-label="분석 데이터 소스"></select>
-              </label>
-              <label class="mini-field">
-                <span>추가 지시</span>
-                <textarea id="scenarioInstruction" placeholder="이 단계에서 Agent가 중점적으로 확인할 내용을 입력하세요."></textarea>
-              </label>
-            </section>
-            <button id="deleteScenarioButton" type="button" class="text-action delete" disabled>선택 단계 삭제</button>
-          </aside>
-
-          <section class="analysis-workspace">
-            <section class="scenario-flow-panel">
-              <div class="scenario-panel-head">
-                <div>
-                  <h2>조사 시나리오</h2>
-                  <p>필요한 Agent 단계를 추가하고 드래그해서 실행 순서를 조정하세요.</p>
-                </div>
-                <button id="addScenarioButton" type="button" class="primary-small">단계 추가</button>
-              </div>
-              <ol id="scenarioList" class="scenario-flow" aria-label="조사 시나리오 흐름"></ol>
-            </section>
-          </section>
-
-          <section class="runtime-panel">
-            <div class="runtime-header">
-              <h3>분석 실행 로그</h3>
-              <span id="runStatus">대기</span>
-            </div>
-            <div class="progress-line">
-              <span id="doneCount">0/0</span>
-              <div><i id="progressFill"></i></div>
-            </div>
-            <div id="stepAccordion" class="step-accordion" aria-label="단계별 분석 결과"></div>
-            <pre id="analysisOutput" class="sr-log">왼쪽에서 데이터 소스와 분석 지시를 입력한 뒤 분석 시나리오를 구성하세요.</pre>
-          </section>
-        </section>
-      </section>
-
-      <section class="screen" data-screen-panel="report">
-        <section class="report-layout">
-          <article class="report-panel">
-            <h2>분석 보고서</h2>
-            <div id="reportOutput" class="markdown-output">보고서가 아직 생성되지 않았습니다.</div>
-          </article>
-          <article class="report-panel validation">
-            <h2>보고서 검증</h2>
-            <div id="validationOutput" class="markdown-output">검증 결과가 아직 없습니다.</div>
-          </article>
-        </section>
-      </section>
-    </main>
-
-    <div id="permissionPopup" class="permission-popup" hidden>
-      <div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="permissionPopupTitle">
-        <h2 id="permissionPopupTitle">권한 변경 요청</h2>
-        <p id="permissionPopupMessage"></p>
-        <button id="permissionPopupClose" type="button">확인</button>
+      <div class="work-tabs" id="workTabs">
+        <button class="work-tab active" data-page="home">My AI 분석</button>
       </div>
-    </div>
 
-    <script src="/static/app.js"></script>
-  </body>
+      <section id="content" class="content"></section>
+    </main>
+  </div>
+</body>
 </html>
