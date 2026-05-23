@@ -1,0 +1,983 @@
+﻿import json
+import os
+import math
+import sys
+import threading
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import duckdb
+from dotenv import load_dotenv
+
+from src.paths import DB_PATH, STATIC_DIR
+
+load_dotenv()
+
+
+def _json_bytes(payload: object) -> bytes:
+    return json.dumps(_json_safe(payload), ensure_ascii=False, default=str, allow_nan=False).encode("utf-8")
+
+
+def _json_safe(value: object) -> object:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_json_safe(item) for item in value)
+    return value
+
+
+def list_companies() -> list[dict[str, object]]:
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        return conn.execute(
+            """
+            SELECT
+                c.company_id,
+                c.company_name,
+                c.business_registration_no,
+                c.industry_code,
+                c.founded_year,
+                c.risk_level,
+                c.risk_score,
+                c.annual_revenue,
+                c.annual_import_amount,
+                c.declared_duty_amount,
+                r.undervaluation_suspicion_rate,
+                r.related_party_anomaly_rate,
+                r.fta_origin_misuse_suspicion_rate,
+                r.customs_refund_anomaly_rate,
+                r.hs_classification_error_rate,
+                r.offshore_fund_concealment_suspicion_rate
+            FROM company_profiles c
+            LEFT JOIN (
+                SELECT *
+                FROM import_risk_scores
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY company_id ORDER BY generated_at DESC) = 1
+            ) r ON c.company_id = r.company_id
+            ORDER BY c.risk_score DESC NULLS LAST
+            """
+        ).df().to_dict("records")
+
+
+def get_company_profile(company_id: str) -> dict[str, object]:
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        company = conn.execute(
+            "SELECT * FROM company_profiles WHERE company_id = ?",
+            [company_id],
+        ).df()
+        declarations = conn.execute(
+            """
+            SELECT *
+            FROM import_declarations
+            WHERE company_id = ?
+            ORDER BY import_date DESC
+            """,
+            [company_id],
+        ).df()
+        risk = conn.execute(
+            """
+            SELECT *
+            FROM import_risk_scores
+            WHERE company_id = ?
+            ORDER BY generated_at DESC
+            LIMIT 1
+            """,
+            [company_id],
+        ).df()
+
+    return {
+        "company": company.to_dict("records")[0] if not company.empty else {},
+        "declarations": declarations.to_dict("records"),
+        "risk": risk.to_dict("records")[0] if not risk.empty else {},
+    }
+
+
+# ── 프롬프트 의도 분석 ────────────────────────────────────────────────────────
+
+_INTENT_PROMPT = """당신은 한국 관세청 AI 포털의 프롬프트 라우터입니다.
+사용자 프롬프트를 분석하여 어떤 내부 에이전트를 실행할지, 아니면 직접 LLM 답변을 제공할지 결정하세요.
+
+[사용 가능한 에이전트]
+- company: 기업 기본정보 조회 (회사명·업종·수입실적)
+- db: CDW DB 수입신고 이력 조회
+- rag_customs: 관세 법령·업무매뉴얼 RAG
+- rag_trade: 통관 정보·수입신고 절차 RAG
+- rag_audit: 감사·조사 사례 RAG
+- rag_investigation: 조사 기법·혐의 유형 RAG
+- rag_global: 국제 무역 협정·해외 거래 구조 RAG
+- audit_search: 과거 조사보고서 단일 RAG 검색
+- ml: ML 위험모델 (Z-score·IQR·동종업종 비교)
+- network: 관계망 분석 (특수관계·우회수입·페이퍼컴퍼니)
+- web: 외부 웹 검색 (기사·공급망·가격동향·운임)
+- declaration_verify: 수입신고 검증 (OCR↔DB 비교·가격편차)
+- hs_verify: 품목분류 검증 (HS코드 오분류·원산지·FTA)
+- customs_value: 과세가격 평가 (관세법 30~35조·가산요소)
+- patent: 특허정보 조회 (로열티·기술사용료 과세 영향)
+- law: 법령·판례 검색 (관세법·시행령·결정례)
+- report: 조사보고서 생성 (5섹션 종합 보고서)
+- validate: 보고서 검증 (근거·법령 인용·일관성)
+
+[판단 기준]
+1. 특정 기업 분석/조사/위험평가 요청 → mode=agents, company+db 필수
+2. 법령·판례·통관절차 문의 → mode=agents, rag_customs/law (company/db 생략 가능)
+3. HS코드·품목분류 문의 → mode=agents, hs_verify+rag_customs
+4. 관세·무역 관련 일반 질문이지만 DB 조회 불필요 → mode=agents, RAG 에이전트만 선택
+5. 관세/무역/통관과 전혀 무관한 일반 지식 질문 → mode=llm_direct, llm_answer에 바로 답변
+
+[에이전트 실행 순서 원칙]
+company → db → rag류 → audit_search → ml → network → web → declaration_verify → hs_verify → customs_value → patent → law → report → validate
+
+[회사 ID 감지 규칙]
+C-XXXX 패턴 직접 감지. 또는 회사명: 한국소재무역→C-1001, 서울인터내셔널→C-1002, 제주리테일→C-1008, 대한전자→C-1004, 대전바이오→C-1007
+
+반드시 아래 JSON만 반환하세요 (마크다운/코드블록 없이 순수 JSON):
+{
+  "mode": "agents",
+  "company_id": "<감지된 회사 ID 또는 null>",
+  "reasoning": "<판단 이유 1줄>",
+  "agents": ["company", "db", "ml", "report"],
+  "llm_answer": ""
+}
+또는
+{
+  "mode": "llm_direct",
+  "company_id": null,
+  "reasoning": "<판단 이유 1줄>",
+  "agents": [],
+  "llm_answer": "<사용자 질문에 대한 실제 한국어 답변>"
+}"""
+
+_AGENT_ORDER = [
+    "ocr", "summary", "company", "db",
+    "rag_customs", "rag_trade", "rag_audit", "rag_investigation", "rag_global",
+    "audit_search", "ml", "network", "web",
+    "declaration_verify", "hs_verify", "customs_value", "patent", "law",
+    "report", "validate",
+]
+
+_AGENT_LABEL = {
+    "company":            "기업 기본정보",
+    "db":                 "CDW 조회",
+    "rag_customs":        "관세정보 RAG",
+    "rag_trade":          "통관정보 RAG",
+    "rag_audit":          "심사정보 RAG",
+    "rag_investigation":  "조사정보 RAG",
+    "rag_global":         "국제협력 RAG",
+    "audit_search":       "조사보고서 검색",
+    "ml":                 "ML 위험모델",
+    "network":            "관계망 분석",
+    "web":                "웹 검색",
+    "declaration_verify": "수입신고검증",
+    "hs_verify":          "품목분류검증",
+    "customs_value":      "과세가격평가",
+    "patent":             "특허정보조회",
+    "law":                "법령·판례",
+    "report":             "보고서 생성",
+    "validate":           "보고서 검증",
+    "ocr":                "OCR/문서인식",
+    "summary":            "문서요약",
+}
+
+
+def _detect_company_id_from_prompt(prompt: str) -> str | None:
+    import re
+    m = re.search(r"C-\d{4}", prompt)
+    if m:
+        return m.group(0)
+    name_map = {
+        "한국소재무역": "C-1001",
+        "서울인터내셔널": "C-1002",
+        "제주리테일": "C-1008",
+        "대한전자": "C-1004",
+        "대전바이오": "C-1007",
+    }
+    for name, cid in name_map.items():
+        if name in prompt:
+            return cid
+    return None
+
+
+_ATTACHMENT_TEXT_LIMIT = 16000
+_ATTACHMENT_TOTAL_LIMIT = 48000
+_ATTACHMENT_TASK_WORDS = (
+    "attached", "attachment", "file", "document", "pdf", "docx", "xlsx",
+    "첨부", "파일", "문서", "요약", "읽", "번역", "설명",
+)
+_INTERNAL_TASK_WORDS = (
+    "기업", "회사", "관세", "통관", "수입신고", "심사", "조사", "위험",
+    "cdw", "rag", "hs", "fta", "프로파일", "시나리오", "보고서", "c-",
+)
+
+
+def _is_attachment_direct_task(prompt: str, attached_files: list[dict]) -> bool:
+    if not attached_files:
+        return False
+    lowered = prompt.lower()
+    asks_file_work = any(word in lowered for word in _ATTACHMENT_TASK_WORDS)
+    asks_internal_work = any(word in lowered for word in _INTERNAL_TASK_WORDS)
+    return asks_file_work and not asks_internal_work
+
+
+def _decode_attachment_bytes(file_info: dict) -> bytes:
+    content = file_info.get("content") or ""
+    encoding = (file_info.get("encoding") or "").lower()
+    if not content:
+        return b""
+    if encoding == "base64":
+        try:
+            import base64
+            return base64.b64decode(content, validate=False)
+        except Exception:
+            return b""
+    if encoding == "text":
+        return str(content).encode("utf-8", errors="ignore")
+    return b""
+
+
+def _extract_docx_text(data: bytes) -> str:
+    try:
+        import io
+        import zipfile
+        import xml.etree.ElementTree as ET
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            xml = zf.read("word/document.xml")
+        root = ET.fromstring(xml)
+        texts = [node.text for node in root.iter() if node.tag.endswith("}t") and node.text]
+        return "\n".join(texts)
+    except Exception:
+        return ""
+
+
+def _extract_xlsx_text(data: bytes) -> str:
+    try:
+        import io
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        rows: list[str] = []
+        for sheet in wb.worksheets[:5]:
+            rows.append(f"[sheet: {sheet.title}]")
+            for row in sheet.iter_rows(max_row=120, values_only=True):
+                vals = [str(v) for v in row if v is not None]
+                if vals:
+                    rows.append(" | ".join(vals))
+                if len("\n".join(rows)) > _ATTACHMENT_TEXT_LIMIT:
+                    break
+        return "\n".join(rows)
+    except Exception:
+        return ""
+
+
+def _extract_pdf_text(data: bytes) -> str:
+    try:
+        import io
+        try:
+            from pypdf import PdfReader
+        except Exception:
+            from PyPDF2 import PdfReader
+        reader = PdfReader(io.BytesIO(data))
+        pages = [(page.extract_text() or "") for page in reader.pages[:30]]
+        return "\n".join(page for page in pages if page.strip())
+    except Exception:
+        return ""
+
+
+def _extract_attachment_text(file_info: dict) -> tuple[str, str]:
+    name = file_info.get("name") or "attachment"
+    mime = (file_info.get("mime") or "").lower()
+    suffix = Path(name).suffix.lower()
+    encoding = (file_info.get("encoding") or "").lower()
+    content = file_info.get("content") or ""
+
+    if encoding == "text":
+        return str(content), ""
+
+    data = _decode_attachment_bytes(file_info)
+    if not data:
+        return "", "파일 내용이 서버에 전달되지 않았습니다."
+
+    if suffix == ".docx" or "wordprocessingml" in mime:
+        text = _extract_docx_text(data)
+    elif suffix == ".xlsx" or "spreadsheetml" in mime:
+        text = _extract_xlsx_text(data)
+    elif suffix == ".pdf" or "pdf" in mime:
+        text = _extract_pdf_text(data)
+    elif suffix in {".txt", ".md", ".csv", ".json", ".html", ".xml", ".tsv", ".log"}:
+        text = data.decode("utf-8", errors="ignore")
+    else:
+        text = data.decode("utf-8", errors="ignore")
+
+    if text.strip():
+        return text, ""
+    return "", "현재 서버 환경에서 이 파일 형식의 텍스트를 추출하지 못했습니다."
+
+
+def _get_request_files(body: dict) -> list[dict]:
+    session_id = body.get("upload_session_id") or body.get("session_id") or ""
+    files = get_session_files(session_id) if session_id else []
+    if not files:
+        files = body.get("attached_files") or []
+    return files
+
+
+def _build_attachment_context(body: dict, include_errors: bool = True) -> str:
+    files = _get_request_files(body)
+
+    parts: list[str] = []
+    total = 0
+    for file_info in files[:8]:
+        name = file_info.get("name") or "attachment"
+        text, error = _extract_attachment_text(file_info)
+        if text:
+            text = text.strip()[:_ATTACHMENT_TEXT_LIMIT]
+            block = f"[파일: {name}]\n{text}"
+        elif not include_errors:
+            continue
+        else:
+            block = f"[파일: {name}]\n(텍스트 추출 불가: {error})"
+        parts.append(block)
+        total += len(block)
+        if total >= _ATTACHMENT_TOTAL_LIMIT:
+            parts.append("(첨부 내용이 길어 일부만 포함했습니다.)")
+            break
+    return "\n\n".join(parts)[:_ATTACHMENT_TOTAL_LIMIT]
+
+
+def _build_openai_file_inputs(body: dict) -> list[dict]:
+    file_inputs: list[dict] = []
+    for file_info in _get_request_files(body)[:4]:
+        content = file_info.get("content") or ""
+        if (file_info.get("encoding") or "").lower() != "base64" or not content:
+            continue
+        name = file_info.get("name") or "attachment"
+        mime = (file_info.get("mime") or "").lower()
+        suffix = Path(name).suffix.lower()
+        if not mime:
+            mime = {
+                ".pdf": "application/pdf",
+            }.get(suffix, "application/octet-stream")
+        if suffix != ".pdf" and mime != "application/pdf":
+            continue
+        file_inputs.append({
+            "type": "input_file",
+            "filename": name,
+            "file_data": f"data:{mime};base64,{content}",
+        })
+    return file_inputs
+
+
+def analyze_prompt_intent(body: dict) -> dict:
+    """프롬프트를 LLM으로 분석하여 실행 모드(agents/llm_direct)와 필요 에이전트 목록을 반환한다."""
+    prompt = (body.get("prompt") or "").strip()
+    coach_uses: list[str] = body.get("coach_uses") or []
+    attached_files: list[dict] = body.get("attached_files") or []
+
+    if not prompt:
+        return {"error": "prompt required", "mode": "llm_direct", "agents": [], "llm_answer": ""}
+
+    if _is_attachment_direct_task(prompt, attached_files):
+        return {
+            "mode": "llm_direct",
+            "company_id": None,
+            "reasoning": "첨부 파일 기반의 일반 LLM 처리 요청",
+            "agents": [],
+            "llm_answer": "",
+            "agent_defs": [],
+        }
+
+    from src.llm import llm
+
+    if llm is None:
+        return {"error": "LLM을 사용할 수 없습니다.", "mode": "error", "agents": [], "llm_answer": ""}
+
+    coach_hint = (
+        f"\n\n[AI 코칭에서 추천한 에이전트/소스]: {', '.join(coach_uses)}"
+        if coach_uses else ""
+    )
+    full_prompt = f"{_INTENT_PROMPT}{coach_hint}\n\n[사용자 프롬프트]\n{prompt}"
+
+    raw = llm.invoke(full_prompt).content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip().rstrip("`").strip()
+    start, end = raw.find("{"), raw.rfind("}")
+    if start >= 0 and end > start:
+        raw = raw[start : end + 1]
+    parsed = json.loads(raw)
+
+    result: dict = {
+        "mode": parsed.get("mode", "agents"),
+        "company_id": parsed.get("company_id") or _detect_company_id_from_prompt(prompt),
+        "reasoning": parsed.get("reasoning", ""),
+        "agents": parsed.get("agents") or [],
+        "llm_answer": parsed.get("llm_answer", ""),
+    }
+
+    # 파일 첨부 시 ocr/summary 선두 삽입
+    if attached_files and result["mode"] == "agents":
+        agents = result["agents"]
+        if "ocr" not in agents:
+            result["agents"] = ["ocr", "summary"] + agents
+
+    # 에이전트 메타 정보 추가
+    result["agent_defs"] = [
+        {"type": key, "key": key, "label": _AGENT_LABEL.get(key, key)}
+        for key in result["agents"]
+        if key in _AGENT_LABEL
+    ]
+    return result
+
+
+def llm_direct_query(body: dict) -> dict:
+    """에이전트 없이 LLM에 직접 질의한다."""
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return {"answer": ""}
+    openai_file_inputs = _build_openai_file_inputs(body)
+    attachment_context = _build_attachment_context(body, include_errors=not openai_file_inputs)
+    llm_prompt = prompt
+    if attachment_context:
+        llm_prompt = (
+            "사용자 요청에 답변하세요. 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하고, "
+            "텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요.\n\n"
+            f"[사용자 요청]\n{prompt}\n\n[첨부 파일 내용]\n{attachment_context}"
+        )
+    try:
+        if openai_file_inputs and os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai":
+            from openai import OpenAI
+            model = os.getenv("LLM_MODEL") or "gpt-4o"
+            temperature = float(os.getenv("LLM_TEMPERATURE", "0"))
+            client = OpenAI()
+            text_prompt = (
+                "사용자 요청에 한국어로 답변하세요. 첨부 파일이 있으면 파일 내용을 직접 읽고 요약/설명하세요.\n\n"
+                f"[사용자 요청]\n{prompt}"
+            )
+            if attachment_context:
+                text_prompt += f"\n\n[추출된 첨부 텍스트]\n{attachment_context}"
+            response = client.responses.create(
+                model=model,
+                temperature=temperature,
+                input=[{
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": text_prompt}, *openai_file_inputs],
+                }],
+            )
+            return {"answer": response.output_text}
+
+        from src.llm import llm
+        if llm:
+            return {"answer": llm.invoke(llm_prompt).content}
+    except Exception as exc:
+        print(f"[llm_direct] 실패: {exc}")
+    return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요."}
+
+
+_DATA_SOURCES = {
+    "db_cdw":          "CDW 조회 — 수입신고·기업프로필·위험점수 DuckDB",
+    "rag_customs":     "관세정보 RAG — 관세법령·고시·통칙·해석례",
+    "rag_trade":       "통관정보 RAG — 수입신고 사례·심사 가이드",
+    "rag_audit":       "심사정보 RAG — 과거 심사 결정례·검토 의견",
+    "rag_investigation": "조사정보 RAG — 조사보고서·심판례·판례",
+    "rag_global":      "국제협력 RAG — WCO·FTA 협정문·해외 사례",
+}
+
+_AGENTS = {
+    "ocr":                "OCR/문서인식 — 세금계산서·B/L·계약서 파싱 및 가산요소 자동탐지",
+    "ml":                 "ML 위험모델 — 동종업종 비교·HS 위험점수·이상치(Z-score) 탐지",
+    "network":            "관계망 분석 — 특수관계·우회수입·페이퍼컴퍼니 식별",
+    "web":                "웹 검색 — 외부 기사·공급망·가격동향·운임 정보 수집",
+    "declaration_verify": "수입신고검증 — OCR↔DB 비교, 동종업종 가격편차 검출",
+    "hs_verify":          "품목분류검증 — HS코드 오분류·원산지 적정성·FTA 검토",
+    "customs_value":      "과세가격평가 — 관세법 제30~35조 결정방법·가산요소 평가",
+    "summary":            "문서요약 — 첨부 문서 요약 및 조사 착안사항 도출",
+    "patent":             "특허정보조회 — 로열티·기술사용료 과세 영향 분석",
+    "rag_create":         "RAG 생성 — 업로드 문서 임베딩 후 검색 가능 컬렉션 생성",
+    "law":                "법령·판례 검색 — 관세법·시행령·결정례·판례 검색",
+    "report":             "조사보고서 생성 — 모든 분석 결과를 5섹션 구조로 통합",
+    "validate":           "보고서 검증 — 근거 충실도·법령 인용·일관성 자동 검증",
+}
+
+
+_COACH_SYSTEM_PROMPT = """당신은 한국 관세청 'AI 관세행정 통합포털'의 프롬프트 코칭 전문가입니다.
+사용자가 입력한 자연어 프롬프트를 검토하고, 포털이 보유한 데이터소스와 에이전트의 기능을 최대한 활용할 수 있도록 개선 제안을 제공하세요.
+
+[포털이 제공하는 데이터소스]
+{sources_desc}
+
+[포털이 제공하는 에이전트]
+{agents_desc}
+
+[사용자가 현재 선택한 데이터소스]
+{selected_sources}
+
+[사용자가 현재 선택한 에이전트]
+{selected_agents}
+
+[사용자가 첨부한 파일]
+{attached_files}
+
+[사용자 프롬프트]
+{prompt}
+
+다음 기준으로 프롬프트를 분석하세요:
+1. **역할 정의**: 관세청 심사·조사관 페르소나가 명시되어 있는가
+2. **조사 대상 특정**: 회사명/사업자번호/회사ID가 구체적으로 명시되어 있는가
+3. **기간 명시**: "최신"·"최근" 같은 모호한 표현 대신 구체적 날짜 범위가 있는가
+4. **품목·HS코드 구체성**: 신고 HS코드·품명이 명시되어 있는가
+5. **데이터소스 활용**: 어떤 RAG/DB를 참조해야 하는지 명시되어 있는가
+6. **에이전트 활용**: 어떤 분석 에이전트(ML·관계망·OCR·법령 등)를 사용할지 명시되어 있는가
+7. **출력 형식**: 보고서 항목 구성·분량·문체가 지정되어 있는가
+8. **법적 근거 요구**: 관세법·FTA 등 법령 인용을 요청하고 있는가
+
+반드시 아래 JSON 형식으로만 응답하세요 (마크다운, 코드블록, 설명 없이 순수 JSON만).
+type 은 반드시 다음 중 하나: "누락" | "추가" | "모호" | "미지정"
+
+{{
+  "score": <0-100 정수, 현재 프롬프트의 완성도>,
+  "improved_prompt": "<위 8개 기준을 모두 반영한 완성도 95+ 수준의 개선된 프롬프트 전문. 사용자 원본 의도 보존>",
+  "suggestions": [
+    {{
+      "id": "s1",
+      "type": "누락",
+      "title": "<제안 제목 (15자 이내)>",
+      "trigPhrase": "<원본 프롬프트에서 감지된 구절>",
+      "desc": "<왜 개선이 필요한지 한 줄 설명>",
+      "before": "<원본의 문제 구절>",
+      "after": "<개선된 구절>",
+      "scoreGain": <5-20 정수>,
+      "uses": ["<활용할 데이터소스 또는 에이전트 키, 예: rag_customs, ml, hs_verify>"]
+    }}
+  ]
+}}
+
+제안은 최대 6개. 사용자 프롬프트가 이미 우수하면(score >= 85) suggestions 는 빈 배열."""
+
+
+def _format_dict(d: dict[str, str]) -> str:
+    return "\n".join(f"- {k}: {v}" for k, v in d.items())
+
+
+def _fallback_coach(prompt: str) -> dict:
+    """LLM 미사용 시 규칙 기반 분석."""
+    suggs: list[dict] = []
+    has_role = bool(prompt and ("[역할]" in prompt or "당신은" in prompt))
+    has_period = any(token in prompt for token in ["20", "년", "월", "기간"])
+    vague_period = any(token in prompt for token in ["최신", "최근", "요즘"])
+    has_hs = any(token in prompt.upper() for token in ["HS", "8504", "8542", "3907", "2709"])
+    has_format = any(token in prompt for token in ["A4", "장", "항목", "순서", "형식"])
+
+    if not has_role:
+        suggs.append({
+            "id": "s1", "type": "추가", "title": "역할 정의 추가",
+            "trigPhrase": prompt[:15], "desc": "관세청 심사분석 AI 페르소나를 부여하세요.",
+            "before": "(역할 없음)", "after": "[역할] 당신은 관세청 심사분석 AI입니다.",
+            "scoreGain": 15, "uses": [],
+        })
+    if vague_period and not has_period:
+        suggs.append({
+            "id": "s2", "type": "누락", "title": "기간 구체화",
+            "trigPhrase": "최신", "desc": "구체적 날짜 범위를 명시하세요.",
+            "before": "최신", "after": "2023.01~2025.12",
+            "scoreGain": 12, "uses": ["db_cdw"],
+        })
+    if not has_hs:
+        suggs.append({
+            "id": "s3", "type": "누락", "title": "HS코드 명시",
+            "trigPhrase": "품목", "desc": "신고 HS코드를 명시하면 hs_verify·ml 에이전트가 정확히 동작합니다.",
+            "before": "품목", "after": "HS 8504.40 등 신고 품목",
+            "scoreGain": 12, "uses": ["hs_verify", "ml"],
+        })
+    if not has_format:
+        suggs.append({
+            "id": "s4", "type": "미지정", "title": "출력 형식 지정",
+            "trigPhrase": "보고서", "desc": "보고서 항목·분량을 지정하세요.",
+            "before": "보고서", "after": "보고서 (A4 2장, ①사건개요~⑤처분의견)",
+            "scoreGain": 10, "uses": ["report"],
+        })
+
+    base = 35
+    if len(prompt) > 80:
+        base += 10
+    if any(k in prompt for k in ["관세법", "FTA", "특수관계", "로열티"]):
+        base += 15
+
+    improved = prompt
+    if not has_role:
+        improved = "[역할] 당신은 관세청 심사분석 AI입니다. 통관DB와 내부 RAG를 순서대로 참조하세요.\n\n" + improved
+    if not has_format:
+        improved = improved.rstrip(". ").rstrip() + "\n\n[출력 형식] A4 2장 이내, ①사건개요 ②혐의분석 ③유사사례 ④법조문 ⑤처분의견 순으로 작성"
+
+    return {
+        "score": min(base, 95),
+        "improved_prompt": improved,
+        "suggestions": suggs[:6],
+        "engine": "rule-based",
+    }
+
+
+def coach_prompt(body: dict) -> dict:
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return {"error": "prompt is required", "score": 0, "suggestions": [], "improved_prompt": ""}
+
+    selected_sources = body.get("selected_sources") or []
+    selected_agents = body.get("selected_agents") or []
+    attached_files = body.get("attached_files") or []
+    attached_desc = (
+        "\n".join(f"- {f.get('name')} (유형: {f.get('type')}, {f.get('size', 0):,}B, {f.get('encoding')})" for f in attached_files)
+        or "(첨부 파일 없음)"
+    )
+
+    try:
+        from src.llm import llm
+    except Exception:
+        llm = None
+
+    if llm is None:
+        return _fallback_coach(prompt)
+
+    try:
+        full_prompt = _COACH_SYSTEM_PROMPT.format(
+            sources_desc=_format_dict(_DATA_SOURCES),
+            agents_desc=_format_dict(_AGENTS),
+            selected_sources=", ".join(selected_sources) or "(없음)",
+            selected_agents=", ".join(selected_agents) or "(없음)",
+            attached_files=attached_desc,
+            prompt=prompt,
+        )
+        raw = llm.invoke(full_prompt).content
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```", 2)[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip().rstrip("`").strip()
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start >= 0 and end > start:
+            cleaned = cleaned[start : end + 1]
+        parsed = json.loads(cleaned)
+
+        # 정규화
+        for i, s in enumerate(parsed.get("suggestions") or []):
+            s.setdefault("id", f"s{i+1}")
+            s.setdefault("type", "미지정")
+            s.setdefault("uses", [])
+            s.setdefault("scoreGain", 10)
+
+        parsed["engine"] = "llm"
+        return parsed
+    except Exception as exc:
+        print(f"[coach] LLM 실패, 규칙 기반 폴백: {exc}")
+        result = _fallback_coach(prompt)
+        result["engine"] = f"fallback ({exc.__class__.__name__})"
+        return result
+
+
+# ── 업로드된 파일 세션 저장소 ──────────────────────────────────────────
+import uuid
+from threading import Lock
+
+_UPLOAD_SESSIONS: dict[str, list[dict]] = {}
+_UPLOAD_LOCK = Lock()
+
+
+def _infer_doc_type(name: str) -> str:
+    n = (name or "").lower()
+    if any(k in n for k in ["invoice", "inv", "세금계산서", "송장"]):
+        return "invoice"
+    if any(k in n for k in ["bl", "b_l", "선하", "billoflading"]):
+        return "bl"
+    if any(k in n for k in ["contract", "계약", "sales"]):
+        return "contract"
+    if any(k in n for k in ["packing", "포장"]):
+        return "packing_list"
+    if any(k in n for k in ["origin", "원산지", "certificate"]):
+        return "origin_certificate"
+    return "document"
+
+
+def upload_files(body: dict) -> dict:
+    """프롬프트 편집기에서 업로드된 파일을 세션에 저장한다.
+
+    body 형식:
+      { "session_id": "<기존 ID 또는 비워서 새로 생성>",
+        "files": [{ "name": "...", "mime": "...", "content": "<text 또는 base64>",
+                    "encoding": "text|base64", "size": 12345 }, ...] }
+    """
+    session_id = body.get("session_id") or uuid.uuid4().hex[:12]
+    files = body.get("files") or []
+    stored: list[dict] = []
+    for f in files:
+        name = (f.get("name") or "").strip() or "untitled"
+        entry = {
+            "name": name,
+            "type": f.get("type") or _infer_doc_type(name),
+            "mime": f.get("mime", ""),
+            "encoding": f.get("encoding") or "text",
+            "content": f.get("content", ""),
+            "size": int(f.get("size") or 0),
+        }
+        stored.append(entry)
+    with _UPLOAD_LOCK:
+        existing = _UPLOAD_SESSIONS.get(session_id, [])
+        existing.extend(stored)
+        _UPLOAD_SESSIONS[session_id] = existing[-20:]  # 최대 20개 유지
+    return {
+        "session_id": session_id,
+        "count": len(_UPLOAD_SESSIONS[session_id]),
+        "files": [{"name": e["name"], "type": e["type"], "size": e["size"]} for e in _UPLOAD_SESSIONS[session_id]],
+    }
+
+
+def clear_upload_session(session_id: str) -> dict:
+    with _UPLOAD_LOCK:
+        _UPLOAD_SESSIONS.pop(session_id, None)
+    return {"session_id": session_id, "cleared": True}
+
+
+def get_session_files(session_id: str) -> list[dict]:
+    if not session_id:
+        return []
+    with _UPLOAD_LOCK:
+        return list(_UPLOAD_SESSIONS.get(session_id, []))
+
+
+def create_initial_state(company_id: str) -> dict[str, str | None]:
+    return {
+        "company_id": company_id,
+        "db_result": None,
+        "rag_result": None,
+        "web_result": None,
+        "final_report": None,
+    }
+
+
+class WorkflowHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/":
+            self._serve_file(STATIC_DIR / "index.html", "text/html; charset=utf-8")
+            return
+        if parsed.path.startswith("/static/"):
+            self._serve_static(parsed.path.removeprefix("/static/"))
+            return
+        if parsed.path == "/api/companies":
+            self._send_json({"companies": list_companies()})
+            return
+        if parsed.path == "/api/company":
+            company_id = parse_qs(parsed.query).get("company_id", [""])[0].strip()
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(get_company_profile(company_id))
+            return
+        if parsed.path == "/api/run":
+            params = parse_qs(parsed.query)
+            company_id = params.get("company_id", [""])[0].strip()
+            scenario_raw = params.get("scenario", ["{}"])[0]
+            try:
+                scenario = json.loads(scenario_raw)
+            except json.JSONDecodeError:
+                scenario = {}
+            self._stream_workflow(company_id, scenario)
+            return
+
+        self.send_error(HTTPStatus.NOT_FOUND)
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/api/shutdown":
+            self._send_json({"status": "shutting_down"})
+            threading.Thread(target=self._shutdown_server, daemon=True).start()
+            return
+
+        if parsed.path == "/api/coach":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(coach_prompt(body))
+            return
+
+        if parsed.path == "/api/upload":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(upload_files(body))
+            return
+
+        if parsed.path == "/api/upload/clear":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(clear_upload_session(body.get("session_id", "")))
+            return
+
+        if parsed.path == "/api/analyze_intent":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(analyze_prompt_intent(body))
+            return
+
+        if parsed.path == "/api/llm_query":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(llm_direct_query(body))
+            return
+
+        self.send_error(HTTPStatus.NOT_FOUND)
+
+    def log_message(self, fmt: str, *args: object) -> None:
+        print(f"[web] {self.address_string()} - {fmt % args}")
+
+    def _send_json(self, payload: object, status: int = 200) -> None:
+        body = _json_bytes(payload)
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_static(self, name: str) -> None:
+        content_types = {
+            ".css": "text/css; charset=utf-8",
+            ".js": "text/javascript; charset=utf-8",
+            ".html": "text/html; charset=utf-8",
+        }
+        path = (STATIC_DIR / name).resolve()
+        if not str(path).startswith(str(STATIC_DIR.resolve())):
+            self.send_error(HTTPStatus.FORBIDDEN)
+            return
+        self._serve_file(path, content_types.get(path.suffix, "application/octet-stream"))
+
+    def _serve_file(self, path: Path, content_type: str) -> None:
+        if not path.exists():
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        body = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _sse(self, event: str, payload: object) -> None:
+        frame = f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+        self.wfile.write(frame.encode("utf-8"))
+        self.wfile.flush()
+
+    def _stream_workflow(self, company_id: str, scenario: dict[str, object]) -> None:
+        if not company_id:
+            self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+
+        from src.workflows import build_workflow_steps, create_initial_state
+
+        # 업로드 세션이 지정되어 있으면 파일을 시나리오에 주입
+        session_id = scenario.get("upload_session_id") if isinstance(scenario, dict) else None
+        if session_id:
+            files = get_session_files(session_id)
+            if files:
+                scenario["uploaded_files"] = files
+                print(f"[web] upload session {session_id} → {len(files)} files injected")
+
+        state = create_initial_state(company_id, scenario)
+        steps = build_workflow_steps(scenario)
+
+        self._sse(
+            "workflow",
+            {
+                "status": "started",
+                "company_id": company_id,
+                "total_steps": len(steps),
+                "scenario": scenario,
+            },
+        )
+        for key, label, runner, result_key in steps:
+            try:
+                self._sse("step", {"key": key, "label": label, "status": "running"})
+                state = runner(state)
+                self._sse(
+                    "step",
+                    {
+                        "key": key,
+                        "label": label,
+                        "status": "done",
+                        "result_key": result_key,
+                        "output": state.get(result_key) or "",
+                    },
+                )
+            except Exception as exc:
+                self._sse(
+                    "step",
+                    {"key": key, "label": label, "status": "error", "error": str(exc)},
+                )
+                self._sse("workflow", {"status": "failed"})
+                return
+
+        self._sse("workflow", {"status": "completed", "state": state})
+
+    def _shutdown_server(self) -> None:
+        shutdown_runtime_resources()
+        self.server.shutdown()
+
+
+def shutdown_runtime_resources() -> None:
+    """Close long-lived runtime resources before the local platform exits."""
+    agent_db = sys.modules.get("src.agents.agent_db")
+    conn = getattr(agent_db, "conn", None) if agent_db else None
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception as exc:
+            print(f"[web] DuckDB close skipped: {exc}")
+
+
+def main() -> None:
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    server = ThreadingHTTPServer((host, port), WorkflowHandler)
+    print(f"Workflow UI running at http://{host}:{port}")
+    try:
+        server.serve_forever()
+    finally:
+        shutdown_runtime_resources()
+        server.server_close()
+        print("Workflow UI stopped")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,39 @@
+# =====================================================================
+# AI 통합플랫폼 — 의존성 패키지
+# =====================================================================
+# 다른 노트북에서 실행 절차:
+#   1) 폴더 전체 복사
+#   2) cd <복사한_폴더>
+#   3) python -m venv venv
+#   4) venv\Scripts\activate            (Windows)
+#      source venv/bin/activate         (macOS/Linux)
+#   5) python -m pip install --upgrade pip
+#   6) pip install -r requirements.txt
+#   7) .env 파일 생성 (OPENAI_API_KEY 등)  - .env.example 참고
+#   8) python web_server.py
+#
+# Python 3.11 권장 (3.10 ~ 3.12 호환)
+# =====================================================================
+
+# --- 환경변수 로드 ---
+python-dotenv>=1.0,<2.0
+
+# --- 데이터베이스 (DuckDB 단일 파일) ---
+duckdb>=1.0,<2.0
+pandas>=2.0,<3.0          # DuckDB .df() 반환값 처리에 필요
+
+# --- HTTP 클라이언트 (agent_web 에서 사용) ---
+httpx>=0.27,<1.0
+
+# --- LangChain / LangGraph ---
+langchain>=0.2,<0.4
+langchain-core>=0.2,<0.4
+langchain-openai>=0.1,<0.4
+langchain-community>=0.2,<0.4
+langgraph>=0.1,<1.0
+
+# --- RAG: 벡터 DB + 한국어 임베딩 ---
+chromadb>=1.0,<2.0
+langchain-chroma>=0.1,<2.0        # chromadb 1.x 공식 LangChain 어댑터
+langchain-huggingface>=0.1,<1.0   # HuggingFaceEmbeddings 최신 패키지 (langchain-community deprecated)
+sentence-transformers>=2.7,<3.0   # jhgan/ko-sroberta-multitask 임베딩 사용

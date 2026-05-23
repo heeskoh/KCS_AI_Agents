@@ -1,0 +1,16 @@
+# docker-compose.yml
+#
+# 현재 런타임은 DuckDB(파일) + 로컬 영구 ChromaDB(파일) 조합으로 동작합니다.
+# 별도 DB 서버 컨테이너 없이 web_server.py 만 컨테이너화합니다.
+# 향후 PostgreSQL / ChromaDB HTTP 서비스로 마이그레이션 시 services 추가.
+services:
+  customs-api:
+    build: .
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+    volumes:
+      # DuckDB 파일과 ChromaDB 영구 디렉터리를 컨테이너에 마운트
+      - ./data:/app/data
