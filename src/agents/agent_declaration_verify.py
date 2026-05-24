@@ -2,6 +2,7 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -42,7 +43,7 @@ _LLM_PROMPT = """당신은 관세청 수입신고 검증 전문 조사관입니�
 
 def _parse_ocr_items(ocr_result: str | None) -> list[dict]:
     if not ocr_result:
-        return _SAMPLE_OCR["invoice_items"]
+        return []
     import json, re
     match = re.search(r'"items"\s*:\s*(\[.*?\])', ocr_result, re.DOTALL)
     if match:
@@ -50,15 +51,25 @@ def _parse_ocr_items(ocr_result: str | None) -> list[dict]:
             return json.loads(match.group(1))
         except Exception:
             pass
-    return _SAMPLE_OCR["invoice_items"]
+    return []
 
 
 def agent_declaration_verify(state: CustomsState) -> CustomsState:
     """첨부문서 추출값과 수입신고 DB를 비교하고 ML·관계망 결과를 통합하여 불일치 항목을 추출한다."""
+    if not has_company_scope(state):
+        return {**state, "declaration_verify_result": no_company_result("수입신고검증")}
+
     company_id = state["company_id"]
     print(f"\n[Agent] 수입신고검증 시작: {company_id}")
 
     ocr_items = _parse_ocr_items(state.get("ocr_result"))
+    if not ocr_items:
+        result = (
+            "[수입신고검증 결과]\n"
+            "- OCR/첨부 문서에서 검증할 수입신고 항목을 찾지 못했습니다.\n"
+            "- 연관정보 없음: 샘플 송장 항목을 대신 사용하지 않습니다."
+        )
+        return {**state, "declaration_verify_result": result}
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         db_rows = conn.execute(

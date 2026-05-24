@@ -21,6 +21,7 @@ from src.agents.agent_law import agent_law
 from src.agents.agent_ml import agent_ml
 from src.agents.agent_network import agent_network
 from src.agents.agent_ocr import agent_ocr
+from src.agents.agent_ontology import agent_ontology
 from src.agents.agent_patent import agent_patent
 from src.agents.agent_rag import agent_rag_source
 from src.agents.agent_rag_create import agent_rag_create
@@ -37,11 +38,11 @@ AgentRunner = Callable[[CustomsState], CustomsState]
 Step = tuple[str, str, AgentRunner, str]
 
 RAG_TYPES = {
-    "rag_customs": ("rag_customs_agent", "관세 규정 RAG"),
-    "rag_trade": ("rag_trade_agent", "통관 정보 RAG"),
-    "rag_audit": ("rag_audit_agent", "감사 정보 RAG"),
-    "rag_investigation": ("rag_investigation_agent", "조사 정보 RAG"),
-    "rag_global": ("rag_global_agent", "국제 정보 RAG"),
+    "rag_customs": ("rag_customs_agent", "관세e음 RAG"),
+    "rag_trade": ("rag_trade_agent", "통관정보 RAG"),
+    "rag_audit": ("rag_audit_agent", "심사정보 RAG"),
+    "rag_investigation": ("rag_investigation_agent", "조사정보 RAG"),
+    "rag_global": ("rag_global_agent", "국제정보 RAG"),
 }
 
 
@@ -57,6 +58,7 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         "web_result": None,
         "final_report": None,
         "validation_result": None,
+        "ontology_result": None,
     }
 
 
@@ -90,6 +92,8 @@ def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
         return (f"ocr_agent_{index}", label, agent_ocr, "ocr_result")
     if source_type == "network":
         return (f"network_agent_{index}", label, agent_network, "network_result")
+    if source_type == "ontology":
+        return (f"ontology_agent_{index}", label, agent_ontology, "ontology_result")
     if source_type == "declaration_verify":
         return (f"declaration_verify_agent_{index}", label, agent_declaration_verify, "declaration_verify_result")
     if source_type == "hs_verify":

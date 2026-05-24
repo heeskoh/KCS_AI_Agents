@@ -1,8 +1,25 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import NO_COMPANY_SENTINELS, prompt_text
 from src.llm import llm
 from src.paths import DB_PATH
+
+_DRUG_KEYWORDS = (
+    "마약", "마약류", "필로폰", "메트암페타민", "대마", "코카인", "헤로인",
+    "MDMA", "엑스터시", "향정", "narcotic", "drug", "methamphetamine",
+    "cocaine", "heroin", "cannabis",
+)
+
+
+def _is_drug_investigation(prompt: str) -> bool:
+    lowered = (prompt or "").lower()
+    return any(keyword.lower() in lowered for keyword in _DRUG_KEYWORDS)
+
+
+def _has_drug_related_db_text(raw_data: str) -> bool:
+    lowered = (raw_data or "").lower()
+    return any(keyword.lower() in lowered for keyword in _DRUG_KEYWORDS)
 
 def _fallback_summary(company, declarations, risk) -> str:
     if company.empty:
@@ -36,8 +53,17 @@ def _fallback_summary(company, declarations, risk) -> str:
 
 def agent_db(state: CustomsState) -> CustomsState:
     """Read company, declaration, and risk-score data from DuckDB."""
-    company_id = state["company_id"]
+    company_id = (state.get("company_id") or "").strip()
+    prompt = prompt_text(state)
     print(f"\n[Agent] DB 조회 시작: {company_id}")
+
+    if company_id in NO_COMPANY_SENTINELS:
+        result = (
+            "[CDW 조회 결과]\n"
+            "- 프롬프트에서 CDW 조회 대상이 되는 기업명, 회사ID 또는 신고번호가 확인되지 않았습니다.\n"
+            "- CDW에 연관정보 없음: 임의 기업의 일반 위험정보를 대신 조회하지 않습니다."
+        )
+        return {**state, "db_result": result}
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -110,8 +136,33 @@ def agent_db(state: CustomsState) -> CustomsState:
 [위험 지표]
 {risk.to_string(index=False) if not risk.empty else "지표 없음"}
 """
+
+    if company.empty:
+        result = (
+            "[CDW 조회 결과]\n"
+            f"- 조회 대상 `{company_id}`에 해당하는 기업 프로파일이 DuckDB CDW에 없습니다.\n"
+            "- CDW에 연관정보 없음."
+        )
+        return {**state, "db_result": result}
+
+    if _is_drug_investigation(prompt) and not _has_drug_related_db_text(raw_data):
+        result = (
+            "[CDW 조회 결과]\n"
+            "- 요청 주제: 마약수사\n"
+            "- DuckDB CDW 조회 결과에서 마약류 수사와 직접 연결되는 기업, 신고, 품목, 위험정보를 찾지 못했습니다.\n"
+            "- CDW에 연관정보 없음: 일반 수입신고 위험지표를 마약 관련 근거로 확대 해석하지 않습니다."
+        )
+        return {**state, "db_result": result}
+
+    db_only_instruction = (
+        "이 답변은 DuckDB CDW 조회 결과 안에 있는 정보만 근거로 작성하세요. "
+        "조회 결과에 없는 회사, 신고, 위험정보는 추정하거나 외부 지식으로 보완하지 말고 "
+        "'DB 조회 결과 없음' 또는 'DB에 근거 없음'이라고 명확히 표시하세요.\n\n"
+    )
+
     if llm:
         summary = llm.invoke(
+            db_only_instruction +
             "아래 업체 프로파일, 수입신고, 위험지표를 관세 조사 담당자에게 보고하듯 "
             "핵심 위험 신호와 확인 필요 사항 중심으로 한국어로 요약하세요.\n"
             f"{raw_data}"

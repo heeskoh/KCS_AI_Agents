@@ -10,6 +10,7 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -398,6 +399,9 @@ def _detect_issues(
 
 def agent_hs_verify(state: CustomsState) -> CustomsState:
     """수입신고 HS 코드와 원산지를 검증하고 오분류·FTA 탈루 가능성을 도출한다."""
+    if not has_company_scope(state):
+        return {**state, "hs_verify_result": no_company_result("품목분류검증")}
+
     company_id = state["company_id"]
     print(f"\n[Agent] 품목분류검증 시작: {company_id}")
 

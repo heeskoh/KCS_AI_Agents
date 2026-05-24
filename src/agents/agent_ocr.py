@@ -94,7 +94,7 @@ def agent_ocr(state: CustomsState) -> CustomsState:
 
     scenario = state.get("scenario") or {}
     uploaded = scenario.get("uploaded_files") or []
-    company_id = state["company_id"]
+    company_id = str(state.get("company_id") or "")
 
     # 실제 업로드 파일에 텍스트 콘텐츠가 있는지 확인
     real_docs = [f for f in uploaded if (f.get("encoding") == "text" and f.get("content"))]
@@ -130,9 +130,11 @@ def agent_ocr(state: CustomsState) -> CustomsState:
 
     # ── 업로드 파일이 없거나 텍스트 추출 불가 → 시뮬레이션 ──
     if uploaded:
+        return {**state, "ocr_result": "[OCR/문서인식 결과]\n- 첨부 파일은 있으나 OCR 텍스트가 추출되지 않았습니다.\n- 연관정보 없음: 샘플 문서를 대신 사용하지 않습니다."}
         keys = [f.get("type", "invoice") for f in uploaded]
         note = f"업로드 파일 {len(uploaded)}건 처리 (텍스트 추출 불가 → 샘플 매칭)"
     else:
+        return {**state, "ocr_result": "[OCR/문서인식 결과]\n- 첨부 파일이 없습니다.\n- 연관정보 없음: 샘플 문서를 대신 사용하지 않습니다."}
         keys = list(_SAMPLE_DOCS.keys())
         note = f"[시뮬레이션] {company_id} 샘플 문서(세금계산서·B/L·계약서) OCR 처리"
 

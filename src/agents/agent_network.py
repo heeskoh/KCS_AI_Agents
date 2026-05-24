@@ -29,6 +29,7 @@ from typing import Optional
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -444,6 +445,9 @@ def _build_network(conn: duckdb.DuckDBPyConnection, company_id: str) -> dict:
 
 def agent_network(state: CustomsState) -> CustomsState:
     """DB 기반으로 기업 관계망을 동적 생성하고 위험 징후를 분석한다."""
+    if not has_company_scope(state):
+        return {**state, "network_result": no_company_result("관계망분석")}
+
     company_id = state["company_id"]
     print(f"\n[Agent] 관계망 분석 시작: {company_id}")
 

@@ -9,6 +9,7 @@ except ModuleNotFoundError:
     httpx = None
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -243,7 +244,12 @@ def agent_web(state: CustomsState) -> CustomsState:
     """Analyze web news as a company outlook analyst."""
     print("\n[Agent] 웹 검색 시작")
 
+    if not has_company_scope(state):
+        return {**state, "web_result": no_company_result("웹검색 Agent", "기업 기반 웹검색은 조회 대상 기업이 필요합니다.")}
+
     context = _company_context(state["company_id"])
+    if not context.get("business_registration_no") and context.get("company_name") == context.get("company_id"):
+        return {**state, "web_result": "[웹검색 Agent 결과]\n- 조회 대상 기업 프로파일이 DuckDB에 없습니다.\n- 연관정보 없음: 기업명 없는 웹검색을 수행하지 않습니다."}
     queries = _build_queries(context)
 
     collected: list[dict[str, str]] = []

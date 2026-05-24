@@ -262,34 +262,35 @@ function permissionApprovePage(){
 const scenarioSources = {
   // ── 분석 데이터 소스 ────────────────────────────────────────────────────────
   db_cdw:          { label: "CDW 조회",         type: "db",            group: "분석 데이터 소스" },
-  rag_customs:     { label: "관세정보 공통 RAG", type: "rag_customs",   group: "분석 데이터 소스" },
+  rag_customs:     { label: "관세e음 RAG",       type: "rag_customs",   group: "분석 데이터 소스" },
   rag_trade:       { label: "통관정보 RAG",      type: "rag_trade",     group: "분석 데이터 소스" },
   rag_audit:       { label: "심사정보 RAG",      type: "rag_audit",     group: "분석 데이터 소스" },
   rag_investigation:{ label: "조사정보 RAG",     type: "rag_investigation", group: "분석 데이터 소스" },
-  rag_global:      { label: "국제협력 RAG",      type: "rag_global",    group: "분석 데이터 소스" },
+  rag_global:      { label: "국제정보 RAG",      type: "rag_global",    group: "분석 데이터 소스" },
   // ── 사용 가능 Agent ─────────────────────────────────────────────────────────
-  ocr:             { label: "OCR/문서인식 Agent",  type: "ocr",              group: "사용 가능 Agent" },
   ml:              { label: "ML 모델 실행 Agent",  type: "ml",               group: "사용 가능 Agent" },
   network:         { label: "관계망 분석 Agent",   type: "network",          group: "사용 가능 Agent" },
+  ontology:        { label: "관세온톨로지 Agent",  type: "ontology",         group: "사용 가능 Agent" },
   web_search:      { label: "웹검색 Agent",        type: "web",              group: "사용 가능 Agent" },
   declaration_verify:{ label:"수입신고검증 Agent", type: "declaration_verify",group: "사용 가능 Agent" },
   hs_verify:       { label: "품목분류검증 Agent",  type: "hs_verify",        group: "사용 가능 Agent" },
   customs_value:   { label: "과세가격평가 Agent",  type: "customs_value",    group: "사용 가능 Agent" },
-  summary:         { label: "문서 요약 Agent",     type: "summary",          group: "사용 가능 Agent" },
-  patent:          { label: "특허정보조회 Agent",  type: "patent",           group: "사용 가능 Agent" },
-  rag_create:      { label: "RAG생성 Agent",       type: "rag_create",       group: "사용 가능 Agent" },
-  law:             { label: "법령판례 Agent",       type: "law",              group: "사용 가능 Agent" },
+  patent:          { label: "특허정보 조회 Agent", type: "patent",           group: "사용 가능 Agent" },
+  law:             { label: "법령정보 조회 Agent", type: "law",              group: "사용 가능 Agent" },
+  ocr:             { label: "OCR/문서인식 Agent",  type: "ocr",              group: "사용 가능 Agent" },
+  rag_create:      { label: "RAG 생성 Agent",      type: "rag_create",       group: "사용 가능 Agent" },
+  summary:         { label: "보고서 요약 Agent",   type: "summary",          group: "사용 가능 Agent" },
   report_generate: { label: "보고서 생성 Agent",   type: "report",           group: "사용 가능 Agent" },
   report_validate: { label: "보고서 검증 Agent",   type: "validation",       group: "사용 가능 Agent" },
 };
 
 const sidebarPermissionGroups = {
   dataSources: ["db_cdw", "rag_customs", "rag_trade", "rag_audit", "rag_investigation", "rag_global"],
-  agents: ["ocr", "ml", "network", "web_search", "declaration_verify", "hs_verify", "customs_value", "summary", "patent", "rag_create", "law", "report_generate", "report_validate"],
+  agents: ["web_search", "declaration_verify", "hs_verify", "customs_value", "ml", "network", "ontology", "patent", "law", "ocr", "rag_create", "summary", "report_generate", "report_validate"],
 };
 
 const ALL_RAG    = ["db_cdw","rag_customs","rag_trade","rag_audit","rag_investigation","rag_global"];
-const ALL_AGENTS = ["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","summary","patent","rag_create","law","report_generate","report_validate"];
+const ALL_AGENTS = ["web_search","declaration_verify","hs_verify","customs_value","ml","network","ontology","patent","law","ocr","rag_create","summary","report_generate","report_validate"];
 
 const userGroups = [
   // ── 정보국 ──────────────────────────────────────────────────────────────
@@ -372,6 +373,7 @@ const defaultUserPermissions = {
   ocr: "granted",
   ml: "granted",
   network: "granted",
+  ontology: "granted",
   web_search: "granted",
   declaration_verify: "granted",
   hs_verify: "granted",
@@ -436,6 +438,14 @@ const sourceDefaultConfig = {
       { value: "hs_risk", label: "HS 위험점수" },
       { value: "hs_recommend", label: "품목분류 추천" },
       { value: "anomaly", label: "이상치 탐색" },
+    ],
+  },
+  ontology: {
+    defaultInstruction: "우범여행자 중심 관세 온톨로지와 지식그래프 관계를 구성",
+    behaviorOptions: [
+      { value: "traveler_ontology", label: "우범여행자 온톨로지" },
+      { value: "cargo_relation", label: "화물 관계 분석" },
+      { value: "semantic_rules", label: "추론 규칙 생성" },
     ],
   },
   web_search: {
@@ -577,7 +587,7 @@ const scenarioTemplates = [
     description: "신고내역, 관세 규정, 통관정보, ML 모델을 순차 실행하는 기본 조사 흐름",
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["profile_summary"], order:1, instruction:"신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 공통 RAG", behaviors:["regulation_basis"], order:2, instruction:"규정 근거 확인 · 과세가격, 원산지, 품목분류 관련 규정 근거 확인" },
+      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:2, instruction:"규정 근거 확인 · 과세가격, 원산지, 품목분류 관련 규정 근거 확인" },
       { key:"rag_trade", type:"rag_trade", label:"통관정보 RAG", behaviors:["trade_signal"], order:3, instruction:"무역 징후 확인 · 통관 이상 징후와 참고 근거 확인" },
       { key:"ml", type:"ml", label:"ML 모델 실행 Agent", behaviors:["industry_stats","hs_risk"], order:4, instruction:"동종업종 통계와 HS 위험점수를 함께 비교" },
       { key:"report_generate", type:"report", label:"보고서 생성 Agent", behaviors:["full_report"], order:5, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
@@ -590,7 +600,7 @@ const scenarioTemplates = [
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["risk_focus","declaration_focus"], order:1, instruction:"위험지표와 신고내역을 함께 상세 확인" },
       { key:"customs_value", type:"customs_value", label:"과세가격평가 Agent", behaviors:["valuation_basis","undervaluation"], order:2, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 공통 RAG", behaviors:["regulation_basis","case_comparison"], order:3, instruction:"관련 규정과 유사사례를 함께 확인" },
+      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis","case_comparison"], order:3, instruction:"관련 규정과 유사사례를 함께 확인" },
       { key:"ml", type:"ml", label:"ML 모델 실행 Agent", behaviors:["anomaly","hs_risk"], order:4, instruction:"신고가격 이상치와 HS 위험점수 확인" },
       { key:"report_generate", type:"report", label:"보고서 생성 Agent", behaviors:["issue_report"], order:5, instruction:"저가신고 쟁점 중심 보고서 초안 작성" },
     ],
@@ -602,8 +612,8 @@ const scenarioTemplates = [
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["declaration_focus"], order:1, instruction:"품목, 원산지, 신고가격 중심으로 최근 신고내역 확인" },
       { key:"hs_verify", type:"hs_verify", label:"품목분류검증 Agent", behaviors:["classification_check","alternative_hs"], order:2, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 공통 RAG", behaviors:["regulation_basis"], order:3, instruction:"품목분류와 원산지 관련 규정 확인" },
-      { key:"law", type:"law", label:"법령자문 Agent", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
+      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:3, instruction:"품목분류와 원산지 관련 규정 확인" },
+      { key:"law", type:"law", label:"법령정보 조회 Agent", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
       { key:"report_validate", type:"validation", label:"보고서 검증 Agent", behaviors:["evidence_validation"], order:5, instruction:"근거 충실성과 누락 증빙 검증" },
     ],
   },
@@ -756,14 +766,14 @@ function coachSetScoreMini(n){
 }
 
 const COACH_SOURCE_LABELS = {
-  db_cdw:"CDW", rag_customs:"관세정보 RAG", rag_trade:"통관정보 RAG",
-  rag_audit:"심사정보 RAG", rag_investigation:"조사정보 RAG", rag_global:"국제협력 RAG",
+  db_cdw:"CDW", rag_customs:"관세e음 RAG", rag_trade:"통관정보 RAG",
+  rag_audit:"심사정보 RAG", rag_investigation:"조사정보 RAG", rag_global:"국제정보 RAG",
 };
 const COACH_AGENT_LABELS = {
-  ocr:"OCR", ml:"ML 위험모델", network:"관계망", web:"웹검색",
+  ocr:"OCR", ml:"ML 위험모델", network:"관계망", ontology:"관세온톨로지", web:"웹검색",
   declaration_verify:"수입신고검증", hs_verify:"품목분류검증", customs_value:"과세가격평가",
-  summary:"문서요약", patent:"특허조회", rag_create:"RAG생성", law:"법령·판례",
-  report:"보고서생성", validate:"보고서검증",
+  summary:"보고서요약", patent:"특허정보", rag_create:"RAG생성", law:"법령정보",
+  report:"보고서생성", validate:"보고서검증", report_generate:"보고서생성", report_validate:"보고서검증",
 };
 
 function coachUsesHtml(uses){
@@ -1101,16 +1111,26 @@ function coachInitHome(){
 
 /* ── 홈 분석 실행 (실제 워크플로 스트리밍) ── */
 const HOME_DEFAULT_AGENTS = [
-  { type:"company",            label:"기업 기본정보",   key:"company" },
-  { type:"db",                 label:"CDW 조회",         key:"db" },
-  { type:"rag_customs",        label:"관세정보 RAG",     key:"rag_customs" },
-  { type:"rag_audit",          label:"심사정보 RAG",     key:"rag_audit" },
-  { type:"ml",                 label:"ML 위험모델",      key:"ml" },
-  { type:"declaration_verify", label:"수입신고검증",     key:"declaration_verify" },
-  { type:"hs_verify",          label:"품목분류검증",     key:"hs_verify" },
-  { type:"customs_value",      label:"과세가격평가",     key:"customs_value" },
-  { type:"law",                label:"법령·판례",        key:"law" },
-  { type:"report",             label:"보고서 생성",      key:"report" },
+  { type:"db",                 label:"CDW 조회",              key:"db_cdw" },
+  { type:"rag_customs",        label:"관세e음 RAG",           key:"rag_customs" },
+  { type:"rag_trade",          label:"통관정보 RAG",          key:"rag_trade" },
+  { type:"rag_audit",          label:"심사정보 RAG",          key:"rag_audit" },
+  { type:"rag_investigation",  label:"조사정보 RAG",          key:"rag_investigation" },
+  { type:"rag_global",         label:"국제정보 RAG",          key:"rag_global" },
+  { type:"web",                label:"웹검색 Agent",          key:"web_search" },
+  { type:"declaration_verify", label:"수입신고검증 Agent",    key:"declaration_verify" },
+  { type:"hs_verify",          label:"품목분류검증 Agent",    key:"hs_verify" },
+  { type:"customs_value",      label:"과세가격평가 Agent",    key:"customs_value" },
+  { type:"ml",                 label:"ML 모델 실행 Agent",    key:"ml" },
+  { type:"network",            label:"관계망분석 Agent",      key:"network" },
+  { type:"ontology",           label:"관세온톨로지 Agent",    key:"ontology" },
+  { type:"patent",             label:"특허정보 조회 Agent",   key:"patent" },
+  { type:"law",                label:"법령정보 조회 Agent",   key:"law" },
+  { type:"ocr",                label:"OCR/문서인식 Agent",    key:"ocr" },
+  { type:"rag_create",         label:"RAG 생성 Agent",        key:"rag_create" },
+  { type:"summary",            label:"보고서 요약 Agent",     key:"summary" },
+  { type:"report",             label:"보고서 생성 Agent",     key:"report_generate" },
+  { type:"validation",         label:"보고서 검증 Agent",     key:"report_validate" },
 ];
 
 let homeEventSource = null;
@@ -1128,8 +1148,7 @@ function homeSelectedAnalysisOptions(){
 }
 
 function homeAgentDefForKey(key){
-  const workflowKey = key === "db_cdw" ? "db" : key;
-  return HOME_DEFAULT_AGENTS.find(agent => agent.key === workflowKey || agent.type === workflowKey) || null;
+  return HOME_DEFAULT_AGENTS.find(agent => agent.key === key || agent.type === key) || null;
 }
 
 function homeRunAgentsFromSelection(selection){
@@ -1402,7 +1421,7 @@ async function homeRunAnalysis(prompt, btn){
   const reasoning  = intent.reasoning || "";
   const agentDefs  = intent.agent_defs || [];
   const detectedCompanyId = intent.company_id || detectCompanyId(prompt);
-  const runCompanyId = detectedCompanyId || activeCanvasCompanyId || "C-1001";
+  const runCompanyId = detectedCompanyId || "__NO_COMPANY_SELECTED__";
 
   // 2단계: 모드별 분기
   if(mode === "llm_direct" && !hasSelectedInternalTool){
@@ -3545,7 +3564,7 @@ function renderScenarioSteps(){
 function scenarioPayload(items = scenarioItems){
   const hasKey = key => items.some(item => item.key === key);
   const hasSourceType = type => items.some(item => item.type === type);
-  const hasRag = scenarioItems.some(item => item.type.startsWith("rag_"));
+  const hasRag = items.some(item => item.type.startsWith("rag_"));
   const runItems = items.map(item => ({
     ...item,
     behaviors: Array.isArray(item.behaviors) && item.behaviors.length ? item.behaviors : sourceDefaultBehaviors(item.key),

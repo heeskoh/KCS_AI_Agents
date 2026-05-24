@@ -23,6 +23,7 @@ _TYPE_TO_KEY: dict[str, str] = {
     "patent":               "patent_result",
     "rag_create":           "rag_create_result",
     "law":                  "law_result",
+    "ontology":             "ontology_result",
 }
 
 VALIDATION_PROMPT = """당신은 관세 조사보고서 검증 전문 Agent입니다.
@@ -91,6 +92,7 @@ def _collect_agent_results(state: CustomsState) -> str:
         ("web_result", "웹검색"),
         ("patent_result", "특허정보조회"),
         ("law_result", "법령판례"),
+        ("ontology_result", "관세온톨로지"),
     ]
     for key, label in extra_keys:
         if key not in seen_keys and state.get(key):

@@ -24,6 +24,7 @@ except ModuleNotFoundError:
     httpx = None
 
 from src.agents.state import CustomsState
+from src.agents.scope import company_id as scoped_company_id
 from src.config import CFG
 from src.llm import llm
 
@@ -239,7 +240,7 @@ def agent_patent(state: CustomsState) -> CustomsState:
     print("\n[Agent] 특허정보조회 시작")
 
     source_text = (state.get("ocr_result") or "") + (state.get("summary_result") or "")
-    company_id  = state["company_id"]
+    company_id  = scoped_company_id(state) or "미지정"
 
     # 기업 맥락: 관계망·HS 검증 결과에서 핵심 정보 추출
     context = (

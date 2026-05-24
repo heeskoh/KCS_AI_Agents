@@ -6,6 +6,7 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.paths import DB_PATH
 
 
@@ -28,6 +29,9 @@ def agent_company(state: CustomsState) -> CustomsState:
 
     `company_id` 또는 `business_registration_no` 어느 쪽으로 들어와도 매칭.
     """
+    if not has_company_scope(state):
+        return {**state, "company_result": no_company_result("기업 프로파일 조회")}
+
     company_id = state["company_id"]
     print(f"\n[Agent] 기업 프로파일 조회 시작: {company_id}")
 

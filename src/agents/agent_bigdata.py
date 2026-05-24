@@ -1,11 +1,15 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.paths import DB_PATH
 
 
 def agent_bigdata(state: CustomsState) -> CustomsState:
     """Simulate linked big-data platform signals from aggregate import stats."""
+    if not has_company_scope(state):
+        return {**state, "bigdata_result": no_company_result("빅데이터 통계 분석")}
+
     company_id = state["company_id"]
     scenario = state.get("scenario") or {}
     print(f"\n[Agent] 빅데이터 통계 분석 시작: {company_id}")

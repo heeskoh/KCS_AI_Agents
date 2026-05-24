@@ -6,6 +6,7 @@ import hashlib
 from datetime import date, timedelta
 
 from src.agents.state import CustomsState
+from src.agents.scope import company_id as scoped_company_id
 from src.llm import llm
 
 _DEFAULT_VALIDITY_DAYS = 60  # 2개월
@@ -53,7 +54,7 @@ def agent_rag_create(state: CustomsState) -> CustomsState:
     """파일 목록을 기반으로 RAG를 생성하고 LLM으로 문서 내용을 요약한다."""
     print("\n[Agent] RAG생성 시작")
 
-    company_id = state["company_id"]
+    company_id = scoped_company_id(state) or "미지정"
     scenario = state.get("scenario") or {}
 
     uploaded_files: list[dict] = scenario.get("uploaded_files") or []
@@ -61,8 +62,12 @@ def agent_rag_create(state: CustomsState) -> CustomsState:
     owner: str = scenario.get("current_user") or "김관세 (조사국 조사1과)"
 
     if not uploaded_files:
-        file_names = ["세금계산서_INV-2025-0042.pdf", "계약서_SALES-2025-KR-008.pdf", "선하증권_HDMU0034562025.pdf"]
-        sim_note = "[시뮬레이션] OCR 처리 문서를 기준으로 RAG 생성"
+        result = (
+            "[RAG 생성 결과]\n"
+            "- 업로드된 문서가 없습니다.\n"
+            "- 연관정보 없음: 샘플 파일을 대신 사용하여 RAG를 생성하지 않습니다."
+        )
+        return {**state, "rag_create_result": result}
     else:
         file_names = [f.get("name", f"file_{i}") for i, f in enumerate(uploaded_files)]
         sim_note = f"업로드 파일 {len(file_names)}건으로 RAG 생성"

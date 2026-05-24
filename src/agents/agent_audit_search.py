@@ -13,6 +13,7 @@ except ImportError:
     Chroma = None
 
 from src.agents.state import CustomsState
+from src.agents.scope import company_id as scoped_company_id, prompt_text, is_no_company_id
 from src.config import CFG
 from src.embeddings import get_embeddings, get_init_error
 from src.paths import CHROMA_DIR
@@ -45,17 +46,22 @@ def _resolve_query(state: CustomsState) -> str:
     if explicit:
         return explicit
 
+    cid = scoped_company_id(state)
     parts = [
+        prompt_text(state),
         state.get("company_result") or "",
         state.get("db_result") or "",
-        state.get("company_id") or "",
     ]
-    return "\n".join(p for p in parts if p).strip() or state["company_id"]
+    if not is_no_company_id(cid):
+        parts.append(cid)
+    return "\n".join(p for p in parts if p and "연관정보 없음" not in p).strip()
 
 
 def agent_audit_search(state: CustomsState) -> CustomsState:
     """과거 조사보고서를 단일 키워드로 빠르게 검색."""
     query = _resolve_query(state)
+    if not query:
+        return {**state, "audit_search_result": "[조사보고서 RAG 검색 결과]\n- 검색할 프롬프트나 대상 정보가 없습니다.\n- 연관정보 없음: 임의 키워드로 검색하지 않습니다."}
     print(f"\n[Agent] 조사보고서 검색 시작: {query[:60]}…")
 
     if _vectorstore is None:
