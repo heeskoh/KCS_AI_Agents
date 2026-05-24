@@ -16,14 +16,12 @@
 };
 
 const COACH_PROMPT_PLACEHOLDER = '내외부 데이터를 융합하여 분석하고 싶은 주제와 범위, 결과 형식을 질의하세요.\n내부정보로 활용하실 때 데이터 정의 앞에 "내부정보 대상으로만"이라고 한정하시고, 외부LLM 활용은 "외부 LLM을 활용하여" 라고 프롬프트에 명시해주세요.';
-
 const pages = {
   home: () => `
     <div class="home-layout">
-    <div class="grid grid-3">
-      <section class="card home-col-card">
-        <h3>My AI 분석 <span class="coach-pill">실시간 프롬프트 코칭</span></h3>
-        <p class="muted">자연어로 질문을 입력한 후 'AI 코칭'을 누르면 실시간 개선 제안 결과를 제시하고, '프롬프트 개선'을 누르면 질의가 변경됩니다.</p>
+    <div class="home-focus-grid">
+      <section class="card home-analysis-card home-col-card">
+        <h3>My AI 분석</h3>
 
         <div class="coach-editor-wrap">
           <div class="coach-editor-hdr">
@@ -31,22 +29,26 @@ const pages = {
             <span class="coach-char-count" id="coachCharCount">0자</span>
           </div>
           <textarea id="coachPrompt" class="coach-textarea" rows="4" placeholder="${escapeHtml(COACH_PROMPT_PLACEHOLDER)}"></textarea>
-          <div class="coach-attach-bar">
-            <label class="coach-attach-btn">
-              📎 파일 첨부
-              <input type="file" id="coachFileInput" multiple accept=".txt,.md,.csv,.json,.html,.xml,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none">
-            </label>
-            <span class="coach-attach-hint">계약서·세금계산서·B/L 등 (텍스트 추출 가능 파일은 에이전트 입력으로 사용)</span>
-            <div class="coach-file-chips" id="coachFileChips"></div>
-          </div>
         </div>
 
-        <div class="coach-ctrl-row">
-          <button class="btn secondary" id="coachAnalyzeBtn">✨ AI 코칭</button>
-          <button class="btn coach-btn-improve" id="coachImproveBtn" style="display:none">📝 프롬프트 개선</button>
-          <button class="btn home-run-btn">▶ 분석 실행</button>
-          <button class="btn secondary coach-btn-reset" id="coachResetBtn" style="display:none">초기화</button>
+        <div class="home-command-bar">
+          <label class="home-tool-btn file-tool">
+            <img class="home-tool-icon" src="/static/img/fileupload.png" alt="">
+            <span>파일첨부</span>
+            <input type="file" id="coachFileInput" multiple accept=".txt,.md,.csv,.json,.html,.xml,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none">
+          </label>
+          <button class="home-tool-btn" type="button"><span class="home-check off"></span>CDW조회</button>
+          <button class="home-tool-btn" type="button"><span class="home-check off"></span>관세e음 RAG</button>
+          <button class="home-tool-btn home-picker-trigger active" type="button">업무별 RAG 선택 <span class="home-select-status">×</span></button>
+          <button class="home-tool-btn home-picker-trigger active" type="button">Agent 선택 <span class="home-select-status">×</span></button>
+          <div class="home-command-actions">
+            <button class="home-action-btn coach" id="coachAnalyzeBtn" type="button"><img class="home-action-icon" src="/static/img/AICoaching.png" alt=""><b>AI코칭</b></button>
+            <button class="home-action-btn improve coach-btn-improve" id="coachImproveBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/implement.png" alt=""><b>개선 적용됨</b></button>
+            <button class="home-action-btn reset coach-btn-reset" id="coachResetBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/reset.png" alt=""><b>초기화</b></button>
+            <button class="home-action-btn run home-run-btn" type="button"><img class="home-action-icon" src="/static/img/enter.png" alt=""><b>AI실행</b></button>
+          </div>
         </div>
+        <div class="home-file-chips coach-file-chips" id="coachFileChips"></div>
 
         <div class="coach-sugg-panel" id="coachSuggPanel" style="display:none">
           <div class="coach-sugg-hdr">
@@ -58,7 +60,7 @@ const pages = {
           <div class="coach-sugg-body" id="coachSuggBody"></div>
         </div>
 
-        <div class="summary-box" id="homeResultBox" style="display:none"></div>
+        <div class="summary-box markdown-output" id="homeResultBox" style="display:none"></div>
         <div class="home-analysis-detail" id="homeAnalysisDetail" style="display:none"></div>
       </section>
 
@@ -72,7 +74,7 @@ const pages = {
       </section>
 
       <aside class="card home-special-card">
-        <h3>빠른 실행 바로가기</h3>
+        <h3>전문 업무 분석</h3>
         <div class="special-analysis-list">
           <button class="special-analysis-btn red" data-page="profile">기업 위험도 대시보드</button>
           <button class="special-analysis-btn sky" data-page="classification">관세 조사 분석</button>
@@ -811,8 +813,15 @@ function coachRefreshCards(){
     coachSuggestions.forEach(s => body.appendChild(coachMakeCard(s)));
   }
   if(badge) badge.textContent = coachSuggestions.length;
-  if(improveBtn) improveBtn.style.display = coachImprovedPrompt ? "inline-block" : "none";
-  if(resetBtn) resetBtn.style.display = (coachSuggestions.length > 0 || coachImprovedPrompt) ? "inline-block" : "none";
+  if(improveBtn) improveBtn.style.display = coachImprovedPrompt ? "inline-flex" : "none";
+  if(resetBtn) resetBtn.style.display = (coachSuggestions.length > 0 || coachImprovedPrompt) ? "inline-flex" : "none";
+}
+
+function setHomeActionLabel(button, label){
+  if(!button) return;
+  const labelEl = button.querySelector("b");
+  if(labelEl) labelEl.textContent = label;
+  else button.textContent = label;
 }
 
 function coachImprove(){
@@ -824,7 +833,7 @@ function coachImprove(){
   coachSetScoreMini(95);
   const improveBtn = coachEl("coachImproveBtn");
   if(improveBtn){
-    improveBtn.textContent = "✓ 개선 적용됨";
+    setHomeActionLabel(improveBtn, "개선 적용됨");
     improveBtn.disabled = true;
   }
 }
@@ -848,7 +857,7 @@ function coachReset(){
   if(cc && ta) cc.textContent = ta.value.length + "자";
   const improveBtn = coachEl("coachImproveBtn");
   if(improveBtn){
-    improveBtn.textContent = "📝 프롬프트 개선";
+    setHomeActionLabel(improveBtn, "개선 적용");
     improveBtn.disabled = false;
   }
   const engineTag = coachEl("coachEngineTag");
@@ -873,13 +882,13 @@ async function coachRunAnalyze(){
   coachOriginalPrompt = prompt;
   if(analyzeBtn){
     analyzeBtn.disabled = true;
-    analyzeBtn.textContent = "✨ 분석 중...";
+    setHomeActionLabel(analyzeBtn, "분석 중...");
   }
 
   const improveBtn = coachEl("coachImproveBtn");
   if(improveBtn){
     improveBtn.style.display = "none";
-    improveBtn.textContent = "📝 프롬프트 개선";
+    setHomeActionLabel(improveBtn, "개선 적용");
     improveBtn.disabled = false;
   }
 
@@ -916,7 +925,7 @@ async function coachRunAnalyze(){
     coachIsRunning = false;
     if(analyzeBtn){
       analyzeBtn.disabled = false;
-      analyzeBtn.textContent = "✨ AI 코칭 재실행";
+      setHomeActionLabel(analyzeBtn, "AI 코칭 재실행");
     }
   }
 }
