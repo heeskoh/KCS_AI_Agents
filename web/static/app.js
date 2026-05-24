@@ -121,12 +121,28 @@ const pages = {
 
 function notice(t,d,time){return `<div class="notice"><b>${t}</b><span class="muted" style="float:right">${time}</span><p>${d}</p><a>자세히 보기</a></div>`}
 function task(t,d){return `<div class="task"><b>${t}</b><p class="muted">${d}</p></div>`}
+
+const canvasWorkCategories = [
+  "관세조사 분석",
+  "기업 수사 분석",
+  "개인수사 분석",
+  "위험선별 분석",
+  "통관 정보분석",
+  "국제정보분석",
+  "관세온톨로지",
+  "Case 별 RAG",
+];
+
+function canvasJobCategory(job){
+  return canvasWorkCategories.includes(job?.category) ? job.category : canvasWorkCategories[0];
+}
+
 function mainCanvasJob(job){
   const { title, company, owner, updated, companyId, isNew } = job;
   const status = job.status || {};
   const meta = `${company} · ${owner} · ${updated}`;
   return `
-    <article class="main-job-card ${isNew ? "new" : ""}" data-canvas-company="${companyId}" data-open-company-profile="true">
+    <article class="main-job-card ${isNew ? "new" : ""}" data-canvas-company="${companyId}">
       <div class="main-job-head">
         <div>
           <h3>${title}</h3>
@@ -134,6 +150,7 @@ function mainCanvasJob(job){
         </div>
         <span class="job-status ${status.tone}">${status.label}</span>
       </div>
+      <span class="canvas-category-chip">${escapeHtml(canvasJobCategory(job))}</span>
       <div class="job-progress"><i style="width:${status.pct}%"></i></div>
       <div class="job-meta">
         <span>${status.done ?? 0}/${status.total ?? "?"} 단계</span>
@@ -267,6 +284,8 @@ const scenarioSources = {
   rag_audit:       { label: "심사정보 RAG",      type: "rag_audit",     group: "분석 데이터 소스" },
   rag_investigation:{ label: "조사정보 RAG",     type: "rag_investigation", group: "분석 데이터 소스" },
   rag_global:      { label: "국제정보 RAG",      type: "rag_global",    group: "분석 데이터 소스" },
+  rag_consultation:{ label: "상담내역 RAG",      type: "rag_consultation", group: "분석 데이터 소스" },
+  rag_risk_select: { label: "위험선별 RAG",      type: "rag_risk_select", group: "분석 데이터 소스" },
   // ── 사용 가능 Agent ─────────────────────────────────────────────────────────
   ml:              { label: "ML 모델 실행 Agent",  type: "ml",               group: "사용 가능 Agent" },
   network:         { label: "관계망 분석 Agent",   type: "network",          group: "사용 가능 Agent" },
@@ -285,11 +304,11 @@ const scenarioSources = {
 };
 
 const sidebarPermissionGroups = {
-  dataSources: ["db_cdw", "rag_customs", "rag_trade", "rag_audit", "rag_investigation", "rag_global"],
+  dataSources: ["db_cdw", "rag_customs", "rag_trade", "rag_audit", "rag_investigation", "rag_global", "rag_consultation", "rag_risk_select"],
   agents: ["web_search", "declaration_verify", "hs_verify", "customs_value", "ml", "network", "ontology", "patent", "law", "ocr", "rag_create", "summary", "report_generate", "report_validate"],
 };
 
-const ALL_RAG    = ["db_cdw","rag_customs","rag_trade","rag_audit","rag_investigation","rag_global"];
+const ALL_RAG    = ["db_cdw","rag_customs","rag_trade","rag_audit","rag_investigation","rag_global","rag_consultation","rag_risk_select"];
 const ALL_AGENTS = ["web_search","declaration_verify","hs_verify","customs_value","ml","network","ontology","patent","law","ocr","rag_create","summary","report_generate","report_validate"];
 
 const userGroups = [
@@ -370,6 +389,8 @@ const defaultUserPermissions = {
   rag_audit: "granted",
   rag_investigation: "granted",
   rag_global: "granted",
+  rag_consultation: "granted",
+  rag_risk_select: "granted",
   ocr: "granted",
   ml: "granted",
   network: "granted",
@@ -428,6 +449,20 @@ const sourceDefaultConfig = {
     behaviorOptions: [
       { value: "global_signal", label: "국제 위험신호" },
       { value: "counterparty", label: "해외거래처 확인" },
+    ],
+  },
+  rag_consultation: {
+    defaultInstruction: "상담내역과 민원 질의 응답에서 유사 사례와 처리 흐름 확인",
+    behaviorOptions: [
+      { value: "consultation_case", label: "상담사례 확인" },
+      { value: "response_pattern", label: "답변흐름 정리" },
+    ],
+  },
+  rag_risk_select: {
+    defaultInstruction: "위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
+    behaviorOptions: [
+      { value: "selection_rule", label: "선별기준 확인" },
+      { value: "risk_signal", label: "위험신호 정리" },
     ],
   },
   ml: {
@@ -768,6 +803,7 @@ function coachSetScoreMini(n){
 const COACH_SOURCE_LABELS = {
   db_cdw:"CDW", rag_customs:"관세e음 RAG", rag_trade:"통관정보 RAG",
   rag_audit:"심사정보 RAG", rag_investigation:"조사정보 RAG", rag_global:"국제정보 RAG",
+  rag_consultation:"상담내역 RAG", rag_risk_select:"위험선별 RAG",
 };
 const COACH_AGENT_LABELS = {
   ocr:"OCR", ml:"ML 위험모델", network:"관계망", ontology:"관세온톨로지", web:"웹검색",
@@ -1107,6 +1143,7 @@ function coachInitHome(){
   coachSetScoreMini(null);
   coachRefreshCards();
   coachRenderFileChips();
+  homeSyncPickerStatuses();
 }
 
 /* ── 홈 분석 실행 (실제 워크플로 스트리밍) ── */
@@ -1117,6 +1154,8 @@ const HOME_DEFAULT_AGENTS = [
   { type:"rag_audit",          label:"심사정보 RAG",          key:"rag_audit" },
   { type:"rag_investigation",  label:"조사정보 RAG",          key:"rag_investigation" },
   { type:"rag_global",         label:"국제정보 RAG",          key:"rag_global" },
+  { type:"rag_consultation",   label:"상담내역 RAG",          key:"rag_consultation" },
+  { type:"rag_risk_select",    label:"위험선별 RAG",          key:"rag_risk_select" },
   { type:"web",                label:"웹검색 Agent",          key:"web_search" },
   { type:"declaration_verify", label:"수입신고검증 Agent",    key:"declaration_verify" },
   { type:"hs_verify",          label:"품목분류검증 Agent",    key:"hs_verify" },
@@ -1136,15 +1175,25 @@ const HOME_DEFAULT_AGENTS = [
 let homeEventSource = null;
 let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
+let homeSelectedRagKeys = [];
+let homeSelectedAgentKeys = [];
+
+const HOME_PICKER_RAG_KEYS = ["rag_trade", "rag_audit", "rag_investigation", "rag_global", "rag_consultation", "rag_risk_select"];
+const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
 
 function homeSelectedAnalysisOptions(){
-  const sources = Array.from(document.querySelectorAll("[data-home-source].selected"))
+  const sources = Array.from(document.querySelectorAll("[data-home-source].selected:not(.home-picker-trigger)"))
     .map(btn => btn.dataset.homeSource)
     .filter(Boolean);
-  const agents = Array.from(document.querySelectorAll("[data-home-agent].selected"))
+  const agents = Array.from(document.querySelectorAll("[data-home-agent].selected:not(.home-picker-trigger)"))
     .map(btn => btn.dataset.homeAgent)
     .filter(Boolean);
-  return { sources:[...new Set(sources)], agents:[...new Set(agents)] };
+  const pickerSources = homeSelectedRagKeys.filter(hasPermission);
+  const pickerAgents = homeSelectedAgentKeys.filter(hasPermission);
+  return {
+    sources:[...new Set([...sources, ...pickerSources])],
+    agents:[...new Set([...agents, ...pickerAgents])],
+  };
 }
 
 function homeAgentDefForKey(key){
@@ -1158,6 +1207,7 @@ function homeRunAgentsFromSelection(selection){
 
 function homeToggleAnalysisOption(button){
   if(!button) return;
+  if(button.classList.contains("home-picker-trigger")) return;
   const selected = !button.classList.contains("selected");
   button.classList.toggle("selected", selected);
   const check = button.querySelector(".home-check");
@@ -1171,6 +1221,93 @@ function homeToggleAnalysisOption(button){
     status.classList.toggle("selected", selected);
     status.textContent = selected ? "✓" : "×";
   }
+}
+
+function homeSyncPickerStatuses(){
+  const ragTrigger = document.querySelector(".home-picker-trigger[data-home-source]");
+  const agentTrigger = document.querySelector(".home-picker-trigger[data-home-agent]");
+  [
+    [ragTrigger, homeSelectedRagKeys.length],
+    [agentTrigger, homeSelectedAgentKeys.length],
+  ].forEach(([button, count]) => {
+    if(!button) return;
+    button.classList.toggle("active", count > 0);
+    const status = button.querySelector(".home-select-status");
+    if(status){
+      status.classList.toggle("selected", count > 0);
+      status.textContent = count > 0 ? "" : "×";
+      status.title = count > 0 ? `${count}개 선택됨` : "선택 없음";
+    }
+  });
+}
+
+function homePickerKeys(kind){
+  return kind === "rag" ? HOME_PICKER_RAG_KEYS : HOME_PICKER_AGENT_KEYS;
+}
+
+function homePickerSelectedKeys(kind){
+  return kind === "rag" ? homeSelectedRagKeys : homeSelectedAgentKeys;
+}
+
+function homeSetPickerSelectedKeys(kind, keys){
+  const unique = [...new Set(keys)];
+  if(kind === "rag") homeSelectedRagKeys = unique;
+  else homeSelectedAgentKeys = unique;
+  homeSyncPickerStatuses();
+}
+
+function homePickerTitle(kind){
+  return kind === "rag" ? "업무별 RAG 선택" : "Agent 선택";
+}
+
+function homePickerDescription(kind){
+  return kind === "rag"
+    ? "질의 시 데이터 원천으로 사용할 RAG 시스템을 선택하세요."
+    : "질의 시 활용할 AI Agent를 선택하고, 자동화된 업무를 수행하세요.";
+}
+
+function homePickerRowHtml(kind, key){
+  const source = scenarioSourceByKey(key);
+  if(!source) return "";
+  const selected = homePickerSelectedKeys(kind).includes(key);
+  const status = permissionStatus(key);
+  const isGranted = status === "granted";
+  const statusText = selected ? "사용" : "미사용";
+  const subText = isGranted ? sourceDefaultInstruction(key) : permissionLabel(status);
+  const control = isGranted
+    ? `<button class="home-use-toggle ${selected ? "active" : ""}" type="button" data-home-picker-toggle="${escapeHtml(key)}"><i></i>${statusText}</button>`
+    : `<button class="home-permission-request" type="button" data-home-picker-request="${escapeHtml(key)}">${status === "requested" ? "요청중" : "권한 요청"}</button>`;
+  return `
+    <div class="home-permission-row ${status}">
+      <div>
+        <strong>${escapeHtml(source.label)}</strong>
+        <span>${escapeHtml(subText || "")}</span>
+      </div>
+      ${control}
+    </div>
+  `;
+}
+
+function openHomePicker(kind){
+  document.getElementById("homePickerOverlay")?.remove();
+  const html = `
+    <div class="home-permission-overlay" id="homePickerOverlay" data-home-picker-kind="${escapeHtml(kind)}">
+      <div class="home-permission-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(homePickerTitle(kind))}">
+        <div class="home-permission-head">
+          <div>
+            <h2>${escapeHtml(homePickerTitle(kind))}</h2>
+            <p>${escapeHtml(homePickerDescription(kind))}</p>
+          </div>
+          <button class="home-permission-close" type="button" data-home-picker-close aria-label="닫기">×</button>
+        </div>
+        <div class="home-permission-body">
+          ${homePickerKeys(kind).map(key => homePickerRowHtml(kind, key)).join("")}
+        </div>
+        <p class="home-permission-note">※ 질의 시 권한이 없는 데이터 원천이나 Agent가 필요한 경우 조회 권한을 요청하십시오.</p>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML("beforeend", html);
 }
 
 function detectCompanyId(prompt){
@@ -1832,19 +1969,11 @@ function canvasPage(){
       <div class="canvas-main-head">
         <div>
           <h2>AI 작업 캔버스</h2>
-          <p class="muted">진행 중인 분석 작업을 확인하고, 각 작업의 프로파일·데이터 수집·시나리오·보고서 단계로 바로 진입합니다.</p>
+          <p class="muted">진행 중인 분석 작업을 카드 형태로 확인하고, 작업별 진행 상태와 다음 단계를 한눈에 봅니다.</p>
         </div>
       </div>
-      <div class="canvas-inner-tabs">
-        <button class="${canvasTab === "overview" ? "active" : ""}" data-canvas-tab="overview">진행 작업</button>
-        <button class="${canvasTab === "profile" ? "active" : ""}" data-canvas-tab="profile">기업프로파일</button>
-        <button class="${canvasTab === "data" ? "active" : ""}" data-canvas-tab="data">데이터 수집</button>
-        <button class="${canvasTab === "scenario" ? "active" : ""}" data-canvas-tab="scenario">분석 시나리오 설정 및 수행</button>
-        <button class="${canvasTab === "report" ? "active" : ""}" data-canvas-tab="report">분석보고서 및 검증</button>
-        <button class="scenario-template-tab ${canvasTab === "templates" ? "active" : ""}" data-canvas-tab="templates">분석 시나리오 템플릿</button>
-      </div>
-      <div class="canvas-tab-body">
-        ${canvasTabContent()}
+      <div class="canvas-tab-body canvas-overview-only">
+        ${canvasOverviewPanel()}
       </div>
     </section>
   `;
@@ -1894,6 +2023,7 @@ function canvasJobs(){
       companyId:"C-1001",
       companyName:"한국소재무역",
       title:"한국소재무역 관세 위험 분석",
+      category:"위험선별 분석",
       company:"한국소재무역 (C-1001)",
       owner:"조사국 조사1과",
       updated:"방금",
@@ -1906,6 +2036,7 @@ function canvasJobs(){
       companyId:"C-1002",
       companyName:"서울인터내셔널",
       title:"서울인터내셔널 원유·의류 수입 검토",
+      category:"통관 정보분석",
       company:"서울인터내셔널 (C-1002)",
       owner:"심사정보 RAG Agent",
       updated:"오늘 08:40",
@@ -1918,6 +2049,7 @@ function canvasJobs(){
       companyId:"C-1008",
       companyName:"제주리테일커머스",
       title:"제주리테일커머스 환급 이상 검토",
+      category:"관세조사 분석",
       company:"제주리테일커머스 (C-1008)",
       owner:"보고서 생성 Agent",
       updated:"어제",
@@ -2001,6 +2133,7 @@ function createCanvasJob(company){
     companyId,
     companyName,
     title:`${companyName} 신규 분석 시나리오`,
+    category:"관세조사 분석",
     company:`${companyName} (${companyId})`,
     owner:"신규 분석 작업",
     updated:"방금",
@@ -2175,36 +2308,19 @@ function loadCompanyDetail(companyId){
 }
 
 function canvasOverviewPanel(){
-  const selected = activeCanvasCompany();
   const jobs = activeCanvasJobs();
   const archived = archivedCanvasJobs();
   return `
-    <div class="canvas-overview-toolbar">
-      <div>
-        <strong>선택 기업: ${escapeHtml(selected.company_name)} (${escapeHtml(selected.company_id)})</strong>
-        <p class="muted">진행 중인 박스를 선택하면 뒤쪽 탭의 기준 기업이 함께 변경됩니다.</p>
-      </div>
-      <div class="new-scenario-picker">
-        <button class="btn" data-new-scenario-button="true">새 분석 시나리오</button>
-        ${showScenarioCompanyPicker ? `
-          <label class="new-scenario-company">
-            <span>분석 대상 기업</span>
-            <select id="newScenarioCompanySelect">
-              ${companyOptionsHtml()}
-            </select>
-          </label>
-        ` : ""}
-      </div>
-    </div>
     <div class="job-board">
       ${jobs.map(job => {
         const isDone = isCompletedActiveJob(job);
         const total = job.status.total ?? "?";
         const done  = job.status.done  ?? 0;
         return `
-        <article class="job-card ${job.companyId === activeCanvasCompanyId ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-canvas-company="${job.companyId}" data-open-company-profile="true" tabindex="0" role="button">
+        <article class="job-card ${job.companyId === activeCanvasCompanyId ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-canvas-company="${job.companyId}" tabindex="0" role="button">
           <div class="job-card-head">
             <div>
+              <span class="canvas-category-chip">${escapeHtml(canvasJobCategory(job))}</span>
               <h3>${job.title}</h3>
               <p class="muted">${job.company} · ${job.owner} · ${job.updated}</p>
             </div>
@@ -3581,6 +3697,8 @@ function scenarioPayload(items = scenarioItems){
     rag_audit: hasKey("rag_audit"),
     rag_investigation: hasKey("rag_investigation"),
     rag_global: hasKey("rag_global"),
+    rag_consultation: hasKey("rag_consultation"),
+    rag_risk_select: hasKey("rag_risk_select"),
     bigdata_enabled: hasSourceType("bigdata"),
     bigdata_trade_stats: hasKey("bigdata_trade"),
     bigdata_hs_stats: hasKey("bigdata_hs"),
@@ -3948,6 +4066,45 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  const homePickerClose = event.target.closest("[data-home-picker-close]");
+  if(homePickerClose || (event.target.id === "homePickerOverlay")){
+    document.getElementById("homePickerOverlay")?.remove();
+    return;
+  }
+
+  const homePickerToggle = event.target.closest("[data-home-picker-toggle]");
+  if(homePickerToggle){
+    const overlay = document.getElementById("homePickerOverlay");
+    const kind = overlay?.dataset.homePickerKind || "rag";
+    const key = homePickerToggle.dataset.homePickerToggle;
+    const current = homePickerSelectedKeys(kind);
+    const next = current.includes(key)
+      ? current.filter(item => item !== key)
+      : [...current, key];
+    homeSetPickerSelectedKeys(kind, next);
+    openHomePicker(kind);
+    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
+      coachRunAnalyze();
+    }
+    return;
+  }
+
+  const homePickerRequest = event.target.closest("[data-home-picker-request]");
+  if(homePickerRequest){
+    const overlay = document.getElementById("homePickerOverlay");
+    const kind = overlay?.dataset.homePickerKind || "rag";
+    requestPermissions([homePickerRequest.dataset.homePickerRequest]);
+    openHomePicker(kind);
+    return;
+  }
+
+  const homePickerTrigger = event.target.closest(".home-picker-trigger");
+  if(homePickerTrigger){
+    openHomePicker(homePickerTrigger.dataset.homeAgent ? "agent" : "rag");
+    return;
+  }
+
   const homeOptionBtn = event.target.closest("[data-home-source], [data-home-agent]");
   if(homeOptionBtn){
     homeToggleAnalysisOption(homeOptionBtn);
@@ -4078,7 +4235,7 @@ document.addEventListener("change", (event)=>{
     const selectedCompany = findCompanyById(activeCanvasCompanyId) || { company_id:activeCanvasCompanyId, company_name:activeCanvasCompanyId };
     createCanvasJob(selectedCompany);
     showScenarioCompanyPicker = false;
-    canvasTab = "profile";
+    canvasTab = "overview";
     scenarioInitialized = false;
     scenarioLoadedForCompany = null;
     scenarioItems = [];
