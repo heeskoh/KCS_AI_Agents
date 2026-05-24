@@ -15,7 +15,7 @@
   permission:"권한 승인"
 };
 
-const COACH_PROMPT_PLACEHOLDER = '내외부 데이터를 융합하여 분석하고 싶은 주제와 범위, 결과 형식을 질의하세요.\n내부정보로 활용하실 때 데이터 정의 앞에 "내부정보 대상으로만"이라고 한정하시고, 외부LLM 활용은 "외부 LLM을 활용하여" 라고 프롬프트에 명시해주세요.';
+const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 Agent를 선택해 주세요.";
 const pages = {
   home: () => `
     <div class="home-layout">
@@ -37,10 +37,10 @@ const pages = {
             <span>파일첨부</span>
             <input type="file" id="coachFileInput" multiple accept=".txt,.md,.csv,.json,.html,.xml,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none">
           </label>
-          <button class="home-tool-btn" type="button"><span class="home-check off"></span>CDW조회</button>
-          <button class="home-tool-btn" type="button"><span class="home-check off"></span>관세e음 RAG</button>
-          <button class="home-tool-btn home-picker-trigger active" type="button">업무별 RAG 선택 <span class="home-select-status">×</span></button>
-          <button class="home-tool-btn home-picker-trigger active" type="button">Agent 선택 <span class="home-select-status">×</span></button>
+          <button class="home-tool-btn" type="button" data-home-source="db_cdw"><span class="home-check off"></span>CDW조회</button>
+          <button class="home-tool-btn" type="button" data-home-source="rag_customs"><span class="home-check off"></span>관세e음 RAG</button>
+          <button class="home-tool-btn home-picker-trigger" type="button" data-home-source="rag_audit">업무별 RAG 선택 <span class="home-select-status">×</span></button>
+          <button class="home-tool-btn home-picker-trigger" type="button" data-home-agent="hs_verify">Agent 선택 <span class="home-select-status">×</span></button>
           <div class="home-command-actions">
             <button class="home-action-btn coach" id="coachAnalyzeBtn" type="button"><img class="home-action-icon" src="/static/img/AICoaching.png" alt=""><b>AI코칭</b></button>
             <button class="home-action-btn improve coach-btn-improve" id="coachImproveBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/implement.png" alt=""><b>개선 적용됨</b></button>
@@ -56,6 +56,7 @@ const pages = {
             <span class="coach-sugg-badge" id="coachSuggBadge">0</span>
             <span class="coach-score-mini" id="coachScoreMini"></span>
             <span class="coach-engine-tag" id="coachEngineTag"></span>
+            <button class="coach-sugg-toggle" id="coachSuggToggle" type="button" aria-expanded="true">접기</button>
           </div>
           <div class="coach-sugg-body" id="coachSuggBody"></div>
         </div>
@@ -731,6 +732,7 @@ let coachOriginalPrompt = "";
 let coachIsRunning = false;
 let coachUploadSessionId = "";        // 백엔드 업로드 세션 ID
 let coachAttachedFiles = [];          // [{ name, type, size, mime, encoding, content }] (content 로컬 캐시)
+let coachSuggestionsCollapsed = false;
 
 const COACH_TEXT_EXT = /\.(txt|md|csv|json|html|htm|xml|log|tsv|sql|yaml|yml)$/i;
 const COACH_MAX_TEXT_SIZE = 512 * 1024;  // 512KB 까지 텍스트로 읽음
@@ -801,6 +803,7 @@ function coachRefreshCards(){
   const body = coachEl("coachSuggBody");
   const panel = coachEl("coachSuggPanel");
   const badge = coachEl("coachSuggBadge");
+  const toggle = coachEl("coachSuggToggle");
   const improveBtn = coachEl("coachImproveBtn");
   const resetBtn = coachEl("coachResetBtn");
   if(!body) return;
@@ -813,6 +816,13 @@ function coachRefreshCards(){
     coachSuggestions.forEach(s => body.appendChild(coachMakeCard(s)));
   }
   if(badge) badge.textContent = coachSuggestions.length;
+  body.style.display = coachSuggestionsCollapsed ? "none" : "block";
+  if(panel) panel.classList.toggle("collapsed", coachSuggestionsCollapsed);
+  if(toggle){
+    toggle.textContent = coachSuggestionsCollapsed ? "열기" : "접기";
+    toggle.setAttribute("aria-expanded", coachSuggestionsCollapsed ? "false" : "true");
+    toggle.style.display = coachSuggestions.length > 0 ? "inline-flex" : "none";
+  }
   if(improveBtn) improveBtn.style.display = coachImprovedPrompt ? "inline-flex" : "none";
   if(resetBtn) resetBtn.style.display = (coachSuggestions.length > 0 || coachImprovedPrompt) ? "inline-flex" : "none";
 }
@@ -842,6 +852,7 @@ function coachReset(){
   const ta = coachEl("coachPrompt");
   if(ta && coachOriginalPrompt) ta.value = coachOriginalPrompt;
   coachSuggestions = [];
+  coachSuggestionsCollapsed = false;
   coachBaseScore = 35;
   coachImprovedPrompt = "";
   coachAttachedFiles = [];
@@ -893,11 +904,14 @@ async function coachRunAnalyze(){
   }
 
   try{
+    const selectedOptions = homeSelectedAnalysisOptions();
     const res = await fetch("/api/coach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        selected_sources: selectedOptions.sources,
+        selected_agents: selectedOptions.agents,
         attached_files: coachAttachedFiles.map(f => ({
           name: f.name, type: f.type, size: f.size, encoding: f.encoding,
         })),
@@ -912,6 +926,7 @@ async function coachRunAnalyze(){
       ...s,
       id: s.id || "s" + (i + 1),
     }));
+    coachSuggestionsCollapsed = false;
 
     coachSetScoreMini(coachBaseScore);
     coachRefreshCards();
@@ -1075,6 +1090,7 @@ function coachInitHome(){
   const cc = coachEl("coachCharCount");
   if(cc) cc.textContent = ta.value.length + "자";
   coachSuggestions = [];
+  coachSuggestionsCollapsed = false;
   coachBaseScore = 35;
   coachImprovedPrompt = "";
   coachOriginalPrompt = "";
@@ -1100,6 +1116,43 @@ const HOME_DEFAULT_AGENTS = [
 let homeEventSource = null;
 let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
+
+function homeSelectedAnalysisOptions(){
+  const sources = Array.from(document.querySelectorAll("[data-home-source].selected"))
+    .map(btn => btn.dataset.homeSource)
+    .filter(Boolean);
+  const agents = Array.from(document.querySelectorAll("[data-home-agent].selected"))
+    .map(btn => btn.dataset.homeAgent)
+    .filter(Boolean);
+  return { sources:[...new Set(sources)], agents:[...new Set(agents)] };
+}
+
+function homeAgentDefForKey(key){
+  const workflowKey = key === "db_cdw" ? "db" : key;
+  return HOME_DEFAULT_AGENTS.find(agent => agent.key === workflowKey || agent.type === workflowKey) || null;
+}
+
+function homeRunAgentsFromSelection(selection){
+  const keys = [...(selection.sources || []), ...(selection.agents || [])];
+  return keys.map(homeAgentDefForKey).filter(Boolean);
+}
+
+function homeToggleAnalysisOption(button){
+  if(!button) return;
+  const selected = !button.classList.contains("selected");
+  button.classList.toggle("selected", selected);
+  const check = button.querySelector(".home-check");
+  if(check){
+    check.classList.toggle("on", selected);
+    check.classList.toggle("off", !selected);
+    check.textContent = selected ? "✓" : "";
+  }
+  const status = button.querySelector(".home-select-status");
+  if(status){
+    status.classList.toggle("selected", selected);
+    status.textContent = selected ? "✓" : "×";
+  }
+}
 
 function detectCompanyId(prompt){
   const m = prompt.match(/C-\d{4}/);
@@ -1202,21 +1255,21 @@ function homeStreamAgents(prompt, companyId, runAgents, btn){
     const data = JSON.parse(event.data);
     if(data.status === "completed"){
       homeRenderSummary(prompt, companyId, "agents");
-      btn.textContent = "▶ 분석 실행";
+      setHomeActionLabel(btn, "AI실행");
       btn.disabled = false;
       if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
     } else if(data.status === "failed"){
       if(resultBox){
         resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">분석 중 오류가 발생했습니다.</p>`;
       }
-      btn.textContent = "▶ 분석 실행";
+      setHomeActionLabel(btn, "AI실행");
       btn.disabled = false;
       if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
     }
   });
 
   homeEventSource.onerror = () => {
-    btn.textContent = "▶ 분석 실행";
+    setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
   };
@@ -1236,7 +1289,7 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
       <div class="markdown-output">${markdownToHtml(answer || "결과 없음")}</div>
     `;
   }
-  btn.textContent = "▶ 분석 실행";
+  setHomeActionLabel(btn, "AI실행");
   btn.disabled = false;
 }
 
@@ -1248,6 +1301,9 @@ async function homeRunAnalysis(prompt, btn){
 
   const resultBox = document.getElementById("homeResultBox");
   const detail = document.getElementById("homeAnalysisDetail");
+  const selectedOptions = homeSelectedAnalysisOptions();
+  const selectedRunAgents = homeRunAgentsFromSelection(selectedOptions);
+  const hasSelectedInternalTool = selectedRunAgents.length > 0;
 
   // 로딩 상태 표시
   if(resultBox){
@@ -1256,20 +1312,43 @@ async function homeRunAnalysis(prompt, btn){
       <h3>AI 분석 결과</h3>
       <div class="home-running-line">
         <span class="home-running-dot"></span>
-        <span>프롬프트 분석 중… 필요한 에이전트를 파악합니다.</span>
+        <span>${hasSelectedInternalTool ? "선택된 데이터소스와 Agent를 준비합니다." : "선택된 데이터소스/Agent가 없어 LLM 자체 답변으로 처리합니다."}</span>
       </div>
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
     `;
   }
   if(detail){ detail.style.display = "none"; }
 
-  btn.textContent = "분석 중…";
+  setHomeActionLabel(btn, "분석 중…");
   btn.disabled = true;
 
   // AI 코칭 결과에서 추천 에이전트 키 추출
   const coachUses = [...new Set(
     (coachSuggestions || []).flatMap(s => s.uses || [])
   )];
+
+  if(!hasSelectedInternalTool){
+    let answer = "";
+    try {
+      const r = await fetch("/api/llm_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          upload_session_id: coachUploadSessionId || undefined,
+          attached_files: coachAttachedFiles.map(f => ({
+            name: f.name, type: f.type, size: f.size, encoding: f.encoding,
+          })),
+        }),
+      });
+      const d = await r.json();
+      answer = d.answer || "결과를 가져올 수 없습니다.";
+    } catch(e) {
+      answer = "LLM 호출에 실패했습니다.";
+    }
+    homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/Agent 없음 · LLM 자체 답변", btn);
+    return;
+  }
 
   // 1단계: LLM으로 프롬프트 의도 분석
   let intent;
@@ -1280,6 +1359,8 @@ async function homeRunAnalysis(prompt, btn){
       body: JSON.stringify({
         prompt,
         coach_uses: coachUses,
+        selected_sources: selectedOptions.sources,
+        selected_agents: selectedOptions.agents,
         upload_session_id: coachUploadSessionId || undefined,
         attached_files: coachAttachedFiles.map(f => ({
           name: f.name, type: f.type, size: f.size, encoding: f.encoding,
@@ -1289,7 +1370,7 @@ async function homeRunAnalysis(prompt, btn){
     intent = await res.json();
   } catch(e) {
     if(resultBox) resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">서버 연결에 실패했습니다.</p>`;
-    btn.textContent = "▶ 분석 실행";
+    setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     return;
   }
@@ -1297,7 +1378,7 @@ async function homeRunAnalysis(prompt, btn){
   // LLM 사용 불가 에러
   if(intent.mode === "error"){
     if(resultBox) resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">${escapeHtml(intent.error || "LLM을 사용할 수 없습니다.")}</p>`;
-    btn.textContent = "▶ 분석 실행";
+    setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     return;
   }
@@ -1308,7 +1389,7 @@ async function homeRunAnalysis(prompt, btn){
   const companyId  = intent.company_id || detectCompanyId(prompt);
 
   // 2단계: 모드별 분기
-  if(mode === "llm_direct"){
+  if(mode === "llm_direct" && !hasSelectedInternalTool){
     // LLM 직접 답변 — 이미 intent.llm_answer에 포함됐거나 별도 쿼리
     let answer = (intent.llm_answer || "").trim();
     if(!answer){
@@ -1336,7 +1417,7 @@ async function homeRunAnalysis(prompt, btn){
   }
 
   // agents 모드 — LLM이 선택한 에이전트만 실행
-  const runAgents = agentDefs;
+  const runAgents = selectedRunAgents.length ? selectedRunAgents : agentDefs;
 
   // 기업 ID 표시 업데이트
   if(resultBox){
@@ -3826,6 +3907,16 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  const homeOptionBtn = event.target.closest("[data-home-source], [data-home-agent]");
+  if(homeOptionBtn){
+    homeToggleAnalysisOption(homeOptionBtn);
+    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
+      coachRunAnalyze();
+    }
+    return;
+  }
+
   const homeRunBtn = event.target.closest(".home-run-btn");
   if(homeRunBtn){
     const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
@@ -3838,6 +3929,11 @@ document.addEventListener("click", (event)=>{
   if(event.target.closest("#coachAnalyzeBtn")){ coachRunAnalyze(); return; }
   if(event.target.closest("#coachImproveBtn")){ coachImprove(); return; }
   if(event.target.closest("#coachResetBtn")){ coachReset(); return; }
+  if(event.target.closest("#coachSuggToggle")){
+    coachSuggestionsCollapsed = !coachSuggestionsCollapsed;
+    coachRefreshCards();
+    return;
+  }
   const removeFileBtn = event.target.closest("[data-coach-remove-file]");
   if(removeFileBtn){
     coachRemoveFile(parseInt(removeFileBtn.dataset.coachRemoveFile, 10));

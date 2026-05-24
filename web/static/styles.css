@@ -340,6 +340,9 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .coach-sugg-badge{background:#e6efff;color:#1554bd;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px}
 .coach-score-mini{font-size:11px;color:var(--muted);font-weight:700}
 .coach-engine-tag{margin-left:auto;font-size:11px;color:#0f559c;font-weight:700;background:#eaf2ff;border:1px solid #c7daff;padding:1px 8px;border-radius:999px}
+.coach-sugg-toggle{display:none;align-items:center;justify-content:center;border:1px solid #c7daff;background:#fff;color:#1554bd;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:900;cursor:pointer}
+.coach-sugg-toggle:hover{background:#eaf2ff}
+.coach-sugg-panel.collapsed .coach-sugg-hdr{border-bottom:0}
 .coach-sugg-body{padding:10px;max-height:380px;overflow-y:auto}
 
 .coach-sugg-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff}
