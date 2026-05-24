@@ -24,6 +24,10 @@ _TYPE_TO_KEY: dict[str, str] = {
     "rag_create":           "rag_create_result",
     "law":                  "law_result",
     "ontology":             "ontology_result",
+    "origin_analysis":       "origin_analysis_result",
+    "abnormal_trade":        "abnormal_trade_result",
+    "proceeds_tracking":     "proceeds_tracking_result",
+    "route_analysis":        "route_analysis_result",
 }
 
 REPORT_PROMPT = """당신은 관세청 조사 전문 AI입니다.

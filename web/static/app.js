@@ -290,6 +290,10 @@ const scenarioSources = {
   ml:              { label: "ML 모델 실행 Agent",  type: "ml",               group: "사용 가능 Agent" },
   network:         { label: "관계망 분석 Agent",   type: "network",          group: "사용 가능 Agent" },
   ontology:        { label: "관세온톨로지 Agent",  type: "ontology",         group: "사용 가능 Agent" },
+  origin_analysis: { label: "원산지 분석 Agent",   type: "origin_analysis",  group: "사용 가능 Agent" },
+  abnormal_trade:  { label: "이상거래 검증 Agent", type: "abnormal_trade",   group: "사용 가능 Agent" },
+  proceeds_tracking:{ label:"범죄수익 추적 Agent", type: "proceeds_tracking",group: "사용 가능 Agent" },
+  route_analysis:  { label: "운송경로 분석 Agent", type: "route_analysis",   group: "사용 가능 Agent" },
   web_search:      { label: "웹검색 Agent",        type: "web",              group: "사용 가능 Agent" },
   declaration_verify:{ label:"수입신고검증 Agent", type: "declaration_verify",group: "사용 가능 Agent" },
   hs_verify:       { label: "품목분류검증 Agent",  type: "hs_verify",        group: "사용 가능 Agent" },
@@ -305,11 +309,11 @@ const scenarioSources = {
 
 const sidebarPermissionGroups = {
   dataSources: ["db_cdw", "rag_customs", "rag_trade", "rag_audit", "rag_investigation", "rag_global", "rag_consultation", "rag_risk_select"],
-  agents: ["web_search", "declaration_verify", "hs_verify", "customs_value", "ml", "network", "ontology", "patent", "law", "ocr", "rag_create", "summary", "report_generate", "report_validate"],
+  agents: ["web_search", "declaration_verify", "hs_verify", "customs_value", "ml", "network", "ontology", "origin_analysis", "abnormal_trade", "proceeds_tracking", "route_analysis", "patent", "law", "ocr", "rag_create", "summary", "report_generate", "report_validate"],
 };
 
 const ALL_RAG    = ["db_cdw","rag_customs","rag_trade","rag_audit","rag_investigation","rag_global","rag_consultation","rag_risk_select"];
-const ALL_AGENTS = ["web_search","declaration_verify","hs_verify","customs_value","ml","network","ontology","patent","law","ocr","rag_create","summary","report_generate","report_validate"];
+const ALL_AGENTS = ["web_search","declaration_verify","hs_verify","customs_value","ml","network","ontology","origin_analysis","abnormal_trade","proceeds_tracking","route_analysis","patent","law","ocr","rag_create","summary","report_generate","report_validate"];
 
 const userGroups = [
   // ── 정보국 ──────────────────────────────────────────────────────────────
@@ -395,6 +399,10 @@ const defaultUserPermissions = {
   ml: "granted",
   network: "granted",
   ontology: "granted",
+  origin_analysis: "granted",
+  abnormal_trade: "granted",
+  proceeds_tracking: "granted",
+  route_analysis: "granted",
   web_search: "granted",
   declaration_verify: "granted",
   hs_verify: "granted",
@@ -483,6 +491,38 @@ const sourceDefaultConfig = {
       { value: "semantic_rules", label: "추론 규칙 생성" },
     ],
   },
+  origin_analysis: {
+    defaultInstruction: "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
+    behaviorOptions: [
+      { value: "origin_certificate", label: "원산지증명 검토" },
+      { value: "fta_risk", label: "FTA 리스크" },
+      { value: "circumvention", label: "우회수입 확인" },
+    ],
+  },
+  abnormal_trade: {
+    defaultInstruction: "가격·거래상대방·신고패턴의 이상거래 징후를 검증",
+    behaviorOptions: [
+      { value: "price_pattern", label: "가격 패턴" },
+      { value: "counterparty_pattern", label: "거래상대방" },
+      { value: "declaration_pattern", label: "신고패턴" },
+    ],
+  },
+  proceeds_tracking: {
+    defaultInstruction: "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+    behaviorOptions: [
+      { value: "fund_flow", label: "자금흐름" },
+      { value: "account_trace", label: "계좌추적 단서" },
+      { value: "concealment", label: "은닉 가능성" },
+    ],
+  },
+  route_analysis: {
+    defaultInstruction: "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+    behaviorOptions: [
+      { value: "route_check", label: "운송경로" },
+      { value: "supply_chain", label: "공급망 역추적" },
+      { value: "transshipment", label: "우회경유" },
+    ],
+  },
   web_search: {
     defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 확인",
     behaviorOptions: [
@@ -492,14 +532,14 @@ const sourceDefaultConfig = {
     ],
   },
   declaration_verify: {
-    defaultInstruction: "수입신고 항목과 문서/DB 간 불일치 여부 확인",
+    defaultInstruction: "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
     behaviorOptions: [
       { value: "declaration_consistency", label: "신고 정합성" },
       { value: "missing_evidence", label: "누락 증빙" },
     ],
   },
   hs_verify: {
-    defaultInstruction: "HS 코드 분류 적정성과 대체 후보 검토",
+    defaultInstruction: "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
     behaviorOptions: [
       { value: "classification_check", label: "분류 적정성" },
       { value: "alternative_hs", label: "대체 HS 후보" },
@@ -806,7 +846,9 @@ const COACH_SOURCE_LABELS = {
   rag_consultation:"상담내역 RAG", rag_risk_select:"위험선별 RAG",
 };
 const COACH_AGENT_LABELS = {
-  ocr:"OCR", ml:"ML 위험모델", network:"관계망", ontology:"관세온톨로지", web:"웹검색",
+  ocr:"OCR", ml:"ML 위험모델", network:"관계망", ontology:"관세온톨로지",
+  origin_analysis:"원산지분석", abnormal_trade:"이상거래검증",
+  proceeds_tracking:"범죄수익추적", route_analysis:"운송경로분석", web:"웹검색",
   declaration_verify:"수입신고검증", hs_verify:"품목분류검증", customs_value:"과세가격평가",
   summary:"보고서요약", patent:"특허정보", rag_create:"RAG생성", law:"법령정보",
   report:"보고서생성", validate:"보고서검증", report_generate:"보고서생성", report_validate:"보고서검증",
@@ -1163,6 +1205,10 @@ const HOME_DEFAULT_AGENTS = [
   { type:"ml",                 label:"ML 모델 실행 Agent",    key:"ml" },
   { type:"network",            label:"관계망분석 Agent",      key:"network" },
   { type:"ontology",           label:"관세온톨로지 Agent",    key:"ontology" },
+  { type:"origin_analysis",    label:"원산지 분석 Agent",     key:"origin_analysis" },
+  { type:"abnormal_trade",     label:"이상거래 검증 Agent",   key:"abnormal_trade" },
+  { type:"proceeds_tracking",  label:"범죄수익 추적 Agent",   key:"proceeds_tracking" },
+  { type:"route_analysis",     label:"운송경로 분석 Agent",   key:"route_analysis" },
   { type:"patent",             label:"특허정보 조회 Agent",   key:"patent" },
   { type:"law",                label:"법령정보 조회 Agent",   key:"law" },
   { type:"ocr",                label:"OCR/문서인식 Agent",    key:"ocr" },

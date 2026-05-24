@@ -11,6 +11,7 @@ except ModuleNotFoundError:
     StateGraph = None
 
 from src.agents.agent_audit_search import agent_audit_search
+from src.agents.agent_abnormal_trade import agent_abnormal_trade
 from src.agents.agent_bigdata import agent_bigdata
 from src.agents.agent_company import agent_company
 from src.agents.agent_customs_value import agent_customs_value
@@ -22,10 +23,13 @@ from src.agents.agent_ml import agent_ml
 from src.agents.agent_network import agent_network
 from src.agents.agent_ocr import agent_ocr
 from src.agents.agent_ontology import agent_ontology
+from src.agents.agent_origin_analysis import agent_origin_analysis
 from src.agents.agent_patent import agent_patent
+from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
 from src.agents.agent_rag import agent_rag_source
 from src.agents.agent_rag_create import agent_rag_create
 from src.agents.agent_report import agent_report
+from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_summary import agent_summary
 from src.agents.agent_validate import agent_validate
 from src.agents.agent_web import agent_web
@@ -59,6 +63,10 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         "final_report": None,
         "validation_result": None,
         "ontology_result": None,
+        "origin_analysis_result": None,
+        "abnormal_trade_result": None,
+        "proceeds_tracking_result": None,
+        "route_analysis_result": None,
     }
 
 
@@ -94,6 +102,14 @@ def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
         return (f"network_agent_{index}", label, agent_network, "network_result")
     if source_type == "ontology":
         return (f"ontology_agent_{index}", label, agent_ontology, "ontology_result")
+    if source_type == "origin_analysis":
+        return (f"origin_analysis_agent_{index}", label, agent_origin_analysis, "origin_analysis_result")
+    if source_type == "abnormal_trade":
+        return (f"abnormal_trade_agent_{index}", label, agent_abnormal_trade, "abnormal_trade_result")
+    if source_type == "proceeds_tracking":
+        return (f"proceeds_tracking_agent_{index}", label, agent_proceeds_tracking, "proceeds_tracking_result")
+    if source_type == "route_analysis":
+        return (f"route_analysis_agent_{index}", label, agent_route_analysis, "route_analysis_result")
     if source_type == "declaration_verify":
         return (f"declaration_verify_agent_{index}", label, agent_declaration_verify, "declaration_verify_result")
     if source_type == "hs_verify":

@@ -32,3 +32,7 @@ class CustomsState(TypedDict, total=False):
     rag_create_result: Optional[str]        # RAG생성                  (agent_rag_create)
     law_result: Optional[str]               # 법령판례                 (agent_law)
     ontology_result: Optional[str]          # 관세온톨로지             (agent_ontology)
+    origin_analysis_result: Optional[str]   # 원산지 분석              (agent_origin_analysis)
+    abnormal_trade_result: Optional[str]    # 이상거래 검증            (agent_abnormal_trade)
+    proceeds_tracking_result: Optional[str] # 범죄수익 추적            (agent_proceeds_tracking)
+    route_analysis_result: Optional[str]    # 운송경로 분석            (agent_route_analysis)
