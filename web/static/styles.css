@@ -372,7 +372,9 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .home-running-prompt{padding:8px 12px;background:#f7faff;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:13px;line-height:1.5;margin:4px 0 6px;white-space:pre-wrap;word-break:break-word}
 
 /* ── 홈 분석 상세 결과 (모든 에이전트 출력) ── */
-.home-analysis-detail{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+.home-analysis-detail{display:none !important}
+.home-result-detail{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.home-result-detail h3{margin:0 0 6px !important;font-size:15px}
 .home-detail-item{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
 .home-detail-item summary{padding:10px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:#f7faff;list-style:none}
 .home-detail-item summary::-webkit-details-marker{display:none}
@@ -384,7 +386,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .home-detail-badge.running{background:#fef3c7;color:#92400e}
 .home-detail-badge.done{background:#ecfdf5;color:#047857}
 .home-detail-badge.error{background:#fde7e7;color:#b91c1c}
-.home-detail-body{padding:12px 16px;font-size:13px;line-height:1.6;color:var(--text);background:#fff;border-top:1px solid var(--line);max-height:420px;overflow-y:auto;word-break:break-word}
+.home-detail-body{padding:12px 16px;font-size:13px;line-height:1.6;color:var(--text);background:#fff;border-top:1px solid var(--line);max-height:none;overflow:visible;word-break:break-word}
 .home-detail-body.muted{color:var(--muted);font-style:italic;white-space:pre-wrap}
 .home-detail-body.markdown-output{padding:14px 18px}
 .home-detail-body.markdown-output h1{font-size:18px}

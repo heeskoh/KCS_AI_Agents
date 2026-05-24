@@ -1162,13 +1162,10 @@ function detectCompanyId(prompt){
   if(/제주리테일/.test(prompt)) return "C-1008";
   if(/대한전자/.test(prompt)) return "C-1004";
   if(/대전바이오/.test(prompt)) return "C-1007";
-  return "C-1001";
+  return "";
 }
 
-function homeRenderDetail(){
-  const detail = document.getElementById("homeAnalysisDetail");
-  if(!detail) return;
-  // homeStepStatus 에 등록된 라벨 순서대로 표시
+function homeDetailMarkup(){
   const agentLabels = Object.keys(homeStepStatus);
   const html = agentLabels.map(label => {
     const status = homeStepStatus[label] || "wait";
@@ -1187,11 +1184,29 @@ function homeRenderDetail(){
         ${bodyHtml}
       </details>`;
   }).join("");
-  detail.innerHTML = `<h3 style="margin:14px 0 8px">분석 상세 결과</h3>${html}`;
+  return `
+    <section class="home-result-detail" id="homeResultDetail">
+      <h3>분석 상세 결과</h3>
+      ${html || `<div class="home-detail-body muted">실행할 RAG 또는 Agent 결과가 아직 없습니다.</div>`}
+    </section>
+  `;
+}
+
+function homeRenderDetail(){
+  const detailInResult = document.getElementById("homeResultDetail");
+  if(detailInResult){
+    detailInResult.outerHTML = homeDetailMarkup();
+    return;
+  }
+  const legacyDetail = document.getElementById("homeAnalysisDetail");
+  if(legacyDetail){
+    legacyDetail.style.display = "none";
+    legacyDetail.innerHTML = "";
+  }
 }
 
 // ── 홈 분석: 에이전트 스트리밍 실행 ───────────────────────────────────────────
-function homeStreamAgents(prompt, companyId, runAgents, btn){
+function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = ""){
   if(homeEventSource){ try{ homeEventSource.close(); }catch(e){} homeEventSource = null; }
 
   const resultBox = document.getElementById("homeResultBox");
@@ -1254,7 +1269,7 @@ function homeStreamAgents(prompt, companyId, runAgents, btn){
   homeEventSource.addEventListener("workflow", event => {
     const data = JSON.parse(event.data);
     if(data.status === "completed"){
-      homeRenderSummary(prompt, companyId, "agents");
+      homeRenderSummary(prompt, companyId, "agents", displayCompanyId);
       setHomeActionLabel(btn, "AI실행");
       btn.disabled = false;
       if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
@@ -1386,7 +1401,8 @@ async function homeRunAnalysis(prompt, btn){
   const mode       = intent.mode || "agents";
   const reasoning  = intent.reasoning || "";
   const agentDefs  = intent.agent_defs || [];
-  const companyId  = intent.company_id || detectCompanyId(prompt);
+  const detectedCompanyId = intent.company_id || detectCompanyId(prompt);
+  const runCompanyId = detectedCompanyId || activeCanvasCompanyId || "C-1001";
 
   // 2단계: 모드별 분기
   if(mode === "llm_direct" && !hasSelectedInternalTool){
@@ -1422,11 +1438,12 @@ async function homeRunAnalysis(prompt, btn){
   // 기업 ID 표시 업데이트
   if(resultBox){
     const agentNames = runAgents.map(a => a.label).join(", ");
+    const targetText = detectedCompanyId ? ` (대상 기업: <b>${escapeHtml(detectedCompanyId)}</b>)` : "";
     resultBox.innerHTML = `
       <h3>AI 분석 결과</h3>
       <div class="home-running-line">
         <span class="home-running-dot"></span>
-        <span>분석 중입니다… (대상 기업: <b>${escapeHtml(companyId)}</b>)</span>
+        <span>분석 중입니다…${targetText}</span>
       </div>
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
       <div class="home-progress-bar"><div class="home-progress-fill" style="width:0%"></div></div>
@@ -1434,14 +1451,15 @@ async function homeRunAnalysis(prompt, btn){
         실행 에이전트: ${escapeHtml(agentNames)}
         ${reasoning ? `<br>판단 근거: ${escapeHtml(reasoning)}` : ""}
       </p>
+      ${homeDetailMarkup()}
     `;
   }
-  if(detail){ detail.style.display = "block"; }
+  if(detail){ detail.style.display = "none"; }
 
-  homeStreamAgents(prompt, companyId, runAgents, btn);
+  homeStreamAgents(prompt, runCompanyId, runAgents, btn, detectedCompanyId);
 }
 
-function homeRenderSummary(prompt, companyId, mode){
+function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   const resultBox = document.getElementById("homeResultBox");
   if(!resultBox) return;
 
@@ -1479,10 +1497,13 @@ function homeRenderSummary(prompt, companyId, mode){
 
   const agentCount = Object.keys(homeStepStatus).length;
   const hasReport  = "보고서 생성" in homeRunResults;
+  const targetSummary = displayCompanyId
+    ? `대상 기업 <b>${escapeHtml(displayCompanyId)}</b> · `
+    : "";
 
   resultBox.innerHTML = `
     <h3>AI 분석 결과</h3>
-    <p>대상 기업 <b>${escapeHtml(companyId)}</b> · ${agentCount}개 에이전트 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
+    <p>${targetSummary}${agentCount}개 에이전트 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
     <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
     ${hasReport || riskHigh || riskMed ? `
     <div class="kpi">
@@ -1491,6 +1512,7 @@ function homeRenderSummary(prompt, companyId, mode){
       <div>조사 우선순위 <b>${priority}</b></div>
       <div>권고 조치 <b style="font-size:14px">${recommend}</b></div>
     </div>` : ""}
+    ${homeDetailMarkup()}
   `;
 }
 
