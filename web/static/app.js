@@ -2250,7 +2250,7 @@ function generalInvPage(){
   const showSubs = !!aCase;
   const profileLabel = "기업/우범자 프로파일";
   return `
-    <section class="card gi-hub${tab==="workbench" ? " gi-hub-full" : ""}">
+    <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
         <div>
           <h2>일반수사 분析</h2>
@@ -2449,28 +2449,82 @@ function generalInvDataPanel(){
 function generalInvReportPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+
+  const steps   = activeGiCaseSteps();
+  const states  = aCase.stepStates  || {};
+  const results = aCase.stepResults || {};
+  const type    = genInvTypeById(aCase.invTypeId);
+
+  /* 보고서 작성(gi_rep)·보고서 승인(gi_appr) 단계 찾기 */
+  const repStep  = steps.find(s => s.key === "gi_rep");
+  const apprStep = steps.find(s => s.key === "gi_appr");
+  const repDone  = !!(repStep  && states[repStep.id]  === "done");
+  const apprDone = !!(apprStep && states[apprStep.id] === "done");
+  const repText  = repStep  ? (results[repStep.id]  || "") : "";
+  const apprText = apprStep ? (results[apprStep.id] || "") : "";
+
+  const placeholder = (label, tab) => `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;text-align:center;padding:24px">
+      <span style="font-size:36px;opacity:.25">📄</span>
+      <p style="margin:0;font-size:13px;font-weight:600">${escapeHtml(label)} 미실행</p>
+      <p style="margin:0;font-size:12px">'분析 시나리오 설정 및 수행' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
+      <button class="btn secondary" style="height:30px;padding:0 14px;font-size:12px" data-gi-tab="workbench">워크벤치로 이동</button>
+    </div>`;
+
+  /* 상태 배지 */
+  const badge = apprDone
+    ? `<span class="gi-chip-state done" style="margin-left:auto">보고서 완료</span>`
+    : repDone
+      ? `<span class="gi-chip-state run" style="margin-left:auto">검증 대기중</span>`
+      : `<span class="gi-chip-state wait" style="margin-left:auto">보고서 미작성</span>`;
+
+  /* 보고서 재실행 버튼 */
+  const repActions = repStep ? `
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:12px;color:#64748b">${repDone ? "보고서 생성 완료" : "미실행"}</span>
+      ${repDone
+        ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">↺ 재작성</button>`
+        : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">▶ 실행</button>`}
+    </div>` : "";
+
+  const apprActions = apprStep ? `
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:12px;color:#64748b">${apprDone ? "검증 완료" : "미실행"}</span>
+      ${apprDone
+        ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}">↺ 재검증</button>`
+        : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}" ${!repDone ? "disabled title='보고서 작성 후 실행 가능'" : ""}>▶ 실행</button>`}
+    </div>` : "";
+
   return `
-    <div class="gi-stub-panel">
-      <div class="gi-stub-head">
-        <h3>분析 보고서 및 검증</h3>
-        <p class="muted">분析 시나리오 실행 결과를 바탕으로 수사 보고서를 작성하고 검증합니다.</p>
+    <div class="canvas-report-wrap">
+      <div class="canvas-selected-company">
+        <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+        <strong>${escapeHtml(aCase.targetName)}</strong>
+        <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>
+        ${badge}
       </div>
-      <div class="gi-stub-body">
-        <div class="gi-stub-card gi-stub-card-wide">
-          <strong>수사 결과 요약</strong>
-          <p class="muted">각 분析 단계의 실행 결과, 증거 목록, 적발 내용 요약</p>
-          <div class="gi-stub-placeholder gi-stub-placeholder-tall"></div>
-        </div>
-        <div class="gi-stub-card">
-          <strong>보고서 검토 의견</strong>
-          <p class="muted">담당관 검토, 수정 이력</p>
-          <div class="gi-stub-placeholder"></div>
-        </div>
-        <div class="gi-stub-card">
-          <strong>결재 현황</strong>
-          <p class="muted">결재 라인, 승인 상태</p>
-          <div class="gi-stub-placeholder"></div>
-        </div>
+      <div class="scenario-results canvas-report-results">
+
+        <section class="scenario-result-panel">
+          <div class="scenario-result-panel-head">
+            <h3>수사 보고서</h3>
+            ${repActions}
+          </div>
+          <div class="markdown-output">
+            ${repDone ? markdownToHtml(repText) : placeholder("보고서 작성(gi_rep)", "workbench")}
+          </div>
+        </section>
+
+        <section class="scenario-result-panel">
+          <div class="scenario-result-panel-head">
+            <h3>보고서 검증 · 승인</h3>
+            ${apprActions}
+          </div>
+          <div class="markdown-output">
+            ${apprDone ? markdownToHtml(apprText) : placeholder("보고서 승인(gi_appr)", "workbench")}
+          </div>
+        </section>
+
       </div>
     </div>
   `;

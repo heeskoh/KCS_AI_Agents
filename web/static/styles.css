@@ -481,9 +481,13 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-scenario-info.gi-t5{background:#e0f2fe;color:#0369a1}
 .gi-scenario-info.gi-t6{background:#1e293b;color:#e2e8f0}
 .gi-scenario-info.gi-t7{background:#f1f5f9;color:#475569}
-/* ── gi-hub full height for workbench tab ── */
+/* ── gi-hub full height for workbench / report tab ── */
 .gi-hub.gi-hub-full .gi-tab-body{overflow:hidden;display:flex;flex-direction:column}
 .gi-hub.gi-hub-full .gi-tab-body>.scenario-workbench-v2{flex:1;min-height:0}
+.gi-hub.gi-hub-full .gi-tab-body>.canvas-report-wrap{flex:1;min-height:0}
+/* ── GI 보고서 패널 헤더 (제목 + 액션버튼 한 행) ── */
+.scenario-result-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.scenario-result-panel-head h3{margin:0}
 /* ── stub panels ── */
 .gi-stub-panel{display:flex;flex-direction:column;gap:14px}
 .gi-stub-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
