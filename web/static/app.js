@@ -2,6 +2,7 @@
   home:"My AI 분석",
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
+  generalinv:"일반수사분석",
   profile:"기업 위험도 대시보드",
   classification:"품목분류",
   lawsearch:"법령·판례",
@@ -80,7 +81,7 @@ const pages = {
         <div class="special-analysis-list">
           <button class="special-analysis-btn red" data-page="profile">기업 위험도 대시보드</button>
           <button class="special-analysis-btn sky" data-page="investigation">관세 조사 분석</button>
-          <button class="special-analysis-btn rose" data-page="document">일반 수사 분석</button>
+          <button class="special-analysis-btn rose" data-page="generalinv">일반 수사 분석</button>
           <button class="special-analysis-btn purple" data-page="lawsearch">마약 수사 분석</button>
           <button class="special-analysis-btn teal" data-page="dw">위험선별 분석</button>
           <button class="special-analysis-btn green" data-page="rag">통관 정보분석</button>
@@ -97,6 +98,8 @@ const pages = {
   canvas: () => canvasPage(),
 
   investigation: () => investigationPage(),
+
+  generalinv: () => generalInvPage(),
 
   profile: () => riskDashboard(),
 
@@ -790,6 +793,41 @@ let templateEditorInitialized = false;
 let templateDraftName = "";
 let canvasTab = "overview";
 let investigationTab = "dashboard";
+
+/* ── 일반수사분석 상태 ─────────────────────────────────────── */
+let generalInvTab        = "cases";   // "cases" | "scenario" | 유형별 추가 탭
+let activeGenInvCaseId   = null;
+let showGenInvRegForm    = false;
+let genInvFilter         = "";
+let customGenInvCases    = [];
+
+const GEN_INV_TYPES = [
+  { id:"t1", num:"①", label:"관세포탈 수사",              cls:"gi-t1" },
+  { id:"t2", num:"②", label:"밀수입·밀수출 수사",         cls:"gi-t2" },
+  { id:"t3", num:"③", label:"원산지 위반 수사",            cls:"gi-t3" },
+  { id:"t4", num:"④", label:"외환·자금세탁 범죄 수사",    cls:"gi-t4" },
+  { id:"t5", num:"⑤", label:"지식재산권 침해 수사",        cls:"gi-t5" },
+  { id:"t6", num:"⑥", label:"전략물자·수출통제 위반 수사", cls:"gi-t6" },
+  { id:"t7", num:"⑦", label:"기타 수사",                  cls:"gi-t7" },
+];
+
+function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
+
+const defaultGenInvCases = [
+  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1",
+    status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
+    investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
+  { caseId:"GI-2026-002", targetName:"김우범 (개인)", invTypeId:"t2",
+    status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
+    investigator:"권조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
+  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5",
+    status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
+    investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
+];
+
+function allGenInvCases(){ return [...defaultGenInvCases, ...customGenInvCases]; }
+function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === activeGenInvCaseId) || null; }
+/* ─────────────────────────────────────────────────────────── */
 let activeCanvasCompanyId = "C-1001";
 let activeScenarioTemplateId = "customs-basic";
 let showScenarioCompanyPicker = false;
@@ -2011,6 +2049,176 @@ function syncSidebarCollapseIcons(){
     const icon = button.querySelector("span");
     if(target && icon) icon.textContent = target.classList.contains("collapsed") ? "▶" : "▼";
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   일반수사 분석 페이지
+═══════════════════════════════════════════════════════════════ */
+
+function generalInvPage(){
+  const aCase = activeGenInvCase();
+  const tab   = generalInvTab;
+  return `
+    <section class="card gi-hub">
+      <div class="gi-page-head">
+        <div>
+          <h2>일반수사 분석</h2>
+          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
+        </div>
+        ${aCase ? `
+          <div class="gi-active-badge">
+            <span class="muted">수사 대상</span>
+            <strong>${escapeHtml(aCase.targetName)}</strong>
+            <span class="gi-type-chip ${genInvTypeById(aCase.invTypeId).cls}">${genInvTypeById(aCase.invTypeId).num} ${escapeHtml(genInvTypeById(aCase.invTypeId).label)}</span>
+          </div>
+        ` : ""}
+      </div>
+      <div class="gi-tab-nav">
+        <button class="gi-tab${tab==="cases"?" active":""}" data-gi-tab="cases">진행중인 수사</button>
+        ${aCase ? `<button class="gi-tab${tab==="scenario"?" active":""}" data-gi-tab="scenario">일반수사분석시나리오 선정</button>` : ""}
+      </div>
+      <div class="gi-tab-body">
+        ${generalInvTabContent()}
+      </div>
+    </section>
+  `;
+}
+
+function generalInvTabContent(){
+  if(generalInvTab === "scenario") return generalInvScenarioPanel();
+  return generalInvCasesPanel();
+}
+
+/* ── [진행중인 수사] 패널 ──────────────────────────────────── */
+function generalInvCasesPanel(){
+  const all = allGenInvCases();
+  const q   = genInvFilter.toLowerCase();
+  const filtered = q ? all.filter(c =>
+    c.targetName.toLowerCase().includes(q) ||
+    c.caseId.toLowerCase().includes(q) ||
+    genInvTypeById(c.invTypeId).label.includes(q)
+  ) : all;
+
+  return `
+    <div class="gi-cases-panel">
+      <div class="gi-cases-toolbar">
+        <input class="gi-search" id="giSearchInput" placeholder="수사대상, 사건번호, 수사유형 검색..."
+          value="${escapeHtml(genInvFilter)}">
+        <button class="btn gi-reg-toggle-btn" data-gi-reg-toggle type="button">
+          ${showGenInvRegForm ? "✕ 닫기" : "+ 수사 등록"}
+        </button>
+      </div>
+
+      ${showGenInvRegForm ? generalInvRegForm() : ""}
+
+      <div class="gi-case-board">
+        ${filtered.map(genInvCaseCard).join("") ||
+          `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function genInvCaseCard(c){
+  const type   = genInvTypeById(c.invTypeId);
+  const isActive = c.caseId === activeGenInvCaseId;
+  return `
+    <article class="gi-case-card${isActive ? " active" : ""}" data-gi-case="${escapeHtml(c.caseId)}" tabindex="0" role="button">
+      <div class="gi-case-head">
+        <div>
+          <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
+          <h3 class="gi-case-name">${escapeHtml(c.targetName)}</h3>
+        </div>
+        <span class="job-status ${c.status.tone}">${c.status.label}</span>
+      </div>
+      <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+      <div class="job-progress"><i style="width:${c.status.pct}%"></i></div>
+      <div class="job-meta">
+        <span>${c.status.done}/${c.status.total} 단계</span>
+        <strong>${c.status.pct}%</strong>
+      </div>
+      <div class="gi-case-foot">
+        <span class="muted">${escapeHtml(c.investigator)} · ${escapeHtml(c.team)}</span>
+        <span class="muted">${escapeHtml(c.updated)}</span>
+      </div>
+    </article>
+  `;
+}
+
+function generalInvRegForm(){
+  return `
+    <div class="gi-reg-form">
+      <h3 class="gi-reg-title">수사 대상 등록</h3>
+      <div class="gi-reg-grid">
+        <div class="gi-reg-field">
+          <label>수사대상 명칭</label>
+          <input id="giRegTarget" placeholder="업체명 또는 개인 성명">
+        </div>
+        <div class="gi-reg-field">
+          <label>사건번호 (자동생성 가능)</label>
+          <input id="giRegCaseId" placeholder="예: GI-2026-004">
+        </div>
+        <div class="gi-reg-field gi-reg-full">
+          <label>일반수사 유형 선택 <span style="color:var(--red)">*</span></label>
+          <div class="gi-reg-type-grid">
+            ${GEN_INV_TYPES.map(t => `
+              <label class="gi-reg-type-item">
+                <input type="radio" name="giRegType" value="${t.id}">
+                <span class="gi-reg-type-label ${t.cls}">
+                  <strong>${t.num}</strong>
+                  <em>${escapeHtml(t.label)}</em>
+                </span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+        <div class="gi-reg-field">
+          <label>담당 수사관</label>
+          <input id="giRegInvestigator" value="${escapeHtml(currentUser().name)}">
+        </div>
+        <div class="gi-reg-field">
+          <label>담당 팀</label>
+          <input id="giRegTeam" value="${escapeHtml(currentUserGroup().org + " " + currentUserGroup().team)}">
+        </div>
+      </div>
+      <div class="gi-reg-actions">
+        <button class="btn" type="button" data-gi-register>등록</button>
+        <button class="btn secondary" type="button" data-gi-reg-toggle>취소</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ── [일반수사분석시나리오 선정] 패널 ─────────────────────── */
+function generalInvScenarioPanel(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  const current = genInvTypeById(aCase.invTypeId);
+  return `
+    <div class="gi-scenario-panel">
+      <div class="gi-scenario-head">
+        <div>
+          <strong>${escapeHtml(aCase.targetName)}</strong>
+          <span class="muted">${escapeHtml(aCase.caseId)}</span>
+        </div>
+        <p class="muted">수사 유형을 선택하면 해당 유형의 표준 분석시나리오가 적용됩니다.</p>
+      </div>
+      <div class="gi-type-grid">
+        ${GEN_INV_TYPES.map(t => `
+          <div class="gi-type-card ${t.cls}${t.id === aCase.invTypeId ? " selected" : ""}"
+               data-gi-type="${escapeHtml(t.id)}" tabindex="0" role="button">
+            <span class="gi-type-num">${t.num}</span>
+            <strong class="gi-type-name">${escapeHtml(t.label)}</strong>
+            ${t.id === aCase.invTypeId ? `<span class="gi-type-check">✓ 선택됨</span>` : ""}
+          </div>
+        `).join("")}
+      </div>
+      <div class="gi-scenario-info ${current.cls}">
+        <strong>${current.num} ${escapeHtml(current.label)} — 표준 분석시나리오</strong>
+        <p class="muted">선택된 수사 유형에 맞춘 데이터 수집, 분석 단계, 보고서 생성 흐름이 다음 탭들에서 제공됩니다.</p>
+      </div>
+    </div>
+  `;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3487,6 +3695,25 @@ function industryLabel(code){
   return map[code] || code || "기타";
 }
 
+function initGenInvSearch(){
+  const input = document.getElementById("giSearchInput");
+  if(!input) return;
+  input.addEventListener("input", () => {
+    genInvFilter = input.value;
+    const board = document.querySelector(".gi-case-board");
+    if(!board) return;
+    const q = genInvFilter.toLowerCase();
+    const all = allGenInvCases();
+    const filtered = q ? all.filter(c =>
+      c.targetName.toLowerCase().includes(q) ||
+      c.caseId.toLowerCase().includes(q) ||
+      genInvTypeById(c.invTypeId).label.includes(q)
+    ) : all;
+    board.innerHTML = filtered.map(genInvCaseCard).join("") ||
+      `<div class="empty-state">검색 결과가 없습니다.</div>`;
+  });
+}
+
 function initRiskDashboard(){
   const queryInput = document.getElementById("riskFilterQuery");
   const scoreSelect = document.getElementById("riskFilterScore");
@@ -4087,6 +4314,9 @@ function render(page="home"){
     loadScenarioCompanies();
     initRiskDashboard();
   }
+  if(page === "generalinv"){
+    initGenInvSearch();
+  }
   if(page === "investigation"){
     if(!scenarioCompanies.length) loadScenarioCompanies();
     if(investigationTab === "dashboard") initRiskDashboard();
@@ -4388,6 +4618,69 @@ document.addEventListener("click", (event)=>{
     loadCompanyRunArchive(activeCanvasCompanyId);
     if(companyTarget.dataset.openCompanyProfile === "true") canvasTab = "profile";
     saveCanvasState();
+  }
+
+  /* ── 일반수사분석 클릭 핸들러 ── */
+  const giRegToggle = event.target.closest("[data-gi-reg-toggle]");
+  if(giRegToggle){
+    showGenInvRegForm = !showGenInvRegForm;
+    render("generalinv");
+    return;
+  }
+
+  const giRegister = event.target.closest("[data-gi-register]");
+  if(giRegister){
+    const targetName   = document.getElementById("giRegTarget")?.value.trim();
+    const caseId       = document.getElementById("giRegCaseId")?.value.trim()
+                         || `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
+    const invTypeId    = document.querySelector("input[name='giRegType']:checked")?.value;
+    const investigator = document.getElementById("giRegInvestigator")?.value.trim() || currentUser().name;
+    const team         = document.getElementById("giRegTeam")?.value.trim() || "";
+    if(!targetName){ alert("수사대상 명칭을 입력하세요."); return; }
+    if(!invTypeId){  alert("일반수사 유형을 선택하세요.");  return; }
+    customGenInvCases.unshift({
+      caseId, targetName, invTypeId,
+      status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
+      investigator, team,
+      created: new Date().toLocaleDateString("ko-KR"),
+      updated: "방금",
+    });
+    activeGenInvCaseId = caseId;
+    showGenInvRegForm  = false;
+    generalInvTab      = "scenario";
+    render("generalinv");
+    return;
+  }
+
+  const giCase = event.target.closest("[data-gi-case]");
+  if(giCase){
+    activeGenInvCaseId = giCase.dataset.giCase;
+    generalInvTab      = "scenario";
+    render("generalinv");
+    return;
+  }
+
+  const giType = event.target.closest("[data-gi-type]");
+  if(giType){
+    const typeId = giType.dataset.giType;
+    const aCase  = activeGenInvCase();
+    if(aCase){
+      const idx = customGenInvCases.findIndex(c => c.caseId === aCase.caseId);
+      if(idx >= 0) customGenInvCases[idx].invTypeId = typeId;
+      else {
+        const di = defaultGenInvCases.findIndex(c => c.caseId === aCase.caseId);
+        if(di >= 0) defaultGenInvCases[di].invTypeId = typeId;
+      }
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giTab = event.target.closest("[data-gi-tab]");
+  if(giTab){
+    generalInvTab = giTab.dataset.giTab;
+    render("generalinv");
+    return;
   }
 
   const investigationSelectBtn = event.target.closest("[data-investigation-select]");

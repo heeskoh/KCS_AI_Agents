@@ -395,6 +395,87 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .home-detail-body.markdown-output h4{font-size:13px;color:#1554bd}
 .home-detail-body.markdown-output pre,.home-detail-body.markdown-output code{font-size:12px}
 
+/* ── 일반수사 분석 페이지 ───────────────────────────────────── */
+.gi-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 18px}
+.gi-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex:none;margin-bottom:8px}
+.gi-page-head h2{margin:0 0 3px;font-size:18px}
+.gi-page-head>div:first-child p{margin:0;font-size:12px;line-height:1.5}
+.gi-active-badge{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid #cfe0fb;border-radius:12px;background:#f0f6ff;flex:none}
+.gi-active-badge span.muted{font-size:12px}.gi-active-badge strong{font-size:14px;font-weight:900;color:#123c85}
+.gi-tab-nav{display:flex;gap:2px;border-bottom:2px solid var(--line);flex:none}
+.gi-tab{height:34px;border:1px solid var(--line);border-bottom:0;background:#f8fbff;color:#41506a;border-radius:8px 8px 0 0;padding:0 14px;font-weight:800;cursor:pointer;font-size:13px;white-space:nowrap}
+.gi-tab.active{background:white;color:#123c85;border-color:#aac7ff;box-shadow:0 -2px 10px rgba(8,31,72,.06)}
+.gi-tab:hover:not(.active){background:#eef4ff;color:#1e40af}
+.gi-tab-body{flex:1;overflow:auto;min-height:0;padding-top:14px}
+/* 수사 목록 */
+.gi-cases-panel{display:flex;flex-direction:column;gap:14px}
+.gi-cases-toolbar{display:flex;align-items:center;gap:10px}
+.gi-search{flex:1;height:36px;border:1px solid var(--line);border-radius:9px;padding:0 12px;font:inherit;font-size:13px}
+.gi-search:focus{outline:none;border-color:var(--blue)}
+.gi-reg-toggle-btn{white-space:nowrap;height:36px;padding:0 16px}
+.gi-case-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+/* 수사 카드 */
+.gi-case-card{border:1px solid var(--line);border-radius:14px;background:white;padding:15px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.gi-case-card:hover{border-color:#aac7ff;box-shadow:0 12px 28px rgba(36,99,235,.12)}
+.gi-case-card.active{border-color:#2463eb;box-shadow:0 0 0 2px #2463eb22}
+.gi-case-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.gi-case-no{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+.gi-case-name{margin:0;font-size:15px;font-weight:900}
+.gi-case-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:12px}
+/* 수사유형 칩 */
+.gi-type-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:800;margin:6px 0 10px}
+.gi-t1{background:#fee2e2;color:#b91c1c}
+.gi-t2{background:#ffedd5;color:#c2410c}
+.gi-t3{background:#dcfce7;color:#15803d}
+.gi-t4{background:#f3e8ff;color:#7e22ce}
+.gi-t5{background:#e0f2fe;color:#0369a1}
+.gi-t6{background:#1e293b;color:#e2e8f0}
+.gi-t7{background:#f1f5f9;color:#475569}
+/* 등록 폼 */
+.gi-reg-form{border:1px solid var(--line);border-radius:14px;padding:18px;background:#f8fbff}
+.gi-reg-title{margin:0 0 14px;font-size:15px;color:#123c85}
+.gi-reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gi-reg-field{display:flex;flex-direction:column;gap:5px}
+.gi-reg-field.gi-reg-full{grid-column:1/-1}
+.gi-reg-field label{font-size:12px;font-weight:800;color:var(--muted)}
+.gi-reg-field input{height:36px;border:1px solid var(--line);border-radius:9px;padding:0 12px;font:inherit;font-size:13px;background:white}
+.gi-reg-field input:focus{outline:none;border-color:var(--blue)}
+.gi-reg-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.gi-reg-type-item{cursor:pointer}
+.gi-reg-type-item input{display:none}
+.gi-reg-type-label{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:2px solid transparent;border-radius:10px;cursor:pointer;transition:border-color .15s}
+.gi-reg-type-label strong{font-size:17px}
+.gi-reg-type-label em{font-size:11px;font-style:normal;font-weight:700;line-height:1.3}
+.gi-reg-type-item input:checked + .gi-reg-type-label{border-color:var(--blue);box-shadow:0 0 0 2px rgba(36,99,235,.18)}
+.gi-reg-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+/* 시나리오 선정 패널 */
+.gi-scenario-panel{display:flex;flex-direction:column;gap:16px}
+.gi-scenario-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.gi-scenario-head strong{display:block;font-size:16px;color:#123c85}
+.gi-scenario-head p{margin:4px 0 0}
+.gi-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.gi-type-card{border:2px solid transparent;border-radius:14px;padding:18px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.gi-type-card:hover{box-shadow:0 4px 16px rgba(8,31,72,.12)}
+.gi-type-card.selected{border-color:var(--blue);box-shadow:0 0 0 3px rgba(36,99,235,.15)}
+.gi-type-num{display:block;font-size:26px;font-weight:900;margin-bottom:4px}
+.gi-type-name{display:block;font-size:13px;font-weight:800;line-height:1.35}
+.gi-type-check{display:block;margin-top:6px;font-size:11px;font-weight:900;color:var(--blue)}
+.gi-scenario-info{padding:14px 16px;border-radius:12px;margin-top:4px}
+.gi-scenario-info strong{display:block;font-size:14px;margin-bottom:4px}
+/* 유형별 type-card 배경 */
+.gi-type-card.gi-t1{background:#fff5f5}.gi-type-card.gi-t2{background:#fff7ed}
+.gi-type-card.gi-t3{background:#f0fdf4}.gi-type-card.gi-t4{background:#faf5ff}
+.gi-type-card.gi-t5{background:#f0f9ff}.gi-type-card.gi-t6{background:#1e293b;color:#e2e8f0}
+.gi-type-card.gi-t7{background:#f8fafc}
+/* scenario-info 배경 */
+.gi-scenario-info.gi-t1{background:#fee2e2;color:#b91c1c}
+.gi-scenario-info.gi-t2{background:#ffedd5;color:#c2410c}
+.gi-scenario-info.gi-t3{background:#dcfce7;color:#15803d}
+.gi-scenario-info.gi-t4{background:#f3e8ff;color:#7e22ce}
+.gi-scenario-info.gi-t5{background:#e0f2fe;color:#0369a1}
+.gi-scenario-info.gi-t6{background:#1e293b;color:#e2e8f0}
+.gi-scenario-info.gi-t7{background:#f1f5f9;color:#475569}
+/* ─────────────────────────────────────────────────────────── */
 /* ── 관세조사 분석 페이지 ───────────────────────────────────── */
 .ci-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 18px}
 .ci-hub.ci-hub-full{height:calc(100vh - 146px)}
