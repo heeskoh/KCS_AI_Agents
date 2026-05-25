@@ -797,7 +797,7 @@ let showInvNewJobForm  = false;
 let invArchiveOpen     = false;
 
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
-let generalInvTab        = "cases";   // "cases" | "scenario" | 유형별 추가 탭
+let generalInvTab        = "cases";   // "cases"|"profile"|"data"|"workbench"|"report"
 let activeGenInvCaseId   = null;
 let showGenInvRegForm    = false;
 let genInvFilter         = "";
@@ -814,6 +814,79 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
+/* ── 수사 유형별 분析 시나리오 단계 ──────────────────────── */
+const GI_SCENARIO_STEPS = {
+  t1:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_val1",      label:"과세가격평가 Agent",       type:"agent",   note:""},
+    {key:"gi_rag_rev",   label:"심사결과 RAG",            type:"rag",     note:""},
+    {key:"gi_imp1",      label:"수입신고검증 Agent",       type:"agent",   note:""},
+    {key:"gi_val2",      label:"과세가격평가 Agent",       type:"agent",   note:""},
+    {key:"gi_hs1",       label:"품목분류검증 Agent",       type:"agent",   note:""},
+    {key:"gi_anomaly",   label:"이상거래 검증 Agent",      type:"agent",   note:"이상거래 검증 Agent 신규 구성"},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t2:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_imp2",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_route2",    label:"운송경로 분석 Agent",      type:"agent",   note:""},
+    {key:"gi_net",       label:"관계망분析 Agent",         type:"agent",   note:"agent_network.py"},
+    {key:"gi_profit",    label:"범죄수익 추적 Agent",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
+    {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
+    {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t3:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_imp3",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_route3",    label:"운송경로 분析 Agent",      type:"agent",   note:"우회수입 탐지"},
+    {key:"gi_origin",    label:"원산지 검증 Agent",        type:"agent",   note:""},
+    {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
+    {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t4:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_imp4",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_profit4",   label:"범죄수익 추적 Agent",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
+    {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
+    {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t5:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_imp5",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_patent",    label:"특허정보 조회 Agent",      type:"agent",   note:"권리자 정보 확인"},
+    {key:"gi_hs5",       label:"품목분류검증 Agent",       type:"agent",   note:"위조품 식별"},
+    {key:"gi_route5",    label:"운송경로 분析 Agent",      type:"agent",   note:"우회수입 탐지, 공급망 역추적"},
+    {key:"gi_rag_rev5",  label:"심사결과 RAG",            type:"rag",     note:""},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t6:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+    {key:"gi_imp6",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴, 수출허가 검증"},
+    {key:"gi_hs6",       label:"품목분류검증 Agent",       type:"agent",   note:"전략물자 해당 여부, HS코드 기반 해당 품목 자동 식별, 수출허가 검증"},
+    {key:"gi_patent6",   label:"특허정보 조회 Agent",      type:"agent",   note:"권리자 정보 확인"},
+    {key:"gi_rag_int6",  label:"국제협력 RAG",            type:"rag",     note:"대북제재 스크리닝"},
+    {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
+    {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
+    {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
+  ],
+  t7:[
+    {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
+  ],
+};
+
 
 const defaultGenInvCases = [
   { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1",
@@ -2060,12 +2133,14 @@ function syncSidebarCollapseIcons(){
 function generalInvPage(){
   const aCase = activeGenInvCase();
   const tab   = generalInvTab;
+  const showSubs = !!aCase;
+  const profileLabel = "기업/우범자 프로파일";
   return `
-    <section class="card gi-hub">
+    <section class="card gi-hub${tab==="workbench" ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
         <div>
-          <h2>일반수사 분석</h2>
-          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
+          <h2>일반수사 분析</h2>
+          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분析시나리오에 따라 수사를 진행합니다.</p>
         </div>
         ${aCase ? `
           <div class="gi-active-badge">
@@ -2077,7 +2152,12 @@ function generalInvPage(){
       </div>
       <div class="gi-tab-nav">
         <button class="gi-tab${tab==="cases"?" active":""}" data-gi-tab="cases">진행중인 수사</button>
-        ${aCase ? `<button class="gi-tab${tab==="scenario"?" active":""}" data-gi-tab="scenario">일반수사분석시나리오 선정</button>` : ""}
+        ${showSubs ? `
+          <button class="gi-tab${tab==="profile"?" active":""}" data-gi-tab="profile">${profileLabel}</button>
+          <button class="gi-tab${tab==="data"?" active":""}" data-gi-tab="data">기초자료 수집/등록</button>
+          <button class="gi-tab${tab==="workbench"?" active":""}" data-gi-tab="workbench">분析 시나리오 설정 및 수행</button>
+          <button class="gi-tab${tab==="report"?" active":""}" data-gi-tab="report">분析 보고서 및 검증</button>
+        ` : ""}
       </div>
       <div class="gi-tab-body">
         ${generalInvTabContent()}
@@ -2087,7 +2167,10 @@ function generalInvPage(){
 }
 
 function generalInvTabContent(){
-  if(generalInvTab === "scenario") return generalInvScenarioPanel();
+  if(generalInvTab === "profile")   return generalInvProfilePanel();
+  if(generalInvTab === "data")      return generalInvDataPanel();
+  if(generalInvTab === "workbench") return generalInvWorkbenchPanel();
+  if(generalInvTab === "report")    return generalInvReportPanel();
   return generalInvCasesPanel();
 }
 
@@ -2187,42 +2270,162 @@ function generalInvRegForm(){
   `;
 }
 
-/* ── [일반수사분석시나리오 선정] 패널 ─────────────────────── */
-function generalInvScenarioPanel(){
+/* ── 서브탭 스텁 패널들 ────────────────────────────────────── */
+function generalInvProfilePanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  const current = genInvTypeById(aCase.invTypeId);
+  const type = genInvTypeById(aCase.invTypeId);
   return `
-    <div class="gi-scenario-panel">
-      <div class="gi-scenario-head">
-        <div>
-          <strong>${escapeHtml(aCase.targetName)}</strong>
-          <span class="muted">${escapeHtml(aCase.caseId)}</span>
+    <div class="gi-stub-panel">
+      <div class="gi-stub-head">
+        <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+        <h3>${escapeHtml(aCase.targetName)} <span class="muted">${escapeHtml(aCase.caseId)}</span></h3>
+      </div>
+      <div class="gi-stub-body">
+        <div class="gi-stub-card">
+          <strong>기본 인적사항</strong>
+          <p class="muted">업체명/성명, 사업자번호, 대표자, 주소, 연락처</p>
+          <div class="gi-stub-placeholder"></div>
         </div>
-        <p class="muted">수사 유형을 선택하면 해당 유형의 표준 분석시나리오가 적용됩니다.</p>
-      </div>
-      <div class="gi-type-grid">
-        ${GEN_INV_TYPES.map(t => `
-          <div class="gi-type-card ${t.cls}${t.id === aCase.invTypeId ? " selected" : ""}"
-               data-gi-type="${escapeHtml(t.id)}" tabindex="0" role="button">
-            <span class="gi-type-num">${t.num}</span>
-            <strong class="gi-type-name">${escapeHtml(t.label)}</strong>
-            ${t.id === aCase.invTypeId ? `<span class="gi-type-check">✓ 선택됨</span>` : ""}
-          </div>
-        `).join("")}
-      </div>
-      <div class="gi-scenario-info ${current.cls}">
-        <strong>${current.num} ${escapeHtml(current.label)} — 표준 분석시나리오</strong>
-        <p class="muted">선택된 수사 유형에 맞춘 데이터 수집, 분석 단계, 보고서 생성 흐름이 다음 탭들에서 제공됩니다.</p>
+        <div class="gi-stub-card">
+          <strong>수사 이력</strong>
+          <p class="muted">과거 조사 이력, 적발 내역, 범칙금 부과 현황</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+        <div class="gi-stub-card">
+          <strong>연관 관계망</strong>
+          <p class="muted">연관 법인·개인, 공급망 관계, 계좌 연결 현황</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
       </div>
     </div>
   `;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   관세조사 분석 페이지
-═══════════════════════════════════════════════════════════════ */
+function generalInvDataPanel(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  return `
+    <div class="gi-stub-panel">
+      <div class="gi-stub-head">
+        <h3>기초자료 수집/등록</h3>
+        <p class="muted">수사에 필요한 기초자료를 DW에서 조회하거나 직접 등록합니다.</p>
+      </div>
+      <div class="gi-stub-body">
+        <div class="gi-stub-card">
+          <strong>수입신고서 조회</strong>
+          <p class="muted">대상 업체의 최근 3년 수입신고 내역</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+        <div class="gi-stub-card">
+          <strong>금융거래 자료</strong>
+          <p class="muted">계좌 거래 내역, 외환송금 현황</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+        <div class="gi-stub-card">
+          <strong>첨부 자료 등록</strong>
+          <p class="muted">압수 자료, 참고인 진술서, 현장 사진 등</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
+function generalInvReportPanel(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  return `
+    <div class="gi-stub-panel">
+      <div class="gi-stub-head">
+        <h3>분析 보고서 및 검증</h3>
+        <p class="muted">분析 시나리오 실행 결과를 바탕으로 수사 보고서를 작성하고 검증합니다.</p>
+      </div>
+      <div class="gi-stub-body">
+        <div class="gi-stub-card gi-stub-card-wide">
+          <strong>수사 결과 요약</strong>
+          <p class="muted">각 분析 단계의 실행 결과, 증거 목록, 적발 내용 요약</p>
+          <div class="gi-stub-placeholder gi-stub-placeholder-tall"></div>
+        </div>
+        <div class="gi-stub-card">
+          <strong>보고서 검토 의견</strong>
+          <p class="muted">담당관 검토, 수정 이력</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+        <div class="gi-stub-card">
+          <strong>결재 현황</strong>
+          <p class="muted">결재 라인, 승인 상태</p>
+          <div class="gi-stub-placeholder"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── [분析 시나리오 설정 및 수행] 패널 ────────────────────── */
+function generalInvWorkbenchPanel(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  const type  = genInvTypeById(aCase.invTypeId);
+  const steps = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
+  const done  = aCase.stepsDone || 0;
+  const total = steps.length;
+  const pct   = total ? Math.round(done / total * 100) : 0;
+
+  const typeIcon = { db:"🗄️", agent:"🤖", rag:"📚", report:"📝", approve:"✅" };
+  const typeCls  = { db:"gi-step-db", agent:"gi-step-agent", rag:"gi-step-rag", report:"gi-step-report", approve:"gi-step-approve" };
+  const typeLabel= { db:"DB 조회", agent:"Agent", rag:"RAG", report:"보고서", approve:"승인" };
+
+  return `
+    <div class="gi-workbench">
+      <div class="gi-wb-head">
+        <div class="gi-wb-title">
+          <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+          <strong>${escapeHtml(aCase.targetName)}</strong>
+          <span class="muted">${escapeHtml(aCase.caseId)}</span>
+        </div>
+        <div class="gi-wb-progress">
+          <span class="muted">${done}/${total} 단계 완료</span>
+          <div class="gi-wb-prog-bar"><i style="width:${pct}%"></i></div>
+          <strong>${pct}%</strong>
+        </div>
+      </div>
+
+      <div class="gi-wb-type-switch">
+        ${GEN_INV_TYPES.map(t => `
+          <button class="gi-wb-type-btn${t.id === aCase.invTypeId ? " active" : ""} ${t.cls}"
+            data-gi-switch-type="${escapeHtml(t.id)}">${t.num} ${escapeHtml(t.label)}</button>
+        `).join("")}
+      </div>
+
+      <div class="gi-wb-steps">
+        ${steps.map((step, i) => {
+          const state = (aCase.stepStates || {})[step.key] || "wait";
+          const stateCls = state === "done" ? "done" : state === "run" ? "running" : "wait";
+          const stateLabel = state === "done" ? "완료" : state === "run" ? "실행중" : "대기";
+          return `
+            <div class="gi-wb-step gi-wb-step-${stateCls}">
+              <div class="gi-wb-step-num">${i + 1}</div>
+              <div class="gi-wb-step-icon ${typeCls[step.type] || ""}">${typeIcon[step.type] || "▶"}</div>
+              <div class="gi-wb-step-body">
+                <div class="gi-wb-step-label">${escapeHtml(step.label)}</div>
+                ${step.note ? `<div class="gi-wb-step-note muted">${escapeHtml(step.note)}</div>` : ""}
+              </div>
+              <span class="gi-wb-step-type">${escapeHtml(typeLabel[step.type] || step.type)}</span>
+              <div class="gi-wb-step-actions">
+                <span class="job-status ${stateCls === "done" ? "done" : stateCls === "running" ? "run" : "wait"}">${stateLabel}</span>
+                ${state !== "done"
+                  ? `<button class="btn gi-wb-run-btn" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.key)}">실행</button>`
+                  : `<button class="btn secondary gi-wb-run-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.key)}">재실행</button>`
+                }
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
 function investigationPage(){
   const tab = investigationTab;
   const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
@@ -4859,7 +5062,7 @@ document.addEventListener("click", (event)=>{
     });
     activeGenInvCaseId = caseId;
     showGenInvRegForm  = false;
-    generalInvTab      = "scenario";
+    generalInvTab      = "profile";
     render("generalinv");
     return;
   }
@@ -4867,7 +5070,54 @@ document.addEventListener("click", (event)=>{
   const giCase = event.target.closest("[data-gi-case]");
   if(giCase){
     activeGenInvCaseId = giCase.dataset.giCase;
-    generalInvTab      = "scenario";
+    generalInvTab      = "workbench";
+    render("generalinv");
+    return;
+  }
+
+  const giSwitchType = event.target.closest("[data-gi-switch-type]");
+  if(giSwitchType){
+    const aCase = activeGenInvCase();
+    if(aCase){
+      aCase.invTypeId = giSwitchType.dataset.giSwitchType;
+      aCase.stepStates = {};
+      aCase.stepsDone  = 0;
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giRunStep = event.target.closest("[data-gi-run-step]");
+  if(giRunStep){
+    const [caseId, stepKey] = giRunStep.dataset.giRunStep.split(":");
+    const aCase = allGenInvCases().find(c => c.caseId === caseId);
+    if(aCase){
+      if(!aCase.stepStates) aCase.stepStates = {};
+      aCase.stepStates[stepKey] = "done";
+      aCase.stepsDone = Object.values(aCase.stepStates).filter(v => v === "done").length;
+      const steps = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
+      aCase.status = {
+        ...aCase.status,
+        done: aCase.stepsDone,
+        total: steps.length,
+        pct: Math.round(aCase.stepsDone / steps.length * 100),
+        label: aCase.stepsDone === steps.length ? "완료" : "진행중",
+        tone: aCase.stepsDone === steps.length ? "done" : "run",
+      };
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giRerunStep = event.target.closest("[data-gi-rerun-step]");
+  if(giRerunStep){
+    const [caseId, stepKey] = giRerunStep.dataset.giRerunStep.split(":");
+    const aCase = allGenInvCases().find(c => c.caseId === caseId);
+    if(aCase){
+      if(!aCase.stepStates) aCase.stepStates = {};
+      aCase.stepStates[stepKey] = "wait";
+      aCase.stepsDone = Object.values(aCase.stepStates).filter(v => v === "done").length;
+    }
     render("generalinv");
     return;
   }
