@@ -814,6 +814,43 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
+let activeGiStepId = null;  // 워크벤치 선택 단계 ID
+
+const GI_STEP_SOURCES = [
+  {key:"gi_cdw",      label:"CDW 조회",            type:"db"     },
+  {key:"gi_imp",      label:"수입신고검증 Agent",   type:"agent"  },
+  {key:"gi_val",      label:"과세가격평가 Agent",   type:"agent"  },
+  {key:"gi_hs",       label:"품목분류검증 Agent",   type:"agent"  },
+  {key:"gi_route",    label:"운송경로 분析 Agent",  type:"agent"  },
+  {key:"gi_net",      label:"관계망분析 Agent",     type:"agent"  },
+  {key:"gi_profit",   label:"범죄수익 추적 Agent",  type:"agent"  },
+  {key:"gi_origin",   label:"원산지 검증 Agent",   type:"agent"  },
+  {key:"gi_anomaly",  label:"이상거래 검증 Agent",  type:"agent"  },
+  {key:"gi_patent",   label:"특허정보 조회 Agent",  type:"agent"  },
+  {key:"gi_rag_rev",  label:"심사결과 RAG",         type:"rag"    },
+  {key:"gi_rag_inv",  label:"조사결과 RAG",         type:"rag"    },
+  {key:"gi_rag_int",  label:"국제협력 RAG",         type:"rag"    },
+  {key:"gi_law",      label:"법령 검토",            type:"rag"    },
+  {key:"gi_rep",      label:"보고서 작성",          type:"report" },
+  {key:"gi_appr",     label:"보고서 승인",          type:"approve"},
+];
+
+function activeGiCaseSteps(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return [];
+  if(!aCase.giSteps){
+    const defaults = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
+    aCase.giSteps = defaults.map((s, i) => ({...s, id:`gis_${i}_${uid()}`}));
+    aCase.stepStates = {};
+    aCase.stepsDone  = 0;
+  }
+  return aCase.giSteps;
+}
+
+function activeGiStep(){
+  return activeGiCaseSteps().find(s => s.id === activeGiStepId) || null;
+}
+
 /* ── 수사 유형별 분析 시나리오 단계 ──────────────────────── */
 const GI_SCENARIO_STEPS = {
   t1:[
@@ -2366,19 +2403,22 @@ function generalInvReportPanel(){
 function generalInvWorkbenchPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  const type  = genInvTypeById(aCase.invTypeId);
-  const steps = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
-  const done  = aCase.stepsDone || 0;
-  const total = steps.length;
-  const pct   = total ? Math.round(done / total * 100) : 0;
 
-  const typeIcon = { db:"🗄️", agent:"🤖", rag:"📚", report:"📝", approve:"✅" };
-  const typeCls  = { db:"gi-step-db", agent:"gi-step-agent", rag:"gi-step-rag", report:"gi-step-report", approve:"gi-step-approve" };
-  const typeLabel= { db:"DB 조회", agent:"Agent", rag:"RAG", report:"보고서", approve:"승인" };
+  const type   = genInvTypeById(aCase.invTypeId);
+  const steps  = activeGiCaseSteps();
+  const states = aCase.stepStates || {};
+  const done   = steps.filter(s => states[s.id] === "done").length;
+  const total  = steps.length;
+  const pct    = total ? Math.round(done / total * 100) : 0;
+  const selStep = activeGiStep();
+
+  const typeIcon  = {db:"🗄️",agent:"🤖",rag:"📚",report:"📝",approve:"✅"};
+  const typeCls   = {db:"gi-step-db",agent:"gi-step-agent",rag:"gi-step-rag",report:"gi-step-report",approve:"gi-step-approve"};
+  const typeLabel = {db:"DB 조회",agent:"Agent",rag:"RAG",report:"보고서",approve:"승인"};
 
   return `
-    <div class="gi-workbench">
-      <div class="gi-wb-head">
+    <div class="gi-wb2">
+      <div class="gi-wb2-head">
         <div class="gi-wb-title">
           <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
           <strong>${escapeHtml(aCase.targetName)}</strong>
@@ -2391,37 +2431,107 @@ function generalInvWorkbenchPanel(){
         </div>
       </div>
 
-      <div class="gi-wb-type-switch">
-        ${GEN_INV_TYPES.map(t => `
-          <button class="gi-wb-type-btn${t.id === aCase.invTypeId ? " active" : ""} ${t.cls}"
-            data-gi-switch-type="${escapeHtml(t.id)}">${t.num} ${escapeHtml(t.label)}</button>
-        `).join("")}
-      </div>
+      <div class="gi-wb2-layout">
 
-      <div class="gi-wb-steps">
-        ${steps.map((step, i) => {
-          const state = (aCase.stepStates || {})[step.key] || "wait";
-          const stateCls = state === "done" ? "done" : state === "run" ? "running" : "wait";
-          const stateLabel = state === "done" ? "완료" : state === "run" ? "실행중" : "대기";
-          return `
-            <div class="gi-wb-step gi-wb-step-${stateCls}">
-              <div class="gi-wb-step-num">${i + 1}</div>
-              <div class="gi-wb-step-icon ${typeCls[step.type] || ""}">${typeIcon[step.type] || "▶"}</div>
-              <div class="gi-wb-step-body">
-                <div class="gi-wb-step-label">${escapeHtml(step.label)}</div>
-                ${step.note ? `<div class="gi-wb-step-note muted">${escapeHtml(step.note)}</div>` : ""}
+        <!-- ── 왼쪽: 시나리오 단계 목록 ── -->
+        <div class="gi-wb2-list">
+          <div class="gi-wb2-list-head">
+            <strong>수사 시나리오</strong>
+            <span class="muted">${total}단계</span>
+          </div>
+          <div class="gi-wb2-list-scroll">
+            ${steps.map((step, i) => {
+              const state = states[step.id] || "wait";
+              const isActive = step.id === activeGiStepId;
+              return `
+                <div class="gi-wb2-step${isActive ? " active" : ""}${state==="done" ? " gi-wb2-step-done" : state==="run" ? " gi-wb2-step-run" : ""}"
+                  data-gi-step-select="${escapeHtml(step.id)}" tabindex="0" role="button">
+                  <div class="gi-wb2-step-num${state==="done" ? " done" : ""}">${state==="done" ? "✓" : i+1}</div>
+                  <div class="gi-wb2-step-icon ${typeCls[step.type]||""}">${typeIcon[step.type]||"▶"}</div>
+                  <div class="gi-wb2-step-body">
+                    <div class="gi-wb2-step-name">${escapeHtml(step.label)}</div>
+                    ${step.note ? `<div class="gi-wb2-step-note muted">${escapeHtml(step.note)}</div>` : ""}
+                  </div>
+                  <div class="gi-wb2-step-btns">
+                    ${i > 0 ? `<button class="gi-wb2-move-btn" data-gi-step-up="${escapeHtml(step.id)}" title="위로">↑</button>` : `<span class="gi-wb2-move-ph"></span>`}
+                    ${i < steps.length-1 ? `<button class="gi-wb2-move-btn" data-gi-step-down="${escapeHtml(step.id)}" title="아래로">↓</button>` : `<span class="gi-wb2-move-ph"></span>`}
+                  </div>
+                </div>`;
+            }).join("")}
+          </div>
+          <div class="gi-wb2-list-footer">
+            <select id="giWbAddSource" class="gi-reg-select gi-wb2-add-select">
+              <option value="">+ 단계 선택...</option>
+              ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
+            </select>
+            <button class="btn secondary gi-wb2-add-btn" type="button" data-gi-step-add>추가</button>
+          </div>
+        </div>
+
+        <!-- ── 오른쪽: 단계 설정 및 실행 ── -->
+        <div class="gi-wb2-config">
+          ${selStep ? `
+            <div class="gi-wb2-config-head">
+              <div class="gi-wb2-step-icon ${typeCls[selStep.type]||""}" style="width:36px;height:36px;font-size:18px;border-radius:10px">
+                ${typeIcon[selStep.type]||"▶"}
               </div>
-              <span class="gi-wb-step-type">${escapeHtml(typeLabel[step.type] || step.type)}</span>
-              <div class="gi-wb-step-actions">
-                <span class="job-status ${stateCls === "done" ? "done" : stateCls === "running" ? "run" : "wait"}">${stateLabel}</span>
-                ${state !== "done"
-                  ? `<button class="btn gi-wb-run-btn" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.key)}">실행</button>`
-                  : `<button class="btn secondary gi-wb-run-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.key)}">재실행</button>`
-                }
+              <div style="flex:1;min-width:0">
+                <strong style="font-size:15px;font-weight:900">${escapeHtml(selStep.label)}</strong>
+                <span class="job-status${states[selStep.id]==="done" ? " done" : states[selStep.id]==="run" ? " run" : " wait"}" style="margin-left:8px">
+                  ${states[selStep.id]==="done" ? "완료" : states[selStep.id]==="run" ? "실행중" : "대기"}
+                </span>
               </div>
+              <button class="btn secondary" style="height:28px;padding:0 10px;font-size:12px" data-gi-step-delete="${escapeHtml(selStep.id)}">삭제</button>
             </div>
-          `;
-        }).join("")}
+
+            <div class="gi-wb2-fields">
+              <label class="gi-wb2-field">
+                <span>단계 유형</span>
+                <select id="giWbStepType" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
+                  ${Object.entries(typeLabel).map(([k,v]) => `<option value="${k}"${selStep.type===k?" selected":""}>${v}</option>`).join("")}
+                </select>
+              </label>
+              <label class="gi-wb2-field">
+                <span>단계명</span>
+                <input id="giWbStepLabel" class="gi-wb2-input" value="${escapeHtml(selStep.label)}" data-gi-step-id="${escapeHtml(selStep.id)}">
+              </label>
+              <label class="gi-wb2-field">
+                <span>중점 확인 사항 · 설명</span>
+                <textarea id="giWbStepNote" class="gi-wb2-textarea" rows="3" data-gi-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.note||"")}</textarea>
+              </label>
+            </div>
+
+            <div class="gi-wb2-run-zone">
+              ${states[selStep.id] !== "done"
+                ? `<button class="btn gi-wb2-run-main-btn" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(selStep.id)}">▶ 실행</button>`
+                : `<button class="btn secondary gi-wb2-run-main-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(selStep.id)}">↺ 재실행</button>`
+              }
+            </div>
+
+            <div class="gi-wb2-result">
+              ${states[selStep.id] === "done" ? `
+                <div class="gi-wb2-result-done">
+                  <span style="font-size:22px">✅</span>
+                  <div>
+                    <strong>${escapeHtml(selStep.label)} 완료</strong>
+                    <p class="muted" style="margin:2px 0 0;font-size:12px">분析 결과가 보고서 탭에 반영됩니다.</p>
+                  </div>
+                </div>
+              ` : `
+                <div class="gi-wb2-result-empty">
+                  <span style="font-size:28px;opacity:.3">▶</span>
+                  <p class="muted">실행 버튼을 눌러 분析을 시작하세요.</p>
+                </div>
+              `}
+            </div>
+          ` : `
+            <div class="gi-wb2-config-placeholder">
+              <span style="font-size:36px;opacity:.2">⚙</span>
+              <p class="muted">왼쪽에서 단계를 선택하면<br>설정을 확인하고 실행할 수 있습니다.</p>
+              <p class="muted" style="font-size:12px">단계를 추가하거나 순서를 변경하여<br>수사 유형에 맞게 시나리오를 구성하세요.</p>
+            </div>
+          `}
+        </div>
       </div>
     </div>
   `;
@@ -5071,17 +5181,68 @@ document.addEventListener("click", (event)=>{
   if(giCase){
     activeGenInvCaseId = giCase.dataset.giCase;
     generalInvTab      = "workbench";
+    activeGiStepId     = null;
     render("generalinv");
     return;
   }
 
-  const giSwitchType = event.target.closest("[data-gi-switch-type]");
-  if(giSwitchType){
+  /* ── 워크벤치 단계 핸들러 ── */
+  const giStepSelect = event.target.closest("[data-gi-step-select]");
+  if(giStepSelect && !event.target.closest("[data-gi-step-up],[data-gi-step-down]")){
+    activeGiStepId = giStepSelect.dataset.giStepSelect;
+    render("generalinv");
+    return;
+  }
+
+  const giStepUp = event.target.closest("[data-gi-step-up]");
+  if(giStepUp){
+    const aCase = activeGenInvCase();
+    const steps = aCase?.giSteps;
+    if(steps){
+      const id = giStepUp.dataset.giStepUp;
+      const i = steps.findIndex(s => s.id === id);
+      if(i > 0){ [steps[i-1], steps[i]] = [steps[i], steps[i-1]]; }
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giStepDown = event.target.closest("[data-gi-step-down]");
+  if(giStepDown){
+    const aCase = activeGenInvCase();
+    const steps = aCase?.giSteps;
+    if(steps){
+      const id = giStepDown.dataset.giStepDown;
+      const i = steps.findIndex(s => s.id === id);
+      if(i >= 0 && i < steps.length - 1){ [steps[i], steps[i+1]] = [steps[i+1], steps[i]]; }
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giStepAdd = event.target.closest("[data-gi-step-add]");
+  if(giStepAdd){
+    const sel = document.getElementById("giWbAddSource");
+    if(!sel?.value){ alert("추가할 단계를 선택하세요."); return; }
+    const [key, type] = sel.value.split("|");
+    const src = GI_STEP_SOURCES.find(s => s.key === key) || {key, label:key, type:type||"agent"};
     const aCase = activeGenInvCase();
     if(aCase){
-      aCase.invTypeId = giSwitchType.dataset.giSwitchType;
-      aCase.stepStates = {};
-      aCase.stepsDone  = 0;
+      if(!aCase.giSteps) activeGiCaseSteps();
+      aCase.giSteps.push({...src, id:`gis_${uid()}`});
+    }
+    render("generalinv");
+    return;
+  }
+
+  const giStepDelete = event.target.closest("[data-gi-step-delete]");
+  if(giStepDelete){
+    const id = giStepDelete.dataset.giStepDelete;
+    const aCase = activeGenInvCase();
+    if(aCase?.giSteps){
+      aCase.giSteps = aCase.giSteps.filter(s => s.id !== id);
+      if(aCase.stepStates) delete aCase.stepStates[id];
+      if(activeGiStepId === id) activeGiStepId = null;
     }
     render("generalinv");
     return;
@@ -5089,20 +5250,20 @@ document.addEventListener("click", (event)=>{
 
   const giRunStep = event.target.closest("[data-gi-run-step]");
   if(giRunStep){
-    const [caseId, stepKey] = giRunStep.dataset.giRunStep.split(":");
+    const [caseId, stepId] = giRunStep.dataset.giRunStep.split(":");
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
       if(!aCase.stepStates) aCase.stepStates = {};
-      aCase.stepStates[stepKey] = "done";
-      aCase.stepsDone = Object.values(aCase.stepStates).filter(v => v === "done").length;
-      const steps = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
+      aCase.stepStates[stepId] = "done";
+      const steps = aCase.giSteps || [];
+      const doneCnt = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
+      aCase.stepsDone = doneCnt;
       aCase.status = {
         ...aCase.status,
-        done: aCase.stepsDone,
-        total: steps.length,
-        pct: Math.round(aCase.stepsDone / steps.length * 100),
-        label: aCase.stepsDone === steps.length ? "완료" : "진행중",
-        tone: aCase.stepsDone === steps.length ? "done" : "run",
+        done: doneCnt, total: steps.length,
+        pct: steps.length ? Math.round(doneCnt / steps.length * 100) : 0,
+        label: doneCnt === steps.length ? "완료" : "진행중",
+        tone:  doneCnt === steps.length ? "done"  : "run",
       };
     }
     render("generalinv");
@@ -5111,12 +5272,13 @@ document.addEventListener("click", (event)=>{
 
   const giRerunStep = event.target.closest("[data-gi-rerun-step]");
   if(giRerunStep){
-    const [caseId, stepKey] = giRerunStep.dataset.giRerunStep.split(":");
+    const [caseId, stepId] = giRerunStep.dataset.giRerunStep.split(":");
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
       if(!aCase.stepStates) aCase.stepStates = {};
-      aCase.stepStates[stepKey] = "wait";
-      aCase.stepsDone = Object.values(aCase.stepStates).filter(v => v === "done").length;
+      delete aCase.stepStates[stepId];
+      const steps = aCase.giSteps || [];
+      aCase.stepsDone = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
     }
     render("generalinv");
     return;
@@ -5240,6 +5402,29 @@ document.addEventListener("change", (event)=>{
     scenarioItems = [];
     saveCanvasState();
     render("canvas");
+  }
+});
+
+/* ── GI 워크벤치 단계 필드 실시간 편집 ── */
+document.addEventListener("input", (event) => {
+  const stepId = event.target.dataset.giStepId;
+  if(!stepId) return;
+  const aCase = activeGenInvCase();
+  const step  = aCase?.giSteps?.find(s => s.id === stepId);
+  if(!step) return;
+  if(event.target.id === "giWbStepLabel") step.label = event.target.value;
+  if(event.target.id === "giWbStepNote")  step.note  = event.target.value;
+  // no re-render needed for text fields (live editing)
+});
+
+document.addEventListener("change", (event) => {
+  const stepId = event.target.dataset.giStepId;
+  if(stepId && event.target.id === "giWbStepType"){
+    const aCase = activeGenInvCase();
+    const step  = aCase?.giSteps?.find(s => s.id === stepId);
+    if(step) step.type = event.target.value;
+    render("generalinv");
+    return;
   }
 });
 

@@ -494,43 +494,57 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-stub-card-wide{grid-column:1/-1}
 .gi-stub-placeholder{height:80px;background:#f1f5f9;border-radius:8px}
 .gi-stub-placeholder-tall{height:140px}
-/* ── 분析 시나리오 워크벤치 ── */
-.gi-workbench{display:flex;flex-direction:column;gap:14px;height:100%;min-height:0}
-.gi-wb-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;flex:none}
+/* ── 분析 시나리오 워크벤치 2.0 (2-panel) ── */
+.gi-wb2{height:100%;display:flex;flex-direction:column;gap:12px;min-height:0}
+.gi-wb2-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;flex:none}
+.gi-wb2-layout{display:grid;grid-template-columns:300px 1fr;gap:14px;flex:1;min-height:0;overflow:hidden}
+/* 왼쪽 패널: 단계 목록 */
+.gi-wb2-list{border:1px solid var(--line);border-radius:14px;background:white;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.gi-wb2-list-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);flex:none}
+.gi-wb2-list-head strong{font-size:13px;font-weight:900}
+.gi-wb2-list-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px}
+.gi-wb2-step{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;transition:all .15s;background:white}
+.gi-wb2-step:hover{border-color:#93c5fd;background:#f8fbff}
+.gi-wb2-step.active{border-color:var(--blue);background:#eff6ff}
+.gi-wb2-step-done{background:#f0fdf4!important;border-color:#bbf7d0!important}
+.gi-wb2-step-run{background:#eff6ff!important;border-color:#93c5fd!important}
+.gi-wb2-step-num{width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none;transition:all .2s}
+.gi-wb2-step-num.done{background:#bbf7d0;color:#15803d}
+.gi-wb2-step-body{flex:1;min-width:0}
+.gi-wb2-step-name{font-size:12px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi-wb2-step-note{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.gi-wb2-step-btns{display:flex;flex-direction:column;gap:1px;flex:none}
+.gi-wb2-move-btn{width:18px;height:16px;border:none;background:#f1f5f9;border-radius:4px;cursor:pointer;font-size:10px;color:#64748b;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.gi-wb2-move-btn:hover{background:#e2e8f0;color:#1e293b}
+.gi-wb2-move-ph{width:18px;height:16px;display:inline-block}
+.gi-wb2-list-footer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);flex:none}
+.gi-wb2-add-select{flex:1;height:32px;font-size:12px}
+.gi-wb2-add-btn{height:32px;padding:0 10px;font-size:12px;white-space:nowrap}
+/* 오른쪽 패널: 설정 */
+.gi-wb2-config{border:1px solid var(--line);border-radius:14px;background:white;padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.gi-wb2-config-head{display:flex;align-items:center;gap:10px}
+.gi-wb2-fields{display:flex;flex-direction:column;gap:10px}
+.gi-wb2-field{display:flex;flex-direction:column;gap:4px}
+.gi-wb2-field span{font-size:12px;font-weight:800;color:var(--muted)}
+.gi-wb2-input{height:34px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font:inherit;font-size:13px}
+.gi-wb2-input:focus{outline:none;border-color:var(--blue)}
+.gi-wb2-textarea{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;resize:vertical;min-height:72px}
+.gi-wb2-textarea:focus{outline:none;border-color:var(--blue)}
+.gi-wb2-run-zone{display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.gi-wb2-run-main-btn{height:38px;padding:0 24px;font-size:14px;font-weight:900}
+.gi-wb2-result{border:1px solid var(--line);border-radius:12px;padding:14px;background:#f8fbff;flex:1;display:flex;align-items:center;justify-content:center;min-height:80px}
+.gi-wb2-result-done{display:flex;align-items:center;gap:12px}
+.gi-wb2-result-done strong{display:block;font-size:13px;font-weight:900}
+.gi-wb2-result-empty{display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.6}
+.gi-wb2-config-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:100%;text-align:center;color:var(--muted)}
+/* 기존 단순 워크벤치 유지 (공통) */
 .gi-wb-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gi-wb-title strong{font-size:17px;font-weight:900;color:#123c85}
 .gi-wb-progress{display:flex;align-items:center;gap:8px;flex:none}
 .gi-wb-prog-bar{width:120px;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden}
 .gi-wb-prog-bar i{display:block;height:100%;background:var(--blue);border-radius:999px;transition:width .4s}
-.gi-wb-type-switch{display:flex;flex-wrap:wrap;gap:6px;flex:none;padding:10px 0;border-bottom:1px solid var(--line)}
-.gi-wb-type-btn{height:30px;padding:0 12px;border-radius:999px;border:2px solid transparent;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;opacity:.65}
-.gi-wb-type-btn.active{opacity:1;border-color:currentColor;box-shadow:0 0 0 2px rgba(0,0,0,.08)}
-.gi-wb-type-btn.gi-t1{background:#fee2e2;color:#b91c1c}
-.gi-wb-type-btn.gi-t2{background:#ffedd5;color:#c2410c}
-.gi-wb-type-btn.gi-t3{background:#dcfce7;color:#15803d}
-.gi-wb-type-btn.gi-t4{background:#f3e8ff;color:#7e22ce}
-.gi-wb-type-btn.gi-t5{background:#e0f2fe;color:#0369a1}
-.gi-wb-type-btn.gi-t6{background:#1e293b;color:#e2e8f0}
-.gi-wb-type-btn.gi-t7{background:#f1f5f9;color:#475569}
-.gi-wb-steps{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
-.gi-wb-step{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:white;transition:border-color .15s}
-.gi-wb-step-done{background:#f0fdf4;border-color:#bbf7d0}
-.gi-wb-step-running{background:#eff6ff;border-color:#93c5fd;animation:pulse-border 1.2s infinite}
-@keyframes pulse-border{0%,100%{border-color:#93c5fd}50%{border-color:#3b82f6}}
-.gi-wb-step-num{width:24px;height:24px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none}
-.gi-wb-step-done .gi-wb-step-num{background:#bbf7d0;color:#15803d}
-.gi-wb-step-icon{width:30px;height:30px;border-radius:8px;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none}
-.gi-step-db{background:#dbeafe;color:#1e40af}
-.gi-step-agent{background:#f3e8ff;color:#7e22ce}
-.gi-step-rag{background:#fef9c3;color:#92400e}
-.gi-step-report{background:#e0f2fe;color:#0369a1}
-.gi-step-approve{background:#dcfce7;color:#15803d}
-.gi-wb-step-body{flex:1;min-width:0}
-.gi-wb-step-label{font-size:13px;font-weight:800;color:#1e293b}
-.gi-wb-step-note{font-size:11px;margin-top:2px}
-.gi-wb-step-type{font-size:11px;font-weight:800;color:#64748b;white-space:nowrap;flex:none;min-width:48px;text-align:right}
-.gi-wb-step-actions{display:flex;align-items:center;gap:6px;flex:none}
 .gi-wb-run-btn{height:28px;padding:0 12px;font-size:12px}
+
 /* ─────────────────────────────────────────────────────────── */
 /* ── 관세조사 분석 페이지 ───────────────────────────────────── */
 .ci-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 18px}
