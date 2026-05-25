@@ -450,6 +450,15 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-reg-grid-3{grid-template-columns:1fr 1fr 1fr}
 .gi-reg-select{height:36px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font:inherit;font-size:13px;background:white;cursor:pointer;width:100%}
 .gi-reg-select:focus{outline:none;border-color:var(--blue)}
+.gi-reg-grid-2{grid-template-columns:1fr 1fr}
+.gi-reg-type-row{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:10px 14px;border-radius:10px;background:#eef4ff;border:1px solid #c7d9f5}
+.gi-reg-type-row > .gi-reg-type-label{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;display:block;flex:none}
+.gi-reg-radio-group{display:flex;gap:8px}
+.gi-reg-radio-btn{display:flex;align-items:center;gap:6px;padding:5px 16px;border-radius:999px;border:2px solid var(--line);background:white;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.gi-reg-radio-btn:hover{border-color:var(--blue);color:var(--blue)}
+.gi-reg-radio-btn.active{border-color:var(--blue);background:#e8f0fe;color:var(--blue)}
+.gi-reg-radio-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--muted);background:white;transition:border-color .15s,background .15s;flex-shrink:0}
+.gi-reg-radio-dot.on{border-color:var(--blue);background:var(--blue)}
 .gi-reg-row2{display:flex;align-items:flex-end;gap:12px;margin-top:10px}
 .gi-reg-row2 .gi-reg-field{flex:1;min-width:0}
 .gi-reg-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}

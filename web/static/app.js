@@ -816,6 +816,7 @@ const GEN_INV_TYPES = [
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
 let activeGiStepId = null;  // 워크벤치 선택 단계 ID
 let giRunEventSource = null; // 일반수사 분析 실행 SSE 연결
+let giRegTargetType  = "company"; // 수사 대상 등록 유형: "company" | "person"
 
 const GI_STEP_SOURCES = [
   {key:"gi_cdw",      label:"CDW 조회",            type:"db"     },
@@ -1003,13 +1004,13 @@ const GI_SCENARIO_STEPS = {
 
 
 const defaultGenInvCases = [
-  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1",
+  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
-  { caseId:"GI-2026-002", targetName:"김우범 (개인)", invTypeId:"t2",
+  { caseId:"GI-2026-002", targetName:"김우범 (개인)", invTypeId:"t2", targetType:"person",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
     investigator:"권조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
-  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5",
+  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company",
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
 ];
@@ -2248,7 +2249,7 @@ function generalInvPage(){
   const aCase = activeGenInvCase();
   const tab   = generalInvTab;
   const showSubs = !!aCase;
-  const profileLabel = "기업/우범자 프로파일";
+  const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
   return `
     <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
@@ -2345,13 +2346,25 @@ function genInvCaseCard(c){
 }
 
 function generalInvRegForm(){
+  const isCo = giRegTargetType === "company";
   return `
     <div class="gi-reg-form">
+      <div class="gi-reg-type-row">
+        <span class="gi-reg-type-label">수사 대상 유형</span>
+        <div class="gi-reg-radio-group">
+          <button class="gi-reg-radio-btn${isCo ? " active" : ""}" data-gi-reg-type="company" type="button">
+            <span class="gi-reg-radio-dot${isCo ? " on" : ""}"></span> 기업
+          </button>
+          <button class="gi-reg-radio-btn${!isCo ? " active" : ""}" data-gi-reg-type="person" type="button">
+            <span class="gi-reg-radio-dot${!isCo ? " on" : ""}"></span> 개인
+          </button>
+        </div>
+      </div>
       <h3 class="gi-reg-title">수사 대상 등록</h3>
       <div class="gi-reg-grid gi-reg-grid-3">
         <div class="gi-reg-field">
-          <label>수사대상 명칭</label>
-          <input id="giRegTarget" placeholder="업체명 또는 개인 성명">
+          <label>${isCo ? "업체명" : "성명"}</label>
+          <input id="giRegTarget" placeholder="${isCo ? "업체명을 입력하세요" : "성명을 입력하세요"}">
         </div>
         <div class="gi-reg-field">
           <label>사건번호 (자동생성 가능)</label>
@@ -2366,6 +2379,27 @@ function generalInvRegForm(){
           </select>
         </div>
       </div>
+      ${isCo ? `
+      <div class="gi-reg-grid gi-reg-grid-2">
+        <div class="gi-reg-field">
+          <label>사업자등록번호</label>
+          <input id="giRegBizNo" placeholder="000-00-00000">
+        </div>
+        <div class="gi-reg-field">
+          <label>대표자</label>
+          <input id="giRegCeoName" placeholder="대표자 성명">
+        </div>
+      </div>` : `
+      <div class="gi-reg-grid gi-reg-grid-2">
+        <div class="gi-reg-field">
+          <label>주민등록번호 앞자리</label>
+          <input id="giRegPersonId" placeholder="생년월일 6자리">
+        </div>
+        <div class="gi-reg-field">
+          <label>국적</label>
+          <input id="giRegNation" placeholder="예: 대한민국">
+        </div>
+      </div>`}
       <div class="gi-reg-row2">
         <div class="gi-reg-field">
           <label>담당 수사관</label>
@@ -5332,6 +5366,13 @@ document.addEventListener("click", (event)=>{
   }
 
   /* ── 일반수사분석 클릭 핸들러 ── */
+  const giRegTypeBtn = event.target.closest("[data-gi-reg-type]");
+  if(giRegTypeBtn){
+    giRegTargetType = giRegTypeBtn.dataset.giRegType;
+    render("generalinv");
+    return;
+  }
+
   const giRegToggle = event.target.closest("[data-gi-reg-toggle]");
   if(giRegToggle){
     showGenInvRegForm = !showGenInvRegForm;
@@ -5350,6 +5391,7 @@ document.addEventListener("click", (event)=>{
     if(!targetName){ alert("수사대상 명칭을 입력하세요."); return; }
     customGenInvCases.unshift({
       caseId, targetName, invTypeId,
+      targetType: giRegTargetType,
       status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
       investigator, team,
       created: new Date().toLocaleDateString("ko-KR"),
@@ -5357,6 +5399,7 @@ document.addEventListener("click", (event)=>{
     });
     activeGenInvCaseId = caseId;
     showGenInvRegForm  = false;
+    giRegTargetType    = "company";
     generalInvTab      = "profile";
     render("generalinv");
     return;
