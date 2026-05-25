@@ -2135,38 +2135,7 @@ function investigationDashboardPanel(){
   `;
 }
 
-function ciCompanyCard(c){
-  const score = c.risk_score || 0;
-  const level = c.risk_level || "LOW";
-  const cls   = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warn" : "safe";
-  const badge = level === "HIGH" ? "조사검토필요" : level === "MEDIUM" ? "경계필요" : "양호";
-  const tags  = companyRiskTags(c);
-  const visibleTags = tags.slice(0,2).map(t => `<span class="risk-tag">${escapeHtml(t)}</span>`).join("");
-  const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개</span>` : "";
-  const scoreClass = level === "HIGH" ? "high" : level === "LOW" ? "good" : "";
-  return `
-    <div class="risk-company-card ${cls}">
-      <div class="risk-card-head">
-        <span class="risk-card-badge ${cls}">${badge}</span>
-        <span class="muted" style="font-size:11px">#TRG-26-${escapeHtml(c.company_id.replace("C-",""))}</span>
-      </div>
-      <div class="risk-card-name">
-        <strong>${escapeHtml(c.company_name || c.company_id)}</strong>
-        <span class="muted">${escapeHtml(industryLabel(c.industry_code))}</span>
-      </div>
-      <div class="risk-card-scores">
-        <div><span class="muted">위험도점수</span><strong class="${scoreClass}">${score.toFixed(1)}</strong></div>
-        <div><span class="muted">주요 위험</span><div class="risk-card-tags">${visibleTags}${moreTags}</div></div>
-      </div>
-      <div class="risk-card-review">
-        <p>${companyReviewText(c)}</p>
-      </div>
-      <button class="btn ci-select-company-btn" style="width:100%;margin-top:6px"
-        data-investigation-select="${escapeHtml(c.company_id)}">
-        조사대상 선정 →
-      </button>
-    </div>`;
-}
+function ciCompanyCard(c){ return sharedRiskCard(c); }
 
 function ciRunDwQuery(){
   const input = document.getElementById("ciDwQuery");
@@ -3457,47 +3426,36 @@ function riskAlertCard(label, count){
     </div>`;
 }
 
-function riskCompanyCard(c){
+/* 공통 위험도 카드 — investigation 대시보드 / profile 페이지 동일 사용 */
+function riskCompanyCard(c){ return sharedRiskCard(c); }
+
+function sharedRiskCard(c){
   const score = c.risk_score || 0;
   const level = c.risk_level || "LOW";
   const cls   = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warn" : "safe";
   const badge = level === "HIGH" ? "조사검토필요" : level === "MEDIUM" ? "경계필요" : "양호";
-
-  const tags = companyRiskTags(c);
+  const tags  = companyRiskTags(c);
   const visibleTags = tags.slice(0,2).map(t => `<span class="risk-tag">${escapeHtml(t)}</span>`).join("");
-  const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개 로직</span>` : "";
-
-  const riskChange = (((c.undervaluation_suspicion_rate||0) + (c.offshore_fund_concealment_suspicion_rate||0)) / 17).toFixed(1);
+  const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개</span>` : "";
   const scoreClass = level === "HIGH" ? "high" : level === "LOW" ? "good" : "";
-
+  const cardId = `#TRG-26-${escapeHtml(c.company_id.replace("C-",""))}`;
   return `
     <div class="risk-company-card ${cls}">
-      <div class="risk-card-head">
-        <span class="risk-card-badge ${cls}">${badge}</span>
+      <div class="ci-card-top-row">
+        <div class="ci-card-name-head">
+          <strong class="ci-card-name">${escapeHtml(c.company_name || c.company_id)}</strong>
+          <span class="muted ci-card-id">${cardId}</span>
+        </div>
+        <span class="risk-card-badge ${cls} ci-badge-sm">${badge}</span>
       </div>
-      <div class="risk-card-name">
-        <strong>${escapeHtml(c.company_name || c.company_id)}</strong>
-        <span class="muted">#TRG-26-${escapeHtml(c.company_id.replace("C-",""))} | ${escapeHtml(industryLabel(c.industry_code))}</span>
-      </div>
+      <span class="muted ci-card-industry">${escapeHtml(industryLabel(c.industry_code))}</span>
       <div class="risk-card-scores">
-        <div>
-          <span class="muted">위험도점수</span>
-          <strong class="${scoreClass}">${score.toFixed(1)}</strong>
-        </div>
-        <div>
-          <span class="muted">위험도변화</span>
-          <strong class="${level==="HIGH"?"high":""}">${riskChange} ↑</strong>
-        </div>
+        <div><span class="muted">위험도점수</span><strong class="${scoreClass}">${score.toFixed(1)}</strong></div>
+        <div><span class="muted">주요 위험</span><div class="risk-card-tags">${visibleTags}${moreTags}</div></div>
       </div>
-      <div class="risk-card-tags">${visibleTags}${moreTags}</div>
       <div class="risk-card-review">
-        <span class="muted">검토내용</span>
         <p>${companyReviewText(c)}</p>
       </div>
-      <button class="btn secondary" style="margin-top:4px;width:100%"
-        data-page="canvas" data-canvas-company="${escapeHtml(c.company_id)}" data-canvas-tab="profile">
-        캔버스 분석 진입
-      </button>
     </div>`;
 }
 
