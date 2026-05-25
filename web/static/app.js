@@ -2412,128 +2412,162 @@ function generalInvWorkbenchPanel(){
   const pct    = total ? Math.round(done / total * 100) : 0;
   const selStep = activeGiStep();
 
-  const typeIcon  = {db:"🗄️",agent:"🤖",rag:"📚",report:"📝",approve:"✅"};
-  const typeCls   = {db:"gi-step-db",agent:"gi-step-agent",rag:"gi-step-rag",report:"gi-step-report",approve:"gi-step-approve"};
   const typeLabel = {db:"DB 조회",agent:"Agent",rag:"RAG",report:"보고서",approve:"승인"};
+  /* chip CSS class: reuse canvas workbench chip type classes */
+  const chipCls   = {db:"bigdata",agent:"agent",rag:"rag_customs",report:"report",approve:"validation"};
+
+  /* ── 왼쪽 보드: 시나리오 단계 칩 목록 */
+  const boardChips = steps.map((step, i) => {
+    const state    = states[step.id] || "wait";
+    const isActive = step.id === activeGiStepId;
+    const isDone   = state === "done";
+    const stateTag = isDone
+      ? `<span class="gi-chip-state done">완료</span>`
+      : state === "run"
+        ? `<span class="gi-chip-state run">실행중</span>`
+        : "";
+    return `
+      <div class="scenario-chip ${chipCls[step.type]||"agent"}${isActive ? " active" : ""}${isDone ? " gi-chip-done" : ""}"
+        data-gi-step-select="${escapeHtml(step.id)}" tabindex="0" role="button" style="position:relative">
+        <div class="chip-num"${isDone ? ' style="background:#22c55e"' : ""}>${isDone ? "✓" : i+1}</div>
+        <div class="chip-body">
+          <div class="chip-title-row">
+            <strong>${escapeHtml(step.label)}</strong>
+            ${stateTag}
+          </div>
+          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)}${step.note ? " · " + escapeHtml(step.note.slice(0,40)) : ""}</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          ${i > 0 ? `<button class="gi-move-btn" data-gi-step-up="${escapeHtml(step.id)}" title="위로">↑</button>` : `<span style="width:22px"></span>`}
+          ${i < steps.length-1 ? `<button class="gi-move-btn" data-gi-step-down="${escapeHtml(step.id)}" title="아래로">↓</button>` : `<span style="width:22px"></span>`}
+        </div>
+      </div>`;
+  }).join("");
+
+  /* ── 가운데: 선택된 단계 설정 */
+  const configPanel = selStep ? `
+    <div class="scenario-config-title" style="margin-bottom:14px">
+      <strong>${escapeHtml(selStep.label)}</strong>
+      <span class="gi-chip-state${states[selStep.id]==="done" ? " done" : states[selStep.id]==="run" ? " run" : " wait"}" style="margin-left:8px">
+        ${states[selStep.id]==="done" ? "완료" : states[selStep.id]==="run" ? "실행중" : "대기"}
+      </span>
+    </div>
+    <div class="scenario-agent-zone" style="overflow-y:auto;flex:1;min-height:0">
+      <label class="scenario-field">
+        <span>단계 유형</span>
+        <select id="giWbStepType" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
+          ${Object.entries(typeLabel).map(([k,v]) => `<option value="${k}"${selStep.type===k?" selected":""}>${v}</option>`).join("")}
+        </select>
+      </label>
+      <label class="scenario-field">
+        <span>단계명</span>
+        <input id="giWbStepLabel" class="gi-wb2-input" style="border:1px solid var(--line);border-radius:9px;padding:0 10px;height:36px;font:inherit;font-size:13px;width:100%;box-sizing:border-box"
+          value="${escapeHtml(selStep.label)}" data-gi-step-id="${escapeHtml(selStep.id)}">
+      </label>
+      <label class="scenario-field">
+        <span>중점 확인 사항</span>
+        <textarea id="giWbStepNote" class="gi-wb2-textarea" rows="4"
+          style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;width:100%;box-sizing:border-box;resize:vertical"
+          data-gi-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.note||"")}</textarea>
+      </label>
+    </div>
+    <div class="scenario-actions" style="margin-top:12px">
+      <select id="giWbAddSource" class="gi-reg-select" style="flex:1">
+        <option value="">+ 단계 추가 선택...</option>
+        ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
+      </select>
+      <button class="btn" type="button" data-gi-step-add>단계 추가</button>
+      <button class="btn secondary" type="button" data-gi-step-delete="${escapeHtml(selStep.id)}">선택 삭제</button>
+    </div>
+  ` : `
+    <div class="scenario-config-title" style="margin-bottom:14px"><strong>분석 시나리오 설정</strong></div>
+    <div class="scenario-agent-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#94a3b8;text-align:center;gap:8px">
+      <span style="font-size:32px;opacity:.25">⚙</span>
+      <p style="margin:0;font-size:13px">왼쪽에서 단계를 선택하면<br>설정을 확인하고 편집할 수 있습니다.</p>
+    </div>
+    <div class="scenario-actions" style="margin-top:12px">
+      <select id="giWbAddSource" class="gi-reg-select" style="flex:1">
+        <option value="">+ 단계 추가 선택...</option>
+        ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
+      </select>
+      <button class="btn" type="button" data-gi-step-add>단계 추가</button>
+      <button class="btn secondary" type="button" disabled>선택 삭제</button>
+    </div>
+  `;
+
+  /* ── 오른쪽: 실행 로그 (각 단계 상태 행) */
+  const logRows = steps.map((step, i) => {
+    const state = states[step.id] || "wait";
+    const isDone = state === "done";
+    const isRun  = state === "run";
+    return `
+      <div class="gi-log-row${isDone ? " gi-log-done" : isRun ? " gi-log-run" : ""}">
+        <div class="gi-log-num">${isDone ? "✓" : i+1}</div>
+        <div class="gi-log-name">${escapeHtml(step.label)}</div>
+        <div class="gi-log-state">
+          ${isDone
+            ? `<span class="gi-chip-state done">완료</span>
+               <button class="gi-log-act-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="재실행">↺</button>`
+            : isRun
+              ? `<span class="gi-chip-state run">실행중</span>`
+              : `<button class="gi-log-act-btn primary" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="실행">▶</button>`}
+        </div>
+      </div>`;
+  }).join("");
 
   return `
-    <div class="gi-wb2">
-      <div class="gi-wb2-head">
-        <div class="gi-wb-title">
-          <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
-          <strong>${escapeHtml(aCase.targetName)}</strong>
-          <span class="muted">${escapeHtml(aCase.caseId)}</span>
+    <section class="card scenario-workbench scenario-workbench-v2" style="padding:0;overflow:hidden">
+      <div class="scenario-title-row" style="padding:14px 18px 0">
+        <div>
+          <h3 style="display:flex;align-items:center;gap:10px;margin:0 0 2px">
+            <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+            ${escapeHtml(aCase.targetName)}
+            <span class="muted" style="font-weight:400;font-size:13px">${escapeHtml(aCase.caseId)}</span>
+          </h3>
+          <p class="muted" style="margin:0;font-size:12px">수사 유형에 맞는 분析 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. 단계를 추가·삭제·순서 변경하여 맞춤형 시나리오를 구성할 수 있습니다.</p>
         </div>
-        <div class="gi-wb-progress">
-          <span class="muted">${done}/${total} 단계 완료</span>
-          <div class="gi-wb-prog-bar"><i style="width:${pct}%"></i></div>
-          <strong>${pct}%</strong>
-        </div>
-      </div>
-
-      <div class="gi-wb2-layout">
-
-        <!-- ── 왼쪽: 시나리오 단계 목록 ── -->
-        <div class="gi-wb2-list">
-          <div class="gi-wb2-list-head">
-            <strong>수사 시나리오</strong>
-            <span class="muted">${total}단계</span>
-          </div>
-          <div class="gi-wb2-list-scroll">
-            ${steps.map((step, i) => {
-              const state = states[step.id] || "wait";
-              const isActive = step.id === activeGiStepId;
-              return `
-                <div class="gi-wb2-step${isActive ? " active" : ""}${state==="done" ? " gi-wb2-step-done" : state==="run" ? " gi-wb2-step-run" : ""}"
-                  data-gi-step-select="${escapeHtml(step.id)}" tabindex="0" role="button">
-                  <div class="gi-wb2-step-num${state==="done" ? " done" : ""}">${state==="done" ? "✓" : i+1}</div>
-                  <div class="gi-wb2-step-icon ${typeCls[step.type]||""}">${typeIcon[step.type]||"▶"}</div>
-                  <div class="gi-wb2-step-body">
-                    <div class="gi-wb2-step-name">${escapeHtml(step.label)}</div>
-                    ${step.note ? `<div class="gi-wb2-step-note muted">${escapeHtml(step.note)}</div>` : ""}
-                  </div>
-                  <div class="gi-wb2-step-btns">
-                    ${i > 0 ? `<button class="gi-wb2-move-btn" data-gi-step-up="${escapeHtml(step.id)}" title="위로">↑</button>` : `<span class="gi-wb2-move-ph"></span>`}
-                    ${i < steps.length-1 ? `<button class="gi-wb2-move-btn" data-gi-step-down="${escapeHtml(step.id)}" title="아래로">↓</button>` : `<span class="gi-wb2-move-ph"></span>`}
-                  </div>
-                </div>`;
-            }).join("")}
-          </div>
-          <div class="gi-wb2-list-footer">
-            <select id="giWbAddSource" class="gi-reg-select gi-wb2-add-select">
-              <option value="">+ 단계 선택...</option>
-              ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
-            </select>
-            <button class="btn secondary gi-wb2-add-btn" type="button" data-gi-step-add>추가</button>
-          </div>
-        </div>
-
-        <!-- ── 오른쪽: 단계 설정 및 실행 ── -->
-        <div class="gi-wb2-config">
-          ${selStep ? `
-            <div class="gi-wb2-config-head">
-              <div class="gi-wb2-step-icon ${typeCls[selStep.type]||""}" style="width:36px;height:36px;font-size:18px;border-radius:10px">
-                ${typeIcon[selStep.type]||"▶"}
-              </div>
-              <div style="flex:1;min-width:0">
-                <strong style="font-size:15px;font-weight:900">${escapeHtml(selStep.label)}</strong>
-                <span class="job-status${states[selStep.id]==="done" ? " done" : states[selStep.id]==="run" ? " run" : " wait"}" style="margin-left:8px">
-                  ${states[selStep.id]==="done" ? "완료" : states[selStep.id]==="run" ? "실행중" : "대기"}
-                </span>
-              </div>
-              <button class="btn secondary" style="height:28px;padding:0 10px;font-size:12px" data-gi-step-delete="${escapeHtml(selStep.id)}">삭제</button>
-            </div>
-
-            <div class="gi-wb2-fields">
-              <label class="gi-wb2-field">
-                <span>단계 유형</span>
-                <select id="giWbStepType" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
-                  ${Object.entries(typeLabel).map(([k,v]) => `<option value="${k}"${selStep.type===k?" selected":""}>${v}</option>`).join("")}
-                </select>
-              </label>
-              <label class="gi-wb2-field">
-                <span>단계명</span>
-                <input id="giWbStepLabel" class="gi-wb2-input" value="${escapeHtml(selStep.label)}" data-gi-step-id="${escapeHtml(selStep.id)}">
-              </label>
-              <label class="gi-wb2-field">
-                <span>중점 확인 사항 · 설명</span>
-                <textarea id="giWbStepNote" class="gi-wb2-textarea" rows="3" data-gi-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.note||"")}</textarea>
-              </label>
-            </div>
-
-            <div class="gi-wb2-run-zone">
-              ${states[selStep.id] !== "done"
-                ? `<button class="btn gi-wb2-run-main-btn" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(selStep.id)}">▶ 실행</button>`
-                : `<button class="btn secondary gi-wb2-run-main-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(selStep.id)}">↺ 재실행</button>`
-              }
-            </div>
-
-            <div class="gi-wb2-result">
-              ${states[selStep.id] === "done" ? `
-                <div class="gi-wb2-result-done">
-                  <span style="font-size:22px">✅</span>
-                  <div>
-                    <strong>${escapeHtml(selStep.label)} 완료</strong>
-                    <p class="muted" style="margin:2px 0 0;font-size:12px">분析 결과가 보고서 탭에 반영됩니다.</p>
-                  </div>
-                </div>
-              ` : `
-                <div class="gi-wb2-result-empty">
-                  <span style="font-size:28px;opacity:.3">▶</span>
-                  <p class="muted">실행 버튼을 눌러 분析을 시작하세요.</p>
-                </div>
-              `}
-            </div>
-          ` : `
-            <div class="gi-wb2-config-placeholder">
-              <span style="font-size:36px;opacity:.2">⚙</span>
-              <p class="muted">왼쪽에서 단계를 선택하면<br>설정을 확인하고 실행할 수 있습니다.</p>
-              <p class="muted" style="font-size:12px">단계를 추가하거나 순서를 변경하여<br>수사 유형에 맞게 시나리오를 구성하세요.</p>
-            </div>
-          `}
+        <div class="scenario-status">
+          <span>${done === total && total > 0 ? "완료" : done > 0 ? "진행중" : "대기"}</span>
+          <strong>${done}/${total}</strong>
         </div>
       </div>
-    </div>
+      <div class="scenario-progress" style="margin:10px 18px 0;height:6px">
+        <i style="width:${pct}%"></i>
+      </div>
+      <div class="scenario-layout scenario-execution-layout" style="padding:14px 18px 14px;margin-top:10px">
+
+        <!-- 왼쪽: 시나리오 단계 목록 -->
+        <section class="scenario-board">
+          <div class="scenario-board-head">
+            <h3>수사 시나리오</h3>
+            <span class="muted" style="font-size:12px">${total}단계</span>
+          </div>
+          <div class="scenario-list-vertical" style="margin-top:10px">
+            ${boardChips}
+          </div>
+        </section>
+
+        <!-- 가운데: 단계 설정 -->
+        <aside class="scenario-config" style="display:flex;flex-direction:column">
+          ${configPanel}
+        </aside>
+
+        <!-- 오른쪽: 실행 로그 -->
+        <section class="scenario-log" style="display:flex;flex-direction:column">
+          <div class="scenario-log-head">
+            <h3>분析 실행</h3>
+            <div class="scenario-log-actions">
+              <button class="btn" type="button" data-gi-run-step="${escapeHtml(aCase.caseId)}:all">분析 실행</button>
+              <button class="btn secondary" type="button" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
+            </div>
+          </div>
+          <div class="gi-log-list scenario-step-accordion" style="margin-top:10px;flex:1;overflow-y:auto">
+            ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분析 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
+          </div>
+        </section>
+
+      </div>
+    </section>
   `;
 }
 function investigationPage(){
@@ -5250,12 +5284,20 @@ document.addEventListener("click", (event)=>{
 
   const giRunStep = event.target.closest("[data-gi-run-step]");
   if(giRunStep){
-    const [caseId, stepId] = giRunStep.dataset.giRunStep.split(":");
+    const val = giRunStep.dataset.giRunStep;
+    const colonIdx = val.indexOf(":");
+    const caseId = val.slice(0, colonIdx);
+    const stepId = val.slice(colonIdx + 1);
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
       if(!aCase.stepStates) aCase.stepStates = {};
-      aCase.stepStates[stepId] = "done";
       const steps = aCase.giSteps || [];
+      if(stepId === "all"){
+        /* 모든 단계 실행 */
+        steps.forEach(s => { aCase.stepStates[s.id] = "done"; });
+      } else {
+        aCase.stepStates[stepId] = "done";
+      }
       const doneCnt = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
       aCase.stepsDone = doneCnt;
       aCase.status = {
@@ -5272,13 +5314,28 @@ document.addEventListener("click", (event)=>{
 
   const giRerunStep = event.target.closest("[data-gi-rerun-step]");
   if(giRerunStep){
-    const [caseId, stepId] = giRerunStep.dataset.giRerunStep.split(":");
+    const val = giRerunStep.dataset.giRerunStep;
+    const colonIdx = val.indexOf(":");
+    const caseId = val.slice(0, colonIdx);
+    const stepId = val.slice(colonIdx + 1);
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
       if(!aCase.stepStates) aCase.stepStates = {};
-      delete aCase.stepStates[stepId];
       const steps = aCase.giSteps || [];
+      if(stepId === "clear"){
+        /* 모든 단계 초기화 */
+        aCase.stepStates = {};
+      } else {
+        delete aCase.stepStates[stepId];
+      }
       aCase.stepsDone = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
+      aCase.status = {
+        ...aCase.status,
+        done: aCase.stepsDone, total: steps.length,
+        pct: steps.length ? Math.round(aCase.stepsDone / steps.length * 100) : 0,
+        label: aCase.stepsDone > 0 ? "진행중" : "대기",
+        tone:  aCase.stepsDone > 0 ? "run"    : "wait",
+      };
     }
     render("generalinv");
     return;

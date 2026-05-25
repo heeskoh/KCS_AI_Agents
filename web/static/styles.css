@@ -483,6 +483,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-scenario-info.gi-t7{background:#f1f5f9;color:#475569}
 /* ── gi-hub full height for workbench tab ── */
 .gi-hub.gi-hub-full .gi-tab-body{overflow:hidden;display:flex;flex-direction:column}
+.gi-hub.gi-hub-full .gi-tab-body>.scenario-workbench-v2{flex:1;min-height:0}
 /* ── stub panels ── */
 .gi-stub-panel{display:flex;flex-direction:column;gap:14px}
 .gi-stub-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -537,6 +538,28 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-wb2-result-done strong{display:block;font-size:13px;font-weight:900}
 .gi-wb2-result-empty{display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.6}
 .gi-wb2-config-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:100%;text-align:center;color:var(--muted)}
+/* ── GI 워크벤치 v2 (3패널 캔버스형) */
+.gi-chip-state{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;flex-shrink:0}
+.gi-chip-state.done{background:#dcfce7;color:#15803d}
+.gi-chip-state.run{background:#dbeafe;color:#1d4ed8}
+.gi-chip-state.wait{background:#f1f5f9;color:#64748b}
+.gi-move-btn{width:22px;height:22px;border:1px solid var(--line);background:#f8fafc;border-radius:6px;cursor:pointer;font-size:11px;color:#64748b;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0}
+.gi-move-btn:hover{background:#e2e8f0;color:#1e293b}
+.gi-chip-done{opacity:.75}
+.gi-log-list{display:flex;flex-direction:column;gap:0}
+.gi-log-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #f1f5f9;transition:background .1s}
+.gi-log-row:last-child{border-bottom:none}
+.gi-log-row:hover{background:#f8faff}
+.gi-log-row.gi-log-done{background:#f0fdf4}
+.gi-log-row.gi-log-run{background:#eff6ff}
+.gi-log-num{width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gi-log-done .gi-log-num{background:#bbf7d0;color:#15803d}
+.gi-log-run .gi-log-num{background:#bfdbfe;color:#1d4ed8}
+.gi-log-name{flex:1;font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi-log-state{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.gi-log-act-btn{width:26px;height:26px;border:none;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;background:#e2e8f0;color:#475569}
+.gi-log-act-btn.primary{background:#2563eb;color:#fff}
+.gi-log-act-btn:hover{filter:brightness(.93)}
 /* 기존 단순 워크벤치 유지 (공통) */
 .gi-wb-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gi-wb-title strong{font-size:17px;font-weight:900;color:#123c85}
