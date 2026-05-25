@@ -430,7 +430,13 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .ci-card-name{display:block;font-size:17px;font-weight:900;line-height:1.25}
 .ci-card-id{font-size:11px}
 .ci-card-industry{font-size:12px;display:block;margin-bottom:10px}
-.ci-badge-sm{flex:none;font-size:11px;padding:3px 8px}
+.ci-card-select-btn{flex:none;height:28px;padding:0 12px;font-size:12px;font-weight:800;white-space:nowrap;border-radius:8px;color:#fff!important}
+.ci-card-select-btn.danger{background:var(--red)!important;border-color:var(--red)!important}
+.ci-card-select-btn.danger:hover{background:#c0373b!important;border-color:#c0373b!important}
+.ci-card-select-btn.warn{background:#15803d!important;border-color:#15803d!important}
+.ci-card-select-btn.warn:hover{background:#166534!important;border-color:#166534!important}
+.ci-card-select-btn.safe{background:#1d4ed8!important;border-color:#1d4ed8!important}
+.ci-card-select-btn.safe:hover{background:#1e40af!important;border-color:#1e40af!important}
 /* ─────────────────────────────────────────────────────────── */
 .canvas-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 14px}
 .canvas-hub.result-full-active{height:auto;min-height:calc(100vh - 146px);overflow:visible}

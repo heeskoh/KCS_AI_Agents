@@ -3433,7 +3433,6 @@ function sharedRiskCard(c){
   const score = c.risk_score || 0;
   const level = c.risk_level || "LOW";
   const cls   = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warn" : "safe";
-  const badge = level === "HIGH" ? "조사검토필요" : level === "MEDIUM" ? "경계필요" : "양호";
   const tags  = companyRiskTags(c);
   const visibleTags = tags.slice(0,2).map(t => `<span class="risk-tag">${escapeHtml(t)}</span>`).join("");
   const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개</span>` : "";
@@ -3446,7 +3445,7 @@ function sharedRiskCard(c){
           <strong class="ci-card-name">${escapeHtml(c.company_name || c.company_id)}</strong>
           <span class="muted ci-card-id">${cardId}</span>
         </div>
-        <span class="risk-card-badge ${cls} ci-badge-sm">${badge}</span>
+        <button class="btn ci-card-select-btn ${cls}" data-investigation-select="${escapeHtml(c.company_id)}">조사대상 선정</button>
       </div>
       <span class="muted ci-card-industry">${escapeHtml(industryLabel(c.industry_code))}</span>
       <div class="risk-card-scores">
