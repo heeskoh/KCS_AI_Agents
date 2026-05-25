@@ -792,7 +792,9 @@ let templateEditorSelectedId = null;
 let templateEditorInitialized = false;
 let templateDraftName = "";
 let canvasTab = "overview";
-let investigationTab = "dashboard";
+let investigationTab   = "ongoing";
+let showInvNewJobForm  = false;
+let invArchiveOpen     = false;
 
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
 let generalInvTab        = "cases";   // "cases" | "scenario" | 유형별 추가 탭
@@ -2238,13 +2240,14 @@ function investigationPage(){
       </div>
       <div class="ci-tab-nav">
         <div class="ci-tabs-left">
-          <button class="ci-tab${tab==="dashboard"?" active":""}" data-investigation-tab="dashboard">기업 위험도 대시보드</button>
+          <button class="ci-tab${tab==="ongoing"?" active":""}" data-investigation-tab="ongoing">진행중인 관세조사</button>
           <button class="ci-tab${tab==="profile"?" active":""}" data-investigation-tab="profile">기업프로파일</button>
           <button class="ci-tab${tab==="data"?" active":""}" data-investigation-tab="data">기초자료 수집/등록</button>
           <button class="ci-tab${tab==="scenario"?" active":""}" data-investigation-tab="scenario">분석 시나리오 설정 및 수행</button>
           <button class="ci-tab${tab==="report"?" active":""}" data-investigation-tab="report">분석 보고서 및 검증</button>
         </div>
         <div class="ci-tabs-right">
+          <button class="ci-tab${tab==="dashboard"?" active":""}" data-investigation-tab="dashboard">기업 위험도 대시보드</button>
           <button class="ci-tab ci-tab-template${tab==="templates"?" active":""}" data-investigation-tab="templates">분석 시나리오 템플릿</button>
         </div>
       </div>
@@ -2256,6 +2259,7 @@ function investigationPage(){
 }
 
 function investigationTabContent(){
+  if(investigationTab === "ongoing")   return investigationOngoingPanel();
   if(investigationTab === "profile")   return canvasProfilePanel();
   if(investigationTab === "data")      return canvasDataPanel();
   if(investigationTab === "scenario")  return scenarioWorkbenchV2();
@@ -2264,6 +2268,125 @@ function investigationTabContent(){
   return investigationDashboardPanel();
 }
 
+function investigationOngoingPanel(){
+  const jobs     = visibleCanvasJobs().filter(j => canvasJobCategory(j) === "관세조사 분석");
+  const archived = archivedCanvasJobs().filter(j => canvasJobCategory(j) === "관세조사 분석");
+  return `
+    <div class="ci-ongoing">
+      <div class="ci-ongoing-toolbar">
+        <div>
+          <strong>진행중인 관세조사</strong>
+          <p class="muted">관세조사 분석 카테고리로 등록된 분석 작업 현황입니다.</p>
+        </div>
+        <button class="btn" data-inv-new-job type="button">
+          ${showInvNewJobForm ? "✕ 취소" : "+ 신규 조사 등록"}
+        </button>
+      </div>
+
+      ${showInvNewJobForm ? invNewJobForm() : ""}
+
+      <div class="job-board">
+        ${jobs.map(job => ciOngoingJobCard(job)).join("") ||
+          `<div class="empty-state">진행 중인 관세조사 분석이 없습니다.<br><span class="muted">신규 조사 등록 버튼으로 분석 작업을 추가하세요.</span></div>`}
+      </div>
+
+      <div class="overview-archive-section">
+        <button class="overview-archive-toggle" data-inv-toggle-archive>
+          완료건 확인 <strong>(${archived.length}건)</strong>
+          <span>${invArchiveOpen ? "▲" : "▼"}</span>
+        </button>
+        ${invArchiveOpen ? `
+          <div class="job-board archive-board" style="margin-top:12px">
+            ${archived.map(job => {
+              const archive = currentRunArchive(job.companyId);
+              return `
+                <article class="job-card archive-card" data-inv-company="${escapeHtml(job.companyId)}" data-inv-tab="report" tabindex="0" role="button">
+                  <div class="job-card-head">
+                    <div>
+                      <h3>${job.title}</h3>
+                      <p class="muted">${job.company} · ${archive?.savedAt || job.updated}</p>
+                    </div>
+                    <div class="job-status-row">
+                      <span class="job-status done">아카이브</span>
+                      <button class="btn-inline-action" data-inv-restore-job="${escapeHtml(job.companyId)}">복원</button>
+                    </div>
+                  </div>
+                  <div class="archive-summary">
+                    <span>저장 로그 ${archive ? Object.keys(archive.stepOutputs||{}).length : 0}건</span>
+                    <strong>${job.status?.pct||100}%</strong>
+                  </div>
+                </article>`;
+            }).join("") || `<div class="empty-state">완료된 조사 결과가 없습니다.</div>`}
+          </div>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function ciOngoingJobCard(job){
+  const isDone = isCompletedActiveJob(job);
+  const total  = job.status.total ?? "?";
+  const done   = job.status.done  ?? 0;
+  return `
+    <article class="job-card${job.companyId === activeCanvasCompanyId ? " active" : ""}${job.isNew ? " new" : ""}${job.scenarioChanged ? " changed" : ""}"
+      data-inv-company="${escapeHtml(job.companyId)}" data-inv-tab="profile" tabindex="0" role="button">
+      <div class="job-card-head">
+        <div>
+          <span class="canvas-category-chip">관세조사 분석</span>
+          <h3>${escapeHtml(job.title)}</h3>
+          <p class="muted">${escapeHtml(job.company)} · ${escapeHtml(job.owner)} · ${escapeHtml(job.updated)}</p>
+        </div>
+        <div class="job-status-row">
+          <span class="job-status ${job.status.tone}">${job.status.label}</span>
+          ${isDone ? `<button class="btn-inline-action" data-inv-archive-job="${escapeHtml(job.companyId)}">아카이브</button>` : ""}
+          <button class="btn-inline-action job-remove-action" data-inv-remove-job="${escapeHtml(job.companyId)}">삭제</button>
+        </div>
+      </div>
+      ${job.scenarioChanged ? `<div class="job-change-note">시나리오가 변경되어 재실행이 필요합니다.</div>` : ""}
+      <div class="job-progress"><i style="width:${job.status.pct}%"></i></div>
+      <div class="job-meta">
+        <span>${done}/${total} 단계</span>
+        <strong>${job.status.pct}%</strong>
+      </div>
+      <button class="btn secondary ci-job-enter-btn">
+        프로파일 보기 →
+      </button>
+    </article>
+  `;
+}
+
+
+function invNewJobForm(){
+  if(!scenarioCompanies.length) loadScenarioCompanies();
+  const companies = scenarioCompanies;
+  return `
+    <div class="gi-reg-form">
+      <h3 class="gi-reg-title">신규 관세조사 등록</h3>
+      <div class="gi-reg-grid">
+        <div class="gi-reg-field">
+          <label>조사 대상 업체 <span style="color:var(--red)">*</span></label>
+          <select id="invNewJobCompany" class="gi-reg-select">
+            <option value="">-- 업체를 선택하세요 --</option>
+            ${companies.map(c =>
+              `<option value="${escapeHtml(c.company_id)}">${escapeHtml(c.company_name||c.company_id)} (${escapeHtml(c.company_id)})</option>`
+            ).join("")}
+          </select>
+        </div>
+        <div class="gi-reg-field">
+          <label>분析 시나리오 템플릿 <span style="color:var(--red)">*</span></label>
+          <select id="invNewJobTemplate" class="gi-reg-select">
+            ${scenarioTemplateOptionsHtml()}
+          </select>
+        </div>
+      </div>
+      <div class="gi-reg-actions">
+        <button class="btn" type="button" data-inv-submit>기업프로파일로 시작 →</button>
+        <button class="btn secondary" type="button" data-inv-new-job>취소</button>
+      </div>
+    </div>
+  `;
+}
 function investigationDashboardPanel(){
   const companies = scenarioCompanies;
   if(!companies.length){
@@ -4319,6 +4442,7 @@ function render(page="home"){
   }
   if(page === "investigation"){
     if(!scenarioCompanies.length) loadScenarioCompanies();
+    if(investigationTab === "ongoing" && showScenarioCompanyPicker) loadScenarioCompanies();
     if(investigationTab === "dashboard") initRiskDashboard();
     if(investigationTab === "profile")   loadCompanyDetail(activeCanvasCompanyId);
     if(investigationTab === "scenario"){
@@ -4609,6 +4733,99 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  /* ── 진행중인 관세조사 핸들러 ── */
+  const invNewJobBtn = event.target.closest("[data-inv-new-job]");
+  if(invNewJobBtn){
+    showInvNewJobForm = !showInvNewJobForm;
+    if(showInvNewJobForm && !scenarioCompanies.length) loadScenarioCompanies();
+    render("investigation");
+    return;
+  }
+
+  const invSubmitBtn = event.target.closest("[data-inv-submit]");
+  if(invSubmitBtn){
+    const companyId = document.getElementById("invNewJobCompany")?.value;
+    const templateId = document.getElementById("invNewJobTemplate")?.value;
+    if(!companyId){ alert("조사 대상 업체를 선택하세요."); return; }
+    const company = findCompanyById(companyId) || { company_id:companyId, company_name:companyId };
+    createCanvasJob(company);
+    activeCanvasCompanyId = companyId;
+    if(templateId){
+      const tpl = scenarioTemplateById(templateId);
+      if(tpl){
+        scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
+        scenarioInitialized = true;
+        scenarioLoadedForCompany = companyId;
+        selectedScenarioId = scenarioItems[0]?.id || null;
+      }
+    }
+    loadCompanyRunArchive(companyId);
+    showInvNewJobForm = false;
+    investigationTab = "profile";
+    saveCanvasState();
+    render("investigation");
+    return;
+  }
+
+  const invToggleArchive = event.target.closest("[data-inv-toggle-archive]");
+  if(invToggleArchive){
+    invArchiveOpen = !invArchiveOpen;
+    render("investigation");
+    return;
+  }
+
+  const invArchiveJobBtn = event.target.closest("[data-inv-archive-job]");
+  if(invArchiveJobBtn){
+    const companyId = invArchiveJobBtn.dataset.invArchiveJob;
+    patchCanvasJob(companyId, { archived: true, archivedAt: new Date().toLocaleString("ko-KR") });
+    invArchiveOpen = true;
+    render("investigation");
+    return;
+  }
+
+  const invRestoreJobBtn = event.target.closest("[data-inv-restore-job]");
+  if(invRestoreJobBtn){
+    const companyId = invRestoreJobBtn.dataset.invRestoreJob;
+    const restoredArchive = canvasRunArchives[companyId];
+    const restoredTotal = restoredArchive?.scenarioItems?.length || 7;
+    patchCanvasJob(companyId, {
+      archived:false,
+      scenarioChanged:false,
+      status:{ label:"대기", tone:"wait", pct:0, done:0, total:restoredTotal },
+      tab:"profile",
+      updated:"방금",
+    });
+    activeCanvasCompanyId = companyId;
+    invArchiveOpen = false;
+    investigationTab = "ongoing";
+    render("investigation");
+    return;
+  }
+
+  const invRemoveJobBtn = event.target.closest("[data-inv-remove-job]");
+  if(invRemoveJobBtn){
+    const companyId = invRemoveJobBtn.dataset.invRemoveJob;
+    const job = canvasJobs().find(item => item.companyId === companyId);
+    const name = job?.companyName || job?.company || companyId;
+    if(!confirm(`${name} 진행작업을 내 목록에서 삭제하시겠습니까?`)) return;
+    removeCanvasJobForCurrentUser(companyId);
+    render("investigation");
+    return;
+  }
+
+  const invCompanyCard = event.target.closest("[data-inv-company]");
+  if(invCompanyCard && !event.target.closest("[data-inv-archive-job],[data-inv-restore-job],[data-inv-remove-job]")){
+    const companyId = invCompanyCard.dataset.invCompany;
+    const targetTab = invCompanyCard.dataset.invTab || "profile";
+    activeCanvasCompanyId = companyId;
+    investigationTab = targetTab;
+    scenarioInitialized = false;
+    scenarioLoadedForCompany = null;
+    loadCompanyRunArchive(companyId);
+    saveCanvasState();
+    render("investigation");
+    return;
+  }
   const companyTarget = event.target.closest("[data-canvas-company]");
   if(companyTarget){
     activeCanvasCompanyId = companyTarget.dataset.canvasCompany;
@@ -4698,6 +4915,15 @@ document.addEventListener("click", (event)=>{
 
   const investigationTabButton = event.target.closest("[data-investigation-tab]");
   if(investigationTabButton){
+    const companyId = investigationTabButton.dataset.canvasCompany;
+    if(companyId){
+      activeCanvasCompanyId = companyId;
+      scenarioInitialized = false;
+      scenarioLoadedForCompany = null;
+      loadCompanyRunArchive(companyId);
+      showScenarioCompanyPicker = false;
+      saveCanvasState();
+    }
     investigationTab = investigationTabButton.dataset.investigationTab;
     render("investigation");
     return;
