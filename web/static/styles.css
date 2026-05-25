@@ -560,6 +560,16 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-log-act-btn{width:26px;height:26px;border:none;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;background:#e2e8f0;color:#475569}
 .gi-log-act-btn.primary{background:#2563eb;color:#fff}
 .gi-log-act-btn:hover{filter:brightness(.93)}
+.gi-log-act-btn:disabled{opacity:.4;cursor:not-allowed}
+.gi-log-error{background:#fff5f5}
+.gi-log-error .gi-log-num{background:#fecaca;color:#dc2626}
+.gi-log-result{padding:10px 12px 12px 44px;font-size:12px;line-height:1.7;color:#334155;border-bottom:1px solid #f1f5f9;background:#f8faff}
+.gi-log-result p{margin:4px 0}
+.gi-log-result ul,.gi-log-result ol{margin:4px 0;padding-left:18px}
+.gi-log-result h1,.gi-log-result h2,.gi-log-result h3,.gi-log-result h4{font-size:13px;font-weight:900;margin:8px 0 4px;color:#1e3a5f}
+.gi-log-result strong{font-weight:800}
+.gi-log-result code{background:#e2e8f0;border-radius:4px;padding:0 4px;font-size:11px}
+@keyframes gi-blink{0%,100%{opacity:1}50%{opacity:.35}}
 /* 기존 단순 워크벤치 유지 (공통) */
 .gi-wb-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gi-wb-title strong{font-size:17px;font-weight:900;color:#123c85}

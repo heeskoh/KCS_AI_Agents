@@ -815,6 +815,7 @@ const GEN_INV_TYPES = [
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
 let activeGiStepId = null;  // 워크벤치 선택 단계 ID
+let giRunEventSource = null; // 일반수사 분析 실행 SSE 연결
 
 const GI_STEP_SOURCES = [
   {key:"gi_cdw",      label:"CDW 조회",            type:"db"     },
@@ -840,10 +841,14 @@ function activeGiCaseSteps(){
   if(!aCase) return [];
   if(!aCase.giSteps){
     const defaults = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
-    aCase.giSteps = defaults.map((s, i) => ({...s, id:`gis_${i}_${uid()}`}));
-    aCase.stepStates = {};
-    aCase.stepsDone  = 0;
+    aCase.giSteps    = defaults.map((s, i) => ({...s, id:`gis_${i}_${uid()}`}));
+    aCase.stepStates  = {};
+    aCase.stepResults = {};   // 단계별 실행 결과 텍스트
+    aCase.stepExpanded= {};   // 결과 펼침 상태
+    aCase.stepsDone   = 0;
   }
+  if(!aCase.stepResults)  aCase.stepResults  = {};
+  if(!aCase.stepExpanded) aCase.stepExpanded = {};
   return aCase.giSteps;
 }
 
@@ -851,7 +856,79 @@ function activeGiStep(){
   return activeGiCaseSteps().find(s => s.id === activeGiStepId) || null;
 }
 
-/* ── 수사 유형별 분析 시나리오 단계 ──────────────────────── */
+/* ── 일반수사 분析 SSE 실행 ──────────────────────────────── */
+function giStreamSteps(aCase, stepsToRun){
+  if(!aCase || !stepsToRun.length) return;
+
+  /* 기존 연결 종료 */
+  if(giRunEventSource){ try{ giRunEventSource.close(); }catch(e){} giRunEventSource = null; }
+
+  /* 실행 대상 단계를 "실행중" 상태로 즉시 표시 */
+  if(!aCase.stepStates)  aCase.stepStates  = {};
+  if(!aCase.stepResults) aCase.stepResults = {};
+  stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
+  render("generalinv");
+
+  /* URL 파라미터 구성 */
+  const stepsPayload = stepsToRun.map(s => ({
+    id: s.id, key: s.key, label: s.label, type: s.type, note: s.note || ""
+  }));
+  const params = new URLSearchParams({
+    case_id:     aCase.caseId,
+    target_name: aCase.targetName,
+    steps:       JSON.stringify(stepsPayload),
+  });
+  const url = `/api/gi_run?${params.toString()}`;
+  giRunEventSource = new EventSource(url);
+
+  /* SSE 이벤트 처리 */
+  giRunEventSource.addEventListener("step", e => {
+    const data = JSON.parse(e.data);
+    const giStepId = data.gi_step_id;
+    const step = stepsToRun.find(s => s.id === giStepId);
+    if(!step) return;
+
+    if(data.status === "running"){
+      aCase.stepStates[step.id] = "run";
+    } else if(data.status === "done"){
+      aCase.stepStates[step.id]  = "done";
+      aCase.stepResults[step.id] = data.output || "";
+      /* 케이스 진행률 업데이트 */
+      const allSteps = aCase.giSteps || [];
+      const doneCnt  = allSteps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
+      aCase.stepsDone = doneCnt;
+      aCase.status = {
+        ...aCase.status,
+        done: doneCnt, total: allSteps.length,
+        pct:  allSteps.length ? Math.round(doneCnt / allSteps.length * 100) : 0,
+        label: doneCnt === allSteps.length ? "완료" : "진행중",
+        tone:  doneCnt === allSteps.length ? "done"  : "run",
+      };
+    } else if(data.status === "error"){
+      aCase.stepStates[step.id]  = "error";
+      aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
+    }
+    render("generalinv");
+  });
+
+  giRunEventSource.addEventListener("workflow", e => {
+    const data = JSON.parse(e.data);
+    if(data.status === "completed" || data.status === "failed"){
+      if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+      render("generalinv");
+    }
+  });
+
+  giRunEventSource.onerror = () => {
+    if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+    stepsToRun.forEach(s => {
+      if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
+    });
+    render("generalinv");
+  };
+}
+
+/* ── 수사 유형별 分析 시나리오 단계 ──────────────────────── */
 const GI_SCENARIO_STEPS = {
   t1:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
@@ -2496,23 +2573,41 @@ function generalInvWorkbenchPanel(){
   `;
 
   /* ── 오른쪽: 실행 로그 (각 단계 상태 행) */
+  const stepResults  = aCase.stepResults  || {};
+  const stepExpanded = aCase.stepExpanded || {};
+  const isGiRunning  = !!giRunEventSource;
+
   const logRows = steps.map((step, i) => {
-    const state = states[step.id] || "wait";
-    const isDone = state === "done";
-    const isRun  = state === "run";
+    const state      = states[step.id] || "wait";
+    const isDone     = state === "done";
+    const isRun      = state === "run";
+    const isError    = state === "error";
+    const hasResult  = !!(stepResults[step.id]);
+    const isExpanded = !!stepExpanded[step.id];
+
+    const stateCell = isDone
+      ? `<span class="gi-chip-state done">완료</span>
+         ${hasResult ? `<button class="gi-log-act-btn" data-gi-toggle-result="${escapeHtml(step.id)}" title="${isExpanded?"접기":"결과 보기"}">${isExpanded ? "▲" : "▼"}</button>` : ""}
+         <button class="gi-log-act-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="재실행">↺</button>`
+      : isError
+        ? `<span class="gi-chip-state" style="background:#fee2e2;color:#dc2626">오류</span>
+           ${hasResult ? `<button class="gi-log-act-btn" data-gi-toggle-result="${escapeHtml(step.id)}" title="${isExpanded?"접기":"오류보기"}">${isExpanded ? "▲" : "▼"}</button>` : ""}
+           <button class="gi-log-act-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="재실행">↺</button>`
+        : isRun
+          ? `<span class="gi-chip-state run" style="animation:gi-blink 1.2s infinite">실행중...</span>`
+          : `<button class="gi-log-act-btn primary" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="실행" ${isGiRunning?"disabled":""}>▶</button>`;
+
+    const resultSection = (isDone || isError) && hasResult && isExpanded
+      ? `<div class="gi-log-result">${markdownToHtml(stepResults[step.id])}</div>`
+      : "";
+
     return `
-      <div class="gi-log-row${isDone ? " gi-log-done" : isRun ? " gi-log-run" : ""}">
-        <div class="gi-log-num">${isDone ? "✓" : i+1}</div>
+      <div class="gi-log-row${isDone ? " gi-log-done" : isRun ? " gi-log-run" : isError ? " gi-log-error" : ""}">
+        <div class="gi-log-num">${isDone ? "✓" : isError ? "!" : i+1}</div>
         <div class="gi-log-name">${escapeHtml(step.label)}</div>
-        <div class="gi-log-state">
-          ${isDone
-            ? `<span class="gi-chip-state done">완료</span>
-               <button class="gi-log-act-btn" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="재실행">↺</button>`
-            : isRun
-              ? `<span class="gi-chip-state run">실행중</span>`
-              : `<button class="gi-log-act-btn primary" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="실행">▶</button>`}
-        </div>
-      </div>`;
+        <div class="gi-log-state">${stateCell}</div>
+      </div>
+      ${resultSection}`;
   }).join("");
 
   return `
@@ -2555,9 +2650,11 @@ function generalInvWorkbenchPanel(){
         <!-- 오른쪽: 실행 로그 -->
         <section class="scenario-log" style="display:flex;flex-direction:column">
           <div class="scenario-log-head">
-            <h3>분析 실행</h3>
+            <h3>분析 실행${isGiRunning ? ' <span class="gi-chip-state run" style="font-size:11px;animation:gi-blink 1.2s infinite">실행중</span>' : ""}</h3>
             <div class="scenario-log-actions">
-              <button class="btn" type="button" data-gi-run-step="${escapeHtml(aCase.caseId)}:all">분析 실행</button>
+              <button class="btn" type="button" data-gi-run-step="${escapeHtml(aCase.caseId)}:all" ${isGiRunning?"disabled":""}>
+                ${isGiRunning ? "⏳ 실행중..." : "분析 실행"}
+              </button>
               <button class="btn secondary" type="button" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
             </div>
           </div>
@@ -5290,25 +5387,17 @@ document.addEventListener("click", (event)=>{
     const stepId = val.slice(colonIdx + 1);
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
-      if(!aCase.stepStates) aCase.stepStates = {};
-      const steps = aCase.giSteps || [];
+      const steps = activeGenInvCaseId === caseId ? activeGiCaseSteps() : (aCase.giSteps || []);
       if(stepId === "all"){
-        /* 모든 단계 실행 */
-        steps.forEach(s => { aCase.stepStates[s.id] = "done"; });
+        /* 완료되지 않은 전체 단계를 SSE로 실행 */
+        const toRun = steps.filter(s => (aCase.stepStates||{})[s.id] !== "done");
+        giStreamSteps(aCase, toRun.length ? toRun : steps);
       } else {
-        aCase.stepStates[stepId] = "done";
+        /* 개별 단계 실행 */
+        const step = steps.find(s => s.id === stepId);
+        if(step) giStreamSteps(aCase, [step]);
       }
-      const doneCnt = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
-      aCase.stepsDone = doneCnt;
-      aCase.status = {
-        ...aCase.status,
-        done: doneCnt, total: steps.length,
-        pct: steps.length ? Math.round(doneCnt / steps.length * 100) : 0,
-        label: doneCnt === steps.length ? "완료" : "진행중",
-        tone:  doneCnt === steps.length ? "done"  : "run",
-      };
     }
-    render("generalinv");
     return;
   }
 
@@ -5320,24 +5409,39 @@ document.addEventListener("click", (event)=>{
     const stepId = val.slice(colonIdx + 1);
     const aCase = allGenInvCases().find(c => c.caseId === caseId);
     if(aCase){
-      if(!aCase.stepStates) aCase.stepStates = {};
-      const steps = aCase.giSteps || [];
+      if(!aCase.stepStates)  aCase.stepStates  = {};
+      if(!aCase.stepResults) aCase.stepResults = {};
+      const steps = activeGenInvCaseId === caseId ? activeGiCaseSteps() : (aCase.giSteps || []);
       if(stepId === "clear"){
-        /* 모든 단계 초기화 */
-        aCase.stepStates = {};
+        /* 전체 초기화 (재실행 없이 상태만 지움) */
+        if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+        aCase.stepStates  = {};
+        aCase.stepResults = {};
+        aCase.stepExpanded = {};
+        aCase.stepsDone = 0;
+        aCase.status = { ...aCase.status, done:0, pct:0, label:"대기", tone:"wait" };
+        render("generalinv");
       } else {
+        /* 개별 단계 재실행: 상태 초기화 후 SSE 실행 */
         delete aCase.stepStates[stepId];
+        delete aCase.stepResults[stepId];
+        const step = steps.find(s => s.id === stepId);
+        if(step) giStreamSteps(aCase, [step]);
       }
-      aCase.stepsDone = steps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
-      aCase.status = {
-        ...aCase.status,
-        done: aCase.stepsDone, total: steps.length,
-        pct: steps.length ? Math.round(aCase.stepsDone / steps.length * 100) : 0,
-        label: aCase.stepsDone > 0 ? "진행중" : "대기",
-        tone:  aCase.stepsDone > 0 ? "run"    : "wait",
-      };
     }
-    render("generalinv");
+    return;
+  }
+
+  /* 결과 펼침/접기 */
+  const giToggleResult = event.target.closest("[data-gi-toggle-result]");
+  if(giToggleResult){
+    const stepId = giToggleResult.dataset.giToggleResult;
+    const aCase  = activeGenInvCase();
+    if(aCase){
+      if(!aCase.stepExpanded) aCase.stepExpanded = {};
+      aCase.stepExpanded[stepId] = !aCase.stepExpanded[stepId];
+      render("generalinv");
+    }
     return;
   }
 

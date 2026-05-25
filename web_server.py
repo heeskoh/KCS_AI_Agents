@@ -915,6 +915,59 @@ def create_initial_state(company_id: str) -> dict[str, str | None]:
     }
 
 
+# ── 일반수사 분析 시나리오 에이전트 매핑 ─────────────────────────────────────────
+
+_GI_STEP_TYPE_MAP: dict[str, str] = {
+    "gi_cdw":    "db",
+    "gi_imp":    "declaration_verify",  "gi_imp1": "declaration_verify",  "gi_imp2": "declaration_verify",
+    "gi_val":    "customs_value",       "gi_val1": "customs_value",       "gi_val2": "customs_value",
+    "gi_hs":     "hs_verify",           "gi_hs1":  "hs_verify",           "gi_hs2":  "hs_verify",
+    "gi_route":  "route_analysis",
+    "gi_net":    "network",
+    "gi_profit": "proceeds_tracking",
+    "gi_origin": "origin_analysis",
+    "gi_anomaly":"abnormal_trade",
+    "gi_patent": "patent",
+    "gi_rag_rev":"rag_audit",
+    "gi_rag_inv":"rag_investigation",
+    "gi_rag_int":"rag_global",
+    "gi_law":    "law",
+    "gi_rep":    "report",
+    "gi_appr":   "validation",
+}
+
+_GI_COMPANY_NAME_MAP: dict[str, str] = {
+    "한국소재무역": "C-1001",
+    "서울인터내셔널": "C-1002",
+    "제주리테일": "C-1008",
+    "대한전자": "C-1004",
+    "대전바이오": "C-1007",
+}
+
+
+def _gi_key_to_agent_type(key: str) -> str:
+    """gi_cdw, gi_val1 … 같은 GI 단계 키를 workflow agent type으로 변환한다."""
+    if key in _GI_STEP_TYPE_MAP:
+        return _GI_STEP_TYPE_MAP[key]
+    # gi_val3, gi_imp3 등 숫자 접미사 변형 처리
+    for prefix, atype in _GI_STEP_TYPE_MAP.items():
+        if key.startswith(prefix) and (len(key) == len(prefix) or key[len(prefix):].isdigit()):
+            return atype
+    return key
+
+
+def _detect_gi_company_id(target_name: str) -> str:
+    """GI 케이스 대상명에서 DuckDB company_id를 추출하려 시도한다."""
+    for name, cid in _GI_COMPANY_NAME_MAP.items():
+        if name in (target_name or ""):
+            return cid
+    import re
+    m = re.search(r"C-\d{4}", target_name or "")
+    if m:
+        return m.group(0)
+    return "__NO_COMPANY_SELECTED__"
+
+
 class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -946,6 +999,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 scenario = {}
             self._stream_workflow(company_id, scenario)
+            return
+
+        if parsed.path == "/api/gi_run":
+            self._stream_gi_run(parse_qs(parsed.query))
             return
 
         self.send_error(HTTPStatus.NOT_FOUND)
@@ -1105,6 +1162,86 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
 
         self._sse("workflow", {"status": "completed", "state": state})
+
+    def _stream_gi_run(self, params: dict) -> None:
+        """일반수사 분析 시나리오 단계를 순차 실행하고 SSE로 스트리밍한다."""
+        case_id     = (params.get("case_id")     or [""])[0]
+        target_name = (params.get("target_name") or [""])[0]
+        try:
+            steps_data: list[dict] = json.loads((params.get("steps") or ["[]"])[0])
+        except Exception:
+            steps_data = []
+
+        if not steps_data:
+            self._send_json({"error": "steps required"}, HTTPStatus.BAD_REQUEST)
+            return
+
+        company_id  = _detect_gi_company_id(target_name)
+        user_prompt = (
+            f"수사 대상: {target_name} (사건번호: {case_id})\n"
+            f"일반수사 분析을 수행합니다. 관세청 조사관의 관점에서 분析하세요."
+        )
+
+        from src.workflows import _step_from_item, create_initial_state
+
+        gi_steps: list[tuple] = []
+        for i, step in enumerate(steps_data, 1):
+            gi_key  = (step.get("key") or "").strip()
+            label   = step.get("label") or gi_key
+            gi_id   = step.get("id")   or gi_key
+            note    = step.get("note") or ""
+            atype   = _gi_key_to_agent_type(gi_key)
+            item    = {"type": atype, "key": gi_key, "label": label, "order": i}
+            mapped  = _step_from_item(item, i)
+            if mapped:
+                agent_key, agent_label, runner, result_key = mapped
+                gi_steps.append((agent_key, label, runner, result_key, gi_id, note))
+
+        if not gi_steps:
+            self._send_json({"error": "no valid steps"}, HTTPStatus.BAD_REQUEST)
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+
+        scenario = {
+            "user_prompt": user_prompt,
+            "gi_case_id": case_id,
+            "gi_target_name": target_name,
+        }
+        state = create_initial_state(company_id, scenario)
+
+        self._sse("workflow", {"status": "started", "total_steps": len(gi_steps)})
+
+        for agent_key, label, runner, result_key, gi_step_id, note in gi_steps:
+            step_prompt = user_prompt + (f"\n중점 확인사항: {note}" if note else "")
+            step_state  = {**state, "scenario": {**scenario, "user_prompt": step_prompt}}
+            try:
+                self._sse("step", {
+                    "key": agent_key, "label": label,
+                    "gi_step_id": gi_step_id, "status": "running",
+                })
+                step_state = runner(step_state)
+                state = {**state, **{k: v for k, v in step_state.items() if k != "scenario"}}
+                self._sse("step", {
+                    "key": agent_key, "label": label,
+                    "gi_step_id": gi_step_id, "status": "done",
+                    "result_key": result_key,
+                    "output": step_state.get(result_key) or "",
+                })
+            except Exception as exc:
+                self._sse("step", {
+                    "key": agent_key, "label": label,
+                    "gi_step_id": gi_step_id, "status": "error",
+                    "error": str(exc),
+                })
+                self._sse("workflow", {"status": "failed"})
+                return
+
+        self._sse("workflow", {"status": "completed"})
 
     def _shutdown_server(self) -> None:
         shutdown_runtime_resources()
