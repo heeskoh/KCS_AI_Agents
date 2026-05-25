@@ -2151,7 +2151,7 @@ function generalInvRegForm(){
   return `
     <div class="gi-reg-form">
       <h3 class="gi-reg-title">수사 대상 등록</h3>
-      <div class="gi-reg-grid">
+      <div class="gi-reg-grid gi-reg-grid-3">
         <div class="gi-reg-field">
           <label>수사대상 명칭</label>
           <input id="giRegTarget" placeholder="업체명 또는 개인 성명">
@@ -2160,20 +2160,16 @@ function generalInvRegForm(){
           <label>사건번호 (자동생성 가능)</label>
           <input id="giRegCaseId" placeholder="예: GI-2026-004">
         </div>
-        <div class="gi-reg-field gi-reg-full">
+        <div class="gi-reg-field">
           <label>일반수사 유형 선택 <span style="color:var(--red)">*</span></label>
-          <div class="gi-reg-type-grid">
-            ${GEN_INV_TYPES.map(t => `
-              <label class="gi-reg-type-item">
-                <input type="radio" name="giRegType" value="${t.id}">
-                <span class="gi-reg-type-label ${t.cls}">
-                  <strong>${t.num}</strong>
-                  <em>${escapeHtml(t.label)}</em>
-                </span>
-              </label>
-            `).join("")}
-          </div>
+          <select id="giRegTypeSelect" class="gi-reg-select">
+            ${GEN_INV_TYPES.map(t =>
+              `<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`
+            ).join("")}
+          </select>
         </div>
+      </div>
+      <div class="gi-reg-row2">
         <div class="gi-reg-field">
           <label>담당 수사관</label>
           <input id="giRegInvestigator" value="${escapeHtml(currentUser().name)}">
@@ -2182,10 +2178,10 @@ function generalInvRegForm(){
           <label>담당 팀</label>
           <input id="giRegTeam" value="${escapeHtml(currentUserGroup().org + " " + currentUserGroup().team)}">
         </div>
-      </div>
-      <div class="gi-reg-actions">
-        <button class="btn" type="button" data-gi-register>등록</button>
-        <button class="btn secondary" type="button" data-gi-reg-toggle>취소</button>
+        <div class="gi-reg-actions gi-reg-actions-row">
+          <button class="btn" type="button" data-gi-register>등록</button>
+          <button class="btn secondary" type="button" data-gi-reg-toggle>취소</button>
+        </div>
       </div>
     </div>
   `;
@@ -4850,11 +4846,10 @@ document.addEventListener("click", (event)=>{
     const targetName   = document.getElementById("giRegTarget")?.value.trim();
     const caseId       = document.getElementById("giRegCaseId")?.value.trim()
                          || `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
-    const invTypeId    = document.querySelector("input[name='giRegType']:checked")?.value;
+    const invTypeId    = document.getElementById("giRegTypeSelect")?.value || GEN_INV_TYPES[0].id;
     const investigator = document.getElementById("giRegInvestigator")?.value.trim() || currentUser().name;
     const team         = document.getElementById("giRegTeam")?.value.trim() || "";
     if(!targetName){ alert("수사대상 명칭을 입력하세요."); return; }
-    if(!invTypeId){  alert("일반수사 유형을 선택하세요.");  return; }
     customGenInvCases.unshift({
       caseId, targetName, invTypeId,
       status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
