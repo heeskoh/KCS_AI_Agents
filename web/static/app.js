@@ -1,6 +1,7 @@
 ﻿const pageNames = {
   home:"My AI 분석",
   canvas:"AI 작업 캔버스",
+  investigation:"관세조사분석",
   profile:"기업 위험도 대시보드",
   classification:"품목분류",
   lawsearch:"법령·판례",
@@ -78,7 +79,7 @@ const pages = {
         <h3>전문 업무 분석</h3>
         <div class="special-analysis-list">
           <button class="special-analysis-btn red" data-page="profile">기업 위험도 대시보드</button>
-          <button class="special-analysis-btn sky" data-page="classification">관세 조사 분석</button>
+          <button class="special-analysis-btn sky" data-page="investigation">관세 조사 분석</button>
           <button class="special-analysis-btn rose" data-page="document">일반 수사 분석</button>
           <button class="special-analysis-btn purple" data-page="lawsearch">마약 수사 분석</button>
           <button class="special-analysis-btn teal" data-page="dw">위험선별 분석</button>
@@ -94,6 +95,8 @@ const pages = {
   `,
 
   canvas: () => canvasPage(),
+
+  investigation: () => investigationPage(),
 
   profile: () => riskDashboard(),
 
@@ -786,6 +789,7 @@ let templateEditorSelectedId = null;
 let templateEditorInitialized = false;
 let templateDraftName = "";
 let canvasTab = "overview";
+let investigationTab = "dashboard";
 let activeCanvasCompanyId = "C-1001";
 let activeScenarioTemplateId = "customs-basic";
 let showScenarioCompanyPicker = false;
@@ -2009,6 +2013,194 @@ function syncSidebarCollapseIcons(){
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   관세조사 분석 페이지
+═══════════════════════════════════════════════════════════════ */
+
+function investigationPage(){
+  const tab = investigationTab;
+  const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
+  return `
+    <section class="card ci-hub${isFullHeight ? " ci-hub-full" : ""}">
+      <div class="ci-page-head">
+        <div>
+          <h2>관세조사 분석</h2>
+          <p class="muted">조사 우선순위가 높은 업체를 객관적 기준으로 선정하여 기초자료들을 등록하고, 표준 분석시나리오에 따라 분석을 수행합니다. 필요에 따라 분석 시나리오는 변경하여 맞춤형 시나리오를 구축할 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="ci-tab-nav">
+        <div class="ci-tabs-left">
+          <button class="ci-tab${tab==="dashboard"?" active":""}" data-investigation-tab="dashboard">기업 위험도 대시보드</button>
+          <button class="ci-tab${tab==="profile"?" active":""}" data-investigation-tab="profile">기업프로파일</button>
+          <button class="ci-tab${tab==="data"?" active":""}" data-investigation-tab="data">기초자료 수집/등록</button>
+          <button class="ci-tab${tab==="scenario"?" active":""}" data-investigation-tab="scenario">분석 시나리오 설정 및 수행</button>
+          <button class="ci-tab${tab==="report"?" active":""}" data-investigation-tab="report">분석 보고서 및 검증</button>
+        </div>
+        <div class="ci-tabs-right">
+          <button class="ci-tab ci-tab-template${tab==="templates"?" active":""}" data-investigation-tab="templates">분석 시나리오 템플릿</button>
+        </div>
+      </div>
+      <div class="ci-tab-body">
+        ${investigationTabContent()}
+      </div>
+    </section>
+  `;
+}
+
+function investigationTabContent(){
+  if(investigationTab === "profile")   return canvasProfilePanel();
+  if(investigationTab === "data")      return canvasDataPanel();
+  if(investigationTab === "scenario")  return scenarioWorkbenchV2();
+  if(investigationTab === "templates") return scenarioTemplatePanel();
+  if(investigationTab === "report")    return canvasReportPanel();
+  return investigationDashboardPanel();
+}
+
+function investigationDashboardPanel(){
+  const companies = scenarioCompanies;
+  if(!companies.length){
+    return `<div class="profile-loading">위험도 데이터 로딩 중...</div>`;
+  }
+
+  const total     = companies.length;
+  const needReview = companies.filter(c => c.risk_level === "HIGH").length;
+  const nearAudit  = companies.filter(c => (c.risk_score||0) >= 75).length;
+
+  const cnt = (field, thr) => companies.filter(c => (c[field]||0) > thr).length;
+  const alertCounts = {
+    underval: cnt("undervaluation_suspicion_rate", 50) * 3 + cnt("undervaluation_suspicion_rate", 30),
+    hs:       cnt("hs_classification_error_rate", 40) * 5 + cnt("hs_classification_error_rate", 20) * 2,
+    royalty:  cnt("related_party_anomaly_rate", 50) * 3 + cnt("related_party_anomaly_rate", 30),
+    forex:    cnt("offshore_fund_concealment_suspicion_rate", 50) * 2,
+    refund:   cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20),
+  };
+
+  const q    = riskDashboardFilter.query.toLowerCase();
+  const minS = riskDashboardFilter.minScore;
+  const filtered = companies.filter(c => {
+    if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
+    if(minS && (c.risk_score||0) < minS) return false;
+    return true;
+  });
+
+  return `
+    <div class="ci-dashboard">
+      <div class="ci-dw-bar">
+        <strong>DW 조회</strong>
+        <input id="ciDwQuery" class="ci-dw-input" placeholder="자연어로 DW 조건을 입력하세요 (예: 최근 1년 수입금액 10억 이상 · HS 8471 · 저가신고 의심업체)">
+        <button class="btn ci-dw-run" type="button" onclick="ciRunDwQuery()">조회 실행</button>
+      </div>
+      <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
+
+      <div class="ci-kpi-row">
+        <div class="ci-kpi">
+          <span>총 관리대상 업체</span>
+          <strong>${total.toLocaleString()} 개사</strong>
+        </div>
+        <div class="ci-kpi">
+          <span>고위험 (심사필요)</span>
+          <strong class="high">${needReview} 개사</strong>
+        </div>
+        <div class="ci-kpi">
+          <span>조사 임박 (75점 이상)</span>
+          <strong class="mid-risk">${nearAudit} 개사</strong>
+        </div>
+      </div>
+
+      <div class="ci-alert-strip">
+        ${riskAlertCard("신고가격오류 의심", alertCounts.underval)}
+        ${riskAlertCard("품목분류 위장 의심", alertCounts.hs)}
+        ${riskAlertCard("권리사용료 미신고", alertCounts.royalty)}
+        ${riskAlertCard("외환 송금액 불일치", alertCounts.forex)}
+        ${riskAlertCard("환급금액 오신청 의심", alertCounts.refund)}
+      </div>
+
+      <div class="risk-dash-filter" style="margin-bottom:12px">
+        <h3>위험스코어 기반 의심업체 선별</h3>
+        <input id="riskFilterQuery" class="risk-filter-input"
+          placeholder="업체명, 사업자번호 검색"
+          value="${escapeHtml(riskDashboardFilter.query)}">
+        <select id="riskFilterScore" class="risk-filter-select">
+          <option value="0"  ${minS===0  ?"selected":""}>스코어: 전체</option>
+          <option value="80" ${minS===80 ?"selected":""}>80점 이상</option>
+          <option value="60" ${minS===60 ?"selected":""}>60점 이상</option>
+          <option value="40" ${minS===40 ?"selected":""}>40점 이상</option>
+        </select>
+      </div>
+
+      <div class="risk-company-grid" id="riskCompanyGrid">
+        ${filtered.map(ciCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function ciCompanyCard(c){
+  const score = c.risk_score || 0;
+  const level = c.risk_level || "LOW";
+  const cls   = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warn" : "safe";
+  const badge = level === "HIGH" ? "조사검토필요" : level === "MEDIUM" ? "경계필요" : "양호";
+  const tags  = companyRiskTags(c);
+  const visibleTags = tags.slice(0,2).map(t => `<span class="risk-tag">${escapeHtml(t)}</span>`).join("");
+  const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개</span>` : "";
+  const scoreClass = level === "HIGH" ? "high" : level === "LOW" ? "good" : "";
+  return `
+    <div class="risk-company-card ${cls}">
+      <div class="risk-card-head">
+        <span class="risk-card-badge ${cls}">${badge}</span>
+        <span class="muted" style="font-size:11px">#TRG-26-${escapeHtml(c.company_id.replace("C-",""))}</span>
+      </div>
+      <div class="risk-card-name">
+        <strong>${escapeHtml(c.company_name || c.company_id)}</strong>
+        <span class="muted">${escapeHtml(industryLabel(c.industry_code))}</span>
+      </div>
+      <div class="risk-card-scores">
+        <div><span class="muted">위험도점수</span><strong class="${scoreClass}">${score.toFixed(1)}</strong></div>
+        <div><span class="muted">주요 위험</span><div class="risk-card-tags">${visibleTags}${moreTags}</div></div>
+      </div>
+      <div class="risk-card-review">
+        <p>${companyReviewText(c)}</p>
+      </div>
+      <button class="btn ci-select-company-btn" style="width:100%;margin-top:6px"
+        data-investigation-select="${escapeHtml(c.company_id)}">
+        조사대상 선정 →
+      </button>
+    </div>`;
+}
+
+function ciRunDwQuery(){
+  const input = document.getElementById("ciDwQuery");
+  const result = document.getElementById("ciDwResult");
+  if(!input || !result) return;
+  const q = input.value.trim();
+  if(!q){ alert("DW 조회 조건을 입력하세요."); return; }
+  result.style.display = "block";
+  result.innerHTML = `<div class="profile-loading">DW 조회 중...</div>`;
+  setTimeout(() => {
+    result.innerHTML = `
+      <div class="ci-dw-result-content">
+        <div class="ci-dw-result-head">
+          <strong>DW 조회 결과</strong>
+          <span class="muted">"${escapeHtml(q)}" 조건 기준 · ${scenarioCompanies.length}개사 중 ${Math.ceil(scenarioCompanies.length*0.3)}개사 해당</span>
+        </div>
+        ${dataTable(
+          ["업체명","사업자번호","업종","수입금액","위험점수","주요위험요인"],
+          scenarioCompanies.slice(0,5).map(c => [
+            escapeHtml(c.company_name||c.company_id),
+            escapeHtml(c.business_registration_no||"-"),
+            escapeHtml(industryLabel(c.industry_code)),
+            fmtAmount(c.annual_import_amount),
+            `<strong class="${(c.risk_score||0)>=70?"high":(c.risk_score||0)>=40?"mid-risk":""}">${(c.risk_score||0).toFixed(1)}</strong>`,
+            companyRiskTags(c).slice(0,2).join(", ")||"-"
+          ])
+        )}
+      </div>
+    `;
+  }, 800);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+
 function canvasPage(){
   return `
     <section class="card canvas-hub">
@@ -2329,6 +2521,7 @@ function loadScenarioCompanies(){
       refreshCompanyPicker();
       if(canvasTab === "overview" && showScenarioCompanyPicker) render("canvas");
       if(currentPage === "profile") render("profile");
+      if(currentPage === "investigation" && investigationTab === "dashboard") render("investigation");
     })
     .catch(error => {
       scenarioCompaniesLoading = false;
@@ -3352,12 +3545,16 @@ function initRiskDashboard(){
       return true;
     });
     const grid = document.getElementById("riskCompanyGrid");
-    if(grid) grid.innerHTML = filtered.map(riskCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
+    if(grid){
+      const cardFn = currentPage === "investigation" ? ciCompanyCard : riskCompanyCard;
+      grid.innerHTML = filtered.map(cardFn).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
+    }
   });
 
   scoreSelect.addEventListener("change", () => {
     riskDashboardFilter.minScore = parseInt(scoreSelect.value, 10);
-    render("profile");
+    if(currentPage === "investigation") render("investigation");
+    else render("profile");
   });
 }
 
@@ -3920,7 +4117,9 @@ function render(page="home"){
   document.querySelectorAll(".nav-item,.my-analysis,.work-tab,.quick-card").forEach(b=>b.classList.remove("active"));
   document.querySelectorAll(`[data-page="${page}"]`).forEach(b=>b.classList.add("active"));
   const contentEl = document.getElementById("content");
-  contentEl.classList.toggle("content-fill", page === "canvas" && canvasTab === "report");
+  const fillPage = (page === "canvas" && canvasTab === "report") ||
+                   (page === "investigation" && investigationTab === "scenario");
+  contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : pages.home();
   if(page === "home"){
     scenarioInitialized = false;
@@ -3930,6 +4129,19 @@ function render(page="home"){
   if(page === "profile"){
     loadScenarioCompanies();
     initRiskDashboard();
+  }
+  if(page === "investigation"){
+    if(!scenarioCompanies.length) loadScenarioCompanies();
+    if(investigationTab === "dashboard") initRiskDashboard();
+    if(investigationTab === "profile")   loadCompanyDetail(activeCanvasCompanyId);
+    if(investigationTab === "scenario"){
+      scenarioInitialized = false;
+      initScenarioWorkbench();
+    }
+    if(investigationTab === "templates"){
+      templateEditorInitialized = false;
+      initTemplateEditor();
+    }
   }
   if(page === "canvas" && canvasTab === "scenario"){
     scenarioInitialized = false;
@@ -4219,6 +4431,26 @@ document.addEventListener("click", (event)=>{
     loadCompanyRunArchive(activeCanvasCompanyId);
     if(companyTarget.dataset.openCompanyProfile === "true") canvasTab = "profile";
     saveCanvasState();
+  }
+
+  const investigationSelectBtn = event.target.closest("[data-investigation-select]");
+  if(investigationSelectBtn){
+    const companyId = investigationSelectBtn.dataset.investigationSelect;
+    activeCanvasCompanyId = companyId;
+    investigationTab = "profile";
+    scenarioInitialized = false;
+    scenarioLoadedForCompany = null;
+    loadCompanyRunArchive(companyId);
+    saveCanvasState();
+    render("investigation");
+    return;
+  }
+
+  const investigationTabButton = event.target.closest("[data-investigation-tab]");
+  if(investigationTabButton){
+    investigationTab = investigationTabButton.dataset.investigationTab;
+    render("investigation");
+    return;
   }
 
   const canvasTabButton = event.target.closest("[data-canvas-tab]");

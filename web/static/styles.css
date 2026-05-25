@@ -395,6 +395,39 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .home-detail-body.markdown-output h4{font-size:13px;color:#1554bd}
 .home-detail-body.markdown-output pre,.home-detail-body.markdown-output code{font-size:12px}
 
+/* ── 관세조사 분석 페이지 ───────────────────────────────────── */
+.ci-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 18px}
+.ci-hub.ci-hub-full{height:calc(100vh - 146px)}
+.ci-page-head{flex:none;margin-bottom:8px}
+.ci-page-head h2{margin:0 0 3px;font-size:18px}
+.ci-page-head p{margin:0;font-size:12px;line-height:1.5}
+.ci-tab-nav{display:flex;align-items:flex-end;justify-content:space-between;gap:4px;border-bottom:2px solid var(--line);margin-bottom:0;flex:none}
+.ci-tabs-left{display:flex;gap:2px;flex-wrap:nowrap}
+.ci-tabs-right{display:flex;gap:2px}
+.ci-tab{height:34px;border:1px solid var(--line);border-bottom:0;background:#f8fbff;color:#41506a;border-radius:8px 8px 0 0;padding:0 14px;font-weight:800;cursor:pointer;font-size:13px;white-space:nowrap;transition:background .12s,color .12s}
+.ci-tab.active{background:white;color:#123c85;border-color:#aac7ff;box-shadow:0 -2px 10px rgba(8,31,72,.06)}
+.ci-tab:hover:not(.active){background:#eef4ff;color:#1e40af}
+.ci-tab-template{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+.ci-tab-template.active{background:#ffedd5;color:#7c2d12;border-color:#fdba74;box-shadow:0 -2px 10px rgba(234,88,12,.1)}
+.ci-tab-template:hover:not(.active){background:#fef3c7}
+.ci-tab-body{flex:1;overflow:auto;min-height:0;padding-top:14px}
+.ci-dashboard{display:flex;flex-direction:column;gap:14px}
+.ci-dw-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #cfe0fb;border-radius:12px;background:#f0f6ff}
+.ci-dw-bar strong{white-space:nowrap;color:#123c85;font-size:13px}
+.ci-dw-input{flex:1;height:36px;border:1px solid var(--line);border-radius:9px;padding:0 12px;font:inherit;font-size:13px;background:white;color:var(--text)}
+.ci-dw-input:focus{outline:none;border-color:#2463eb}
+.ci-dw-run{white-space:nowrap;height:36px;padding:0 16px}
+.ci-dw-result{border:1px solid var(--line);border-radius:12px;padding:14px;background:white}
+.ci-dw-result-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ci-dw-result-head strong{font-size:14px;color:#123c85}
+.ci-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ci-kpi{border:1px solid var(--line);border-radius:12px;background:white;padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.ci-kpi span{font-size:12px;color:var(--muted)}
+.ci-kpi strong{font-size:22px;font-weight:900;color:var(--text)}
+.ci-alert-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.ci-select-company-btn{background:var(--blue)!important;color:white!important;border-color:var(--blue)!important}
+.ci-select-company-btn:hover{background:#1d4ed8!important;border-color:#1d4ed8!important}
+/* ─────────────────────────────────────────────────────────── */
 .canvas-hub{height:calc(100vh - 146px);display:flex;flex-direction:column;overflow:hidden;padding:12px 14px}
 .canvas-hub.result-full-active{height:auto;min-height:calc(100vh - 146px);overflow:visible}
 .canvas-main-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:8px;flex:none}
