@@ -815,7 +815,7 @@ const GEN_INV_TYPES = [
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
 let activeGiStepId = null;  // 워크벤치 선택 단계 ID
-let giRunEventSource = null; // 일반수사 분析 실행 SSE 연결
+let giRunEventSource = null; // 일반수사 분석 실행 SSE 연결
 let giRegTargetType  = "company"; // 수사 대상 등록 유형: "company" | "person"
 
 const GI_STEP_SOURCES = [
@@ -823,8 +823,8 @@ const GI_STEP_SOURCES = [
   {key:"gi_imp",      label:"수입신고검증 Agent",   type:"agent"  },
   {key:"gi_val",      label:"과세가격평가 Agent",   type:"agent"  },
   {key:"gi_hs",       label:"품목분류검증 Agent",   type:"agent"  },
-  {key:"gi_route",    label:"운송경로 분析 Agent",  type:"agent"  },
-  {key:"gi_net",      label:"관계망분析 Agent",     type:"agent"  },
+  {key:"gi_route",    label:"운송경로 분석 Agent",  type:"agent"  },
+  {key:"gi_net",      label:"관계망분석 Agent",     type:"agent"  },
   {key:"gi_profit",   label:"범죄수익 추적 Agent",  type:"agent"  },
   {key:"gi_origin",   label:"원산지 검증 Agent",   type:"agent"  },
   {key:"gi_anomaly",  label:"이상거래 검증 Agent",  type:"agent"  },
@@ -857,7 +857,7 @@ function activeGiStep(){
   return activeGiCaseSteps().find(s => s.id === activeGiStepId) || null;
 }
 
-/* ── 일반수사 분析 SSE 실행 ──────────────────────────────── */
+/* ── 일반수사 분석 SSE 실행 ──────────────────────────────── */
 function giStreamSteps(aCase, stepsToRun){
   if(!aCase || !stepsToRun.length) return;
 
@@ -947,7 +947,7 @@ const GI_SCENARIO_STEPS = {
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
     {key:"gi_imp2",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
     {key:"gi_route2",    label:"운송경로 분석 Agent",      type:"agent",   note:""},
-    {key:"gi_net",       label:"관계망분析 Agent",         type:"agent",   note:"agent_network.py"},
+    {key:"gi_net",       label:"관계망분석 Agent",         type:"agent",   note:"agent_network.py"},
     {key:"gi_profit",    label:"범죄수익 추적 Agent",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
     {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
     {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
@@ -958,7 +958,7 @@ const GI_SCENARIO_STEPS = {
   t3:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
     {key:"gi_imp3",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
-    {key:"gi_route3",    label:"운송경로 분析 Agent",      type:"agent",   note:"우회수입 탐지"},
+    {key:"gi_route3",    label:"운송경로 분석 Agent",      type:"agent",   note:"우회수입 탐지"},
     {key:"gi_origin",    label:"원산지 검증 Agent",        type:"agent",   note:""},
     {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
     {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
@@ -981,7 +981,7 @@ const GI_SCENARIO_STEPS = {
     {key:"gi_imp5",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
     {key:"gi_patent",    label:"특허정보 조회 Agent",      type:"agent",   note:"권리자 정보 확인"},
     {key:"gi_hs5",       label:"품목분류검증 Agent",       type:"agent",   note:"위조품 식별"},
-    {key:"gi_route5",    label:"운송경로 분析 Agent",      type:"agent",   note:"우회수입 탐지, 공급망 역추적"},
+    {key:"gi_route5",    label:"운송경로 분석 Agent",      type:"agent",   note:"우회수입 탐지, 공급망 역추적"},
     {key:"gi_rag_rev5",  label:"심사결과 RAG",            type:"rag",     note:""},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
     {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
@@ -1004,13 +1004,13 @@ const GI_SCENARIO_STEPS = {
 
 
 const defaultGenInvCases = [
-  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company",
+  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company", companyId:"C-1001",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
   { caseId:"GI-2026-002", targetName:"김우범 (개인)", invTypeId:"t2", targetType:"person",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
     investigator:"권조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
-  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company",
+  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company", companyId:"C-1003",
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
 ];
@@ -2254,8 +2254,8 @@ function generalInvPage(){
     <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
         <div>
-          <h2>일반수사 분析</h2>
-          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분析시나리오에 따라 수사를 진행합니다.</p>
+          <h2>일반수사 분석</h2>
+          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
         </div>
         ${aCase ? `
           <div class="gi-active-badge">
@@ -2270,8 +2270,8 @@ function generalInvPage(){
         ${showSubs ? `
           <button class="gi-tab${tab==="profile"?" active":""}" data-gi-tab="profile">${profileLabel}</button>
           <button class="gi-tab${tab==="data"?" active":""}" data-gi-tab="data">기초자료 수집/등록</button>
-          <button class="gi-tab${tab==="workbench"?" active":""}" data-gi-tab="workbench">분析 시나리오 설정 및 수행</button>
-          <button class="gi-tab${tab==="report"?" active":""}" data-gi-tab="report">분析 보고서 및 검증</button>
+          <button class="gi-tab${tab==="workbench"?" active":""}" data-gi-tab="workbench">분석 시나리오 설정 및 수행</button>
+          <button class="gi-tab${tab==="report"?" active":""}" data-gi-tab="report">분석 보고서 및 검증</button>
         ` : ""}
       </div>
       <div class="gi-tab-body">
@@ -2423,6 +2423,27 @@ function generalInvProfilePanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const type = genInvTypeById(aCase.invTypeId);
+  if(aCase.targetType === "company"){
+    const companyId = generalInvCompanyId(aCase);
+    if(!companyId){
+      return `
+        <div class="gi-stub-panel">
+          <div class="gi-stub-head">
+            <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+            <h3>${escapeHtml(aCase.targetName)} <span class="muted">${escapeHtml(aCase.caseId)}</span></h3>
+          </div>
+          <div class="profile-loading">연결된 기업 프로파일을 찾지 못했습니다. 수사 대상명을 기업 위험도 대시보드의 업체명과 맞춰 등록하세요.</div>
+        </div>
+      `;
+    }
+    return canvasProfilePanel(companyId, {
+      selectedLabel: "수사 대상 기업",
+      archive: null,
+      changed: false,
+      reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
+      scenarioAction: `<button class="btn" data-gi-tab="workbench">분석 시나리오 설정</button>`,
+    });
+  }
   return `
     <div class="gi-stub-panel">
       <div class="gi-stub-head">
@@ -2448,6 +2469,24 @@ function generalInvProfilePanel(){
       </div>
     </div>
   `;
+}
+
+function generalInvCompanyId(aCase){
+  if(!aCase || aCase.targetType !== "company") return "";
+  if(aCase.companyId) return aCase.companyId;
+  const normalizedTarget = normalizeCompanyName(aCase.targetName);
+  const matched = scenarioCompanies.find(company =>
+    normalizeCompanyName(company.company_name || company.company_id) === normalizedTarget ||
+    normalizedTarget.includes(normalizeCompanyName(company.company_name || "")) ||
+    normalizeCompanyName(company.company_name || "").includes(normalizedTarget)
+  );
+  return matched?.company_id || "";
+}
+
+function normalizeCompanyName(name){
+  return String(name || "")
+    .replace(/\(주\)|주식회사|\s|\(|\)|㈜/g, "")
+    .toLowerCase();
 }
 
 function generalInvDataPanel(){
@@ -2501,7 +2540,7 @@ function generalInvReportPanel(){
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;text-align:center;padding:24px">
       <span style="font-size:36px;opacity:.25">📄</span>
       <p style="margin:0;font-size:13px;font-weight:600">${escapeHtml(label)} 미실행</p>
-      <p style="margin:0;font-size:12px">'분析 시나리오 설정 및 수행' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
+      <p style="margin:0;font-size:12px">'분석 시나리오 설정 및 수행' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
       <button class="btn secondary" style="height:30px;padding:0 14px;font-size:12px" data-gi-tab="workbench">워크벤치로 이동</button>
     </div>`;
 
@@ -2564,7 +2603,7 @@ function generalInvReportPanel(){
   `;
 }
 
-/* ── [분析 시나리오 설정 및 수행] 패널 ────────────────────── */
+/* ── [분석 시나리오 설정 및 수행] 패널 ────────────────────── */
 function generalInvWorkbenchPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
@@ -2707,7 +2746,7 @@ function generalInvWorkbenchPanel(){
             ${escapeHtml(aCase.targetName)}
             <span class="muted" style="font-weight:400;font-size:13px">${escapeHtml(aCase.caseId)}</span>
           </h3>
-          <p class="muted" style="margin:0;font-size:12px">수사 유형에 맞는 분析 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. 단계를 추가·삭제·순서 변경하여 맞춤형 시나리오를 구성할 수 있습니다.</p>
+          <p class="muted" style="margin:0;font-size:12px">수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. 단계를 추가·삭제·순서 변경하여 맞춤형 시나리오를 구성할 수 있습니다.</p>
         </div>
         <div class="scenario-status">
           <span>${done === total && total > 0 ? "완료" : done > 0 ? "진행중" : "대기"}</span>
@@ -2738,16 +2777,16 @@ function generalInvWorkbenchPanel(){
         <!-- 오른쪽: 실행 로그 -->
         <section class="scenario-log" style="display:flex;flex-direction:column">
           <div class="scenario-log-head">
-            <h3>분析 실행${isGiRunning ? ' <span class="gi-chip-state run" style="font-size:11px;animation:gi-blink 1.2s infinite">실행중</span>' : ""}</h3>
+            <h3>분석 실행${isGiRunning ? ' <span class="gi-chip-state run" style="font-size:11px;animation:gi-blink 1.2s infinite">실행중</span>' : ""}</h3>
             <div class="scenario-log-actions">
               <button class="btn" type="button" data-gi-run-step="${escapeHtml(aCase.caseId)}:all" ${isGiRunning?"disabled":""}>
-                ${isGiRunning ? "⏳ 실행중..." : "분析 실행"}
+                ${isGiRunning ? "⏳ 실행중..." : "분석 실행"}
               </button>
               <button class="btn secondary" type="button" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
             </div>
           </div>
           <div class="gi-log-list scenario-step-accordion" style="margin-top:10px;flex:1;overflow-y:auto">
-            ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분析 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
+            ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분석 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
           </div>
         </section>
 
@@ -2902,7 +2941,7 @@ function invNewJobForm(){
           </select>
         </div>
         <div class="gi-reg-field">
-          <label>분析 시나리오 템플릿 <span style="color:var(--red)">*</span></label>
+          <label>분석 시나리오 템플릿 <span style="color:var(--red)">*</span></label>
           <select id="invNewJobTemplate" class="gi-reg-select">
             ${scenarioTemplateOptionsHtml()}
           </select>
@@ -3367,10 +3406,14 @@ function loadCompanyDetail(companyId){
     .then(data => {
       companyDetailCache[companyId] = { ...data, loading: false };
       if(canvasTab === "profile") render("canvas");
+      if(currentPage === "generalinv" && generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
+      if(currentPage === "investigation" && investigationTab === "profile") render("investigation");
     })
     .catch(err => {
       companyDetailCache[companyId] = { error: String(err), loading: false };
       if(canvasTab === "profile") render("canvas");
+      if(currentPage === "generalinv" && generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
+      if(currentPage === "investigation" && investigationTab === "profile") render("investigation");
     });
 }
 
@@ -3488,14 +3531,15 @@ function fmtAmount(v){
   return `${n.toLocaleString()}원`;
 }
 
-function canvasProfilePanel(){
-  const companyId = activeCanvasCompanyId;
+function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options = {}){
+  const companyId = companyIdOverride || activeCanvasCompanyId;
   const cache = companyDetailCache[companyId];
+  const selectedLabel = options.selectedLabel || "선택 기업";
 
   if(!cache || cache.loading){
     return `
       <div class="canvas-selected-company">
-        <span>선택 기업</span>
+        <span>${escapeHtml(selectedLabel)}</span>
         <strong>${escapeHtml(companyId)}</strong>
       </div>
       <div class="profile-loading">기업 프로파일 로딩 중...</div>
@@ -3509,9 +3553,15 @@ function canvasProfilePanel(){
   const c = cache.company || {};
   const risk = cache.risk || {};
   const declarations = cache.declarations || [];
-  const archive = currentRunArchive(companyId);
-  const job = canvasJobs().find(item => item.companyId === companyId);
-  const changed = Boolean(job?.scenarioChanged);
+  const archive = options.archive === undefined ? currentRunArchive(companyId) : options.archive;
+  const job = options.job === undefined ? canvasJobs().find(item => item.companyId === companyId) : options.job;
+  const changed = options.changed === undefined ? Boolean(job?.scenarioChanged) : Boolean(options.changed);
+  const reportAction = options.reportAction !== undefined
+    ? options.reportAction
+    : archive ? `<button class="btn secondary" data-canvas-tab="report">저장 결과 보기</button>` : "";
+  const scenarioAction = options.scenarioAction !== undefined
+    ? options.scenarioAction
+    : `<button class="btn" data-canvas-tab="scenario">${changed ? "변경 시나리오 실행" : "분석 시나리오 설정"}</button>`;
 
   const riskLevel = c.risk_level || risk.risk_level || "-";
   const riskScore = c.risk_score ?? risk.risk_score;
@@ -3531,7 +3581,7 @@ function canvasProfilePanel(){
 
   return `
     <div class="canvas-selected-company">
-      <span>선택 기업</span>
+      <span>${escapeHtml(selectedLabel)}</span>
       <strong>${escapeHtml(c.company_name || companyId)} (${escapeHtml(companyId)})</strong>
     </div>
 
@@ -3542,8 +3592,8 @@ function canvasProfilePanel(){
         ${changed ? `<em>시나리오가 변경되었습니다. 기존 결과는 보존되며, 최신 조건으로 보려면 다시 실행하세요.</em>` : ""}
       </div>
       <div class="profile-run-actions">
-        ${archive ? `<button class="btn secondary" data-canvas-tab="report">저장 결과 보기</button>` : ""}
-        <button class="btn" data-canvas-tab="scenario">${changed ? "변경 시나리오 실행" : "분석 시나리오 설정"}</button>
+        ${reportAction}
+        ${scenarioAction}
       </div>
     </div>
 
@@ -4967,6 +5017,11 @@ function render(page="home"){
   }
   if(page === "generalinv"){
     initGenInvSearch();
+    if(!scenarioCompanies.length) loadScenarioCompanies();
+    if(generalInvTab === "profile"){
+      const companyId = generalInvCompanyId(activeGenInvCase());
+      if(companyId) loadCompanyDetail(companyId);
+    }
   }
   if(page === "investigation"){
     if(!scenarioCompanies.length) loadScenarioCompanies();
@@ -5408,7 +5463,7 @@ document.addEventListener("click", (event)=>{
   const giCase = event.target.closest("[data-gi-case]");
   if(giCase){
     activeGenInvCaseId = giCase.dataset.giCase;
-    generalInvTab      = "workbench";
+    generalInvTab      = "profile";
     activeGiStepId     = null;
     render("generalinv");
     return;
