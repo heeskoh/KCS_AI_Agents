@@ -663,6 +663,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .canvas-selected-company{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;border:1px solid #cfe0fb;border-radius:12px;background:#f8fbff}
 .canvas-selected-company span{color:var(--muted);font-size:13px;font-weight:800}
 .canvas-selected-company strong{color:#123c85}
+.canvas-context-badge{margin-left:auto;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-style:normal;font-weight:900;white-space:nowrap}
 .job-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .job-card{border:1px solid var(--line);border-radius:15px;background:white;padding:15px;box-shadow:var(--shadow);cursor:pointer}
 .job-card:hover{border-color:#aac7ff;box-shadow:0 12px 28px rgba(36,99,235,.12)}

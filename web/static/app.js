@@ -837,17 +837,95 @@ const GI_STEP_SOURCES = [
   {key:"gi_appr",     label:"보고서 승인",          type:"approve"},
 ];
 
+function canonicalGiStepKey(key){
+  const value = String(key || "");
+  const exact = GI_STEP_SOURCES.find(source => source.key === value);
+  if(exact) return exact.key;
+  const withoutSuffix = value.replace(/\d+$/,"");
+  return GI_STEP_SOURCES.find(source => source.key === withoutSuffix)?.key || value;
+}
+
+function giSourceByKey(key){
+  const canonical = canonicalGiStepKey(key);
+  return GI_STEP_SOURCES.find(source => source.key === canonical) || { key: canonical || key, label: key || "분석 단계", type:"agent" };
+}
+
+function giCommonSourceKey(key){
+  const canonical = canonicalGiStepKey(key);
+  if(canonical === "gi_cdw") return "db_cdw";
+  if(canonical === "gi_imp") return "declaration_verify";
+  if(canonical === "gi_val") return "customs_value";
+  if(canonical === "gi_hs") return "hs_verify";
+  if(canonical === "gi_route") return "route_analysis";
+  if(canonical === "gi_net") return "network";
+  if(canonical === "gi_profit") return "proceeds_tracking";
+  if(canonical === "gi_origin") return "origin_analysis";
+  if(canonical === "gi_anomaly") return "abnormal_trade";
+  if(canonical === "gi_patent") return "patent";
+  if(canonical === "gi_rag_rev") return "rag_audit";
+  if(canonical === "gi_rag_inv") return "rag_investigation";
+  if(canonical === "gi_rag_int") return "rag_global";
+  if(canonical === "gi_law") return "law";
+  if(canonical === "gi_rep") return "report_generate";
+  if(canonical === "gi_appr") return "report_validate";
+  return "summary";
+}
+
+function normalizeGiScenarioStep(step, index = 0){
+  const source = giSourceByKey(step.key);
+  const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
+  const behaviors = Array.isArray(step.behaviors) && step.behaviors.length
+    ? step.behaviors
+    : sourceDefaultBehaviors(sourceKey);
+  const instruction = step.instruction ?? step.note ?? sourceDefaultInstruction(sourceKey);
+  return {
+    ...step,
+    id: step.id || `gis_${index}_${uid()}`,
+    key: step.key || source.key,
+    type: step.type || source.type,
+    label: step.label || source.label,
+    sourceKey,
+    behaviors,
+    behavior: behaviors[0],
+    behaviorLabel: sourceBehaviorLabels(sourceKey, behaviors).join(", "),
+    instruction,
+    note: instruction,
+  };
+}
+
+function giScenarioInstructionPreview(step){
+  const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
+  const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
+  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey) || "기본 분석";
+  return `${behaviors.join(", ")} · ${instruction}`;
+}
+
+function giScenarioRunInstruction(step){
+  const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
+  const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
+  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey) || "기본 분석";
+  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}`;
+}
+
+function giStepSourceOptionsHtml(selectedKey = ""){
+  const typeLabel = {db:"DB 조회",agent:"Agent",rag:"RAG",report:"보고서",approve:"승인"};
+  return GI_STEP_SOURCES.map(source =>
+    `<option value="${escapeHtml(source.key)}"${source.key === selectedKey ? " selected" : ""}>${escapeHtml(typeLabel[source.type] || source.type)} · ${escapeHtml(source.label)}</option>`
+  ).join("");
+}
+
 function activeGiCaseSteps(){
   const aCase = activeGenInvCase();
   if(!aCase) return [];
   if(!aCase.giSteps){
     const defaults = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
-    aCase.giSteps    = defaults.map((s, i) => ({...s, id:`gis_${i}_${uid()}`}));
+    aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({...s, id:`gis_${i}_${uid()}`}, i));
     aCase.stepStates  = {};
     aCase.stepResults = {};   // 단계별 실행 결과 텍스트
     aCase.stepExpanded= {};   // 결과 펼침 상태
     aCase.stepsDone   = 0;
   }
+  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep(step, index));
   if(!aCase.stepResults)  aCase.stepResults  = {};
   if(!aCase.stepExpanded) aCase.stepExpanded = {};
   return aCase.giSteps;
@@ -872,7 +950,13 @@ function giStreamSteps(aCase, stepsToRun){
 
   /* URL 파라미터 구성 */
   const stepsPayload = stepsToRun.map(s => ({
-    id: s.id, key: s.key, label: s.label, type: s.type, note: s.note || ""
+    id: s.id,
+    key: s.key,
+    label: s.label,
+    type: s.type,
+    sourceKey: s.sourceKey || giCommonSourceKey(s.key),
+    behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
+    note: giScenarioRunInstruction(s),
   }));
   const params = new URLSearchParams({
     case_id:     aCase.caseId,
@@ -2492,11 +2576,32 @@ function normalizeCompanyName(name){
 function generalInvDataPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  if(aCase.targetType === "company"){
+    const companyId = generalInvCompanyId(aCase);
+    const type = genInvTypeById(aCase.invTypeId);
+    if(!companyId){
+      return `
+        <div class="gi-stub-panel">
+          <div class="gi-stub-head">
+            <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+            <h3>${escapeHtml(aCase.targetName)} <span class="muted">${escapeHtml(aCase.caseId)}</span></h3>
+          </div>
+          <div class="profile-loading">연결된 기업 프로파일을 찾지 못했습니다. 수사 대상명을 기업 위험도 대시보드의 업체명과 맞춰 등록하세요.</div>
+        </div>
+      `;
+    }
+    return canvasDataPanel(companyId, {
+      selectedLabel: "수사 대상 기업",
+      heading: "기초자료 수집/등록",
+      description: "관세조사와 동일한 자료 업로드·AI 추출·검증 기능을 사용합니다.",
+      caseBadge: `${type.num} ${type.label} · ${aCase.caseId}`,
+    });
+  }
   return `
     <div class="gi-stub-panel">
       <div class="gi-stub-head">
         <h3>기초자료 수집/등록</h3>
-        <p class="muted">수사에 필요한 기초자료를 DW에서 조회하거나 직접 등록합니다.</p>
+        <p class="muted">개인 수사에 필요한 기초자료를 DW에서 조회하거나 직접 등록합니다.</p>
       </div>
       <div class="gi-stub-body">
         <div class="gi-stub-card">
@@ -2610,6 +2715,7 @@ function generalInvWorkbenchPanel(){
 
   const type   = genInvTypeById(aCase.invTypeId);
   const steps  = activeGiCaseSteps();
+  if(!activeGiStepId && steps[0]) activeGiStepId = steps[0].id;
   const states = aCase.stepStates || {};
   const done   = steps.filter(s => states[s.id] === "done").length;
   const total  = steps.length;
@@ -2639,7 +2745,7 @@ function generalInvWorkbenchPanel(){
             <strong>${escapeHtml(step.label)}</strong>
             ${stateTag}
           </div>
-          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)}${step.note ? " · " + escapeHtml(step.note.slice(0,40)) : ""}</p>
+          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)} · ${escapeHtml(giScenarioInstructionPreview(step).slice(0,60))}</p>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
           ${i > 0 ? `<button class="gi-move-btn" data-gi-step-up="${escapeHtml(step.id)}" title="위로">↑</button>` : `<span style="width:22px"></span>`}
@@ -2658,27 +2764,36 @@ function generalInvWorkbenchPanel(){
     </div>
     <div class="scenario-agent-zone" style="overflow-y:auto;flex:1;min-height:0">
       <label class="scenario-field">
-        <span>단계 유형</span>
-        <select id="giWbStepType" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
-          ${Object.entries(typeLabel).map(([k,v]) => `<option value="${k}"${selStep.type===k?" selected":""}>${v}</option>`).join("")}
+        <span>Agent 단계</span>
+        <select id="giWbStepSource" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
+          ${giStepSourceOptionsHtml(canonicalGiStepKey(selStep.key))}
         </select>
       </label>
+      <div class="scenario-field">
+        <span>동작 선택</span>
+        <div id="giWbBehaviorOptions" class="scenario-behavior-options" data-gi-step-id="${escapeHtml(selStep.id)}">
+          ${behaviorOptionsHtml(selStep.sourceKey || giCommonSourceKey(selStep.key), selStep.behaviors)}
+        </div>
+      </div>
+      <div class="scenario-source-hint">
+        <div class="hint-header">
+          <strong>${escapeHtml(scenarioSourceByKey(selStep.sourceKey || giCommonSourceKey(selStep.key))?.label || selStep.label)}</strong>
+          <span>${escapeHtml(typeLabel[selStep.type] || selStep.type)}</span>
+        </div>
+        <p>${escapeHtml(sourceDefaultInstruction(selStep.sourceKey || giCommonSourceKey(selStep.key)) || "이 단계의 추가 지시를 입력하세요.")}</p>
+      </div>
       <label class="scenario-field">
-        <span>단계명</span>
-        <input id="giWbStepLabel" class="gi-wb2-input" style="border:1px solid var(--line);border-radius:9px;padding:0 10px;height:36px;font:inherit;font-size:13px;width:100%;box-sizing:border-box"
-          value="${escapeHtml(selStep.label)}" data-gi-step-id="${escapeHtml(selStep.id)}">
-      </label>
-      <label class="scenario-field">
-        <span>중점 확인 사항</span>
+        <span>추가 지시</span>
         <textarea id="giWbStepNote" class="gi-wb2-textarea" rows="4"
           style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;width:100%;box-sizing:border-box;resize:vertical"
-          data-gi-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.note||"")}</textarea>
+          placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."
+          data-gi-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.instruction || selStep.note || "")}</textarea>
       </label>
     </div>
     <div class="scenario-actions" style="margin-top:12px">
       <select id="giWbAddSource" class="gi-reg-select" style="flex:1">
         <option value="">+ 단계 추가 선택...</option>
-        ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
+        ${giStepSourceOptionsHtml()}
       </select>
       <button class="btn" type="button" data-gi-step-add>단계 추가</button>
       <button class="btn secondary" type="button" data-gi-step-delete="${escapeHtml(selStep.id)}">선택 삭제</button>
@@ -2692,7 +2807,7 @@ function generalInvWorkbenchPanel(){
     <div class="scenario-actions" style="margin-top:12px">
       <select id="giWbAddSource" class="gi-reg-select" style="flex:1">
         <option value="">+ 단계 추가 선택...</option>
-        ${GI_STEP_SOURCES.map(s => `<option value="${s.key}|${s.type}">${escapeHtml(typeLabel[s.type]||s.type)} · ${escapeHtml(s.label)}</option>`).join("")}
+        ${giStepSourceOptionsHtml()}
       </select>
       <button class="btn" type="button" data-gi-step-add>단계 추가</button>
       <button class="btn secondary" type="button" disabled>선택 삭제</button>
@@ -3283,14 +3398,17 @@ function activeCanvasJob(){
   return jobs.find(job => job.companyId === activeCanvasCompanyId) || jobs[0];
 }
 
-function activeCanvasCompany(){
-  const listedCompany = findCompanyById(activeCanvasCompanyId);
-  const job = activeCanvasJob();
+function activeCanvasCompany(companyIdOverride = activeCanvasCompanyId){
+  const companyId = companyIdOverride || activeCanvasCompanyId;
+  const listedCompany = findCompanyById(companyId);
+  const job = companyId === activeCanvasCompanyId
+    ? activeCanvasJob()
+    : canvasJobs.find(item => item.companyId === companyId);
   return {
-    company_id: activeCanvasCompanyId,
-    company_name: listedCompany?.company_name || job?.companyName || activeCanvasCompanyId,
-    risk_level: listedCompany?.risk_level || (activeCanvasCompanyId === "C-1002" ? "HIGH" : activeCanvasCompanyId === "C-1008" ? "LOW" : "MEDIUM"),
-    risk_score: listedCompany?.risk_score ?? (activeCanvasCompanyId === "C-1002" ? 82.7 : activeCanvasCompanyId === "C-1008" ? 44.6 : 58.4),
+    company_id: companyId,
+    company_name: listedCompany?.company_name || job?.companyName || companyId,
+    risk_level: listedCompany?.risk_level || (companyId === "C-1002" ? "HIGH" : companyId === "C-1008" ? "LOW" : "MEDIUM"),
+    risk_score: listedCompany?.risk_score ?? (companyId === "C-1002" ? 82.7 : companyId === "C-1008" ? 44.6 : 58.4),
     annual_import_amount: listedCompany?.annual_import_amount,
     declared_duty_amount: listedCompany?.declared_duty_amount,
   };
@@ -3667,15 +3785,21 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
   `;
 }
 
-function canvasDataPanel(){
-  const company = activeCanvasCompany();
+function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}){
+  const company = activeCanvasCompany(companyIdOverride);
+  const selectedLabel = options.selectedLabel || "선택 기업";
+  const heading = options.heading || "AI 비정형 데이터 업로드 및 예외 관리기능";
+  const description = options.description || "";
+  const caseBadge = options.caseBadge || "";
   return `
     <section class="data-upload-board">
       <div class="canvas-selected-company">
-        <span>선택 기업</span>
+        <span>${escapeHtml(selectedLabel)}</span>
         <strong>${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})</strong>
+        ${caseBadge ? `<em class="canvas-context-badge">${escapeHtml(caseBadge)}</em>` : ""}
       </div>
-      <h3>AI 비정형 데이터 업로드 및 예외 관리기능</h3>
+      <h3>${escapeHtml(heading)}</h3>
+      ${description ? `<p class="muted" style="margin:-8px 0 14px">${escapeHtml(description)}</p>` : ""}
       <div class="upload-summary-grid">
         <button type="button" class="upload-drop-card">
           <strong>파일 업로드</strong>
@@ -5003,7 +5127,8 @@ function render(page="home"){
   document.querySelectorAll(`[data-page="${page}"]`).forEach(b=>b.classList.add("active"));
   const contentEl = document.getElementById("content");
   const fillPage = (page === "canvas" && canvasTab === "report") ||
-                   (page === "investigation" && investigationTab === "scenario");
+                   (page === "investigation" && investigationTab === "scenario") ||
+                   (page === "generalinv" && generalInvTab === "workbench");
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : pages.home();
   if(page === "home"){
@@ -5507,12 +5632,20 @@ document.addEventListener("click", (event)=>{
   if(giStepAdd){
     const sel = document.getElementById("giWbAddSource");
     if(!sel?.value){ alert("추가할 단계를 선택하세요."); return; }
-    const [key, type] = sel.value.split("|");
-    const src = GI_STEP_SOURCES.find(s => s.key === key) || {key, label:key, type:type||"agent"};
+    const key = sel.value;
+    const src = giSourceByKey(key);
     const aCase = activeGenInvCase();
     if(aCase){
       if(!aCase.giSteps) activeGiCaseSteps();
-      aCase.giSteps.push({...src, id:`gis_${uid()}`});
+      const sourceKey = giCommonSourceKey(src.key);
+      aCase.giSteps.push(normalizeGiScenarioStep({
+        ...src,
+        id:`gis_${uid()}`,
+        sourceKey,
+        behaviors: sourceDefaultBehaviors(sourceKey),
+        instruction: sourceDefaultInstruction(sourceKey),
+      }, aCase.giSteps.length));
+      activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
     }
     render("generalinv");
     return;
@@ -5726,7 +5859,10 @@ document.addEventListener("input", (event) => {
   const step  = aCase?.giSteps?.find(s => s.id === stepId);
   if(!step) return;
   if(event.target.id === "giWbStepLabel") step.label = event.target.value;
-  if(event.target.id === "giWbStepNote")  step.note  = event.target.value;
+  if(event.target.id === "giWbStepNote"){
+    step.note = event.target.value;
+    step.instruction = event.target.value;
+  }
   // no re-render needed for text fields (live editing)
 });
 
@@ -5736,6 +5872,41 @@ document.addEventListener("change", (event) => {
     const aCase = activeGenInvCase();
     const step  = aCase?.giSteps?.find(s => s.id === stepId);
     if(step) step.type = event.target.value;
+    render("generalinv");
+    return;
+  }
+  if(stepId && event.target.id === "giWbStepSource"){
+    const aCase = activeGenInvCase();
+    const step  = aCase?.giSteps?.find(s => s.id === stepId);
+    const source = giSourceByKey(event.target.value);
+    if(step && source){
+      step.key = source.key;
+      step.type = source.type;
+      step.label = source.label;
+      step.sourceKey = giCommonSourceKey(source.key);
+      step.behaviors = sourceDefaultBehaviors(step.sourceKey);
+      step.behavior = step.behaviors[0];
+      step.behaviorLabel = sourceBehaviorLabels(step.sourceKey, step.behaviors).join(", ");
+      step.instruction = sourceDefaultInstruction(step.sourceKey);
+      step.note = step.instruction;
+    }
+    render("generalinv");
+    return;
+  }
+  const giBehaviorBox = event.target.closest("#giWbBehaviorOptions");
+  if(giBehaviorBox && event.target.matches("input[type='checkbox']")){
+    const aCase = activeGenInvCase();
+    const step  = aCase?.giSteps?.find(s => s.id === giBehaviorBox.dataset.giStepId);
+    if(step){
+      const values = selectedBehaviorValues("giWbBehaviorOptions");
+      if(!values.length){
+        step.behaviors = sourceDefaultBehaviors(step.sourceKey || giCommonSourceKey(step.key));
+      }else{
+        step.behaviors = values;
+      }
+      step.behavior = step.behaviors[0];
+      step.behaviorLabel = sourceBehaviorLabels(step.sourceKey || giCommonSourceKey(step.key), step.behaviors).join(", ");
+    }
     render("generalinv");
     return;
   }
