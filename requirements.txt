@@ -17,6 +17,7 @@
 
 # --- 환경변수 로드 ---
 python-dotenv>=1.0,<2.0
+PyYAML>=6.0,<7.0
 
 # --- 데이터베이스 (DuckDB 단일 파일) ---
 duckdb>=1.0,<2.0
@@ -29,6 +30,7 @@ httpx>=0.27,<1.0
 langchain>=0.2,<0.4
 langchain-core>=0.2,<0.4
 langchain-openai>=0.1,<0.4
+langchain-anthropic>=0.1,<0.4
 langchain-community>=0.2,<0.4
 langgraph>=0.1,<1.0
 
@@ -37,3 +39,7 @@ chromadb>=1.0,<2.0
 langchain-chroma>=0.1,<2.0        # chromadb 1.x 공식 LangChain 어댑터
 langchain-huggingface>=0.1,<1.0   # HuggingFaceEmbeddings 최신 패키지 (langchain-community deprecated)
 sentence-transformers>=2.7,<3.0   # jhgan/ko-sroberta-multitask 임베딩 사용
+
+# --- 업로드 문서 텍스트 추출 ---
+openpyxl>=3.1,<4.0
+pypdf>=4.0,<7.0
