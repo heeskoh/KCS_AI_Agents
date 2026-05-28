@@ -508,6 +508,9 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-stub-card-wide{grid-column:1/-1}
 .gi-stub-placeholder{height:80px;background:#f1f5f9;border-radius:8px}
 .gi-stub-placeholder-tall{height:140px}
+.gi-profile-mini{display:flex;flex-direction:column;gap:6px;margin-top:10px;font-size:12px;color:#475569}
+.gi-profile-mini span{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:8px;background:#f8fafc}
+.gi-profile-mini b{color:#172033;text-align:right}
 /* ── 분석 시나리오 워크벤치 2.0 (2-panel) ── */
 .gi-wb2{height:100%;display:flex;flex-direction:column;gap:12px;min-height:0}
 .gi-wb2-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;flex:none}

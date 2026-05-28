@@ -802,6 +802,8 @@ let activeGenInvCaseId   = null;
 let showGenInvRegForm    = false;
 let genInvFilter         = "";
 let customGenInvCases    = [];
+let riskPersons          = [];
+let riskPersonsLoading   = false;
 
 const GEN_INV_TYPES = [
   { id:"t1", num:"①", label:"관세포탈 수사",              cls:"gi-t1" },
@@ -1101,6 +1103,7 @@ const defaultGenInvCases = [
 
 function allGenInvCases(){ return [...defaultGenInvCases, ...customGenInvCases]; }
 function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === activeGenInvCaseId) || null; }
+function riskPersonById(personId){ return riskPersons.find(person => person.person_id === personId) || null; }
 /* ─────────────────────────────────────────────────────────── */
 let activeCanvasCompanyId = "C-1001";
 let activeScenarioTemplateId = "customs-basic";
@@ -2038,6 +2041,7 @@ function loadCanvasState(){
   try{
     const saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
     if(Array.isArray(saved.customCanvasJobs)) customCanvasJobs = saved.customCanvasJobs;
+    if(Array.isArray(saved.customGenInvCases)) customGenInvCases = saved.customGenInvCases;
     if(saved.activeCanvasCompanyId) activeCanvasCompanyId = saved.activeCanvasCompanyId;
     if(saved.activeScenarioTemplateId) activeScenarioTemplateId = saved.activeScenarioTemplateId;
     if(saved.latestReport) latestReport = saved.latestReport;
@@ -2065,6 +2069,7 @@ function saveCanvasState(){
     saveCurrentUserWorkspace();
     localStorage.setItem(canvasStateKey, JSON.stringify({
       customCanvasJobs,
+      customGenInvCases,
       activeCanvasCompanyId,
       activeScenarioTemplateId,
       latestReport,
@@ -2431,6 +2436,7 @@ function genInvCaseCard(c){
 
 function generalInvRegForm(){
   const isCo = giRegTargetType === "company";
+  if(!isCo && !riskPersons.length && !riskPersonsLoading) loadRiskPersons();
   return `
     <div class="gi-reg-form">
       <div class="gi-reg-type-row">
@@ -2445,6 +2451,22 @@ function generalInvRegForm(){
         </div>
       </div>
       <h3 class="gi-reg-title">수사 대상 등록</h3>
+      ${!isCo ? `
+      <div class="gi-reg-grid">
+        <div class="gi-reg-field">
+          <label>우범자 프로파일 선택</label>
+          <select id="giRegPersonSelect" class="gi-reg-select">
+            <option value="">-- 우범자를 선택하거나 직접 입력하세요 --</option>
+            ${riskPersonsLoading
+              ? `<option value="" disabled>우범자 프로파일 로딩 중...</option>`
+              : riskPersons.map(person => `
+                <option value="${escapeHtml(person.person_id)}">
+                  ${escapeHtml(person.name)} (${escapeHtml(person.person_id)}) · ${escapeHtml(person.profile_type || "-")} · ${escapeHtml(person.risk_level || "-")} ${person.risk_score != null ? Number(person.risk_score).toFixed(1) : ""}
+                </option>
+              `).join("")}
+          </select>
+        </div>
+      </div>` : ""}
       <div class="gi-reg-grid gi-reg-grid-3">
         <div class="gi-reg-field">
           <label>${isCo ? "업체명" : "성명"}</label>
@@ -2528,6 +2550,7 @@ function generalInvProfilePanel(){
       scenarioAction: `<button class="btn" data-gi-tab="workbench">분석 시나리오 설정</button>`,
     });
   }
+  const person = riskPersonById(aCase.personId);
   return `
     <div class="gi-stub-panel">
       <div class="gi-stub-head">
@@ -2537,18 +2560,28 @@ function generalInvProfilePanel(){
       <div class="gi-stub-body">
         <div class="gi-stub-card">
           <strong>기본 인적사항</strong>
-          <p class="muted">업체명/성명, 사업자번호, 대표자, 주소, 연락처</p>
-          <div class="gi-stub-placeholder"></div>
+          <p class="muted">${person ? `${escapeHtml(person.person_id)} · ${escapeHtml(person.nationality || "-")} · ${escapeHtml(person.address_region || "-")}` : "성명, 생년월일, 국적, 주소권역, 연락처"}</p>
+          <div class="gi-profile-mini">
+            <span>유형 <b>${escapeHtml(person?.profile_type || aCase.personProfileType || "-")}</b></span>
+            <span>위험등급 <b class="${(person?.risk_level || aCase.personRiskLevel) === "CRITICAL" || (person?.risk_level || aCase.personRiskLevel) === "HIGH" ? "high" : "mid-risk"}">${escapeHtml(person?.risk_level || aCase.personRiskLevel || "-")}</b></span>
+            <span>위험점수 <b>${person?.risk_score != null ? Number(person.risk_score).toFixed(1) : aCase.personRiskScore ?? "-"}</b></span>
+          </div>
         </div>
         <div class="gi-stub-card">
           <strong>수사 이력</strong>
           <p class="muted">과거 조사 이력, 적발 내역, 범칙금 부과 현황</p>
-          <div class="gi-stub-placeholder"></div>
+          <div class="gi-profile-mini">
+            <span>상태 <b>${escapeHtml(person?.watch_status || "등록")}</b></span>
+            <span>직업/활동 <b>${escapeHtml(person?.occupation || "-")}</b></span>
+          </div>
         </div>
         <div class="gi-stub-card">
           <strong>연관 관계망</strong>
           <p class="muted">연관 법인·개인, 공급망 관계, 계좌 연결 현황</p>
-          <div class="gi-stub-placeholder"></div>
+          <div class="gi-profile-mini">
+            <span>위험태그 <b>${escapeHtml(person?.risk_tags || aCase.personRiskTags || "-")}</b></span>
+            <span>별칭 <b>${escapeHtml(person?.name_aliases || "-")}</b></span>
+          </div>
         </div>
       </div>
     </div>
@@ -3512,6 +3545,28 @@ function loadScenarioCompanies(){
       scenarioCompaniesLoading = false;
       const picker = document.getElementById("newScenarioCompanySelect");
       if(picker) picker.innerHTML = `<option value="">기업 프로파일 로드 실패</option>`;
+      console.error(error);
+    });
+}
+
+function loadRiskPersons(){
+  if(riskPersons.length) return;
+  if(riskPersonsLoading) return;
+  riskPersonsLoading = true;
+  fetch("/api/risk-persons")
+    .then(response => {
+      if(!response.ok) throw new Error(`우범자 프로파일 API 오류: ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      riskPersons = data.persons || [];
+      riskPersonsLoading = false;
+      if(currentPage === "generalinv" && showGenInvRegForm && giRegTargetType === "person"){
+        render("generalinv");
+      }
+    })
+    .catch(error => {
+      riskPersonsLoading = false;
       console.error(error);
     });
 }
@@ -5143,6 +5198,7 @@ function render(page="home"){
   if(page === "generalinv"){
     initGenInvSearch();
     if(!scenarioCompanies.length) loadScenarioCompanies();
+    if(showGenInvRegForm && giRegTargetType === "person") loadRiskPersons();
     if(generalInvTab === "profile"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId) loadCompanyDetail(companyId);
@@ -5549,6 +5605,7 @@ document.addEventListener("click", (event)=>{
   const giRegTypeBtn = event.target.closest("[data-gi-reg-type]");
   if(giRegTypeBtn){
     giRegTargetType = giRegTypeBtn.dataset.giRegType;
+    if(giRegTargetType === "person") loadRiskPersons();
     render("generalinv");
     return;
   }
@@ -5562,25 +5619,37 @@ document.addEventListener("click", (event)=>{
 
   const giRegister = event.target.closest("[data-gi-register]");
   if(giRegister){
-    const targetName   = document.getElementById("giRegTarget")?.value.trim();
+    const selectedPersonId = document.getElementById("giRegPersonSelect")?.value || "";
+    const selectedPerson = riskPersonById(selectedPersonId);
+    const targetName   = document.getElementById("giRegTarget")?.value.trim() || selectedPerson?.name || "";
     const caseId       = document.getElementById("giRegCaseId")?.value.trim()
                          || `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
     const invTypeId    = document.getElementById("giRegTypeSelect")?.value || GEN_INV_TYPES[0].id;
     const investigator = document.getElementById("giRegInvestigator")?.value.trim() || currentUser().name;
     const team         = document.getElementById("giRegTeam")?.value.trim() || "";
     if(!targetName){ alert("수사대상 명칭을 입력하세요."); return; }
-    customGenInvCases.unshift({
+    const newCase = {
       caseId, targetName, invTypeId,
       targetType: giRegTargetType,
       status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
       investigator, team,
       created: new Date().toLocaleDateString("ko-KR"),
       updated: "방금",
-    });
+    };
+    if(giRegTargetType === "person" && selectedPerson){
+      newCase.personId = selectedPerson.person_id;
+      newCase.personProfileType = selectedPerson.profile_type || "";
+      newCase.personRiskLevel = selectedPerson.risk_level || "";
+      newCase.personRiskScore = selectedPerson.risk_score;
+      newCase.personRiskTags = selectedPerson.risk_tags || "";
+      newCase.personNationality = selectedPerson.nationality || "";
+    }
+    customGenInvCases.unshift(newCase);
     activeGenInvCaseId = caseId;
     showGenInvRegForm  = false;
     giRegTargetType    = "company";
     generalInvTab      = "profile";
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5835,6 +5904,19 @@ document.addEventListener("click", (event)=>{
 });
 
 document.addEventListener("change", (event)=>{
+  if(event.target && event.target.id === "giRegPersonSelect"){
+    const person = riskPersonById(event.target.value);
+    const targetInput = document.getElementById("giRegTarget");
+    const nationInput = document.getElementById("giRegNation");
+    const personIdInput = document.getElementById("giRegPersonId");
+    if(person){
+      if(targetInput) targetInput.value = person.name || "";
+      if(nationInput) nationInput.value = person.nationality || "";
+      if(personIdInput && person.birth_date) personIdInput.value = String(person.birth_date).replaceAll("-", "").slice(2, 8);
+    }
+    return;
+  }
+
   const scenarioCompanySelect = event.target.closest("#newScenarioCompanySelect");
   if(scenarioCompanySelect){
     if(!scenarioCompanySelect.value) return;

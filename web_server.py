@@ -64,6 +64,40 @@ def list_companies() -> list[dict[str, object]]:
         ).df().to_dict("records")
 
 
+def list_risk_persons() -> list[dict[str, object]]:
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        exists = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = 'risk_person_profile'
+            """
+        ).fetchone()[0]
+        if not exists:
+            return []
+        return conn.execute(
+            """
+            SELECT
+                person_id,
+                name,
+                profile_type,
+                name_aliases,
+                birth_date,
+                gender,
+                nationality,
+                address_region,
+                occupation,
+                risk_level,
+                risk_score,
+                risk_tags,
+                watch_status,
+                updated_at
+            FROM risk_person_profile
+            ORDER BY risk_score DESC NULLS LAST, person_id
+            """
+        ).df().to_dict("records")
+
+
 def get_company_profile(company_id: str) -> dict[str, object]:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -982,6 +1016,9 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/companies":
             self._send_json({"companies": list_companies()})
+            return
+        if parsed.path == "/api/risk-persons":
+            self._send_json({"persons": list_risk_persons()})
             return
         if parsed.path == "/api/company":
             company_id = parse_qs(parsed.query).get("company_id", [""])[0].strip()
