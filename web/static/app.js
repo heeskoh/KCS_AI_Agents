@@ -515,6 +515,125 @@ const AI_SERVICE_REGISTRY = {
   },
 };
 
+const targetConfig = (companyPrompt, personPrompt = companyPrompt, supports = { company:true, person:true }) => ({
+  supports,
+  defaultPrompts: {
+    company: companyPrompt,
+    person: personPrompt,
+  },
+});
+
+const AI_SERVICE_TARGET_CONFIG = {
+  db_cdw: targetConfig(
+    "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+    "우범자 프로파일, 여행·반입 이력, 위험지표를 종합 요약"
+  ),
+  rag_customs: targetConfig(
+    "과세가격, 원산지, 품목분류 관련 규정 근거 확인",
+    "휴대품, 여행자 통관, 조사 절차 관련 규정 근거 확인"
+  ),
+  rag_trade: targetConfig(
+    "통관/무역 정보에서 이상 징후와 참고 근거 확인",
+    "개인 반입·운송·거래 정보에서 이상 징후와 참고 근거 확인"
+  ),
+  rag_audit: targetConfig(
+    "감사 정보와 추징 가능성 관점의 조사 포인트 정리",
+    "개인 사건 검토 이력과 추징 가능성 관점의 조사 포인트 정리"
+  ),
+  rag_investigation: targetConfig(
+    "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+    "개인 수사 정보 기반으로 수사 순서와 확인 자료 정리"
+  ),
+  rag_global: targetConfig(
+    "국제 정보 기반으로 해외 거래구조와 위험 신호 확인",
+    "국제 여행·체류·공조 정보 기반으로 개인 위험 신호 확인"
+  ),
+  rag_consultation: targetConfig(
+    "상담내역과 민원 질의 응답에서 유사 사례와 처리 흐름 확인",
+    "개인 민원·상담내역에서 유사 사례와 처리 흐름 확인"
+  ),
+  rag_risk_select: targetConfig(
+    "위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
+    "개인 위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인"
+  ),
+  ml: targetConfig(
+    "전체 모델을 실행해 기업 위험 패턴을 비교",
+    "전체 모델을 실행해 개인 위험 패턴을 비교"
+  ),
+  network: targetConfig(
+    "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
+    "인물·동행자·연락처·주소 관계망을 분석해 공범, 전달책, 반복 연계 가능성을 식별"
+  ),
+  ontology: targetConfig(
+    "기업·거래·품목 중심 관세 온톨로지와 지식그래프 관계를 구성",
+    "우범여행자 중심 관세 온톨로지와 지식그래프 관계를 구성"
+  ),
+  origin_analysis: targetConfig(
+    "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
+    "개인 반입 물품의 원산지 증빙과 우회 반입 가능성을 분석"
+  ),
+  abnormal_trade: targetConfig(
+    "가격·거래상대방·신고패턴의 이상거래 징후를 검증",
+    "반입·송금·연락·이동 패턴의 이상 징후를 검증"
+  ),
+  proceeds_tracking: targetConfig(
+    "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+    "개인 계좌·송금·현금 반입 단서를 기반으로 범죄수익 은닉 가능성을 분석"
+  ),
+  route_analysis: targetConfig(
+    "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+    "여행경로, 경유지, 동행 이력을 분석해 우회 반입 가능성을 탐지"
+  ),
+  web_search: targetConfig(
+    "업체, 공급망, 가격 변동 관련 기사 확인",
+    "인물, 조직, 사건, 여행 경로 관련 공개 정보를 확인"
+  ),
+  declaration_verify: targetConfig(
+    "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
+    "개인 휴대품 신고, 반입 물품, 첨부 증빙을 비교해 불일치와 은닉 가능성 확인"
+  ),
+  hs_verify: targetConfig(
+    "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
+    "개인 반입 물품의 품목분류와 규제 대상 여부를 검증"
+  ),
+  customs_value: targetConfig(
+    "과세가격 결정 요소와 저가신고 가능성 검토",
+    "개인 반입 물품의 과세가격 산정 근거와 축소 신고 가능성 검토"
+  ),
+  patent: targetConfig(
+    "특허/로열티 관련 거래와 과세가격 반영 여부 확인",
+    "개인 반입 물품의 상표권·지식재산권 침해 가능성 확인"
+  ),
+  law: targetConfig(
+    "관련 법령, 고시, 판례, 유권해석 근거 검색",
+    "개인 수사·통관·처분 관련 법령, 고시, 판례, 유권해석 근거 검색"
+  ),
+  ocr: targetConfig(
+    "첨부 문서에서 주요 항목을 추출하고 신고자료와 대조할 수 있도록 구조화",
+    "개인 신분·여행·반입 관련 첨부 문서에서 주요 항목을 추출하고 구조화"
+  ),
+  rag_create: targetConfig(
+    "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
+    "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리"
+  ),
+  summary: targetConfig(
+    "선행 단계 결과를 조사관용 핵심 요약으로 정리",
+    "선행 단계 결과를 개인 수사 담당자용 핵심 요약으로 정리"
+  ),
+  report_generate: targetConfig(
+    "이전 단계 결과를 공식 조사보고서 초안으로 통합",
+    "이전 단계 결과를 개인 수사보고서 초안으로 통합"
+  ),
+  report_validate: targetConfig(
+    "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+    "개인 수사보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
+  ),
+  mail_share: targetConfig(
+    "분석 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
+    "개인 수사 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유"
+  ),
+};
+
 const registryKeysByPermissionGroup = (groupName) =>
   Object.entries(AI_SERVICE_REGISTRY)
     .filter(([, source]) => source.permissionGroup === groupName)
@@ -607,12 +726,13 @@ function scenarioSourceEntries(){
   return Object.entries(AI_SERVICE_REGISTRY).map(([key, source]) => ({
     key,
     ...source,
+    ...(AI_SERVICE_TARGET_CONFIG[key] || {}),
   }));
 }
 
 function scenarioSourceByKey(key){
   const source = AI_SERVICE_REGISTRY[key];
-  return source ? { key, ...source } : null;
+  return source ? { key, ...source, ...(AI_SERVICE_TARGET_CONFIG[key] || {}) } : null;
 }
 
 function sourceBehaviorOptions(key){
@@ -628,8 +748,23 @@ function sourceDefaultBehaviors(key){
   return [sourceDefaultBehavior(key)];
 }
 
-function sourceDefaultInstruction(key){
-  return scenarioSourceByKey(key)?.defaultInstruction || "";
+function normalizeTargetType(value){
+  return String(value || "").toLowerCase() === "person" ? "person" : "company";
+}
+
+function sourceSupportsTarget(key, targetType = "company"){
+  const source = scenarioSourceByKey(key);
+  const normalized = normalizeTargetType(targetType);
+  return source?.supports?.[normalized] !== false;
+}
+
+function sourceDefaultInstruction(key, targetType = "company"){
+  const source = scenarioSourceByKey(key);
+  const normalized = normalizeTargetType(targetType);
+  return source?.defaultPrompts?.[normalized]
+    || source?.defaultPrompts?.company
+    || source?.defaultInstruction
+    || "";
 }
 
 function sourceBehaviorLabel(key, behavior){
@@ -644,6 +779,7 @@ function sourceBehaviorLabels(key, behaviors){
 function normalizeScenarioItem(item, index = 0){
   const source = scenarioSourceByKey(item.key) || scenarioSourceByKey("db_cdw");
   const key = source?.key || item.key || "db_cdw";
+  const targetType = normalizeTargetType(item.target_type || item.targetType || "company");
   const behaviors = Array.isArray(item.behaviors) && item.behaviors.length
     ? item.behaviors
     : item.behavior
@@ -658,7 +794,9 @@ function normalizeScenarioItem(item, index = 0){
     behavior: behaviors[0],
     behaviorLabel: sourceBehaviorLabels(key, behaviors).join(", "),
     order: item.order || index + 1,
-    instruction: item.instruction || sourceDefaultInstruction(key),
+    targetType,
+    target_type: targetType,
+    instruction: item.instruction || sourceDefaultInstruction(key, targetType),
   };
 }
 
@@ -871,10 +1009,11 @@ function giCommonSourceKey(key){
 function normalizeGiScenarioStep(step, index = 0){
   const source = giSourceByKey(step.key);
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
+  const targetType = normalizeTargetType(step.target_type || step.targetType || activeGenInvCase()?.targetType || "company");
   const behaviors = Array.isArray(step.behaviors) && step.behaviors.length
     ? step.behaviors
     : sourceDefaultBehaviors(sourceKey);
-  const instruction = step.instruction ?? step.note ?? sourceDefaultInstruction(sourceKey);
+  const instruction = step.instruction ?? step.note ?? sourceDefaultInstruction(sourceKey, targetType);
   return {
     ...step,
     id: step.id || `gis_${index}_${uid()}`,
@@ -882,6 +1021,8 @@ function normalizeGiScenarioStep(step, index = 0){
     type: step.type || source.type,
     label: step.label || source.label,
     sourceKey,
+    targetType,
+    target_type: targetType,
     behaviors,
     behavior: behaviors[0],
     behaviorLabel: sourceBehaviorLabels(sourceKey, behaviors).join(", "),
@@ -890,17 +1031,19 @@ function normalizeGiScenarioStep(step, index = 0){
   };
 }
 
-function giScenarioInstructionPreview(step){
+function giScenarioInstructionPreview(step, targetType = "company"){
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
   const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
-  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey) || "기본 분석";
+  const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
+  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
   return `${behaviors.join(", ")} · ${instruction}`;
 }
 
-function giScenarioRunInstruction(step){
+function giScenarioRunInstruction(step, targetType = "company"){
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
   const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
-  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey) || "기본 분석";
+  const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
+  const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
   return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}`;
 }
 
@@ -953,8 +1096,10 @@ function giStreamSteps(aCase, stepsToRun){
     label: s.label,
     type: s.type,
     sourceKey: s.sourceKey || giCommonSourceKey(s.key),
+    target_type: aCase.targetType || "company",
+    targetType: aCase.targetType || "company",
     behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
-    note: giScenarioRunInstruction(s),
+    note: giScenarioRunInstruction(s, aCase.targetType),
   }));
   const params = new URLSearchParams({
     case_id:     aCase.caseId,
@@ -2951,7 +3096,7 @@ function generalInvWorkbenchPanel(){
             <strong>${escapeHtml(step.label)}</strong>
             ${stateTag}
           </div>
-          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)} · ${escapeHtml(giScenarioInstructionPreview(step).slice(0,60))}</p>
+          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)} · ${escapeHtml(giScenarioInstructionPreview(step, aCase.targetType).slice(0,60))}</p>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
           ${i > 0 ? `<button class="gi-move-btn" data-gi-step-up="${escapeHtml(step.id)}" title="위로">↑</button>` : `<span style="width:22px"></span>`}
@@ -2986,7 +3131,7 @@ function generalInvWorkbenchPanel(){
           <strong>${escapeHtml(scenarioSourceByKey(selStep.sourceKey || giCommonSourceKey(selStep.key))?.label || selStep.label)}</strong>
           <span>${escapeHtml(typeLabel[selStep.type] || selStep.type)}</span>
         </div>
-        <p>${escapeHtml(sourceDefaultInstruction(selStep.sourceKey || giCommonSourceKey(selStep.key)) || "이 단계의 추가 지시를 입력하세요.")}</p>
+        <p>${escapeHtml(sourceDefaultInstruction(selStep.sourceKey || giCommonSourceKey(selStep.key), aCase.targetType) || "이 단계의 추가 지시를 입력하세요.")}</p>
       </div>
       <label class="scenario-field">
         <span>추가 지시</span>
@@ -4917,13 +5062,13 @@ function selectedBehaviorValues(boxId = "scenarioBehaviorOptions"){
 
 function scenarioRunInstruction(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
-  const instruction = item.instruction || sourceDefaultInstruction(item.key) || "기본 분석";
+  const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
   return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}`;
 }
 
 function scenarioInstructionPreview(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
-  const instruction = item.instruction || sourceDefaultInstruction(item.key) || "기본 분석";
+  const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
   return `${behaviors.join(", ")} · ${instruction}`;
 }
 
@@ -5259,6 +5404,9 @@ function scenarioPayload(items = scenarioItems){
   const hasRag = items.some(item => item.type.startsWith("rag_"));
   const runItems = items.map(item => ({
     ...item,
+    target_type: "company",
+    targetType: "company",
+    targetSupport: scenarioSourceByKey(item.key)?.supports || { company:true, person:true },
     behaviors: Array.isArray(item.behaviors) && item.behaviors.length ? item.behaviors : sourceDefaultBehaviors(item.key),
     behavior: (Array.isArray(item.behaviors) && item.behaviors.length ? item.behaviors : sourceDefaultBehaviors(item.key))[0],
     behaviorLabel: sourceBehaviorLabels(item.key, item.behaviors).join(", "),
@@ -5986,8 +6134,10 @@ document.addEventListener("click", (event)=>{
         ...src,
         id:`gis_${uid()}`,
         sourceKey,
+        targetType: aCase.targetType || "company",
+        target_type: aCase.targetType || "company",
         behaviors: sourceDefaultBehaviors(sourceKey),
-        instruction: sourceDefaultInstruction(sourceKey),
+        instruction: sourceDefaultInstruction(sourceKey, aCase.targetType),
       }, aCase.giSteps.length));
       activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
     }
@@ -6249,10 +6399,12 @@ document.addEventListener("change", (event) => {
       step.type = source.type;
       step.label = source.label;
       step.sourceKey = giCommonSourceKey(source.key);
+      step.targetType = aCase.targetType || "company";
+      step.target_type = aCase.targetType || "company";
       step.behaviors = sourceDefaultBehaviors(step.sourceKey);
       step.behavior = step.behaviors[0];
       step.behaviorLabel = sourceBehaviorLabels(step.sourceKey, step.behaviors).join(", ");
-      step.instruction = sourceDefaultInstruction(step.sourceKey);
+      step.instruction = sourceDefaultInstruction(step.sourceKey, aCase.targetType);
       step.note = step.instruction;
     }
     saveCanvasState();

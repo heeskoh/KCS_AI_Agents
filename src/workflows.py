@@ -34,6 +34,12 @@ from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_summary import agent_summary
 from src.agents.agent_validate import agent_validate
 from src.agents.agent_web import agent_web
+from src.agents.service_registry import (
+    AI_SERVICE_TARGET_CONFIG,
+    default_prompt,
+    normalize_target_type,
+    service_supports_target,
+)
 from src.agents.state import CustomsState
 
 warnings.filterwarnings("ignore")
@@ -51,13 +57,9 @@ RAG_TYPES = {
 }
 
 
-def _normalize_target_type(value: Any) -> str:
-    return "person" if str(value or "").strip().lower() == "person" else "company"
-
-
 def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None) -> CustomsState:
     scenario = scenario or {}
-    target_type = _normalize_target_type(
+    target_type = normalize_target_type(
         scenario.get("target_type") or scenario.get("targetType")
     )
     return {
@@ -145,15 +147,34 @@ def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
     return None
 
 
+def _normalize_scenario_item(item: dict[str, Any], target_type: str) -> dict[str, Any] | None:
+    normalized = {**item}
+    source_type = normalized.get("type")
+    source_key = normalized.get("sourceKey") or normalized.get("source_key") or normalized.get("key") or source_type
+    registry_key = source_key if source_key in AI_SERVICE_TARGET_CONFIG else source_type
+    if not service_supports_target(str(registry_key or ""), target_type):
+        return None
+    normalized["target_type"] = target_type
+    normalized["targetType"] = target_type
+    normalized["target_support"] = AI_SERVICE_TARGET_CONFIG.get(str(registry_key or ""), {}).get("supports", {})
+    if not normalized.get("instruction"):
+        normalized["instruction"] = default_prompt(str(registry_key or ""), target_type)
+    return normalized
+
+
 def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
     scenario = scenario or {}
+    target_type = normalize_target_type(scenario.get("target_type") or scenario.get("targetType"))
     scenario_items = scenario.get("scenario_items") or []
 
     if scenario_items:
         mapped_steps: list[Step] = []
         ordered_items = sorted(scenario_items, key=lambda value: value.get("order", 999))
         for index, item in enumerate(ordered_items, 1):
-            step = _step_from_item(item, index)
+            normalized_item = _normalize_scenario_item(item, target_type)
+            if not normalized_item:
+                continue
+            step = _step_from_item(normalized_item, index)
             if step:
                 mapped_steps.append(step)
         return mapped_steps

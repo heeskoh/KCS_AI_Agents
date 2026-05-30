@@ -1240,6 +1240,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             f"일반수사 분析을 수행합니다. 관세청 조사관의 관점에서 분析하세요."
         )
 
+        from src.agents.service_registry import default_prompt, service_supports_target
         from src.workflows import _step_from_item, create_initial_state
 
         gi_steps: list[tuple] = []
@@ -1247,9 +1248,20 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             gi_key  = (step.get("key") or "").strip()
             label   = step.get("label") or gi_key
             gi_id   = step.get("id")   or gi_key
-            note    = step.get("note") or ""
+            source_key = step.get("sourceKey") or step.get("source_key") or gi_key
+            if not service_supports_target(source_key, target_type):
+                continue
+            note    = step.get("note") or default_prompt(source_key, target_type)
             atype   = _gi_key_to_agent_type(gi_key)
-            item    = {"type": atype, "key": gi_key, "label": label, "order": i}
+            item    = {
+                "type": atype,
+                "key": gi_key,
+                "sourceKey": source_key,
+                "label": label,
+                "order": i,
+                "target_type": target_type,
+                "instruction": note,
+            }
             mapped  = _step_from_item(item, i)
             if mapped:
                 agent_key, agent_label, runner, result_key = mapped
