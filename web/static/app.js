@@ -3748,40 +3748,41 @@ function drugRiskDashboard(){
         <!-- 테이블 (토글) -->
         ${isOpen ? `
           <div style="overflow-x:auto;border-top:1px solid ${ind.border}">
-            <table class="data-table" style="font-size:12px;margin:0">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>${col2}</th>
-                  <th>${col3}</th>
-                  <th>${col4}</th>
-                  <th>위험유형</th>
-                  <th style="text-align:center">위험점수</th>
-                  <th style="text-align:center">상태</th>
-                  <th style="text-align:center;width:90px">분석 수행</th>
+                <tr style="background:${ind.bg}">
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">ID</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">${col2}</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">${col3}</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">${col4}</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">위험유형</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">위험점수</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border}">상태</th>
+                  <th style="padding:10px 14px;text-align:center;font-weight:700;color:#41506a;white-space:nowrap;border-bottom:1px solid ${ind.border};width:110px">분석 수행</th>
                 </tr>
               </thead>
               <tbody>
-                ${ind.rows.map(r=>`
-                  <tr>
-                    <td style="font-family:monospace;font-size:11px;color:#1e40af">${escapeHtml(r.id)}</td>
-                    <td><strong>${escapeHtml(r.goods)}</strong></td>
-                    <td>${escapeHtml(r.origin)}</td>
-                    <td style="color:#41506a">${escapeHtml(r.importer)}</td>
-                    <td>
+                ${ind.rows.map((r,i)=>`
+                  <tr style="background:${i%2===0?"#fff":ind.bg+"88"};border-bottom:1px solid ${ind.border}">
+                    <td style="padding:11px 14px;font-family:monospace;font-size:12px;color:#1e40af;white-space:nowrap">${escapeHtml(r.id)}</td>
+                    <td style="padding:11px 14px"><strong style="font-size:13px">${escapeHtml(r.goods)}</strong></td>
+                    <td style="padding:11px 14px;color:#41506a;white-space:nowrap">${escapeHtml(r.origin)}</td>
+                    <td style="padding:11px 14px;color:#41506a">${escapeHtml(r.importer)}</td>
+                    <td style="padding:11px 14px">
                       <span style="background:${ind.bg};color:${ind.color};border:1px solid ${ind.border};
-                                   border-radius:4px;padding:1px 7px;font-size:11px;white-space:nowrap">
+                                   border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap">
                         ${escapeHtml(r.risk)}
                       </span>
                     </td>
-                    <td style="text-align:center">
-                      <strong style="color:${r.score>=90?"#dc2626":r.score>=75?"#d97706":"#16a34a"}">${r.score}</strong>
+                    <td style="padding:11px 14px;text-align:center">
+                      <strong style="font-size:14px;color:${r.score>=90?"#dc2626":r.score>=75?"#d97706":"#16a34a"}">${r.score}</strong>
                     </td>
-                    <td style="text-align:center">${statusChip(r.status)}</td>
-                    <td style="text-align:center">
-                      <button class="btn small"
-                              style="font-size:11px;white-space:nowrap;background:${ind.color};
-                                     color:#fff;border-color:${ind.color}">
+                    <td style="padding:11px 14px;text-align:center">${statusChip(r.status)}</td>
+                    <td style="padding:11px 14px;text-align:center">
+                      <button style="display:inline-flex;align-items:center;justify-content:center;
+                                     height:32px;padding:0 14px;font-size:12px;font-weight:700;
+                                     white-space:nowrap;background:${ind.color};color:#fff;
+                                     border:none;border-radius:6px;cursor:pointer;line-height:1">
                         분석 수행
                       </button>
                     </td>
@@ -3827,8 +3828,8 @@ function drugRiskDashboard(){
         </div>
       </div>
 
-      <!-- ② 메인: 좌(아코디언 4개) + 우(이벤트 스크롤) -->
-      <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start">
+      <!-- ② 메인: 좌(아코디언 4개) + 우(이벤트 스크롤) 7:3 -->
+      <div style="display:grid;grid-template-columns:7fr 3fr;gap:14px;align-items:start">
 
         <!-- 아코디언 4개 -->
         <div style="display:flex;flex-direction:column;gap:8px">
