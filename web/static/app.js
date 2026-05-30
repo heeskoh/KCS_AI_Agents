@@ -3471,86 +3471,10 @@ function invNewJobForm(){
     </div>
   `;
 }
+/* investigationDashboardPanel → 공통 riskDashboardContent() 위임 */
 function investigationDashboardPanel(){
-  const companies = scenarioCompanies;
-  if(!companies.length){
-    return `<div class="profile-loading">위험도 데이터 로딩 중...</div>`;
-  }
-
-  const total     = companies.length;
-  const needReview = companies.filter(c => c.risk_level === "HIGH").length;
-  const nearAudit  = companies.filter(c => (c.risk_score||0) >= 75).length;
-
-  const cnt = (field, thr) => companies.filter(c => (c[field]||0) > thr).length;
-  const alertCounts = {
-    underval: cnt("undervaluation_suspicion_rate", 50) * 3 + cnt("undervaluation_suspicion_rate", 30),
-    hs:       cnt("hs_classification_error_rate", 40) * 5 + cnt("hs_classification_error_rate", 20) * 2,
-    royalty:  cnt("related_party_anomaly_rate", 50) * 3 + cnt("related_party_anomaly_rate", 30),
-    forex:    cnt("offshore_fund_concealment_suspicion_rate", 50) * 2,
-    refund:   cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20),
-  };
-
-  const q    = riskDashboardFilter.query.toLowerCase();
-  const minS = riskDashboardFilter.minScore;
-  const filtered = companies.filter(c => {
-    if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
-    if(minS && (c.risk_score||0) < minS) return false;
-    return true;
-  });
-
-  return `
-    <div class="ci-dashboard">
-      <div class="ci-dw-bar">
-        <strong>DW 조회</strong>
-        <input id="ciDwQuery" class="ci-dw-input" placeholder="자연어로 DW 조건을 입력하세요 (예: 최근 1년 수입금액 10억 이상 · HS 8471 · 저가신고 의심업체)">
-        <button class="btn ci-dw-run" type="button" onclick="ciRunDwQuery()">조회 실행</button>
-      </div>
-      <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
-
-      <div class="ci-kpi-row">
-        <div class="ci-kpi">
-          <span>총 관리대상 업체</span>
-          <strong>${total.toLocaleString()} 개사</strong>
-        </div>
-        <div class="ci-kpi">
-          <span>고위험 (심사필요)</span>
-          <strong class="high">${needReview} 개사</strong>
-        </div>
-        <div class="ci-kpi">
-          <span>조사 임박 (75점 이상)</span>
-          <strong class="mid-risk">${nearAudit} 개사</strong>
-        </div>
-      </div>
-
-      <div class="ci-alert-strip">
-        ${riskAlertCard("신고가격오류 의심", alertCounts.underval)}
-        ${riskAlertCard("품목분류 위장 의심", alertCounts.hs)}
-        ${riskAlertCard("권리사용료 미신고", alertCounts.royalty)}
-        ${riskAlertCard("외환 송금액 불일치", alertCounts.forex)}
-        ${riskAlertCard("환급금액 오신청 의심", alertCounts.refund)}
-      </div>
-
-      <div class="risk-dash-filter" style="margin-bottom:12px">
-        <h3>위험스코어 기반 의심업체 선별</h3>
-        <input id="riskFilterQuery" class="risk-filter-input"
-          placeholder="업체명, 사업자번호 검색"
-          value="${escapeHtml(riskDashboardFilter.query)}">
-        <select id="riskFilterScore" class="risk-filter-select">
-          <option value="0"  ${minS===0  ?"selected":""}>스코어: 전체</option>
-          <option value="80" ${minS===80 ?"selected":""}>80점 이상</option>
-          <option value="60" ${minS===60 ?"selected":""}>60점 이상</option>
-          <option value="40" ${minS===40 ?"selected":""}>40점 이상</option>
-        </select>
-      </div>
-
-      <div class="risk-company-grid" id="riskCompanyGrid">
-        ${filtered.map(ciCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>'}
-      </div>
-    </div>
-  `;
+  return riskDashboardContent();
 }
-
-function ciCompanyCard(c){ return sharedRiskCard(c); }
 
 function ciRunDwQuery(){
   const input = document.getElementById("ciDwQuery");
@@ -6128,9 +6052,12 @@ function setMarkdown(target, value){
   if(target) target.innerHTML = markdownToHtml(value);
 }
 
-// ── 기업 위험도 대시보드 ──────────────────────────────────────────────
+// ── 기업 위험도 대시보드 (공통 콘텐츠 함수) ─────────────────────────
 
-function riskDashboard(){
+/* riskDashboardContent() — 순수 내용만 반환. 어디서든 재사용 가능.
+   - 메인 '기업 위험도 대시보드' 전용 페이지: riskDashboard() 가 section.card 래퍼로 감쌈
+   - 관세조사분석 탭 내 embedded: investigationDashboardPanel() 이 직접 호출             */
+function riskDashboardContent(){
   if(!scenarioCompanies.length){
     return `
       <div class="risk-dashboard">
@@ -6151,11 +6078,11 @@ function riskDashboard(){
 
   const cnt = (field, thr) => companies.filter(c => (c[field]||0) > thr).length;
   const alertCounts = {
-    underval : cnt("undervaluation_suspicion_rate", 50) * 3 + cnt("undervaluation_suspicion_rate", 30) * 1,
+    underval : cnt("undervaluation_suspicion_rate", 50) * 3 + cnt("undervaluation_suspicion_rate", 30),
     hs       : cnt("hs_classification_error_rate", 40) * 5 + cnt("hs_classification_error_rate", 20) * 2,
-    royalty  : cnt("related_party_anomaly_rate", 50) * 3 + cnt("related_party_anomaly_rate", 30) * 1,
+    royalty  : cnt("related_party_anomaly_rate", 50) * 3 + cnt("related_party_anomaly_rate", 30),
     forex    : cnt("offshore_fund_concealment_suspicion_rate", 50) * 2,
-    refund   : cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20) * 1,
+    refund   : cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20),
   };
 
   const q = riskDashboardFilter.query.toLowerCase();
@@ -6189,6 +6116,13 @@ function riskDashboard(){
         </div>
       </div>
 
+      <div class="ci-dw-bar">
+        <strong>DW 조회</strong>
+        <input id="ciDwQuery" class="ci-dw-input" placeholder="자연어로 DW 조건을 입력하세요 (예: 최근 1년 수입금액 10억 이상 · HS 8471 · 저가신고 의심업체)">
+        <button class="btn ci-dw-run" type="button" onclick="ciRunDwQuery()">조회 실행</button>
+      </div>
+      <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
+
       <div class="risk-alert-strip">
         ${riskAlertCard("신고가격오류 의심", alertCounts.underval)}
         ${riskAlertCard("품목분류 위장 의심", alertCounts.hs)}
@@ -6214,6 +6148,11 @@ function riskDashboard(){
         ${filtered.map(riskCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>'}
       </div>
     </div>`;
+}
+
+/* 메인 '기업 위험도 대시보드' 전용 페이지 — section.card 래퍼만 추가 */
+function riskDashboard(){
+  return `<section class="card" style="padding:0;overflow:visible">${riskDashboardContent()}</section>`;
 }
 
 function riskAlertCard(label, count){
