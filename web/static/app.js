@@ -3618,160 +3618,237 @@ function drugInvTabContent(){
 
 function drugRiskDashboard(){
   const today = new Date().toISOString().slice(0,10);
+
+  /* ── KPI 데이터 ─────────────────────────────────────────── */
   const kpis = [
-    { label:"총 RISK 대상 건수",       value:248, unit:"건", accent:"#1e40af" },
-    { label:"당월 신규식별 RISK",       value:34,  unit:"건", accent:"#7c3aed" },
-    { label:"이월 RISK 건수",           value:91,  unit:"건", accent:"#0284c7" },
-    { label:"진행중인 RISK",            value:112, unit:"건", accent:"#d97706" },
-    { label:"당월 완료된 RISK",         value:11,  unit:"건", accent:"#16a34a" },
-    { label:"3개월↑ 장기 진행",         value:19,  unit:"건", accent:"#dc2626" },
+    { label:"총 RISK 대상 건수",   value:248, accent:"#1e40af" },
+    { label:"당월 신규식별 RISK",  value:34,  accent:"#7c3aed" },
+    { label:"이월 RISK 건수",      value:91,  accent:"#0284c7" },
+    { label:"진행중인 RISK",       value:112, accent:"#d97706" },
+    { label:"당월 완료된 RISK",    value:11,  accent:"#16a34a" },
+    { label:"3개월↑ 장기 진행",    value:19,  accent:"#dc2626" },
   ];
+
+  /* ── 4대 지표 ────────────────────────────────────────────── */
   const indicators = [
     {
-      key:"cargo",
-      title:"High Risk Cargo",
-      subtitle:"고위험 수입 화물",
-      today: 42,  yesterday: 38,
-      icon:"📦",
-      color:"#dc2626", bg:"#fef2f2",
-      border:"#fecaca",
+      key:"cargo", icon:"📦",
+      title:"High Risk Cargo", subtitle:"고위험 수입 화물",
+      today:42, yesterday:38,
+      color:"#dc2626", bg:"#fef2f2", border:"#fecaca",
       detail:[
-        { label:"마약 전구물질", count:18, delta:+3 },
-        { label:"저가신고 의심", count:12, delta:-1 },
-        { label:"원산지 위반",   count:8,  delta:+2 },
-        { label:"이중용도 품목", count:4,  delta: 0 },
+        {label:"마약 전구물질", count:18, delta:+3},
+        {label:"저가신고 의심", count:12, delta:-1},
+        {label:"원산지 위반",   count:8,  delta:+2},
+        {label:"이중용도 품목", count:4,  delta: 0},
+      ],
+      rows:[
+        {id:"APLL2026053001", goods:"N-페닐피페라진 유도체", origin:"CN", importer:"(주)케미칼인터",  risk:"마약 전구물질", score:95, status:"검사지시"},
+        {id:"MSCU2026053002", goods:"유기화합물 혼합분말",   origin:"MX", importer:"글로벌화학(주)",   risk:"마약 전구물질", score:91, status:"검사지시"},
+        {id:"COSU2026053008", goods:"노트북 (저가신고의심)", origin:"HK", importer:"개인통관 박XX",     risk:"저가신고 의심", score:88, status:"심사중"},
+        {id:"HLCU2026053014", goods:"레이저 장비 부품",      origin:"IL", importer:"(주)광학기술",     risk:"이중용도 품목", score:76, status:"대기"},
+        {id:"EGLV2026053019", goods:"면 티셔츠 (원산지위반)",origin:"VN", importer:"패션유통(주)",     risk:"원산지 위반",   score:82, status:"심사중"},
       ],
     },
     {
-      key:"traveler",
-      title:"Traveler Alert",
-      subtitle:"우범여행자 입국 경보",
-      today: 17,  yesterday: 21,
-      icon:"✈️",
-      color:"#d97706", bg:"#fffbeb",
-      border:"#fde68a",
+      key:"traveler", icon:"✈️",
+      title:"Traveler Alert", subtitle:"우범여행자 입국 경보",
+      today:17, yesterday:21,
+      color:"#d97706", bg:"#fffbeb", border:"#fde68a",
       detail:[
-        { label:"신규 식별",     count:5,  delta:+2 },
-        { label:"기존 우범자",   count:8,  delta:-4 },
-        { label:"감시대상 입국", count:4,  delta: 0 },
+        {label:"신규 식별",     count:5, delta:+2},
+        {label:"기존 우범자",   count:8, delta:-4},
+        {label:"감시대상 입국", count:4, delta: 0},
+      ],
+      rows:[
+        {id:"DS-001", goods:"김우범",       origin:"방콕→인천",    importer:"감시중",  risk:"기존 우범자", score:92, status:"추적중"},
+        {id:"DS-002", goods:"이마약",       origin:"두바이→인천",  importer:"감시중",  risk:"기존 우범자", score:87, status:"추적중"},
+        {id:"DS-009", goods:"Park James",   origin:"LA→인천",      importer:"신규",    risk:"신규 식별",   score:71, status:"감시중"},
+        {id:"DS-010", goods:"田中 健一",    origin:"도쿄→인천",    importer:"신규",    risk:"신규 식별",   score:68, status:"감시중"},
+        {id:"DS-003", goods:"최연락",       origin:"암스→인천",    importer:"감시중",  risk:"감시대상",    score:64, status:"감시중"},
       ],
     },
     {
-      key:"modus",
-      title:"New Drug Modus",
-      subtitle:"신종 마약 수법 탐지",
-      today: 6,   yesterday: 4,
-      icon:"🧬",
-      color:"#7c3aed", bg:"#faf5ff",
-      border:"#ddd6fe",
+      key:"modus", icon:"🧬",
+      title:"New Drug Modus", subtitle:"신종 마약 수법 탐지",
+      today:6, yesterday:4,
+      color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe",
       detail:[
-        { label:"신종 은어 탐지",  count:3, delta:+1 },
-        { label:"신종 약물 확인",  count:2, delta:+2 },
-        { label:"신규 유통경로",   count:1, delta: 0 },
+        {label:"신종 은어 탐지",  count:3, delta:+1},
+        {label:"신종 약물 확인",  count:2, delta:+2},
+        {label:"신규 유통경로",   count:1, delta: 0},
+      ],
+      rows:[
+        {id:"MDS-031", goods:"'초록이'",        origin:"SNS",           importer:"MDMA 추정",       risk:"신종 은어",    score:88, status:"사전등록"},
+        {id:"MDS-032", goods:"'머큐리'",        origin:"텔레그램",      importer:"필로폰 추정",     risk:"신종 은어",    score:82, status:"사전등록"},
+        {id:"MDS-033", goods:"신규 합성마약A",  origin:"중국 실험실",   importer:"펜타닐 유사체",   risk:"신종 약물",    score:94, status:"분석중"},
+        {id:"MDS-034", goods:"펜타닐 패치 위조",origin:"다크웹",        importer:"특송 경유",       risk:"신종 약물",    score:91, status:"수사중"},
+        {id:"MDS-035", goods:"필로폰 신유통로", origin:"방콕→인천→부산",importer:"해운 환적",       risk:"신규 경로",    score:79, status:"감시중"},
       ],
     },
     {
-      key:"intl",
-      title:"International Alert",
-      subtitle:"국제 마약 정보 경보",
-      today: 11,  yesterday: 9,
-      icon:"🌐",
-      color:"#0284c7", bg:"#eff6ff",
-      border:"#bfdbfe",
+      key:"intl", icon:"🌐",
+      title:"International Alert", subtitle:"국제 마약 정보 경보",
+      today:11, yesterday:9,
+      color:"#0284c7", bg:"#eff6ff", border:"#bfdbfe",
       detail:[
-        { label:"WCO 경보",      count:4, delta:+2 },
-        { label:"INCB 정보",     count:4, delta: 0 },
-        { label:"양자 정보공유", count:3, delta: 0 },
+        {label:"WCO 경보",      count:4, delta:+2},
+        {label:"INCB 정보",     count:4, delta: 0},
+        {label:"양자 정보공유", count:3, delta: 0},
+      ],
+      rows:[
+        {id:"WCO-2026-041", goods:"필로폰 신규경로 경보",    origin:"WCO",  importer:"동남아→동북아",   risk:"WCO 경보",       score:95, status:"조치중"},
+        {id:"WCO-2026-042", goods:"합성마약 성분 분류 개정", origin:"WCO",  importer:"HS 분류 변경",     risk:"WCO 경보",       score:82, status:"검토중"},
+        {id:"INCB-2026-18", goods:"전구물질 거래 급증 경보", origin:"INCB", importer:"중남미→동아시아", risk:"INCB 정보",      score:88, status:"조치중"},
+        {id:"INCB-2026-19", goods:"MDMA 원료 공급망 분석",  origin:"INCB", importer:"서유럽",           risk:"INCB 정보",      score:76, status:"검토중"},
+        {id:"KR-US-2026-07",goods:"필로폰 밀수 공조수사",   origin:"양자", importer:"한-미 공조",       risk:"양자 정보공유",  score:91, status:"공조중"},
       ],
     },
   ];
 
-  function deltaChip(d){
-    if(d === 0) return `<span style="color:#6b7f9e;font-size:11px">±0</span>`;
-    const up = d > 0;
-    return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:11px;font-weight:700">${up?"+":""}${d}</span>`;
+  /* ── 헬퍼 ──────────────────────────────────────────────── */
+  function trend(now, prev){
+    if(now === prev) return `<span style="color:#6b7f9e;font-size:12px">→ 전일 동일</span>`;
+    const up = now > prev, d = Math.abs(now-prev);
+    return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:12px;font-weight:700">${up?"▲":"▼"} ${d}건 (전일 ${prev}건)</span>`;
   }
-  function trendArrow(now, prev){
-    if(now === prev) return `<span style="color:#6b7f9e;font-size:13px">→ 전일 동일</span>`;
-    const up = now > prev;
-    const diff = Math.abs(now - prev);
-    return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:13px;font-weight:600">${up?"▲":"▼"} ${diff}건 (전일 ${prev}건)</span>`;
+  function delta(d){
+    if(d===0) return `<span style="color:#94a3b8;font-size:11px">±0</span>`;
+    return `<span style="color:${d>0?"#dc2626":"#16a34a"};font-size:11px;font-weight:700">${d>0?"+":""}${d}</span>`;
+  }
+
+  /* ── 요약 카드 (2×2 그리드용) ──────────────────────────── */
+  function summaryCard(ind){
+    return `
+      <div style="background:${ind.bg};border:1px solid ${ind.border};border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px;line-height:1">${ind.icon}</span>
+          <div>
+            <div style="font-size:12px;font-weight:800;color:${ind.color}">${ind.title}</div>
+            <div style="font-size:10px;color:#6b7f9e">${ind.subtitle}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <strong style="font-size:34px;font-weight:900;color:${ind.color};line-height:1">${ind.today}</strong>
+          <div style="padding-bottom:2px">
+            <div style="font-size:10px;color:#6b7f9e;margin-bottom:1px">당일 건수</div>
+            ${trend(ind.today, ind.yesterday)}
+          </div>
+        </div>
+        <div style="border-top:1px solid ${ind.border};padding-top:8px;display:flex;flex-direction:column;gap:4px">
+          ${ind.detail.map(d=>`
+            <div style="display:flex;align-items:center">
+              <span style="flex:1;font-size:11px;color:#41506a">${d.label}</span>
+              <strong style="font-size:12px;color:${ind.color};margin-right:4px">${d.count}</strong>
+              ${delta(d.delta)}
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+  }
+
+  /* ── 당일 목록 상세 행 ─────────────────────────────────── */
+  function detailTable(ind){
+    const colHeaders = ind.key==="traveler"
+      ? ["ID","성명","입국경로","구분","위험유형","위험점수","상태"]
+      : ["ID","대상","출처/원산지","수입자/관련자","위험유형","위험점수","상태"];
+    return `
+      <div style="background:${ind.bg};border:1px solid ${ind.border};border-top:none;border-radius:0 0 12px 12px;padding:14px 16px">
+        <div style="overflow-x:auto">
+          <table class="data-table" style="font-size:12px">
+            <thead>
+              <tr>${colHeaders.map(h=>`<th>${h}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${ind.rows.map(r=>`
+                <tr>
+                  <td style="font-family:monospace;color:#1e40af">${escapeHtml(r.id)}</td>
+                  <td><strong>${escapeHtml(r.goods)}</strong></td>
+                  <td>${escapeHtml(r.origin)}</td>
+                  <td>${escapeHtml(r.importer)}</td>
+                  <td><span style="background:${ind.bg};color:${ind.color};border:1px solid ${ind.border};border-radius:4px;padding:1px 7px;font-size:11px">${escapeHtml(r.risk)}</span></td>
+                  <td><strong style="color:${r.score>=90?"#dc2626":r.score>=75?"#d97706":"#41506a"}">${r.score}</strong></td>
+                  <td><span class="drug-status-chip" style="background:${r.status==="검사지시"||r.status==="수사중"?"#fee2e2":r.status==="심사중"||r.status==="추적중"||r.status==="조치중"?"#fef3c7":r.status==="사전등록"||r.status==="공조중"?"#ede9fe":"#f1f5f9"};color:${r.status==="검사지시"||r.status==="수사중"?"#dc2626":r.status==="심사중"||r.status==="추적중"||r.status==="조치중"?"#d97706":r.status==="사전등록"||r.status==="공조중"?"#7c3aed":"#64748b"};border-radius:4px;padding:2px 8px">${escapeHtml(r.status)}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  /* ── 지표 헤더바 (접이식 영역 상단) ─────────────────────── */
+  function indicatorBar(ind){
+    return `
+      <div style="background:${ind.bg};border:1px solid ${ind.border};border-radius:12px 12px 0 0;padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:18px">${ind.icon}</span>
+        <div>
+          <span style="font-size:13px;font-weight:800;color:${ind.color}">${ind.title}</span>
+          <span style="font-size:11px;color:#6b7f9e;margin-left:6px">${ind.subtitle}</span>
+        </div>
+        <strong style="font-size:28px;font-weight:900;color:${ind.color};margin-left:16px;line-height:1">${ind.today}</strong>
+        <div style="font-size:12px;color:#6b7f9e;margin-left:4px">
+          <div style="font-size:10px;margin-bottom:1px">당일 건수</div>
+          ${trend(ind.today, ind.yesterday)}
+        </div>
+      </div>`;
   }
 
   return `
     <div class="risk-dashboard">
 
-      <!-- KPI 요약 헤더 -->
+      <!-- ① KPI 헤더 -->
       <div class="risk-dash-header">
         <div>
           <h2>마약위험 모니터링 대시보드</h2>
           <p class="muted">마약 수사 전 분야의 RISK 현황을 실시간으로 모니터링합니다. 기준일: ${today}</p>
         </div>
         <div class="risk-kpi-strip">
-          ${kpis.map(k => `
+          ${kpis.map(k=>`
             <div class="risk-kpi-item">
               <span>${k.label}</span>
-              <strong style="color:${k.accent}">${k.value.toLocaleString()} <small style="font-size:14px;font-weight:600">${k.unit}</small></strong>
+              <strong style="color:${k.accent}">${k.value}<small style="font-size:13px;font-weight:600;margin-left:2px">건</small></strong>
             </div>
           `).join("")}
         </div>
       </div>
 
-      <!-- 4대 핵심 위험지표 -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
-        ${indicators.map(ind => `
-          <div style="background:${ind.bg};border:1px solid ${ind.border};border-radius:16px;padding:18px 16px;display:flex;flex-direction:column;gap:12px">
-            <!-- 지표 헤더 -->
-            <div style="display:flex;align-items:flex-start;gap:10px">
-              <span style="font-size:24px;line-height:1">${ind.icon}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:800;color:${ind.color}">${ind.title}</div>
-                <div style="font-size:11px;color:#6b7f9e;margin-top:1px">${ind.subtitle}</div>
-              </div>
-            </div>
-            <!-- 당일/전일 비교 -->
-            <div style="display:flex;align-items:flex-end;gap:10px">
-              <strong style="font-size:38px;font-weight:900;color:${ind.color};line-height:1">${ind.today}</strong>
-              <div style="padding-bottom:4px">
-                <div style="font-size:11px;color:#6b7f9e;margin-bottom:2px">당일 건수</div>
-                <div>${trendArrow(ind.today, ind.yesterday)}</div>
-              </div>
-            </div>
-            <!-- 세부 분류 -->
-            <div style="border-top:1px solid ${ind.border};padding-top:10px;display:flex;flex-direction:column;gap:6px">
-              ${ind.detail.map(d => `
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="flex:1;font-size:12px;color:#41506a">${d.label}</span>
-                  <strong style="font-size:13px;color:${ind.color}">${d.count}</strong>
-                  ${deltaChip(d.delta)}
-                </div>
-              `).join("")}
-            </div>
+      <!-- ② 중단: 2×2 요약카드 + 이벤트 타임라인 -->
+      <div style="display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          ${indicators.map(summaryCard).join("")}
+        </div>
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px">
+          <div style="display:flex;align-items:center;margin-bottom:10px">
+            <strong style="font-size:13px;color:#123c85">최근 주요 RISK 이벤트</strong>
+            <span style="margin-left:auto;font-size:10px;color:#6b7f9e">최근 24시간</span>
           </div>
-        `).join("")}
+          <div style="display:flex;flex-direction:column;gap:7px">
+            ${[
+              {time:"09:42",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"인천항 화물(APLL2026053001) — 마약 전구물질 검출 의심, 검사지시 발부"},
+              {time:"08:15",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"인천공항 김우범(DS-001) 감시구역 진입, 동향 추적 중"},
+              {time:"07:30",type:"New Drug Modus", color:"#7c3aed",bg:"#ede9fe",msg:"SNS 신종 은어 '초록이'(MDMA) 사용 패턴 급증, 사전 추가"},
+              {time:"06:55",type:"International",  color:"#0284c7",bg:"#eff6ff",msg:"WCO 경보 — 방콕→인천→부산 필로폰 신규 유통경로 식별"},
+              {time:"05:18",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"신규 우범여행자 2명 입국 — 관계망 분석 개시"},
+              {time:"03:40",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"인천공항 특송화물 3건 마약 전구물질 포함 의심"},
+            ].map(e=>`
+              <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:${e.bg};border-radius:8px">
+                <span style="font-size:10px;color:#6b7f9e;white-space:nowrap;padding-top:2px">${e.time}</span>
+                <span style="background:${e.color};color:#fff;border-radius:3px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap;flex:none">${e.type}</span>
+                <span style="font-size:11px;color:#1e293b;line-height:1.5">${e.msg}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
       </div>
 
-      <!-- 최근 주요 RISK 이벤트 -->
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <strong style="font-size:14px;color:#123c85">최근 주요 RISK 이벤트</strong>
-          <span style="margin-left:auto;font-size:11px;color:#6b7f9e">최근 24시간 기준</span>
+      <!-- ③ 지표별 당일 목록 + 상세정보 (4개 아코디언) -->
+      ${indicators.map(ind=>`
+        <div>
+          ${indicatorBar(ind)}
+          ${detailTable(ind)}
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${[
-            { time:"09:42", type:"High Risk Cargo", color:"#dc2626", bg:"#fee2e2", msg:"인천항 입항 화물(B/L: APLL2026053001) — 마약 전구물질(N-페닐피페라진) 검출 의심, 검사지시 발부" },
-            { time:"08:15", type:"Traveler Alert",  color:"#d97706", bg:"#fef3c7", msg:"인천공항 입국 우범여행자 김우범(DS-001) 감시 구역 진입 확인, 동향 추적 중" },
-            { time:"07:30", type:"New Drug Modus",  color:"#7c3aed", bg:"#ede9fe", msg:"SNS 은어 모니터링 — 신종 은어 '초록이' 마약(MDMA) 관련 사용 패턴 급증, 사전 추가 완료" },
-            { time:"06:55", type:"International",   color:"#0284c7", bg:"#eff6ff", msg:"WCO 긴급경보 — 동남아 경유 필로폰 신규 유통 경로(방콕→인천→부산) 식별, 국내 검색 강화" },
-          ].map(e => `
-            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:${e.bg};border-radius:8px">
-              <span style="font-size:11px;color:#6b7f9e;white-space:nowrap;padding-top:1px">${e.time}</span>
-              <span style="background:${e.color};color:#fff;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700;white-space:nowrap">${e.type}</span>
-              <span style="font-size:12px;color:#1e293b;line-height:1.5">${e.msg}</span>
-            </div>
-          `).join("")}
-        </div>
-      </div>
+      `).join("")}
 
     </div>
   `;
