@@ -2364,6 +2364,11 @@ function saveCanvasState(){
       hiddenBuiltinIds: [...hiddenBuiltinIds],
       builtinOverrides,
       currentUserId,
+      generalInvTab,
+      activeGenInvCaseId,
+      drugInvTab,
+      activeDrugCaseId,
+      investigationTab,
     }));
   }catch(error){
     console.warn("진행작업 상태를 저장하지 못했습니다.", error);
@@ -2486,6 +2491,10 @@ function restoreUserWorkspace(userId){
   generalInvTab = workspace.generalInvTab || "cases";
   activeGenInvCaseId = workspace.activeGenInvCaseId && allGenInvCases().some(item => item.caseId === workspace.activeGenInvCaseId)
     ? workspace.activeGenInvCaseId
+    : null;
+  drugInvTab = workspace.drugInvTab || "ongoing";
+  activeDrugCaseId = workspace.activeDrugCaseId && defaultDrugInvCases.some(c => c.caseId === workspace.activeDrugCaseId)
+    ? workspace.activeDrugCaseId
     : null;
   scenarioLoadedForCompany = null;
   scenarioInitialized = false;
@@ -2979,32 +2988,14 @@ function generalInvDataPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const type = genInvTypeById(aCase.invTypeId);
-  if(aCase.targetType === "company"){
-    const companyId = generalInvCompanyId(aCase);
-    if(!companyId){
-      /* 기업 매칭 실패 — subjectName으로 대상명 표시, 동일 패널 렌더 */
-      return canvasDataPanel(activeCanvasCompanyId, {
-        selectedLabel: "수사 대상 기업",
-        subjectName:   escapeHtml(aCase.targetName),
-        heading:       "기초자료 수집/등록",
-        description:   "연결된 기업 프로파일이 없습니다. 아래에서 직접 자료를 등록하세요.",
-        caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
-      });
-    }
-    return canvasDataPanel(companyId, {
-      selectedLabel: "수사 대상 기업",
-      heading:       "기초자료 수집/등록",
-      description:   "관세조사와 동일한 자료 업로드·AI 추출·검증 기능을 사용합니다.",
-      caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
-    });
-  }
-  /* 개인 수사 대상 — subjectName으로 개인명 표시 */
+  const caseBadge = `${type.num} ${type.label} · ${aCase.caseId}`;
+  /* 기업/개인 구분 없이 동일한 패널 — subjectName으로 수사 대상명 직접 표시 */
   return canvasDataPanel(activeCanvasCompanyId, {
-    selectedLabel: "수사 대상 개인",
-    subjectName:   escapeHtml(aCase.targetName),
+    selectedLabel: aCase.targetType === "company" ? "수사 대상 기업" : "수사 대상 개인",
+    subjectName:   aCase.targetName,
     heading:       "기초자료 수집/등록",
-    description:   "개인 수사에 필요한 자료를 DW에서 조회하거나 직접 등록합니다.",
-    caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
+    description:   "수사 대상 관련 서류, 계약서, 수입신고 자료, 금융거래 내역 등을 업로드합니다.",
+    caseBadge,
   });
 }
 
@@ -5471,7 +5462,7 @@ function canvasDataPanel(companyIdOverride, options = {}){
   // options.subjectName 이 있으면 회사 조회 없이 그 값을 표시 (수사 대상 등)
   let subjectName;
   if(options.subjectName){
-    subjectName = options.subjectName; // 이미 호출부에서 escapeHtml 처리됨
+    subjectName = escapeHtml(options.subjectName);
   } else {
     const company = activeCanvasCompany(resolvedCompanyId);
     subjectName = `${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})`;
