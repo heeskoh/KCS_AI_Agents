@@ -948,6 +948,7 @@ function giStreamSteps(aCase, stepsToRun){
   if(!aCase.stepStates)  aCase.stepStates  = {};
   if(!aCase.stepResults) aCase.stepResults = {};
   stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
+  saveCanvasState();
   render("generalinv");
 
   /* URL 파라미터 구성 */
@@ -995,6 +996,7 @@ function giStreamSteps(aCase, stepsToRun){
       aCase.stepStates[step.id]  = "error";
       aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
     }
+    saveCanvasState();
     render("generalinv");
   });
 
@@ -1002,6 +1004,7 @@ function giStreamSteps(aCase, stepsToRun){
     const data = JSON.parse(e.data);
     if(data.status === "completed" || data.status === "failed"){
       if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+      saveCanvasState();
       render("generalinv");
     }
   });
@@ -1011,6 +1014,7 @@ function giStreamSteps(aCase, stepsToRun){
     stepsToRun.forEach(s => {
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });
+    saveCanvasState();
     render("generalinv");
   };
 }
@@ -1100,6 +1104,7 @@ const defaultGenInvCases = [
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
 ];
+const defaultGenInvCasesBaseline = JSON.parse(JSON.stringify(defaultGenInvCases));
 
 function allGenInvCases(){ return [...defaultGenInvCases, ...customGenInvCases]; }
 function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === activeGenInvCaseId) || null; }
@@ -2058,6 +2063,7 @@ function loadCanvasState(){
     if(Array.isArray(saved.hiddenBuiltinIds)) hiddenBuiltinIds = new Set(saved.hiddenBuiltinIds);
     if(saved.builtinOverrides && typeof saved.builtinOverrides === "object") builtinOverrides = saved.builtinOverrides;
     if(saved.currentUserId) currentUserId = saved.currentUserId;
+    migrateLegacyWorkspaceState(saved);
     restoreUserWorkspace(currentUserId);
   }catch(error){
     console.warn("진행작업 상태를 불러오지 못했습니다.", error);
@@ -2090,20 +2096,104 @@ function saveCanvasState(){
   }
 }
 
+function cloneSavedValue(value, fallback){
+  if(value === undefined || value === null) return fallback;
+  try{
+    return JSON.parse(JSON.stringify(value));
+  }catch(error){
+    return fallback;
+  }
+}
+
+function migrateLegacyWorkspaceState(saved){
+  if(!currentUserId) return;
+  const existing = userWorkspaces[currentUserId];
+  const hasWorkspaceWork = existing && (
+    Array.isArray(existing.customCanvasJobs) ||
+    Array.isArray(existing.customGenInvCases) ||
+    Array.isArray(existing.defaultGenInvCasesState) ||
+    existing.companyScenarios ||
+    existing.canvasRunArchives ||
+    existing.canvasJobOverrides
+  );
+  const hasLegacyWork = (
+    Array.isArray(saved.customCanvasJobs) ||
+    Array.isArray(saved.customGenInvCases) ||
+    saved.companyScenarios ||
+    saved.canvasRunArchives ||
+    saved.canvasJobOverrides
+  );
+  if(hasWorkspaceWork || !hasLegacyWork) return;
+  userWorkspaces[currentUserId] = {
+    ...(existing || {}),
+    customCanvasJobs: cloneSavedValue(customCanvasJobs, []),
+    customGenInvCases: cloneSavedValue(customGenInvCases, []),
+    defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
+    companyScenarios: cloneSavedValue(companyScenarios, {}),
+    canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
+    canvasRunArchives: cloneSavedValue(canvasRunArchives, {}),
+    hiddenCanvasJobIds: cloneSavedValue(hiddenCanvasJobsByUser[currentUserId] || [], []),
+  };
+}
+
 function saveCurrentUserWorkspace(){
   if(!currentUserId) return;
   userWorkspaces[currentUserId] = {
     ...(userWorkspaces[currentUserId] || {}),
     activeCanvasCompanyId,
     activeScenarioTemplateId,
+    investigationTab,
     canvasTab,
+    generalInvTab,
+    activeGenInvCaseId,
     latestReport,
     latestValidation,
+    customCanvasJobs: cloneSavedValue(customCanvasJobs, []),
+    customGenInvCases: cloneSavedValue(customGenInvCases, []),
+    defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
+    companyScenarios: cloneSavedValue(companyScenarios, {}),
+    canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
+    canvasRunArchives: cloneSavedValue(canvasRunArchives, {}),
+    hiddenCanvasJobIds: cloneSavedValue(hiddenCanvasJobsByUser[currentUserId] || [], []),
     updatedAt: new Date().toISOString(),
   };
 }
 
+function restoreWorkspaceWorkState(userId){
+  const workspace = userWorkspaces[userId] || {};
+  customCanvasJobs = Array.isArray(workspace.customCanvasJobs)
+    ? cloneSavedValue(workspace.customCanvasJobs, [])
+    : [];
+  customGenInvCases = Array.isArray(workspace.customGenInvCases)
+    ? cloneSavedValue(workspace.customGenInvCases, [])
+    : [];
+  defaultGenInvCases.splice(
+    0,
+    defaultGenInvCases.length,
+    ...cloneSavedValue(defaultGenInvCasesBaseline, [])
+  );
+  if(Array.isArray(workspace.defaultGenInvCasesState)){
+    workspace.defaultGenInvCasesState.forEach(savedCase => {
+      const idx = defaultGenInvCases.findIndex(item => item.caseId === savedCase.caseId);
+      if(idx >= 0) Object.assign(defaultGenInvCases[idx], cloneSavedValue(savedCase, defaultGenInvCases[idx]));
+    });
+  }
+  companyScenarios = workspace.companyScenarios && typeof workspace.companyScenarios === "object"
+    ? cloneSavedValue(workspace.companyScenarios, {})
+    : {};
+  canvasJobOverrides = workspace.canvasJobOverrides && typeof workspace.canvasJobOverrides === "object"
+    ? cloneSavedValue(workspace.canvasJobOverrides, {})
+    : {};
+  canvasRunArchives = workspace.canvasRunArchives && typeof workspace.canvasRunArchives === "object"
+    ? cloneSavedValue(workspace.canvasRunArchives, {})
+    : {};
+  hiddenCanvasJobsByUser[userId] = Array.isArray(workspace.hiddenCanvasJobIds)
+    ? cloneSavedValue(workspace.hiddenCanvasJobIds, [])
+    : (hiddenCanvasJobsByUser[userId] || []);
+}
+
 function restoreUserWorkspace(userId){
+  restoreWorkspaceWorkState(userId);
   const firstVisibleJob = () => activeCanvasJobs()[0] || null;
   const workspace = userWorkspaces[userId] || {};
   const candidate = workspace.activeCanvasCompanyId;
@@ -2117,7 +2207,12 @@ function restoreUserWorkspace(userId){
   }
 
   activeScenarioTemplateId = workspace.activeScenarioTemplateId || activeScenarioTemplateId || "customs-basic";
+  investigationTab = workspace.investigationTab || "ongoing";
   canvasTab = workspace.canvasTab || "overview";
+  generalInvTab = workspace.generalInvTab || "cases";
+  activeGenInvCaseId = workspace.activeGenInvCaseId && allGenInvCases().some(item => item.caseId === workspace.activeGenInvCaseId)
+    ? workspace.activeGenInvCaseId
+    : null;
   scenarioLoadedForCompany = null;
   scenarioInitialized = false;
   loadCompanyRunArchive(activeCanvasCompanyId);
@@ -2984,7 +3079,7 @@ function investigationTabContent(){
 }
 
 function investigationOngoingPanel(){
-  const jobs     = visibleCanvasJobs().filter(j => canvasJobCategory(j) === "관세조사 분석");
+  const jobs     = activeCanvasJobs().filter(j => canvasJobCategory(j) === "관세조사 분석");
   const archived = archivedCanvasJobs().filter(j => canvasJobCategory(j) === "관세조사 분석");
   return `
     <div class="ci-ongoing">
@@ -3363,6 +3458,10 @@ function archivedCanvasJobs(){
   return visibleCanvasJobs().filter(isArchivedJob);
 }
 
+function isCompanyArchived(companyId = activeCanvasCompanyId){
+  return Boolean(canvasJobs().find(job => job.companyId === companyId && isArchivedJob(job)));
+}
+
 function findCompanyById(companyId){
   const listedCompany = scenarioCompanies.find(company => company.company_id === companyId);
   if(listedCompany) return listedCompany;
@@ -3449,6 +3548,104 @@ function activeCanvasCompany(companyIdOverride = activeCanvasCompanyId){
 
 function currentRunArchive(companyId = activeCanvasCompanyId){
   return canvasRunArchives[companyId] || null;
+}
+
+function hasMeaningfulArchiveResults(archive){
+  if(!archive) return false;
+  const report = archive.latestReport || "";
+  const validation = archive.latestValidation || "";
+  return Boolean(
+    Object.keys(archive.stepOutputs || {}).length ||
+    (report && report !== "보고서가 아직 생성되지 않았습니다." && report !== "보고서 생성 대기 중입니다.") ||
+    (validation && validation !== "검증 결과가 아직 없습니다." && validation !== "검증 대기 중입니다.")
+  );
+}
+
+function archiveStatusSummary(archive){
+  const total = archive?.scenarioItems?.length || Object.keys(archive?.stepStatuses || {}).length || 7;
+  const statuses = Object.values(archive?.stepStatuses || {});
+  const done = statuses.filter(status => status === "완료").length;
+  const hasError = statuses.some(status => status === "오류");
+  const hasRunning = statuses.some(status => status === "실행 중");
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  if(hasError) return { label:"오류", done, total, pct, tone:"review" };
+  if(done >= total && total > 0 && !archive?.partial) return { label:"완료", done, total, pct:100, tone:"done" };
+  if(done > 0 || archive?.partial) return { label:hasRunning ? "실행 중" : "일부 완료", done, total, pct, tone:"running" };
+  if(archive?.jobStatus) return { ...archive.jobStatus };
+  return { label:"대기", done:0, total, pct:0, tone:"wait" };
+}
+
+function restoreRunArchiveToWorkspace(companyId, options = {}){
+  const archive = currentRunArchive(companyId);
+  const existingJobStatus = canvasJobs().find(job => job.companyId === companyId)?.status;
+  const archivedStatus = archiveStatusSummary(archive);
+  const status = archivedStatus.pct || !existingJobStatus ? archivedStatus : existingJobStatus;
+  const hasReport = archive && archive.latestReport && archive.latestReport !== "보고서가 아직 생성되지 않았습니다.";
+  const nextTab = options.tab || (hasReport ? "report" : "scenario");
+  patchCanvasJob(companyId, {
+    archived:false,
+    scenarioChanged:false,
+    status,
+    tab:nextTab,
+    updated:"방금",
+  });
+  activeCanvasCompanyId = companyId;
+  if(archive?.scenarioItems?.length){
+    companyScenarios[companyId] = archive.scenarioItems.map(item => ({...item}));
+    scenarioItems = archive.scenarioItems.map((item, index) => normalizeScenarioItem({...item}, index));
+    selectedScenarioId = scenarioItems[0]?.id || null;
+  }else{
+    scenarioItems = getCompanyScenario(companyId);
+    selectedScenarioId = scenarioItems[0]?.id || null;
+  }
+  scenarioLoadedForCompany = companyId;
+  scenarioInitialized = false;
+  loadCompanyRunArchive(companyId);
+  saveCanvasState();
+}
+
+function finalArchiveSnapshot(companyId){
+  const existing = currentRunArchive(companyId) || {};
+  const currentHasResults = hasMeaningfulArchiveResults({ stepOutputs, latestReport, latestValidation });
+  const useCurrent = companyId === activeCanvasCompanyId && currentHasResults;
+  const jobStatus = canvasJobs().find(job => job.companyId === companyId)?.status || archiveStatusSummary(existing);
+  const snapshot = {
+    ...existing,
+    companyId,
+    savedAt: new Date().toLocaleString("ko-KR"),
+    scenarioSignature: useCurrent ? scenarioSignature() : (existing.scenarioSignature || scenarioSignature(getCompanyScenario(companyId))),
+    scenarioItems: useCurrent
+      ? scenarioItems.map(item => ({...item}))
+      : ((existing.scenarioItems && existing.scenarioItems.length)
+          ? existing.scenarioItems.map(item => ({...item}))
+          : getCompanyScenario(companyId).map(item => ({...item}))),
+    stepOutputs: useCurrent ? {...stepOutputs} : {...(existing.stepOutputs || {})},
+    stepStatuses: useCurrent ? {...stepStatuses} : {...(existing.stepStatuses || {})},
+    latestReport: useCurrent ? latestReport : (existing.latestReport || latestReport),
+    latestValidation: useCurrent ? latestValidation : (existing.latestValidation || latestValidation),
+    jobStatus,
+    partial: false,
+  };
+  if(!hasMeaningfulArchiveResults(snapshot) && hasMeaningfulArchiveResults(existing)){
+    return { ...existing, savedAt: snapshot.savedAt, partial:false };
+  }
+  return snapshot;
+}
+
+function archiveCanvasJob(companyId){
+  const archive = finalArchiveSnapshot(companyId);
+  canvasRunArchives[companyId] = archive;
+  if(archive.scenarioItems?.length){
+    companyScenarios[companyId] = archive.scenarioItems.map(item => ({...item}));
+  }
+  patchCanvasJob(companyId, {
+    archived:true,
+    archivedAt: archive.savedAt,
+    scenarioChanged:false,
+    status: archiveStatusSummary(archive),
+    tab:"report",
+    updated:"방금",
+  });
 }
 
 function loadCompanyRunArchive(companyId){
@@ -3726,16 +3923,6 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
   const c = cache.company || {};
   const risk = cache.risk || {};
   const declarations = cache.declarations || [];
-  const archive = options.archive === undefined ? currentRunArchive(companyId) : options.archive;
-  const job = options.job === undefined ? canvasJobs().find(item => item.companyId === companyId) : options.job;
-  const changed = options.changed === undefined ? Boolean(job?.scenarioChanged) : Boolean(options.changed);
-  const reportAction = options.reportAction !== undefined
-    ? options.reportAction
-    : archive ? `<button class="btn secondary" data-canvas-tab="report">저장 결과 보기</button>` : "";
-  const scenarioAction = options.scenarioAction !== undefined
-    ? options.scenarioAction
-    : `<button class="btn" data-canvas-tab="scenario">${changed ? "변경 시나리오 실행" : "분석 시나리오 설정"}</button>`;
-
   const riskLevel = c.risk_level || risk.risk_level || "-";
   const riskScore = c.risk_score ?? risk.risk_score;
   const riskLabel = riskLevel === "HIGH" ? "높음" : riskLevel === "LOW" ? "낮음" : riskLevel === "MEDIUM" ? "중간" : riskLevel;
@@ -3756,18 +3943,6 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
     <div class="canvas-selected-company">
       <span>${escapeHtml(selectedLabel)}</span>
       <strong>${escapeHtml(c.company_name || companyId)} (${escapeHtml(companyId)})</strong>
-    </div>
-
-    <div class="profile-run-archive ${changed ? "changed" : ""}">
-      <div>
-        <strong>${archive ? "저장된 직전 분석 결과" : "저장된 분석 결과 없음"}</strong>
-        <p>${archive ? `${escapeHtml(archive.savedAt)} 저장 · 로그 ${Object.keys(archive.stepOutputs || {}).length}건` : "분석 시나리오를 실행하면 이 기업의 결과와 로그가 자동 저장됩니다."}</p>
-        ${changed ? `<em>시나리오가 변경되었습니다. 기존 결과는 보존되며, 최신 조건으로 보려면 다시 실행하세요.</em>` : ""}
-      </div>
-      <div class="profile-run-actions">
-        ${reportAction}
-        ${scenarioAction}
-      </div>
     </div>
 
     <div class="grid grid-4" style="margin-bottom:14px">
@@ -4267,12 +4442,13 @@ function initTemplateEditor(){
 
 function scenarioWorkbenchV2(){
   const company = activeCanvasCompany();
+  const archived = isCompanyArchived(company.company_id);
   return `
     <section class="card scenario-workbench scenario-workbench-v2">
       <div class="scenario-title-row">
         <div>
           <h3>${escapeHtml(company.company_name)} 분석 시나리오 설정 및 실행</h3>
-          <p class="muted">템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다.</em></p>
+          <p class="muted">템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다."}</em></p>
         </div>
         <div class="scenario-status">
           <span id="scenarioRunStatus">대기</span>
@@ -4298,7 +4474,7 @@ function scenarioWorkbenchV2(){
           <div class="scenario-template-zone">
             <div class="scenario-template-zone-head">
               <span>분석 시나리오 템플릿</span>
-              <button id="scenarioTemplateApplyButton" type="button" class="btn scenario-template-apply-btn">템플릿 적용하기</button>
+              <button id="scenarioTemplateApplyButton" type="button" class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>템플릿 적용하기</button>
             </div>
             <select id="scenarioTemplateSelect" class="scenario-template-select">${scenarioTemplateOptionsHtml()}</select>
           </div>
@@ -4320,7 +4496,7 @@ function scenarioWorkbenchV2(){
           </div>
 
           <div class="scenario-actions">
-            <button id="scenarioAddButton" type="button" class="btn">단계 추가</button>
+            <button id="scenarioAddButton" type="button" class="btn" ${archived ? "disabled" : ""}>단계 추가</button>
             <button id="scenarioDeleteButton" type="button" class="btn secondary" disabled>선택 삭제</button>
           </div>
           <button id="scenarioSaveButton" type="button" class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
@@ -4330,8 +4506,8 @@ function scenarioWorkbenchV2(){
           <div class="scenario-log-head">
             <h3>분석 실행 로그</h3>
             <div class="scenario-log-actions">
-              <button id="scenarioRunButton" type="button" class="btn">분석 실행</button>
-              <button id="scenarioClearButton" type="button" class="btn secondary">결과 지우기</button>
+              <button id="scenarioRunButton" type="button" class="btn" ${archived ? "disabled" : ""}>분석 실행</button>
+              <button id="scenarioClearButton" type="button" class="btn secondary" ${archived ? "disabled" : ""}>결과 지우기</button>
             </div>
           </div>
           <div id="scenarioStepAccordion" class="scenario-step-accordion"></div>
@@ -4774,6 +4950,10 @@ function syncScenarioEditor(){
 }
 
 function addScenarioItem(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 수정할 수 있습니다.");
+    return;
+  }
   const sourceSelect = document.getElementById("scenarioSourceSelect");
   const instruction = document.getElementById("scenarioInstruction");
   const key = sourceSelect.value;
@@ -4802,6 +4982,10 @@ function addScenarioItem(){
 }
 
 function deleteSelectedScenario(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 수정할 수 있습니다.");
+    return;
+  }
   if(!selectedScenarioId) return;
   if(expandedResultStepId === selectedScenarioId) expandedResultStepId = null;
   scenarioItems = scenarioItems.filter(item => item.id !== selectedScenarioId);
@@ -4816,6 +5000,10 @@ function deleteSelectedScenario(){
 }
 
 function applySelectedScenarioTemplate(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 수정할 수 있습니다.");
+    return;
+  }
   const templateSelect = document.getElementById("scenarioTemplateSelect");
   const templateId = templateSelect?.value || "customs-basic";
   activeScenarioTemplateId = templateId;
@@ -4834,6 +5022,7 @@ function applySelectedScenarioTemplate(){
 }
 
 function updateSelectedScenarioInstruction(value){
+  if(isCompanyArchived()) return;
   const item = selectedScenarioItem();
   if(!item) return;
   item.instruction = value;
@@ -4842,6 +5031,7 @@ function updateSelectedScenarioInstruction(value){
 }
 
 function updateSelectedScenarioBehaviors(){
+  if(isCompanyArchived()) return;
   const item = selectedScenarioItem();
   if(!item) return;
   const values = selectedBehaviorValues();
@@ -4859,6 +5049,7 @@ function updateSelectedScenarioBehaviors(){
 }
 
 function updateSelectedScenarioSource(key){
+  if(isCompanyArchived()) return;
   const item = selectedScenarioItem();
   const source = scenarioSourceByKey(key);
   if(!item || !source) return;
@@ -5030,6 +5221,10 @@ function setScenarioStatus(text){
 }
 
 function clearScenarioResults(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 수정할 수 있습니다.");
+    return;
+  }
   stepOutputs = {};
   stepStatuses = {};
   openedSteps = new Set();
@@ -5042,9 +5237,14 @@ function clearScenarioResults(){
   setScenarioStatus("대기");
   updateScenarioProgress(0);
   renderScenarioSteps();
+  saveIntermediateResults(activeCanvasCompanyId);
 }
 
 function runScenarioWorkflow(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 분석할 수 있습니다.");
+    return;
+  }
   if(!scenarioItems.length){
     alert("분석 시나리오 단계를 먼저 추가하세요.");
     return;
@@ -5281,7 +5481,7 @@ document.addEventListener("click", (event)=>{
   const archiveJobBtn = event.target.closest("[data-archive-job]");
   if(archiveJobBtn){
     const companyId = archiveJobBtn.dataset.archiveJob;
-    patchCanvasJob(companyId, { archived: true, archivedAt: new Date().toLocaleString("ko-KR") });
+    archiveCanvasJob(companyId);
     overviewArchiveOpen = true;
     render("canvas");
     return;
@@ -5482,16 +5682,7 @@ document.addEventListener("click", (event)=>{
   const restoreJobButton = event.target.closest("[data-restore-job]");
   if(restoreJobButton){
     const companyId = restoreJobButton.dataset.restoreJob;
-    const restoredArchive = canvasRunArchives[companyId];
-    const restoredTotal = restoredArchive?.scenarioItems?.length || 7;
-    patchCanvasJob(companyId, {
-      archived:false,
-      scenarioChanged:false,
-      status:{ label:"대기", tone:"wait", pct:0, done:0, total:restoredTotal },
-      tab:"profile",
-      updated:"방금",
-    });
-    activeCanvasCompanyId = companyId;
+    restoreRunArchiveToWorkspace(companyId, { tab:"report" });
     canvasTab = "overview";
     render("canvas");
     return;
@@ -5514,16 +5705,25 @@ document.addEventListener("click", (event)=>{
     const company = findCompanyById(companyId) || { company_id:companyId, company_name:companyId };
     createCanvasJob(company);
     activeCanvasCompanyId = companyId;
-    if(templateId){
-      const tpl = scenarioTemplateById(templateId);
-      if(tpl){
-        scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
-        scenarioInitialized = true;
-        scenarioLoadedForCompany = companyId;
-        selectedScenarioId = scenarioItems[0]?.id || null;
-      }
+    const tpl = scenarioTemplateById(templateId || "customs-basic") || scenarioTemplateById("customs-basic");
+    if(tpl){
+      activeScenarioTemplateId = tpl.id;
+      scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
+      selectedScenarioId = scenarioItems[0]?.id || null;
+      companyScenarios[companyId] = scenarioItems.map(item => ({...item}));
+      stepOutputs = {};
+      stepStatuses = {};
+      openedSteps = new Set();
+      expandedResultStepId = null;
+      patchCanvasJob(companyId, {
+        status:{ label:"대기", tone:"wait", pct:0, done:0, total:scenarioItems.length },
+        tab:"profile",
+        scenarioChanged:false,
+      });
     }
     loadCompanyRunArchive(companyId);
+    scenarioInitialized = false;
+    scenarioLoadedForCompany = null;
     showInvNewJobForm = false;
     investigationTab = "profile";
     saveCanvasState();
@@ -5541,7 +5741,7 @@ document.addEventListener("click", (event)=>{
   const invArchiveJobBtn = event.target.closest("[data-inv-archive-job]");
   if(invArchiveJobBtn){
     const companyId = invArchiveJobBtn.dataset.invArchiveJob;
-    patchCanvasJob(companyId, { archived: true, archivedAt: new Date().toLocaleString("ko-KR") });
+    archiveCanvasJob(companyId);
     invArchiveOpen = true;
     render("investigation");
     return;
@@ -5550,16 +5750,7 @@ document.addEventListener("click", (event)=>{
   const invRestoreJobBtn = event.target.closest("[data-inv-restore-job]");
   if(invRestoreJobBtn){
     const companyId = invRestoreJobBtn.dataset.invRestoreJob;
-    const restoredArchive = canvasRunArchives[companyId];
-    const restoredTotal = restoredArchive?.scenarioItems?.length || 7;
-    patchCanvasJob(companyId, {
-      archived:false,
-      scenarioChanged:false,
-      status:{ label:"대기", tone:"wait", pct:0, done:0, total:restoredTotal },
-      tab:"profile",
-      updated:"방금",
-    });
-    activeCanvasCompanyId = companyId;
+    restoreRunArchiveToWorkspace(companyId, { tab:"profile" });
     invArchiveOpen = false;
     investigationTab = "ongoing";
     render("investigation");
@@ -5659,6 +5850,7 @@ document.addEventListener("click", (event)=>{
     activeGenInvCaseId = giCase.dataset.giCase;
     generalInvTab      = "profile";
     activeGiStepId     = null;
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5667,6 +5859,7 @@ document.addEventListener("click", (event)=>{
   const giStepSelect = event.target.closest("[data-gi-step-select]");
   if(giStepSelect && !event.target.closest("[data-gi-step-up],[data-gi-step-down]")){
     activeGiStepId = giStepSelect.dataset.giStepSelect;
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5680,6 +5873,7 @@ document.addEventListener("click", (event)=>{
       const i = steps.findIndex(s => s.id === id);
       if(i > 0){ [steps[i-1], steps[i]] = [steps[i], steps[i-1]]; }
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5693,6 +5887,7 @@ document.addEventListener("click", (event)=>{
       const i = steps.findIndex(s => s.id === id);
       if(i >= 0 && i < steps.length - 1){ [steps[i], steps[i+1]] = [steps[i+1], steps[i]]; }
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5716,6 +5911,7 @@ document.addEventListener("click", (event)=>{
       }, aCase.giSteps.length));
       activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5729,6 +5925,7 @@ document.addEventListener("click", (event)=>{
       if(aCase.stepStates) delete aCase.stepStates[id];
       if(activeGiStepId === id) activeGiStepId = null;
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5774,6 +5971,7 @@ document.addEventListener("click", (event)=>{
         aCase.stepExpanded = {};
         aCase.stepsDone = 0;
         aCase.status = { ...aCase.status, done:0, pct:0, label:"대기", tone:"wait" };
+        saveCanvasState();
         render("generalinv");
       } else {
         /* 개별 단계 재실행: 상태 초기화 후 SSE 실행 */
@@ -5794,6 +5992,7 @@ document.addEventListener("click", (event)=>{
     if(aCase){
       if(!aCase.stepExpanded) aCase.stepExpanded = {};
       aCase.stepExpanded[stepId] = !aCase.stepExpanded[stepId];
+      saveCanvasState();
       render("generalinv");
     }
     return;
@@ -5811,6 +6010,7 @@ document.addEventListener("click", (event)=>{
         if(di >= 0) defaultGenInvCases[di].invTypeId = typeId;
       }
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5818,6 +6018,7 @@ document.addEventListener("click", (event)=>{
   const giTab = event.target.closest("[data-gi-tab]");
   if(giTab){
     generalInvTab = giTab.dataset.giTab;
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5945,6 +6146,7 @@ document.addEventListener("input", (event) => {
     step.note = event.target.value;
     step.instruction = event.target.value;
   }
+  saveCanvasState();
   // no re-render needed for text fields (live editing)
 });
 
@@ -5954,6 +6156,7 @@ document.addEventListener("change", (event) => {
     const aCase = activeGenInvCase();
     const step  = aCase?.giSteps?.find(s => s.id === stepId);
     if(step) step.type = event.target.value;
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5972,6 +6175,7 @@ document.addEventListener("change", (event) => {
       step.instruction = sourceDefaultInstruction(step.sourceKey);
       step.note = step.instruction;
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }
@@ -5989,6 +6193,7 @@ document.addEventListener("change", (event) => {
       step.behavior = step.behaviors[0];
       step.behaviorLabel = sourceBehaviorLabels(step.sourceKey || giCommonSourceKey(step.key), step.behaviors).join(", ");
     }
+    saveCanvasState();
     render("generalinv");
     return;
   }

@@ -441,6 +441,124 @@ def build_seed_rows() -> dict[str, list[tuple]]:
             now,
         ))
 
+        # Add richer investigation history: each risk person ends up with
+        # 3-10 linked cases, evidence records, case edges, and relationship
+        # edges to other persons in the sample network.
+        history_count = rng.randint(3, 10)
+        for h in range(2, history_count + 1):
+            hist_category, hist_sub_category, hist_method = rng.choice(contraband)
+            hist_case_id = f"SC-{i:04d}-{h:02d}"
+            hist_source_id = f"EV-{i:04d}-{h:02d}"
+            hist_detection_date = today - timedelta(days=rng.randint(15, 1_460))
+            hist_channel = rng.choice(channels)
+            hist_origin = rng.choice(countries)
+            hist_transit = rng.choice([c for c in countries if c != hist_origin] + ["없음"])
+            hist_quantity = round(rng.uniform(0.1, 42.0), 2)
+            hist_value = round(hist_quantity * rng.uniform(350_000, 12_000_000), -3)
+            hist_role = rng.choice(roles)
+
+            cases.append((
+                hist_case_id,
+                f"RS-2026-{i:04d}-{h:02d}",
+                rng.choice(["밀반입", "밀반출", "추적", "특송", "우편", "여행자"]),
+                hist_category,
+                hist_sub_category,
+                rng.choice(["첩보", "조사중", "송치", "종결", "보강필요"]),
+                hist_detection_date,
+                hist_channel,
+                hist_origin,
+                hist_transit,
+                region,
+                hist_method,
+                rng.choice(["이중바닥", "상품포장", "전자제품 내부", "서류봉투", "의류 봉제선", "분할배송"]),
+                hist_quantity,
+                rng.choice(["kg", "정", "점", "개", "ml"]),
+                hist_value,
+                rng.choice(["조사국 조사1과", "인천공항세관", "부산세관", "국제우편세관", "서울세관"]),
+                f"{person_id} 관련 반복 수사이력 {h - 1}: {hist_category}/{hist_sub_category} {hist_channel} 경로 의심",
+                SEED_BATCH_ID,
+                now,
+                now,
+            ))
+
+            sources.append((
+                hist_source_id,
+                rng.choice(["첩보보고서", "수사보고서", "압수자료", "내부기관자료", "RAG문서"]),
+                f"우범자 반복 수사이력 근거자료 {i:03d}-{h:02d}",
+                hist_detection_date,
+                rng.choice(["관세청", "경찰청", "국정원", "해외기관", "식약처"]),
+                rng.choice(["대외비", "일반", "내부"]),
+                f"data/evidence/sample-risk-person-{i:03d}-{h:02d}.pdf",
+                f"{person_id}의 {hist_case_id} 연결 근거와 관계망 단서가 포함된 샘플 자료",
+                round(rng.uniform(0.55, 0.97), 2),
+                "system-seed",
+                SEED_BATCH_ID,
+                now,
+            ))
+
+            links.append((
+                f"PCL-{i:04d}-{h:02d}",
+                person_id,
+                hist_case_id,
+                hist_role,
+                round(rng.uniform(0.52, 0.99), 2),
+                rng.choice(["확정", "강함", "중간", "약함"]),
+                hist_source_id,
+                SEED_BATCH_ID,
+                now,
+            ))
+
+            edges.append((
+                f"NE-PCASE-{i:04d}-{h:02d}",
+                "person",
+                person_id,
+                "case",
+                hist_case_id,
+                "수사이력",
+                round(rng.uniform(0.55, 1.0), 2),
+                round(rng.uniform(0.55, 0.98), 2),
+                hist_detection_date - timedelta(days=rng.randint(0, 120)),
+                hist_detection_date,
+                hist_source_id,
+                SEED_BATCH_ID,
+                now,
+            ))
+
+            related_person = f"RP-{rng.randint(1, 100):04d}"
+            if related_person == person_id:
+                related_person = f"RP-{(i % 100) + 1:04d}"
+            edges.append((
+                f"NE-PPH-{i:04d}-{h:02d}",
+                "person",
+                person_id,
+                "person",
+                related_person,
+                rng.choice(["공범의심", "동행", "동일수취지", "연락빈번", "송금관계", "동일조직"]),
+                round(rng.uniform(0.42, 0.96), 2),
+                round(rng.uniform(0.45, 0.95), 2),
+                hist_detection_date - timedelta(days=rng.randint(1, 365)),
+                hist_detection_date,
+                hist_source_id,
+                SEED_BATCH_ID,
+                now,
+            ))
+
+            analyses.append((
+                f"AR-{i:04d}-{h:02d}",
+                "person",
+                person_id,
+                "수사이력분석",
+                "risk_person_history_agent",
+                f"{hist_category}/{hist_sub_category}, {hist_channel}, {hist_role} 수사이력",
+                f"{hist_case_id}에서 {hist_role} 역할로 식별. 반복 경로와 관계망 단서 확인 필요.",
+                round(max(0, score - rng.uniform(3, 15)), 1),
+                score,
+                "반복 사건, 수사역할, 운송경로, 상호 관계망 가중치를 종합",
+                rng.choice(["미검토", "검토완료", "보강필요"]),
+                SEED_BATCH_ID,
+                now,
+            ))
+
     return {
         "risk_person_profile": persons,
         "risk_org_profile": orgs,
