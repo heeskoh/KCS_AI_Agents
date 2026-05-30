@@ -7,10 +7,10 @@
   classification:"품목분류",
   lawsearch:"법령·판례",
   document:"문서검증",
-  dw:"DW 분석",
-  model:"AI 모델",
-  rag:"RAG",
-  case:"사건 작업",
+  dw:"위험선별 분석",
+  model:"관세 온톨로지",
+  rag:"통관정보 분석",
+  case:"국제정보 분석",
   report:"보고서",
   system:"시스템",
   governance:"거버넌스",
@@ -113,10 +113,10 @@ const pages = {
   lawsearch: () => drugInvestigationPage(),
 
   document: () => simplePage("문서검증센터", "비정형 문서를 OCR/LLM으로 인식하고 DB 값과 비교합니다.", `${dataTable(["추출항목","문서값","DB값","판정"], [["품명","Power Module","Power Module","일치"],["단가","USD 120","USD 98","불일치"],["Incoterms","CIF","FOB","불일치"],["로열티","존재","미신고","확인필요"]])}`),
-  dw: () => simplePage("데이터 분석실(DW)", "자연어를 SQL/분석절차로 변환하여 DW 데이터를 조회·시각화합니다.", `${barChart([70,55,80,42,65,38,88,48])}`),
-  model: () => simplePage("AI 모델센터", "LLM, ML, Vision, Graph 모델을 업무별로 관리하고 실행합니다.", `${dataTable(["모델명","적용업무","출력","상태"], [["위험화물 선별모델","물류·감시","위험점수","운영중"],["저가신고 탐지모델","관세조사","이상도","운영중"],["마약 은어 탐지모델","관세수사","의심대화","운영중"]])}`),
-  rag: () => simplePage("RAG 지식센터", "조사·심사보고서, 법령, 판례, 내부 매뉴얼을 통합 검색합니다.", `${dataTable(["지식구분","문서수","활용업무"], [["조사보고서","128,450","관세조사·수사"],["심사사례","83,210","통관·심사"],["법령·훈령","12,840","전 업무"]])}`),
-  case: () => simplePage("사건 작업공간", "사건 단위로 자료와 AI 분석결과를 관리합니다.", `<div class="split"><div class="card"><h3>ABC전자 관세가격 조사</h3><p>위험도 <b class="high">82점</b> · 진행률 65%</p></div><div class="card"><h3>다음 권고 조치</h3><p>로열티 계약서, 송금내역, 이전가격 정책문서 추가 요청</p></div></div>`),
+  dw: () => riskScreeningPage(),
+  model: () => customsOntologyPage(),
+  rag: () => customsInfoPage(),
+  case: () => intlInfoPage(),
   report: () => simplePage("보고서 생성센터", "AI 캔버스 블록을 조합해 조사보고서를 생성합니다.", `<button class="btn">조사보고서 초안 생성</button>`),
   system: () => simplePage("시스템 관리", "연계시스템, 데이터 파이프라인, 사용자 권한, 보안정책을 관리합니다.", ""),
   governance: () => simplePage("모델·권한·감사 로그", "AI 모델 사용 이력, 프롬프트 로그, 승인 프로세스를 점검합니다.", ""),
@@ -943,6 +943,24 @@ let canvasTab = "overview";
 let investigationTab   = "ongoing";
 let showInvNewJobForm  = false;
 let invArchiveOpen     = false;
+
+/* ── 마약수사분석 상태 ──────────────────────────────────────── */
+let drugInvTab           = "ongoing";  // "ongoing"|"network"|"region"|"slang"
+let drugInvSelectedTarget = null;
+
+/* ── 위험선별 분석 상태 ─────────────────────────────────────── */
+let riskScreeningTab     = "today";    // "today"|"tracking"
+
+/* ── 통관정보분석 상태 ─────────────────────────────────────── */
+let customsInfoTab       = "today";    // "today"|"stats"
+let customsInfoDateFrom  = "";
+let customsInfoDateTo    = "";
+
+/* ── 국제정보분석 상태 ─────────────────────────────────────── */
+let intlInfoMessages     = [];
+
+/* ── 관세온톨로지 상태 ─────────────────────────────────────── */
+let ontologyTab          = "graph";    // "graph"|"rules"|"inference"
 
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
 let generalInvTab        = "cases";   // "cases"|"profile"|"data"|"workbench"|"report"
@@ -3560,35 +3578,677 @@ function canvasPage(){
 }
 
 function drugInvestigationPage(){
+  const tab = drugInvTab;
   return `
     <section class="card gi-hub">
       <div class="gi-page-head">
         <div>
           <h2>마약 수사 분석</h2>
-          <p class="muted">마약 우범자, 여행경로, 반입 패턴, 관계망 기반 분석 작업 현황입니다.</p>
+          <p class="muted">마약 우범자, 여행경로, 반입 패턴, 관계망 및 지역 통계 기반 분석 작업 현황입니다.</p>
+        </div>
+        ${drugInvSelectedTarget ? `
+          <div class="gi-active-badge">
+            <span class="muted">분석 대상</span>
+            <strong>${escapeHtml(drugInvSelectedTarget.name)}</strong>
+            <span class="gi-type-chip gi-t2">${escapeHtml(drugInvSelectedTarget.risk)}</span>
+          </div>
+        ` : ""}
+      </div>
+      <div class="gi-tab-nav">
+        <button class="gi-tab${tab==="ongoing"?" active":""}" data-drug-tab="ongoing">진행중인 수사</button>
+        <button class="gi-tab${tab==="network"?" active":""}" data-drug-tab="network">관계망 분석</button>
+        <button class="gi-tab${tab==="region"?" active":""}" data-drug-tab="region">지역 통계</button>
+        <button class="gi-tab${tab==="slang"?" active":""}" data-drug-tab="slang">은어사전 RAG</button>
+      </div>
+      <div class="gi-tab-body">
+        ${drugInvTabContent()}
+      </div>
+    </section>
+  `;
+}
+
+function drugInvTabContent(){
+  if(drugInvTab === "network") return drugNetworkPanel();
+  if(drugInvTab === "region")  return drugRegionPanel();
+  if(drugInvTab === "slang")   return drugSlangRagPanel();
+  return drugOngoingPanel();
+}
+
+function drugOngoingPanel(){
+  const jobs = activeDrugInvestigationJobs();
+  const suspects = [
+    { id:"DS-001", name:"김우범", nationality:"한국", age:38, risk:"고위험", riskScore:92, routes:["인천-방콕","인천-멕시코시티"], lastEntry:"2026-05-29", status:"감시중" },
+    { id:"DS-002", name:"이마약", nationality:"한국", age:44, risk:"고위험", riskScore:87, routes:["인천-두바이","인천-상하이"], lastEntry:"2026-05-27", status:"감시중" },
+    { id:"DS-003", name:"Park James", nationality:"미국", age:31, risk:"중위험", riskScore:65, routes:["인천-LA","인천-암스테르담"], lastEntry:"2026-05-20", status:"추적중" },
+  ];
+  return `
+    <div class="gi-case-grid" style="margin-bottom:20px">
+      ${jobs.map(job => `
+        <article class="gi-case-card" data-drug-select-job="${escapeHtml(job.jobId)}">
+          <div class="gi-case-head">
+            <div>
+              <span class="canvas-category-chip">${escapeHtml(job.category)}</span>
+              <h3>${escapeHtml(job.title)}</h3>
+              <p class="muted">${escapeHtml(job.company)} · ${escapeHtml(job.owner)} · ${escapeHtml(job.updated)}</p>
+            </div>
+            <span class="job-status ${job.status.tone}">${escapeHtml(job.status.label)}</span>
+          </div>
+          <div class="job-progress"><i style="width:${job.status.pct}%"></i></div>
+          <div class="job-meta">
+            <span>${job.status.done}/${job.status.total} 단계</span>
+            <strong>${job.status.pct}%</strong>
+          </div>
+        </article>
+      `).join("") || `<div class="empty-state">진행 중인 마약 수사 분석 작업이 없습니다.</div>`}
+    </div>
+    <h3 style="margin:12px 0 8px;font-size:14px;color:#41506a">마약 우범자 목록</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>성명</th><th>국적</th><th>나이</th><th>위험도</th><th>위험점수</th><th>주요여행경로</th><th>최근입국</th><th>상태</th><th>관계망분석</th></tr></thead>
+        <tbody>
+          ${suspects.map(s=>`
+            <tr>
+              <td>${escapeHtml(s.id)}</td>
+              <td><strong>${escapeHtml(s.name)}</strong></td>
+              <td>${escapeHtml(s.nationality)}</td>
+              <td>${s.age}</td>
+              <td><span class="risk-chip ${s.risk==="고위험"?"high":s.risk==="중위험"?"mid":"low"}">${escapeHtml(s.risk)}</span></td>
+              <td><strong style="color:${s.riskScore>=80?"#dc2626":s.riskScore>=60?"#d97706":"#16a34a"}">${s.riskScore}</strong></td>
+              <td style="font-size:12px">${s.routes.map(escapeHtml).join(" · ")}</td>
+              <td>${escapeHtml(s.lastEntry)}</td>
+              <td>${escapeHtml(s.status)}</td>
+              <td><button class="btn small" data-drug-network-target='${JSON.stringify({id:s.id,name:s.name,risk:s.risk})}'>관계망 보기</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function drugNetworkPanel(){
+  const t = drugInvSelectedTarget;
+  const nodes = t ? [
+    { id:"center", label: t.name, type:"suspect", x:50, y:50 },
+    { id:"n1", label:"박공범", type:"associate", x:20, y:25 },
+    { id:"n2", label:"최연락", type:"associate", x:75, y:20 },
+    { id:"n3", label:"이중간", type:"associate", x:15, y:70 },
+    { id:"n4", label:"김화주", type:"cargo_owner", x:80, y:75 },
+    { id:"n5", label:"(주)위장무역", type:"company", x:55, y:80 },
+    { id:"n6", label:"ABC Courier", type:"company", x:30, y:48 },
+  ] : [];
+  const edges = t ? [
+    { from:"center", to:"n1", label:"친인척" },
+    { from:"center", to:"n2", label:"동업자" },
+    { from:"center", to:"n3", label:"자금책" },
+    { from:"center", to:"n4", label:"화주명의" },
+    { from:"n4", to:"n5", label:"대표자" },
+    { from:"center", to:"n6", label:"이용업체" },
+    { from:"n1", to:"n5", label:"관계사" },
+  ] : [];
+  return `
+    <div style="display:flex;gap:16px;height:100%">
+      <div style="flex:1;min-width:0">
+        <div class="panel-section-hdr" style="margin-bottom:8px">
+          <span>관계망 그래프</span>
+          ${t ? `<span class="muted" style="font-size:12px">중심: ${escapeHtml(t.name)}</span>` : ""}
+        </div>
+        ${t ? `
+          <div class="network-canvas" id="drugNetworkCanvas" style="position:relative;height:420px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
+            <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
+              ${edges.map(e=>{
+                const from = nodes.find(n=>n.id===e.from);
+                const to   = nodes.find(n=>n.id===e.to);
+                if(!from||!to) return "";
+                const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
+                const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
+                return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#aac7ff" stroke-width="1.5"/>
+                        <text x="${mx}" y="${my}" font-size="10" fill="#6b7f9e" text-anchor="middle">${escapeHtml(e.label)}</text>`;
+              }).join("")}
+            </svg>
+            ${nodes.map(n=>{
+              const colors={suspect:"#dc2626",associate:"#d97706",cargo_owner:"#7c3aed",company:"#0284c7"};
+              const labels={suspect:"용의자",associate:"관계자",cargo_owner:"화주",company:"기업"};
+              return `<div style="position:absolute;left:calc(${n.x}% - 32px);top:calc(${n.y}% - 32px);text-align:center;width:64px">
+                <div style="width:44px;height:44px;border-radius:50%;background:${colors[n.type]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin:0 auto;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">${escapeHtml(n.label.substring(0,4))}</div>
+                <div style="font-size:10px;color:#41506a;margin-top:2px;background:rgba(255,255,255,.85);border-radius:4px;padding:1px 3px">${escapeHtml(labels[n.type])}</div>
+              </div>`;
+            }).join("")}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            ${[["용의자","#dc2626"],["관계자","#d97706"],["화주","#7c3aed"],["기업","#0284c7"]].map(([l,c])=>`
+              <span style="display:flex;align-items:center;gap:4px;font-size:12px"><span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>
+            `).join("")}
+          </div>
+        ` : `<div class="empty-state">좌측 '진행중인 수사' 탭에서 우범자를 선택하거나, 우범자 목록에서 [관계망 보기] 버튼을 클릭하세요.</div>`}
+      </div>
+      <div style="width:260px;flex:none">
+        <div class="panel-section-hdr" style="margin-bottom:8px"><span>관계자 목록</span></div>
+        ${t ? `
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${[
+              {name:"박공범",rel:"친인척",risk:"고위험",riskScore:78},
+              {name:"최연락",rel:"동업자",risk:"고위험",riskScore:82},
+              {name:"이중간",rel:"자금책",risk:"중위험",riskScore:64},
+              {name:"김화주",rel:"화주명의",risk:"중위험",riskScore:55},
+              {name:"(주)위장무역",rel:"관련기업(대표)",risk:"고위험",riskScore:89},
+              {name:"ABC Courier",rel:"이용업체",risk:"중위험",riskScore:60},
+            ].map(r=>`
+              <div class="gi-case-card" style="padding:10px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <strong style="font-size:13px">${escapeHtml(r.name)}</strong>
+                    <span class="muted" style="font-size:11px;margin-left:6px">${escapeHtml(r.rel)}</span>
+                  </div>
+                  <span class="risk-chip ${r.risk==="고위험"?"high":"mid"}">${escapeHtml(r.risk)}</span>
+                </div>
+                <div style="font-size:12px;color:#6b7f9e;margin-top:4px">위험점수: <strong>${r.riskScore}</strong></div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<div class="empty-state muted" style="font-size:12px">대상자를 선택하면 관계자 목록이 표시됩니다.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function drugRegionPanel(){
+  const regions = [
+    { name:"서울", suspects:42, seizures:18, riskScore:88, topRoutes:["인천-방콕","인천-LA"] },
+    { name:"인천", suspects:35, seizures:24, riskScore:92, topRoutes:["직항","특송화물"] },
+    { name:"부산", suspects:28, seizures:15, riskScore:79, topRoutes:["항만화물","인천-부산"] },
+    { name:"경기", suspects:31, seizures:12, riskScore:72, topRoutes:["인천-두바이","인천-암스"] },
+    { name:"대구", suspects:19, seizures:8,  riskScore:65, topRoutes:["국제우편"] },
+    { name:"광주", suspects:14, seizures:6,  riskScore:58, topRoutes:["직항","국제우편"] },
+  ];
+  const maxSeizures = Math.max(...regions.map(r=>r.seizures));
+  return `
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:300px">
+        <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">지역별 마약 우범자 현황</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${regions.map(r=>`
+            <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:8px;padding:12px 14px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <strong style="width:40px;color:#123c85">${escapeHtml(r.name)}</strong>
+                <div style="flex:1;background:#e5edff;border-radius:4px;height:12px;overflow:hidden">
+                  <div style="width:${Math.round((r.seizures/maxSeizures)*100)}%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);height:100%;border-radius:4px"></div>
+                </div>
+                <span style="font-size:12px;color:#41506a;white-space:nowrap">압수 ${r.seizures}건</span>
+                <span class="risk-chip ${r.riskScore>=85?"high":r.riskScore>=70?"mid":"low"}" style="width:52px;text-align:center">${r.riskScore}점</span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;color:#6b7f9e">우범자 ${r.suspects}명</span>
+                <span style="font-size:11px;color:#6b7f9e">|</span>
+                ${r.topRoutes.map(rt=>`<span style="font-size:11px;background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px">${escapeHtml(rt)}</span>`).join("")}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+      <div style="width:280px;flex:none">
+        <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">지역별 우범자 상세</h4>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${[
+            {region:"인천",name:"이마약",routes:["인천-두바이","인천-상하이"],lastEntry:"2026-05-27",risk:"고위험"},
+            {region:"서울",name:"김우범",routes:["인천-방콕","인천-멕시코시티"],lastEntry:"2026-05-29",risk:"고위험"},
+            {region:"부산",name:"Park James",routes:["인천-LA","인천-암스테르담"],lastEntry:"2026-05-20",risk:"중위험"},
+          ].map(p=>`
+            <div class="gi-case-card" style="padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(p.region)}</span>
+                <strong style="font-size:13px">${escapeHtml(p.name)}</strong>
+                <span class="risk-chip ${p.risk==="고위험"?"high":"mid"}" style="margin-left:auto">${escapeHtml(p.risk)}</span>
+              </div>
+              <div style="font-size:11px;color:#6b7f9e">${p.routes.map(escapeHtml).join(" · ")}</div>
+              <div style="font-size:11px;color:#6b7f9e;margin-top:2px">최근입국: ${escapeHtml(p.lastEntry)}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function drugSlangRagPanel(){
+  const slangDict = [
+    { term:"아이스",  meaning:"필로폰(메스암페타민)", category:"각성제", confidence:98 },
+    { term:"작대기", meaning:"주사기", category:"도구", confidence:95 },
+    { term:"떡",     meaning:"대마초 압축분", category:"대마", confidence:90 },
+    { term:"야바",   meaning:"메스암페타민 알약(태국산)", category:"각성제", confidence:97 },
+    { term:"찰리",   meaning:"코카인", category:"코카인", confidence:88 },
+    { term:"초코",   meaning:"헤로인(갈색)", category:"아편류", confidence:85 },
+    { term:"LSD",    meaning:"도장·우표 모양 환각제", category:"환각제", confidence:99 },
+    { term:"빽빽이", meaning:"필로폰 대량(1kg↑)", category:"각성제", confidence:82 },
+  ];
+  return `
+    <div style="display:flex;gap:16px;height:100%;flex-direction:column">
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e">
+        <strong>핵심 RAG</strong> — 은어사전 기반 해독 서비스입니다. 수사 문서에서 탐지된 은어를 실시간으로 해독하고, 연관 용어를 추천합니다.
+      </div>
+      <div style="display:flex;gap:14px;flex:1;min-height:0;flex-wrap:wrap">
+        <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:8px">
+          <div class="panel-section-hdr"><span>은어 해독기</span></div>
+          <div style="display:flex;gap:8px">
+            <input id="slangInput" class="form-input" style="flex:1" placeholder="은어 또는 문장을 입력하세요 (예: 아이스 한 작대기 챙겨와)">
+            <button class="btn primary" data-slang-decode>해독</button>
+          </div>
+          <div id="slangDecodeResult" style="min-height:80px;background:#f8fbff;border:1px solid #dde8ff;border-radius:8px;padding:12px;font-size:13px;color:#41506a">
+            해독 결과가 여기에 표시됩니다. 입력 문장 내 은어를 자동으로 탐지하여 정확한 의미로 변환합니다.
+          </div>
+          <div class="panel-section-hdr" style="margin-top:4px"><span>연관 은어 추천</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${["아이스","야바","찰리","떡","초코","LSD","빽빽이"].map(t=>`
+              <button class="btn small" data-slang-suggest="${escapeHtml(t)}">${escapeHtml(t)}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div class="panel-section-hdr" style="margin-bottom:8px"><span>은어사전 (${slangDict.length}건)</span></div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>은어</th><th>의미</th><th>분류</th><th>신뢰도</th></tr></thead>
+              <tbody>
+                ${slangDict.map(s=>`
+                  <tr>
+                    <td><strong style="color:#1e40af">${escapeHtml(s.term)}</strong></td>
+                    <td>${escapeHtml(s.meaning)}</td>
+                    <td><span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(s.category)}</span></td>
+                    <td><span style="font-size:12px;color:${s.confidence>=90?"#16a34a":"#d97706"}">${s.confidence}%</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   위험선별 분석 페이지
+   ═══════════════════════════════════════════════════════════════ */
+function riskScreeningPage(){
+  const tab = riskScreeningTab;
+  const today = new Date().toISOString().slice(0,10);
+  const highRiskItems = [
+    { declNo:"202605300001", hsCd:"2933.39", goods:"N-페닐피페라진 유도체", importer:"(주)케미칼인터", origin:"CN", weight:"500kg", riskScore:95, reason:"마약 전구물질", status:"검사지시" },
+    { declNo:"202605300002", hsCd:"8471.30", goods:"노트북 (저가신고의심)", importer:"개인통관 박XX", origin:"HK", weight:"1.2kg", riskScore:88, reason:"저가신고 의심", status:"검사지시" },
+    { declNo:"202605300003", hsCd:"6109.10", goods:"면 티셔츠 (원산지위반)", importer:"패션유통(주)", origin:"VN", weight:"2,400kg", riskScore:82, reason:"원산지 위반 의심", status:"심사중" },
+    { declNo:"202605300004", hsCd:"2208.40", goods:"럼주 (브랜드 위조)", importer:"주류무역(주)", origin:"DO", weight:"480L", riskScore:79, reason:"브랜드 위조 의심", status:"심사중" },
+    { declNo:"202605300005", hsCd:"9013.80", goods:"레이저 장비", importer:"(주)광학기술", origin:"IL", weight:"18kg", riskScore:76, reason:"이중용도 품목", status:"대기" },
+    { declNo:"202605300006", hsCd:"7108.12", goods:"금 정제품", importer:"귀금속(주)", origin:"AE", weight:"8.5kg", riskScore:74, reason:"고가 귀금속 신고가 불일치", status:"대기" },
+  ];
+  const trackingItems = [
+    { declNo:"202605280012", goods:"화학원료 혼합물", importer:"(주)켐트레이딩", riskScore:91, trackStatus:"세관 검사 중", updated:"오늘 09:12" },
+    { declNo:"202605270008", goods:"의류 (원산지 불명)", importer:"패스트패션(주)", riskScore:83, trackStatus:"샘플 분석 중", updated:"어제 16:30" },
+    { declNo:"202605250003", goods:"전자부품 세트", importer:"전자부품(주)", riskScore:78, trackStatus:"서류 보완 요청", updated:"2026-05-25" },
+  ];
+  return `
+    <section class="card gi-hub">
+      <div class="gi-page-head">
+        <div>
+          <h2>위험선별 분석</h2>
+          <p class="muted">수입신고 건 중 위험도가 높은 적하목록을 선별하고 추적관리합니다.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="muted" style="font-size:12px">기준일: ${today}</span>
+          <span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 10px;font-size:12px;font-weight:700">고위험 ${highRiskItems.length}건</span>
         </div>
       </div>
       <div class="gi-tab-nav">
-        <button class="gi-tab active">진행중인 분석작업</button>
+        <button class="gi-tab${tab==="today"?" active":""}" data-rs-tab="today">당일 고위험 적하목록</button>
+        <button class="gi-tab${tab==="tracking"?" active":""}" data-rs-tab="tracking">추적관리</button>
       </div>
-      <div class="gi-case-grid">
-        ${activeDrugInvestigationJobs().map(job => `
-          <article class="gi-case-card" data-analysis-job="${escapeHtml(job.jobId)}" data-analysis-page="lawsearch" data-analysis-tab="ongoing" data-canvas-company="${escapeHtml(job.companyId)}">
-            <div class="gi-case-head">
-              <div>
-                <span class="canvas-category-chip">${escapeHtml(job.category)}</span>
-                <h3>${escapeHtml(job.title)}</h3>
-                <p class="muted">${escapeHtml(job.company)} · ${escapeHtml(job.owner)} · ${escapeHtml(job.updated)}</p>
+      <div class="gi-tab-body">
+        ${tab === "tracking" ? `
+          <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">추적관리 대상 (${trackingItems.length}건)</h4>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>신고번호</th><th>품명</th><th>수입자</th><th>위험점수</th><th>추적상태</th><th>갱신시각</th></tr></thead>
+              <tbody>
+                ${trackingItems.map(t=>`
+                  <tr>
+                    <td style="font-family:monospace;font-size:12px">${escapeHtml(t.declNo)}</td>
+                    <td>${escapeHtml(t.goods)}</td>
+                    <td>${escapeHtml(t.importer)}</td>
+                    <td><strong style="color:${t.riskScore>=90?"#dc2626":t.riskScore>=80?"#d97706":"#16a34a"}">${t.riskScore}</strong></td>
+                    <td><span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:2px 8px;font-size:12px">${escapeHtml(t.trackStatus)}</span></td>
+                    <td class="muted">${escapeHtml(t.updated)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">당일(${today}) 고위험 수입신고 (${highRiskItems.length}건)</h4>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>신고번호</th><th>HS Code</th><th>품명</th><th>수입자</th><th>원산지</th><th>중량</th><th>위험점수</th><th>위험사유</th><th>상태</th><th>추적등록</th></tr></thead>
+              <tbody>
+                ${highRiskItems.map(item=>`
+                  <tr>
+                    <td style="font-family:monospace;font-size:12px">${escapeHtml(item.declNo)}</td>
+                    <td style="font-family:monospace">${escapeHtml(item.hsCd)}</td>
+                    <td>${escapeHtml(item.goods)}</td>
+                    <td>${escapeHtml(item.importer)}</td>
+                    <td><span style="background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(item.origin)}</span></td>
+                    <td style="font-size:12px">${escapeHtml(item.weight)}</td>
+                    <td><strong style="color:${item.riskScore>=90?"#dc2626":item.riskScore>=80?"#d97706":"#16a34a"}">${item.riskScore}</strong></td>
+                    <td style="font-size:12px;color:#7c3aed">${escapeHtml(item.reason)}</td>
+                    <td><span style="background:${item.status==="검사지시"?"#fee2e2":item.status==="심사중"?"#fef3c7":"#f1f5f9"};color:${item.status==="검사지시"?"#dc2626":item.status==="심사중"?"#d97706":"#64748b"};border-radius:4px;padding:2px 8px;font-size:12px">${escapeHtml(item.status)}</span></td>
+                    <td><button class="btn small" data-rs-tab="tracking" style="font-size:11px">추적등록</button></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   통관정보 분석 페이지
+   ═══════════════════════════════════════════════════════════════ */
+function customsInfoPage(){
+  const tab = customsInfoTab;
+  const today = new Date().toISOString().slice(0,10);
+  const declarations = [
+    { declNo:"IMP-20260530-0001", type:"수입", goods:"반도체 장비", hs:"8486.20", importer:"삼성전자(주)", origin:"US", value:"USD 2,400,000", riskScore:12, status:"수리완료" },
+    { declNo:"IMP-20260530-0002", type:"수입", goods:"유기화합물", hs:"2901.10", importer:"(주)석유화학", origin:"SA", value:"USD 890,000", riskScore:45, status:"심사중" },
+    { declNo:"EXP-20260530-0001", type:"수출", goods:"자동차 부품", hs:"8708.29", importer:"현대모비스(주)", origin:"KR", value:"USD 1,200,000", riskScore:8, status:"수리완료" },
+    { declNo:"IMP-20260530-0003", type:"수입", goods:"의류 완제품", hs:"6203.42", importer:"(주)패션코리아", origin:"BD", value:"USD 320,000", riskScore:78, status:"검사지시" },
+    { declNo:"EXP-20260530-0002", type:"수출", goods:"화장품", hs:"3304.99", importer:"(주)뷰티코리아", origin:"KR", value:"USD 560,000", riskScore:15, status:"수리완료" },
+  ];
+  const countryStats = [
+    {country:"미국(US)",import:142,export:89,risk:18},
+    {country:"중국(CN)",import:328,export:215,risk:35},
+    {country:"일본(JP)",import:98,export:134,risk:12},
+    {country:"베트남(VN)",import:187,export:67,risk:28},
+    {country:"독일(DE)",import:76,export:45,risk:9},
+  ];
+  const hsStats = [
+    {group:"84 기계·기기",count:412,risk:22},
+    {group:"85 전기기기",count:389,risk:19},
+    {group:"61-62 의류",count:287,risk:65},
+    {group:"29 유기화합물",count:156,risk:48},
+    {group:"87 자동차",count:234,risk:11},
+  ];
+  return `
+    <section class="card gi-hub">
+      <div class="gi-page-head">
+        <div>
+          <h2>통관정보 분석</h2>
+          <p class="muted">전체 통관 내역 기준의 분석 정보를 제공합니다. 국가별·HS그룹별·위험도 통계를 확인합니다.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" class="form-input" style="height:32px;font-size:12px" value="${today}" id="ciDateFrom">
+          <span class="muted">~</span>
+          <input type="date" class="form-input" style="height:32px;font-size:12px" value="${today}" id="ciDateTo">
+          <button class="btn" style="height:32px;padding:0 12px;font-size:12px" data-ci-tab="${tab}">조회</button>
+        </div>
+      </div>
+      <div class="gi-tab-nav">
+        <button class="gi-tab${tab==="today"?" active":""}" data-ci-tab="today">당일 수출입 신고내역</button>
+        <button class="gi-tab${tab==="stats"?" active":""}" data-ci-tab="stats">통계 분석</button>
+      </div>
+      <div class="gi-tab-body">
+        ${tab === "stats" ? `
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:260px">
+              <h4 style="margin-bottom:10px;font-size:14px;color:#41506a">국가별 신고 현황</h4>
+              <table class="data-table">
+                <thead><tr><th>국가</th><th>수입</th><th>수출</th><th>평균위험도</th></tr></thead>
+                <tbody>
+                  ${countryStats.map(c=>`
+                    <tr>
+                      <td>${escapeHtml(c.country)}</td>
+                      <td>${c.import}</td>
+                      <td>${c.export}</td>
+                      <td><span style="color:${c.risk>=50?"#dc2626":c.risk>=30?"#d97706":"#16a34a"};font-weight:700">${c.risk}</span></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+            <div style="flex:1;min-width:260px">
+              <h4 style="margin-bottom:10px;font-size:14px;color:#41506a">HS 그룹별 위험도</h4>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                ${hsStats.map(h=>`
+                  <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:8px;padding:10px 12px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:13px;color:#123c85;font-weight:600">${escapeHtml(h.group)}</span>
+                      <span class="risk-chip ${h.risk>=50?"high":h.risk>=30?"mid":"low"}" style="margin-left:auto">${h.risk}점</span>
+                    </div>
+                    <div style="background:#e5edff;border-radius:4px;height:8px;overflow:hidden">
+                      <div style="width:${h.risk}%;background:${h.risk>=50?"#dc2626":h.risk>=30?"#d97706":"#22c55e"};height:100%;border-radius:4px"></div>
+                    </div>
+                    <div style="font-size:11px;color:#6b7f9e;margin-top:4px">신고건수: ${h.count}건</div>
+                  </div>
+                `).join("")}
               </div>
-              <span class="job-status ${job.status.tone}">${escapeHtml(job.status.label)}</span>
             </div>
-            <div class="job-progress"><i style="width:${job.status.pct}%"></i></div>
-            <div class="job-meta">
-              <span>${job.status.done}/${job.status.total} 단계</span>
-              <strong>${job.status.pct}%</strong>
+          </div>
+        ` : `
+          <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">당일(${today}) 수출입 신고내역 (${declarations.length}건)</h4>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>신고번호</th><th>구분</th><th>품명</th><th>HS Code</th><th>신고인</th><th>원산지</th><th>신고가액</th><th>위험도</th><th>처리상태</th></tr></thead>
+              <tbody>
+                ${declarations.map(d=>`
+                  <tr>
+                    <td style="font-family:monospace;font-size:12px">${escapeHtml(d.declNo)}</td>
+                    <td><span style="background:${d.type==="수입"?"#eff6ff":"#f0fdf4"};color:${d.type==="수입"?"#1d4ed8":"#166534"};border-radius:4px;padding:2px 8px;font-size:12px">${escapeHtml(d.type)}</span></td>
+                    <td>${escapeHtml(d.goods)}</td>
+                    <td style="font-family:monospace">${escapeHtml(d.hs)}</td>
+                    <td>${escapeHtml(d.importer)}</td>
+                    <td><span style="background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(d.origin)}</span></td>
+                    <td style="font-size:12px">${escapeHtml(d.value)}</td>
+                    <td><strong style="color:${d.riskScore>=70?"#dc2626":d.riskScore>=40?"#d97706":"#16a34a"}">${d.riskScore}</strong></td>
+                    <td><span style="background:${d.status==="검사지시"?"#fee2e2":d.status==="심사중"?"#fef3c7":"#f0fdf4"};color:${d.status==="검사지시"?"#dc2626":d.status==="심사중"?"#d97706":"#166534"};border-radius:4px;padding:2px 8px;font-size:12px">${escapeHtml(d.status)}</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   국제정보 분석 페이지 (WCO 챗봇 UI)
+   ═══════════════════════════════════════════════════════════════ */
+function intlInfoPage(){
+  const promptTemplates = [
+    "WCO 최신 HS 개정사항 중 국내 수출입 영향이 큰 품목을 분석해줘",
+    "WCO 마약 관련 최신 결의문 내용을 요약하고 국내 조치사항을 알려줘",
+    "WCO 원산지 규정 분과위원회 결정사항 중 한-미 무역에 영향을 주는 것은?",
+    "WCO SAFE Framework 최신 개정 내용을 정리해줘",
+    "WCO AEO 상호인정협정 현황과 국내 활용 방안을 알려줘",
+  ];
+  return `
+    <section class="card gi-hub gi-hub-full">
+      <div class="gi-page-head">
+        <div>
+          <h2>국제정보 분석</h2>
+          <p class="muted">WCO 회의 결과와 분과위원회 결정사항을 기반으로 국내 수출입 품목과 연관된 분석을 제공합니다.</p>
+        </div>
+      </div>
+      <div class="gi-tab-body" style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+          <div style="font-size:13px;color:#1e40af;font-weight:600;margin-bottom:6px">프롬프트 템플릿</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${promptTemplates.map(t=>`
+              <button class="btn small" data-intl-template="${escapeHtml(t)}" style="font-size:11px;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(t)}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;border:1px solid #dde8ff;border-radius:8px;padding:12px;background:#f8fbff;min-height:200px;display:flex;flex-direction:column;gap:10px" id="intlChatMessages">
+          ${intlInfoMessages.length === 0 ? `
+            <div class="empty-state" style="margin:auto">
+              WCO 회의 결과 및 분과위원회 결정사항에 대해 질문하세요.<br>
+              <span class="muted" style="font-size:12px">위 템플릿을 클릭하거나 직접 입력하세요.</span>
             </div>
-          </article>
-        `).join("") || `<div class="empty-state">진행 중인 마약 수사 분석 작업이 없습니다.</div>`}
+          ` : intlInfoMessages.map(m=>`
+            <div style="display:flex;${m.role==="user"?"justify-content:flex-end":"justify-content:flex-start"}">
+              <div style="max-width:75%;background:${m.role==="user"?"#1e40af":"#fff"};color:${m.role==="user"?"#fff":"#1e293b"};border-radius:${m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px"};padding:10px 14px;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.08);border:${m.role==="ai"?"1px solid #dde8ff":"none"};white-space:pre-wrap">
+                ${m.role==="ai"?`<div style="font-size:10px;color:#6b7f9e;margin-bottom:4px">WCO AI 분석</div>`:""}
+                ${escapeHtml(m.text)}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input id="intlChatInput" class="form-input" style="flex:1" placeholder="WCO 관련 질문을 입력하세요...">
+          <button class="btn primary" data-intl-send style="width:80px">전송</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   관세 온톨로지 페이지
+   ═══════════════════════════════════════════════════════════════ */
+function customsOntologyPage(){
+  const tab = ontologyTab;
+  const ontologyNodes = [
+    {id:"traveler",label:"우범여행자",type:"person",x:50,y:20,desc:"마약·밀수 관련 위험 여행자"},
+    {id:"associate",label:"관계자",type:"person",x:20,y:45,desc:"우범여행자와 연관된 인물"},
+    {id:"company",label:"기업",type:"org",x:80,y:45,desc:"우범자/관계자가 대표자인 기업"},
+    {id:"cargo_a",label:"화물(관계자화주)",type:"cargo",x:15,y:75,desc:"우범여행자 관계자가 화주인 화물"},
+    {id:"cargo_b",label:"화물(기업화주)",type:"cargo",x:85,y:75,desc:"우범여행자/관계자 기업의 화물"},
+    {id:"declaration",label:"수입신고",type:"event",x:50,y:90,desc:"화물 관련 수입신고"},
+  ];
+  const ontologyEdges = [
+    {from:"traveler",to:"associate",label:"알고있음",type:"relation"},
+    {from:"traveler",to:"company",label:"대표자",type:"role"},
+    {from:"associate",to:"company",label:"관계자",type:"role"},
+    {from:"associate",to:"cargo_a",label:"화주",type:"role"},
+    {from:"company",to:"cargo_b",label:"화주기업",type:"role"},
+    {from:"cargo_a",to:"declaration",label:"신고대상",type:"event"},
+    {from:"cargo_b",to:"declaration",label:"신고대상",type:"event"},
+  ];
+  const rules = [
+    { id:"R01", name:"우범여행자 화물 감시", condition:"우범여행자 = 화물.화주 OR 우범여행자.관계자 = 화물.화주", action:"위험도 +30, 검사지시", category:"화물감시" },
+    { id:"R02", name:"우범여행자 기업 연계", condition:"우범여행자 = 기업.대표자 OR 우범여행자.관계자 = 기업.대표자", action:"기업 위험도 상향, 통관 강화심사", category:"기업감시" },
+    { id:"R03", name:"관계자 화물 추적", condition:"우범여행자.관계자 = 화물.화주 AND 화물.원산지 IN 우범국가", action:"위험도 +20, 심층검사", category:"화물감시" },
+    { id:"R04", name:"고빈도 입국 패턴", condition:"여행자.최근30일입국횟수 >= 3 AND 여행자.입국경로 IN 마약경로", action:"우범여행자 등록 검토", category:"입국감시" },
+    { id:"R05", name:"저가신고 연계기업 감시", condition:"기업.저가신고건수 >= 3 AND 기업.대표자 = 우범여행자.관계자", action:"전수 검사, 조사국 통보", category:"가격심사" },
+  ];
+  const inferences = [
+    { id:"INF-001", subject:"(주)위장무역", conclusion:"고위험 기업 분류", path:"박공범(관계자) → 대표자 → (주)위장무역 → 화물 3건 → 마약전구물질 포함", confidence:92 },
+    { id:"INF-002", subject:"화물 202605300001", conclusion:"심층검사 대상", path:"김우범(우범여행자) → 화주 → 화물 202605300001 → R01 적용", confidence:95 },
+    { id:"INF-003", subject:"최연락", conclusion:"우범여행자 등록 검토", path:"최연락 → 최근30일 4회 입국 → 방콕 경유 → R04 적용", confidence:78 },
+  ];
+  const nodeColors = {person:"#7c3aed",org:"#0284c7",cargo:"#d97706",event:"#16a34a"};
+  const nodeLabels = {person:"인물",org:"기관/기업",cargo:"화물",event:"사건/신고"};
+  return `
+    <section class="card gi-hub">
+      <div class="gi-page-head">
+        <div>
+          <h2>관세 온톨로지</h2>
+          <p class="muted">지식그래프 기반 의미론적 온톨로지 — 우범여행자 감시 온톨로지, 관계망 그래프, 룰 및 추론 엔진을 제공합니다.</p>
+        </div>
+      </div>
+      <div class="gi-tab-nav">
+        <button class="gi-tab${tab==="graph"?" active":""}" data-ont-tab="graph">관계망 그래프</button>
+        <button class="gi-tab${tab==="rules"?" active":""}" data-ont-tab="rules">온톨로지 룰</button>
+        <button class="gi-tab${tab==="inference"?" active":""}" data-ont-tab="inference">추론 엔진 결과</button>
+      </div>
+      <div class="gi-tab-body">
+        ${tab === "rules" ? `
+          <div style="margin-bottom:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e">
+            룰(Rule) 기반 추론 엔진이 아래 조건을 평가하여 우범여행자 관련 화물·기업에 자동으로 위험등급을 부여하고 조치를 취합니다.
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>규칙ID</th><th>규칙명</th><th>조건(IF)</th><th>조치(THEN)</th><th>분류</th></tr></thead>
+              <tbody>
+                ${rules.map(r=>`
+                  <tr>
+                    <td style="font-family:monospace;color:#1e40af">${escapeHtml(r.id)}</td>
+                    <td><strong>${escapeHtml(r.name)}</strong></td>
+                    <td style="font-family:monospace;font-size:11px;color:#7c3aed">${escapeHtml(r.condition)}</td>
+                    <td style="font-size:12px;color:#dc2626">${escapeHtml(r.action)}</td>
+                    <td><span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(r.category)}</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        ` : tab === "inference" ? `
+          <div style="margin-bottom:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534">
+            추론 엔진이 온톨로지 룰을 적용하여 도출한 결론입니다. 추론 경로를 통해 판단 근거를 투명하게 확인할 수 있습니다.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${inferences.map(inf=>`
+              <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;padding:14px 16px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-family:monospace;color:#1e40af;font-size:12px">${escapeHtml(inf.id)}</span>
+                  <strong style="font-size:14px">${escapeHtml(inf.subject)}</strong>
+                  <span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:auto">${escapeHtml(inf.conclusion)}</span>
+                  <span style="font-size:12px;color:${inf.confidence>=90?"#16a34a":"#d97706"}">신뢰도 ${inf.confidence}%</span>
+                </div>
+                <div style="font-size:12px;color:#6b7f9e;background:#fff;border:1px solid #e5edff;border-radius:6px;padding:8px 10px;font-family:monospace">
+                  추론 경로: ${escapeHtml(inf.path)}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `
+          <div style="display:flex;gap:16px">
+            <div style="flex:1;min-width:0">
+              <div class="panel-section-hdr" style="margin-bottom:8px"><span>우범여행자 감시 온톨로지 그래프</span></div>
+              <div style="position:relative;height:480px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
+                <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
+                  ${ontologyEdges.map(e=>{
+                    const from = ontologyNodes.find(n=>n.id===e.from);
+                    const to   = ontologyNodes.find(n=>n.id===e.to);
+                    if(!from||!to) return "";
+                    const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
+                    const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
+                    const color = e.type==="relation"?"#7c3aed":e.type==="role"?"#0284c7":"#16a34a";
+                    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${e.type==="event"?"4,3":""}"/>
+                            <text x="${mx}" y="${my}" font-size="10" fill="${color}" text-anchor="middle" dy="-3">${escapeHtml(e.label)}</text>`;
+                  }).join("")}
+                </svg>
+                ${ontologyNodes.map(n=>`
+                  <div style="position:absolute;left:calc(${n.x}% - 40px);top:calc(${n.y}% - 28px);text-align:center;width:80px">
+                    <div style="background:${nodeColors[n.type]};color:#fff;border-radius:8px;padding:6px 4px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);border:2px solid #fff;cursor:default" title="${escapeHtml(n.desc)}">${escapeHtml(n.label)}</div>
+                    <div style="font-size:10px;color:#6b7f9e;margin-top:2px">${escapeHtml(nodeLabels[n.type])}</div>
+                  </div>
+                `).join("")}
+              </div>
+              <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+                ${Object.entries(nodeColors).map(([type,color])=>`
+                  <span style="display:flex;align-items:center;gap:4px;font-size:12px">
+                    <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block"></span>${nodeLabels[type]}
+                  </span>
+                `).join("")}
+              </div>
+            </div>
+            <div style="width:280px;flex:none">
+              <div class="panel-section-hdr" style="margin-bottom:8px"><span>온톨로지 클래스 정의</span></div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${ontologyNodes.map(n=>`
+                  <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:10px 12px;border-left:3px solid ${nodeColors[n.type]}">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <strong style="font-size:13px;color:${nodeColors[n.type]}">${escapeHtml(n.label)}</strong>
+                      <span style="font-size:10px;color:#6b7f9e;border:1px solid #dde8ff;border-radius:3px;padding:1px 5px">${escapeHtml(nodeLabels[n.type])}</span>
+                    </div>
+                    <div style="font-size:12px;color:#6b7f9e;margin-top:3px">${escapeHtml(n.desc)}</div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        `}
       </div>
     </section>
   `;
@@ -6393,6 +7053,91 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  const drugTab = event.target.closest("[data-drug-tab]");
+  if(drugTab){
+    drugInvTab = drugTab.dataset.drugTab;
+    render("lawsearch");
+    return;
+  }
+
+  const drugNetworkBtn = event.target.closest("[data-drug-network-target]");
+  if(drugNetworkBtn){
+    try{ drugInvSelectedTarget = JSON.parse(drugNetworkBtn.dataset.drugNetworkTarget); }catch(e){}
+    drugInvTab = "network";
+    render("lawsearch");
+    return;
+  }
+
+  const slangDecodeBtn = event.target.closest("[data-slang-decode]");
+  if(slangDecodeBtn){
+    const input = document.getElementById("slangInput");
+    const result = document.getElementById("slangDecodeResult");
+    if(input && result){
+      const slangMap = {"아이스":"필로폰(메스암페타민)","작대기":"주사기","떡":"대마초 압축분","야바":"메스암페타민 알약","찰리":"코카인","초코":"헤로인","LSD":"환각제","빽빽이":"필로폰 대량(1kg↑)"};
+      const text = input.value;
+      let decoded = text;
+      let found = [];
+      Object.entries(slangMap).forEach(([term,meaning])=>{
+        if(text.includes(term)){ decoded = decoded.replace(new RegExp(term,"g"),`<mark title="${meaning}">${term}(=${meaning})</mark>`); found.push(`${term} → ${meaning}`); }
+      });
+      result.innerHTML = found.length ? `<div style="margin-bottom:8px;color:#16a34a;font-size:12px">탐지된 은어 ${found.length}건</div>${decoded}<hr style="margin:8px 0;border-color:#dde8ff"><div style="font-size:12px;color:#6b7f9e">${found.join(" | ")}</div>` : `<span style="color:#6b7f9e">탐지된 은어가 없습니다: ${escapeHtml(text)}</span>`;
+    }
+    return;
+  }
+
+  const slangSuggestBtn = event.target.closest("[data-slang-suggest]");
+  if(slangSuggestBtn){
+    const input = document.getElementById("slangInput");
+    if(input) input.value = slangSuggestBtn.dataset.slangSuggest;
+    return;
+  }
+
+  const riskScreeningTabBtn = event.target.closest("[data-rs-tab]");
+  if(riskScreeningTabBtn){
+    riskScreeningTab = riskScreeningTabBtn.dataset.rsTab;
+    render("dw");
+    return;
+  }
+
+  const customsInfoTabBtn = event.target.closest("[data-ci-tab]");
+  if(customsInfoTabBtn){
+    customsInfoTab = customsInfoTabBtn.dataset.ciTab;
+    render("rag");
+    return;
+  }
+
+  const ontologyTabBtn = event.target.closest("[data-ont-tab]");
+  if(ontologyTabBtn){
+    ontologyTab = ontologyTabBtn.dataset.ontTab;
+    render("model");
+    return;
+  }
+
+  const intlSendBtn = event.target.closest("[data-intl-send]");
+  if(intlSendBtn){
+    const input = document.getElementById("intlChatInput");
+    if(input && input.value.trim()){
+      const q = input.value.trim();
+      intlInfoMessages.push({role:"user",text:q});
+      const templates = [
+        "WCO 2024 관련 결의사항을 분석합니다...",
+        "해당 HS 품목에 대한 국제 분류 동향을 검토합니다...",
+        "최신 분과위원회 결정사항과 연계하여 분석합니다...",
+      ];
+      intlInfoMessages.push({role:"ai",text:`[AI 분석] "${escapeHtml(q)}" 관련 WCO 회의결과를 검토한 결과:\n\n• WCO 관세품목분류위원회(HSC) 최신 결정사항과 비교 분석\n• 국내 수출입 품목과의 연관성 확인\n• ${templates[Math.floor(Math.random()*templates.length)]}\n\n실제 구현 시 WCO 문서 RAG 기반으로 정확한 답변이 제공됩니다.`});
+      input.value = "";
+      render("case");
+    }
+    return;
+  }
+
+  const intlTemplateBtn = event.target.closest("[data-intl-template]");
+  if(intlTemplateBtn){
+    const input = document.getElementById("intlChatInput");
+    if(input) input.value = intlTemplateBtn.dataset.intlTemplate;
+    return;
+  }
+
   const investigationSelectBtn = event.target.closest("[data-investigation-select]");
   if(investigationSelectBtn){
     const companyId = investigationSelectBtn.dataset.investigationSelect;
@@ -6462,6 +7207,22 @@ document.addEventListener("click", (event)=>{
       if(pageButton.dataset.page === "generalinv"){
         generalInvTab = "cases";
         showGenInvRegForm = false;
+      }
+      if(pageButton.dataset.page === "lawsearch"){
+        drugInvTab = "ongoing";
+        drugInvSelectedTarget = null;
+      }
+      if(pageButton.dataset.page === "dw"){
+        riskScreeningTab = "today";
+      }
+      if(pageButton.dataset.page === "rag"){
+        customsInfoTab = "today";
+      }
+      if(pageButton.dataset.page === "case"){
+        intlInfoMessages = [];
+      }
+      if(pageButton.dataset.page === "model"){
+        ontologyTab = "graph";
       }
     }
     render(pageButton.dataset.page);
