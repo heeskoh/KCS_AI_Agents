@@ -5461,7 +5461,9 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
   `;
 }
 
-function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}){
+function canvasDataPanel(companyIdOverride, options = {}){
+  // null/undefined 모두 안전하게 처리
+  const resolvedCompanyId = companyIdOverride || activeCanvasCompanyId;
   const selectedLabel  = options.selectedLabel  || "선택 기업";
   const heading        = options.heading        || "기초자료 수집/등록";
   const description    = options.description    || "";
@@ -5469,9 +5471,9 @@ function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}
   // options.subjectName 이 있으면 회사 조회 없이 그 값을 표시 (수사 대상 등)
   let subjectName;
   if(options.subjectName){
-    subjectName = escapeHtml(options.subjectName);
+    subjectName = options.subjectName; // 이미 호출부에서 escapeHtml 처리됨
   } else {
-    const company = activeCanvasCompany(companyIdOverride);
+    const company = activeCanvasCompany(resolvedCompanyId);
     subjectName = `${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})`;
   }
   return `
@@ -5556,7 +5558,7 @@ function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   `;
 }
 
@@ -6875,6 +6877,15 @@ function render(page="home"){
     if(generalInvTab === "profile"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId) loadCompanyDetail(companyId);
+    }
+    if(generalInvTab === "data"){
+      const companyId = generalInvCompanyId(activeGenInvCase());
+      if(companyId && !scenarioCompanies.length) loadScenarioCompanies();
+    }
+  }
+  if(page === "lawsearch"){
+    if(drugInvTab === "data"){
+      if(!scenarioCompanies.length) loadScenarioCompanies();
     }
   }
   if(page === "investigation"){
