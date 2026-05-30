@@ -4172,7 +4172,7 @@ function drugScenarioPanel(){
                   <strong style="font-size:13px">${i+1}. ${svc.label}</strong>
                   <span style="margin-left:auto;font-size:11px;font-weight:700;
                                color:${s.status==="완료"?"#16a34a":s.status==="진행중"?"#d97706":"#6b7f9e"}">
-                    ${s.status==="진행중"?"⏳ ":"s.status==="완료"?"✅ ":"⬜ "}${s.status}
+                    ${s.status==="진행중"?"⏳ ":s.status==="완료"?"✅ ":"⬜ "}${s.status}
                   </span>
                 </div>
                 ${s.output?`<div style="margin-top:8px;font-size:12px;color:#41506a;background:#f8fbff;border-radius:6px;padding:8px 10px">${escapeHtml(s.output)}</div>`:""}
