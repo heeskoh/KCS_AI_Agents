@@ -959,6 +959,9 @@ function giStreamSteps(aCase, stepsToRun){
   const params = new URLSearchParams({
     case_id:     aCase.caseId,
     target_name: aCase.targetName,
+    target_type: aCase.targetType || "company",
+    targetType:  aCase.targetType || "company",
+    target_id:   aCase.targetType === "person" ? (aCase.personId || "") : (aCase.companyId || generalInvCompanyId(aCase) || ""),
     steps:       JSON.stringify(stepsPayload),
   });
   const url = `/api/gi_run?${params.toString()}`;
@@ -1826,6 +1829,8 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
 
   const payload = {
     scenario_items: scenarioItems,
+    target_type: "company",
+    targetType: "company",
     db_query: true,
     rag_enabled: true,
     rag_customs_public: true,
@@ -5261,6 +5266,8 @@ function scenarioPayload(items = scenarioItems){
   }));
   return {
     scenario_items: runItems,
+    target_type: "company",
+    targetType: "company",
     db_query: hasSourceType("db"),
     rag_enabled: hasRag,
     rag_customs_public: hasKey("rag_customs"),

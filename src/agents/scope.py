@@ -14,6 +14,10 @@ def company_id(state: CustomsState) -> str:
     return str(state.get("company_id") or "").strip()
 
 
+def target_type(state: CustomsState) -> str:
+    return "person" if str(state.get("target_type") or "").strip().lower() == "person" else "company"
+
+
 def has_company_scope(state: CustomsState) -> bool:
     return company_id(state) not in NO_COMPANY_SENTINELS
 

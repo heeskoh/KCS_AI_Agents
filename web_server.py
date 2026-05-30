@@ -993,6 +993,10 @@ def _gi_key_to_agent_type(key: str) -> str:
     return key
 
 
+def _normalize_target_type(value: object) -> str:
+    return "person" if str(value or "").strip().lower() == "person" else "company"
+
+
 def _detect_gi_company_id(target_name: str) -> str:
     """GI 케이스 대상명에서 DuckDB company_id를 추출하려 시도한다."""
     for name, cid in _GI_COMPANY_NAME_MAP.items():
@@ -1038,6 +1042,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 scenario = json.loads(scenario_raw)
             except json.JSONDecodeError:
                 scenario = {}
+            if not isinstance(scenario, dict):
+                scenario = {}
+            if "target_type" not in scenario and "targetType" not in scenario:
+                query_target_type = (params.get("target_type") or params.get("targetType") or [""])[0]
+                if query_target_type:
+                    scenario["target_type"] = query_target_type
             self._stream_workflow(company_id, scenario)
             return
 
@@ -1150,6 +1160,9 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if not company_id:
             self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
             return
+        scenario["target_type"] = _normalize_target_type(
+            scenario.get("target_type") or scenario.get("targetType")
+        )
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -1175,6 +1188,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             {
                 "status": "started",
                 "company_id": company_id,
+                "target_type": scenario.get("target_type"),
                 "total_steps": len(steps),
                 "scenario": scenario,
             },
@@ -1207,6 +1221,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         """일반수사 분析 시나리오 단계를 순차 실행하고 SSE로 스트리밍한다."""
         case_id     = (params.get("case_id")     or [""])[0]
         target_name = (params.get("target_name") or [""])[0]
+        target_type = _normalize_target_type(
+            (params.get("target_type") or params.get("targetType") or ["company"])[0]
+        )
+        target_id   = (params.get("target_id")   or [""])[0]
         try:
             steps_data: list[dict] = json.loads((params.get("steps") or ["[]"])[0])
         except Exception:
@@ -1251,10 +1269,17 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             "user_prompt": user_prompt,
             "gi_case_id": case_id,
             "gi_target_name": target_name,
+            "target_type": target_type,
+            "target_id": target_id,
         }
         state = create_initial_state(company_id, scenario)
 
-        self._sse("workflow", {"status": "started", "total_steps": len(gi_steps)})
+        self._sse("workflow", {
+            "status": "started",
+            "target_type": target_type,
+            "target_id": target_id,
+            "total_steps": len(gi_steps),
+        })
 
         for agent_key, label, runner, result_key, gi_step_id, note in gi_steps:
             step_prompt = user_prompt + (f"\n중점 확인사항: {note}" if note else "")

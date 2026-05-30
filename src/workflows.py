@@ -51,10 +51,19 @@ RAG_TYPES = {
 }
 
 
+def _normalize_target_type(value: Any) -> str:
+    return "person" if str(value or "").strip().lower() == "person" else "company"
+
+
 def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None) -> CustomsState:
+    scenario = scenario or {}
+    target_type = _normalize_target_type(
+        scenario.get("target_type") or scenario.get("targetType")
+    )
     return {
         "company_id": company_id,
-        "scenario": scenario or {},
+        "target_type": target_type,
+        "scenario": {**scenario, "target_type": target_type},
         "company_result": None,
         "db_result": None,
         "rag_result": None,
