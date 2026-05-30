@@ -84,9 +84,7 @@ const pages = {
           <button class="special-analysis-btn sky" data-page="investigation">관세 조사 분석</button>
           <button class="special-analysis-btn rose" data-page="generalinv">일반 수사 분석</button>
           <button class="special-analysis-btn purple" data-page="lawsearch">마약 수사 분석</button>
-          <button class="special-analysis-btn teal" data-page="dw">위험선별 분석</button>
-          <button class="special-analysis-btn green" data-page="rag">통관 정보분석</button>
-          <button class="special-analysis-btn olive" data-page="case">국제 정보분석</button>
+<button class="special-analysis-btn olive" data-page="case">국제 정보분석</button>
           <button class="special-analysis-btn lime" data-page="model">관세 온톨로지</button>
           <button class="special-analysis-btn brown" data-page="report">Case별 RAG</button>
         </div>
