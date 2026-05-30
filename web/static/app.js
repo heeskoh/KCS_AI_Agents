@@ -142,14 +142,36 @@ function canvasJobCategory(job){
   return canvasWorkCategories.includes(job?.category) ? job.category : canvasWorkCategories[0];
 }
 
+const DRUG_INV_TYPES = [
+  { id:"d1", num:"①", label:"마약 밀수입 수사",       cls:"gi-t1" },
+  { id:"d2", num:"②", label:"마약 우범여행자 수사",   cls:"gi-t2" },
+  { id:"d3", num:"③", label:"마약 자금세탁 수사",     cls:"gi-t3" },
+  { id:"d4", num:"④", label:"신종마약 유통 수사",     cls:"gi-t4" },
+  { id:"d5", num:"⑤", label:"국제공조 수사",          cls:"gi-t5" },
+];
+function drugInvTypeById(id){ return DRUG_INV_TYPES.find(t=>t.id===id) || DRUG_INV_TYPES[0]; }
+
 const defaultDrugInvCases = [
   {
-    caseId:"DRUG-2026-001",
-    targetName:"김우범 마약 우범여행자 분석",
-    category:"마약 수사 분석",
-    owner:"마약수사 전담팀",
+    caseId:"DRUG-2026-001", invTypeId:"d2",
+    targetName:"김우범", nationality:"한국",
+    team:"마약수사 전담팀", investigator:"홍길동",
     updated:"방금",
-    status:{ label:"대기", tone:"wait", done:0, total:6, pct:0 },
+    status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
+  },
+  {
+    caseId:"DRUG-2026-002", invTypeId:"d1",
+    targetName:"(주)위장무역", nationality:"한국",
+    team:"마약수사 전담팀", investigator:"김조사",
+    updated:"오늘 09:10",
+    status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
+  },
+  {
+    caseId:"DRUG-2026-003", invTypeId:"d5",
+    targetName:"Park James", nationality:"미국",
+    team:"국제협력팀", investigator:"이국제",
+    updated:"어제",
+    status:{ label:"보고서 검증", tone:"review", done:5, total:6, pct:83 },
   },
 ];
 
@@ -945,9 +967,12 @@ let showInvNewJobForm  = false;
 let invArchiveOpen     = false;
 
 /* ── 마약수사분석 상태 ──────────────────────────────────────── */
-let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"network"|"region"|"slang"
+let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"data"|"scenario"|"network"|"forensic"|"report"|"slang"
 let drugInvSelectedTarget = null;
 let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false };
+let activeDrugCaseId     = null;
+let showDrugNewCaseForm  = false;
+let drugCaseFilter       = "";
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
 let riskScreeningTab     = "today";    // "today"|"tracking"
@@ -3578,30 +3603,50 @@ function canvasPage(){
   `;
 }
 
+function activeDrugCase(){
+  return defaultDrugInvCases.find(c => c.caseId === activeDrugCaseId) || null;
+}
+
 function drugInvestigationPage(){
-  const tab = drugInvTab;
+  const tab    = drugInvTab;
+  const aCase  = activeDrugCase();
+  const isFullHeight = tab === "scenario" || tab === "report";
   return `
-    <section class="card gi-hub">
+    <section class="card gi-hub${isFullHeight ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
         <div>
           <h2>마약 수사 분석</h2>
-          <p class="muted">마약 우범자, 여행경로, 반입 패턴, 관계망 및 지역 통계 기반 분석 작업 현황입니다.</p>
+          <p class="muted">마약 우범자 수사 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.</p>
         </div>
-        ${drugInvSelectedTarget ? `
+        ${aCase ? `
           <div class="gi-active-badge">
-            <span class="muted">분석 대상</span>
-            <strong>${escapeHtml(drugInvSelectedTarget.name)}</strong>
-            <span class="gi-type-chip gi-t2">${escapeHtml(drugInvSelectedTarget.risk)}</span>
+            <span class="muted">수사 대상</span>
+            <strong>${escapeHtml(aCase.targetName)}</strong>
+            <span class="gi-type-chip ${drugInvTypeById(aCase.invTypeId).cls}">
+              ${drugInvTypeById(aCase.invTypeId).num} ${escapeHtml(drugInvTypeById(aCase.invTypeId).label)}
+            </span>
           </div>
         ` : ""}
       </div>
-      <div class="gi-tab-nav">
-        <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">마약위험 대시보드</button>
-        <button class="gi-tab${tab==="ongoing"?" active":""}" data-drug-tab="ongoing">진행중인 수사</button>
-        <button class="gi-tab${tab==="network"?" active":""}" data-drug-tab="network">관계망 분석</button>
-        <button class="gi-tab${tab==="region"?" active":""}" data-drug-tab="region">지역 통계</button>
-        <button class="gi-tab${tab==="slang"?" active":""}" data-drug-tab="slang">은어사전 RAG</button>
+
+      <!-- 탭 내비게이션: 좌측 업무탭 + 우측 도구탭 -->
+      <div class="gi-tab-nav" style="justify-content:space-between">
+        <div style="display:flex;gap:2px">
+          <button class="gi-tab${tab==="ongoing"?" active":""}"  data-drug-tab="ongoing">진행중인 수사</button>
+          ${aCase ? `
+            <button class="gi-tab${tab==="data"?" active":""}"     data-drug-tab="data">기초자료 수집/등록</button>
+            <button class="gi-tab${tab==="scenario"?" active":""}" data-drug-tab="scenario">분석 시나리오 설정 및 실행</button>
+            <button class="gi-tab${tab==="network"?" active":""}"  data-drug-tab="network">관계망 분석</button>
+            <button class="gi-tab${tab==="forensic"?" active":""}" data-drug-tab="forensic">자금·디지털 포렌식 분석</button>
+            <button class="gi-tab${tab==="report"?" active":""}"   data-drug-tab="report">분석보고서 및 검증</button>
+          ` : ""}
+        </div>
+        <div style="display:flex;gap:2px">
+          <button class="gi-tab${tab==="slang"?" active":""}"     data-drug-tab="slang">은어사전 RAG</button>
+          <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">마약위험 대시보드</button>
+        </div>
       </div>
+
       <div class="gi-tab-body">
         ${drugInvTabContent()}
       </div>
@@ -3611,8 +3656,11 @@ function drugInvestigationPage(){
 
 function drugInvTabContent(){
   if(drugInvTab === "dashboard") return drugRiskDashboard();
+  if(drugInvTab === "data")      return drugDataPanel();
+  if(drugInvTab === "scenario")  return drugScenarioPanel();
   if(drugInvTab === "network")   return drugNetworkPanel();
-  if(drugInvTab === "region")    return drugRegionPanel();
+  if(drugInvTab === "forensic")  return drugForensicPanel();
+  if(drugInvTab === "report")    return drugReportPanel();
   if(drugInvTab === "slang")     return drugSlangRagPanel();
   return drugOngoingPanel();
 }
@@ -3867,53 +3915,97 @@ function drugRiskDashboard(){
 }
 
 function drugOngoingPanel(){
-  const jobs = activeDrugInvestigationJobs();
-  const suspects = [
-    { id:"DS-001", name:"김우범", nationality:"한국", age:38, risk:"고위험", riskScore:92, routes:["인천-방콕","인천-멕시코시티"], lastEntry:"2026-05-29", status:"감시중" },
-    { id:"DS-002", name:"이마약", nationality:"한국", age:44, risk:"고위험", riskScore:87, routes:["인천-두바이","인천-상하이"], lastEntry:"2026-05-27", status:"감시중" },
-    { id:"DS-003", name:"Park James", nationality:"미국", age:31, risk:"중위험", riskScore:65, routes:["인천-LA","인천-암스테르담"], lastEntry:"2026-05-20", status:"추적중" },
-  ];
+  const all      = defaultDrugInvCases;
+  const q        = drugCaseFilter.toLowerCase();
+  const filtered = q ? all.filter(c =>
+    c.targetName.toLowerCase().includes(q) ||
+    c.caseId.toLowerCase().includes(q) ||
+    drugInvTypeById(c.invTypeId).label.includes(q)
+  ) : all;
+
   return `
-    <div class="gi-case-grid" style="margin-bottom:20px">
-      ${jobs.map(job => `
-        <article class="gi-case-card" data-drug-select-job="${escapeHtml(job.jobId)}">
-          <div class="gi-case-head">
-            <div>
-              <span class="canvas-category-chip">${escapeHtml(job.category)}</span>
-              <h3>${escapeHtml(job.title)}</h3>
-              <p class="muted">${escapeHtml(job.company)} · ${escapeHtml(job.owner)} · ${escapeHtml(job.updated)}</p>
-            </div>
-            <span class="job-status ${job.status.tone}">${escapeHtml(job.status.label)}</span>
-          </div>
-          <div class="job-progress"><i style="width:${job.status.pct}%"></i></div>
-          <div class="job-meta">
-            <span>${job.status.done}/${job.status.total} 단계</span>
-            <strong>${job.status.pct}%</strong>
-          </div>
-        </article>
-      `).join("") || `<div class="empty-state">진행 중인 마약 수사 분석 작업이 없습니다.</div>`}
+    <div class="gi-cases-panel">
+      <div class="gi-cases-toolbar">
+        <input class="gi-search" id="drugSearchInput" placeholder="수사대상, 사건번호, 수사유형 검색..."
+          value="${escapeHtml(drugCaseFilter)}">
+        <button class="btn gi-reg-toggle-btn" data-drug-reg-toggle type="button">
+          ${showDrugNewCaseForm ? "✕ 닫기" : "+ 수사 등록"}
+        </button>
+      </div>
+
+      ${showDrugNewCaseForm ? drugNewCaseForm() : ""}
+
+      <div class="gi-case-board">
+        ${filtered.map(drugCaseCard).join("") ||
+          `<div class="empty-state">등록된 마약 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
+      </div>
     </div>
-    <h3 style="margin:12px 0 8px;font-size:14px;color:#41506a">마약 우범자 목록</h3>
-    <div style="overflow-x:auto">
-      <table class="data-table">
-        <thead><tr><th>ID</th><th>성명</th><th>국적</th><th>나이</th><th>위험도</th><th>위험점수</th><th>주요여행경로</th><th>최근입국</th><th>상태</th><th>관계망분석</th></tr></thead>
-        <tbody>
-          ${suspects.map(s=>`
-            <tr>
-              <td>${escapeHtml(s.id)}</td>
-              <td><strong>${escapeHtml(s.name)}</strong></td>
-              <td>${escapeHtml(s.nationality)}</td>
-              <td>${s.age}</td>
-              <td><span class="risk-chip ${s.risk==="고위험"?"high":s.risk==="중위험"?"mid":"low"}">${escapeHtml(s.risk)}</span></td>
-              <td><strong style="color:${s.riskScore>=80?"#dc2626":s.riskScore>=60?"#d97706":"#16a34a"}">${s.riskScore}</strong></td>
-              <td style="font-size:12px">${s.routes.map(escapeHtml).join(" · ")}</td>
-              <td>${escapeHtml(s.lastEntry)}</td>
-              <td>${escapeHtml(s.status)}</td>
-              <td><button class="btn small" data-drug-network-target='${JSON.stringify({id:s.id,name:s.name,risk:s.risk})}'>관계망 보기</button></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+  `;
+}
+
+function drugCaseCard(c){
+  const type     = drugInvTypeById(c.invTypeId);
+  const isActive = c.caseId === activeDrugCaseId;
+  return `
+    <article class="gi-case-card${isActive ? " active" : ""}"
+             data-drug-case="${escapeHtml(c.caseId)}" tabindex="0" role="button">
+      <div class="gi-case-head">
+        <div>
+          <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
+          <h3 class="gi-case-name">${escapeHtml(c.targetName)}</h3>
+        </div>
+        <span class="job-status ${c.status.tone}">${escapeHtml(c.status.label)}</span>
+      </div>
+      <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+      <div class="job-progress" style="margin:8px 0 4px"><i style="width:${c.status.pct}%"></i></div>
+      <div class="job-meta">
+        <span>${c.status.done}/${c.status.total} 단계</span>
+        <strong>${c.status.pct}%</strong>
+      </div>
+      <div class="gi-case-foot">
+        <span class="muted">${escapeHtml(c.investigator)} · ${escapeHtml(c.team)}</span>
+        <span class="muted">${escapeHtml(c.updated)}</span>
+      </div>
+    </article>
+  `;
+}
+
+function drugNewCaseForm(){
+  return `
+    <div class="gi-reg-form">
+      <h3 class="gi-reg-title">마약 수사 대상 등록</h3>
+      <div class="gi-reg-grid gi-reg-grid-3">
+        <div class="gi-reg-field">
+          <label>수사 대상 성명 / 업체명 <span style="color:var(--red)">*</span></label>
+          <input id="drugRegTarget" placeholder="성명 또는 업체명을 입력하세요">
+        </div>
+        <div class="gi-reg-field">
+          <label>사건번호 (자동생성 가능)</label>
+          <input id="drugRegCaseId" placeholder="예: DRUG-2026-004">
+        </div>
+        <div class="gi-reg-field">
+          <label>수사 유형 <span style="color:var(--red)">*</span></label>
+          <select id="drugRegType" class="gi-reg-select">
+            ${DRUG_INV_TYPES.map(t=>`<option value="${t.id}">${t.num} ${t.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="gi-reg-field">
+          <label>국적 / 관련국</label>
+          <input id="drugRegNation" placeholder="예: 한국, 태국, 미국">
+        </div>
+        <div class="gi-reg-field">
+          <label>담당 팀</label>
+          <input id="drugRegTeam" placeholder="예: 마약수사 전담팀">
+        </div>
+        <div class="gi-reg-field">
+          <label>담당 조사관</label>
+          <input id="drugRegInvestigator" placeholder="성명">
+        </div>
+      </div>
+      <div class="gi-reg-actions">
+        <button class="btn" type="button" data-drug-reg-submit>등록</button>
+        <button class="btn secondary" type="button" data-drug-reg-toggle>취소</button>
+      </div>
     </div>
   `;
 }
@@ -4004,58 +4096,256 @@ function drugNetworkPanel(){
   `;
 }
 
-function drugRegionPanel(){
-  const regions = [
-    { name:"서울", suspects:42, seizures:18, riskScore:88, topRoutes:["인천-방콕","인천-LA"] },
-    { name:"인천", suspects:35, seizures:24, riskScore:92, topRoutes:["직항","특송화물"] },
-    { name:"부산", suspects:28, seizures:15, riskScore:79, topRoutes:["항만화물","인천-부산"] },
-    { name:"경기", suspects:31, seizures:12, riskScore:72, topRoutes:["인천-두바이","인천-암스"] },
-    { name:"대구", suspects:19, seizures:8,  riskScore:65, topRoutes:["국제우편"] },
-    { name:"광주", suspects:14, seizures:6,  riskScore:58, topRoutes:["직항","국제우편"] },
+/* ── 기초자료 수집/등록 ─────────────────────────────────── */
+function drugDataPanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  return canvasDataPanel(null, {
+    selectedLabel:"수사 대상",
+    heading:"마약 수사 기초자료 수집/등록",
+    description:"수사 대상 관련 서류, 통화 내역, 입출국 기록, 금융거래 내역 등을 업로드합니다.",
+    caseBadge:`${aCase.caseId} · ${escapeHtml(aCase.targetName)}`,
+  });
+}
+
+/* ── 분석 시나리오 설정 및 실행 ─────────────────────────── */
+function drugScenarioPanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+
+  /* 마약 수사 전용 AI 서비스 목록 */
+  const drugServices = [
+    { id:"ds1", icon:"🔍", label:"신고검증",              desc:"수입신고 내역 정합성 검증" },
+    { id:"ds2", icon:"✈️", label:"여행경로 분석",          desc:"입출국 패턴·경유지 분석" },
+    { id:"ds3", icon:"🌐", label:"조사·국제 RAG",          desc:"수사보고서·국제 마약정보 검색" },
+    { id:"ds4", icon:"🕸️", label:"관계망 분석",            desc:"우범자 관계 그래프 생성" },
+    { id:"ds5", icon:"💰", label:"범죄수익 추적",           desc:"금융거래·자금세탁 패턴 분석" },
+    { id:"ds6", icon:"💊", label:"마약성분 DB 조회",        desc:"압수물 성분·분류 조회" },
+    { id:"ds7", icon:"📋", label:"물리 검사 결과 등록",     desc:"현장 압수·감정 결과 입력", highlight:true },
+    { id:"ds8", icon:"⚖️", label:"법령정보 조회",           desc:"마약류 관련 법령·판례 검색" },
+    { id:"ds9", icon:"📝", label:"보고서 생성",             desc:"수사 분석보고서 초안 생성" },
+    { id:"ds10",icon:"✅", label:"검증",                   desc:"보고서 내용 팩트체크" },
   ];
-  const maxSeizures = Math.max(...regions.map(r=>r.seizures));
+
+  const steps = [
+    {id:"s1",svc:"ds1",status:"완료",output:"수입신고 불일치 3건 확인"},
+    {id:"s2",svc:"ds2",status:"완료",output:"방콕→인천 3회 경유 패턴 식별"},
+    {id:"s3",svc:"ds7",status:"진행중",output:""},
+  ];
+
   return `
-    <div style="display:flex;gap:16px;flex-wrap:wrap">
-      <div style="flex:1;min-width:300px">
-        <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">지역별 마약 우범자 현황</h4>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${regions.map(r=>`
-            <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:8px;padding:12px 14px">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                <strong style="width:40px;color:#123c85">${escapeHtml(r.name)}</strong>
-                <div style="flex:1;background:#e5edff;border-radius:4px;height:12px;overflow:hidden">
-                  <div style="width:${Math.round((r.seizures/maxSeizures)*100)}%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);height:100%;border-radius:4px"></div>
-                </div>
-                <span style="font-size:12px;color:#41506a;white-space:nowrap">압수 ${r.seizures}건</span>
-                <span class="risk-chip ${r.riskScore>=85?"high":r.riskScore>=70?"mid":"low"}" style="width:52px;text-align:center">${r.riskScore}점</span>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span style="font-size:11px;color:#6b7f9e">우범자 ${r.suspects}명</span>
-                <span style="font-size:11px;color:#6b7f9e">|</span>
-                ${r.topRoutes.map(rt=>`<span style="font-size:11px;background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px">${escapeHtml(rt)}</span>`).join("")}
+    <div class="scenario-workbench-v2" style="display:flex;gap:16px;height:100%">
+      <!-- 왼쪽: AI 서비스 선택 -->
+      <div style="width:220px;flex:none;display:flex;flex-direction:column;gap:8px;overflow-y:auto">
+        <div class="panel-section-hdr"><span>AI 분석 서비스</span></div>
+        ${drugServices.map(s=>`
+          <div style="background:${s.highlight?"#fffbeb":"#f8fbff"};border:1px solid ${s.highlight?"#fde68a":"#dde8ff"};
+                      border-radius:8px;padding:10px 12px;cursor:pointer;
+                      ${s.highlight?"border-left:3px solid #d97706;":""}"
+               title="${s.desc}">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="font-size:16px">${s.icon}</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:${s.highlight?"#92400e":"#123c85"}">${s.label}</div>
+                <div style="font-size:10px;color:#6b7f9e">${s.desc}</div>
               </div>
             </div>
-          `).join("")}
+            ${s.highlight?`<span style="display:inline-block;margin-top:5px;font-size:10px;background:#d97706;color:#fff;border-radius:3px;padding:1px 6px">마약전용</span>`:""}
+          </div>
+        `).join("")}
+      </div>
+      <!-- 오른쪽: 시나리오 단계 + 실행 결과 -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <strong style="font-size:14px;color:#123c85">시나리오 실행 현황</strong>
+          <span style="font-size:12px;color:#6b7f9e">| ${aCase.caseId} · ${escapeHtml(aCase.targetName)}</span>
+          <button class="btn" style="margin-left:auto;height:32px;padding:0 16px;font-size:12px">▶ 시나리오 실행</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1">
+          ${steps.map((s,i)=>{
+            const svc = drugServices.find(d=>d.id===s.svc)||drugServices[0];
+            return `
+              <div style="background:#fff;border:1px solid ${s.status==="진행중"?"#fde68a":s.status==="완료"?"#bbf7d0":"#dde8ff"};
+                          border-radius:10px;padding:12px 14px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:14px">${svc.icon}</span>
+                  <strong style="font-size:13px">${i+1}. ${svc.label}</strong>
+                  <span style="margin-left:auto;font-size:11px;font-weight:700;
+                               color:${s.status==="완료"?"#16a34a":s.status==="진행중"?"#d97706":"#6b7f9e"}">
+                    ${s.status==="진행중"?"⏳ ":"s.status==="완료"?"✅ ":"⬜ "}${s.status}
+                  </span>
+                </div>
+                ${s.output?`<div style="margin-top:8px;font-size:12px;color:#41506a;background:#f8fbff;border-radius:6px;padding:8px 10px">${escapeHtml(s.output)}</div>`:""}
+              </div>`;
+          }).join("")}
+          <!-- 물리 검사 결과 등록 폼 -->
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:16px">📋</span>
+              <strong style="font-size:13px;color:#92400e">물리 검사 결과 등록</strong>
+              <span style="font-size:10px;background:#d97706;color:#fff;border-radius:3px;padding:1px 6px">마약전용</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검사 일시</label>
+                <input class="form-input" style="height:32px;font-size:12px" placeholder="2026-05-30 10:30"></div>
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검사 기관</label>
+                <input class="form-input" style="height:32px;font-size:12px" placeholder="국립과학수사연구원"></div>
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검출 성분</label>
+                <input class="form-input" style="height:32px;font-size:12px" placeholder="메스암페타민 등"></div>
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">압수 중량(g)</label>
+                <input class="form-input" style="height:32px;font-size:12px" type="number" placeholder="0"></div>
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">순도(%)</label>
+                <input class="form-input" style="height:32px;font-size:12px" type="number" placeholder="0"></div>
+              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">감정 결과</label>
+                <select class="form-input" style="height:32px;font-size:12px">
+                  <option>양성(마약류)</option><option>음성</option><option>추가 감정 필요</option>
+                </select></div>
+            </div>
+            <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">특이사항</label>
+              <textarea class="form-input" rows="2" style="font-size:12px" placeholder="현장 상황, 은닉 수법 등 특이사항을 입력하세요"></textarea></div>
+            <button class="btn" style="margin-top:8px;height:32px;padding:0 16px;font-size:12px;background:#d97706;border-color:#d97706;color:#fff">검사 결과 저장</button>
+          </div>
         </div>
       </div>
-      <div style="width:280px;flex:none">
-        <h4 style="margin-bottom:12px;color:#41506a;font-size:14px">지역별 우범자 상세</h4>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${[
-            {region:"인천",name:"이마약",routes:["인천-두바이","인천-상하이"],lastEntry:"2026-05-27",risk:"고위험"},
-            {region:"서울",name:"김우범",routes:["인천-방콕","인천-멕시코시티"],lastEntry:"2026-05-29",risk:"고위험"},
-            {region:"부산",name:"Park James",routes:["인천-LA","인천-암스테르담"],lastEntry:"2026-05-20",risk:"중위험"},
-          ].map(p=>`
-            <div class="gi-case-card" style="padding:10px 12px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                <span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(p.region)}</span>
-                <strong style="font-size:13px">${escapeHtml(p.name)}</strong>
-                <span class="risk-chip ${p.risk==="고위험"?"high":"mid"}" style="margin-left:auto">${escapeHtml(p.risk)}</span>
+    </div>
+  `;
+}
+
+/* ── 자금·디지털 포렌식 분석 ─────────────────────────────── */
+function drugForensicPanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+
+  const forTabs = ["자금 흐름 분석","디지털 포렌식","SNS·다크웹 모니터링"];
+  const txData = [
+    {date:"2026-05-28",from:"김우범",to:"박공범",  amount:"₩ 2,800,000",type:"현금이체",risk:"의심",riskScore:88},
+    {date:"2026-05-26",from:"김우범",to:"위장무역",amount:"₩15,000,000",type:"법인이체",risk:"고위험",riskScore:93},
+    {date:"2026-05-20",from:"박공범",to:"불상",    amount:"₩ 5,500,000",type:"ATM출금", risk:"의심",riskScore:81},
+    {date:"2026-05-15",from:"위장무역",to:"해외송금",amount:"USD 12,000",type:"해외송금",risk:"고위험",riskScore:95},
+  ];
+  return `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;padding:12px 16px">
+        <strong style="font-size:13px;color:#123c85">수사 대상</strong>
+        <span style="margin-left:10px;font-size:13px">${aCase.caseId} · ${escapeHtml(aCase.targetName)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <!-- 자금흐름 -->
+        <div>
+          <div class="panel-section-hdr" style="margin-bottom:10px"><span>💰 자금 흐름 분석</span></div>
+          <div style="overflow-x:auto">
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>일자</th><th>출금처</th><th>입금처</th><th>금액</th><th>구분</th><th>위험도</th></tr></thead>
+              <tbody>
+                ${txData.map(t=>`
+                  <tr>
+                    <td>${t.date}</td>
+                    <td>${escapeHtml(t.from)}</td>
+                    <td>${escapeHtml(t.to)}</td>
+                    <td style="font-weight:700;white-space:nowrap">${escapeHtml(t.amount)}</td>
+                    <td>${escapeHtml(t.type)}</td>
+                    <td><span class="risk-chip ${t.risk==="고위험"?"high":"mid"}">${escapeHtml(t.risk)}</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <!-- 디지털 포렌식 -->
+        <div>
+          <div class="panel-section-hdr" style="margin-bottom:10px"><span>💻 디지털 포렌식</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${[
+              {type:"휴대폰 분석",items:["카카오톡 대화 142건","삭제 파일 복원 23건","GPS 이동경로 34일치"],status:"분석완료"},
+              {type:"SNS 모니터링",items:["텔레그램 채널 3개 식별","은어 사용 메시지 18건","공모자 계정 2개 특정"],status:"진행중"},
+              {type:"다크웹 흔적",items:["마켓 계정 연관 의심 1건","암호화폐 주소 연결 가능성"],status:"검토중"},
+            ].map(f=>`
+              <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:12px 14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <strong style="font-size:13px;color:#123c85">${f.type}</strong>
+                  <span style="margin-left:auto;font-size:11px;color:${f.status==="분석완료"?"#16a34a":f.status==="진행중"?"#d97706":"#6b7f9e"};font-weight:700">${f.status}</span>
+                </div>
+                <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
+                  ${f.items.map(i=>`<li style="font-size:12px;color:#41506a">${i}</li>`).join("")}
+                </ul>
               </div>
-              <div style="font-size:11px;color:#6b7f9e">${p.routes.map(escapeHtml).join(" · ")}</div>
-              <div style="font-size:11px;color:#6b7f9e;margin-top:2px">최근입국: ${escapeHtml(p.lastEntry)}</div>
-            </div>
-          `).join("")}
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── 분석보고서 및 검증 ──────────────────────────────────── */
+function drugReportPanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  return `
+    <div class="canvas-report-wrap">
+      <div class="canvas-selected-company">
+        <span>수사 대상</span>
+        <strong>${aCase.caseId} · ${escapeHtml(aCase.targetName)}</strong>
+        <span class="gi-type-chip ${drugInvTypeById(aCase.invTypeId).cls}" style="margin-left:8px">
+          ${drugInvTypeById(aCase.invTypeId).num} ${escapeHtml(drugInvTypeById(aCase.invTypeId).label)}
+        </span>
+      </div>
+      <div class="scenario-results canvas-report-results">
+        <section class="scenario-result-panel">
+          <h3>분석 보고서</h3>
+          <div class="markdown-output" style="min-height:120px">${markdownToHtml(latestReport) || "<p class='muted'>분석 시나리오를 실행하면 보고서가 생성됩니다.</p>"}</div>
+        </section>
+        <section class="scenario-result-panel">
+          <h3>보고서 검증</h3>
+          <div class="markdown-output" style="min-height:80px">${markdownToHtml(latestValidation) || "<p class='muted'>보고서 생성 후 검증 결과가 표시됩니다.</p>"}</div>
+        </section>
+      </div>
+
+      <!-- 마약수사 전용 추가 섹션 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+
+        <!-- 국제공조 요건 -->
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-size:18px">🌐</span>
+            <strong style="font-size:14px;color:#1e40af">국제공조 요건</strong>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${[
+              {label:"공조 요청 대상국",value:"태국, 멕시코",status:"확인"},
+              {label:"MLA(형사사법공조) 요건",value:"요청서 작성 필요",status:"준비중"},
+              {label:"INCB 통보 필요 여부",value:"전구물질 해당 시 필수",status:"검토중"},
+              {label:"WCO CEN 등록",value:"밀수 정보 공유 등록",status:"미등록"},
+            ].map(r=>`
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:7px">
+                <span style="flex:1;font-size:12px;color:#1e293b">${r.label}</span>
+                <span style="font-size:12px;color:#1e40af">${r.value}</span>
+                <span style="font-size:11px;font-weight:700;color:${r.status==="확인"?"#16a34a":r.status==="준비중"||r.status==="검토중"?"#d97706":"#dc2626"}">${r.status}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- 물리 검사 결과 요약 -->
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-size:18px">🔬</span>
+            <strong style="font-size:14px;color:#92400e">물리 검사 결과 요약</strong>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${[
+              {label:"감정 기관",value:"국립과학수사연구원"},
+              {label:"검출 성분",value:"메스암페타민 (필로폰)"},
+              {label:"압수 중량",value:"285g"},
+              {label:"순도",value:"89.3%"},
+              {label:"감정 결과",value:"양성 (마약류)", highlight:true},
+            ].map(r=>`
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:7px">
+                <span style="flex:1;font-size:12px;color:#41506a">${r.label}</span>
+                <strong style="font-size:12px;color:${r.highlight?"#dc2626":"#1e293b"}">${r.value}</strong>
+              </div>
+            `).join("")}
+          </div>
         </div>
       </div>
     </div>
@@ -6686,6 +6976,14 @@ function render(page="home"){
 }
 
 document.addEventListener("input", (event) => {
+  if(event.target && event.target.id === "drugSearchInput"){
+    drugCaseFilter = event.target.value;
+    render("lawsearch");
+    return;
+  }
+});
+
+document.addEventListener("input", (event) => {
   if(event.target && event.target.id === "coachPrompt"){
     const cc = document.getElementById("coachCharCount");
     if(cc) cc.textContent = event.target.value.length + "자";
@@ -7316,6 +7614,43 @@ document.addEventListener("click", (event)=>{
   if(drugAccBtn){
     const key = drugAccBtn.dataset.drugAcc;
     drugAccordionOpen[key] = !drugAccordionOpen[key];
+    render("lawsearch");
+    return;
+  }
+
+  const drugCaseBtn = event.target.closest("[data-drug-case]");
+  if(drugCaseBtn){
+    activeDrugCaseId = drugCaseBtn.dataset.drugCase;
+    drugInvTab = "data";
+    render("lawsearch");
+    return;
+  }
+
+  const drugRegToggle = event.target.closest("[data-drug-reg-toggle]");
+  if(drugRegToggle){
+    showDrugNewCaseForm = !showDrugNewCaseForm;
+    render("lawsearch");
+    return;
+  }
+
+  const drugRegSubmit = event.target.closest("[data-drug-reg-submit]");
+  if(drugRegSubmit){
+    const f = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    const autoId = "DI-" + String(defaultDrugInvCases.length + 1).padStart(3,"0");
+    const newCase = {
+      caseId: f("drugRegCaseId") || autoId,
+      targetName: f("drugRegTarget") || "미입력",
+      invTypeId: f("drugRegType") || "d1",
+      nationality: f("drugRegNation") || "미상",
+      team: f("drugRegTeam") || "",
+      investigator: f("drugRegInvestigator") || "",
+      updated: "방금",
+      status: { label:"진행중", tone:"running", done:0, total:6, pct:0 },
+    };
+    defaultDrugInvCases.push(newCase);
+    activeDrugCaseId = newCase.caseId;
+    showDrugNewCaseForm = false;
+    drugInvTab = "data";
     render("lawsearch");
     return;
   }
