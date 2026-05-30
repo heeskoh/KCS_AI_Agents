@@ -73,7 +73,7 @@ const pages = {
         <button class="btn secondary canvas-open-main" data-page="canvas" data-canvas-tab="overview">캔버스 열기</button>
         <p class="canvas-main-copy">다양한 데이터소스와 AI 서비스를 활용하여 나만의 분석을 수행합니다.</p>
         <div class="main-job-list">
-          ${activeCanvasJobs().map(mainCanvasJob).join("") || `<div class="empty-state">진행 중인 분석 작업이 없습니다. 아카이브에서 완료된 결과를 확인할 수 있습니다.</div>`}
+          ${activeAnalysisJobs().map(mainCanvasJob).join("") || `<div class="empty-state">진행 중인 분석 작업이 없습니다. 아카이브에서 완료된 결과를 확인할 수 있습니다.</div>`}
         </div>
       </section>
 
@@ -110,10 +110,7 @@ const pages = {
     <div class="summary-box"><b>AI 판단:</b> 일반 가정용 모션베드는 의료용 침대가 아니라 가구로 검토하고, 주요 재질과 본질적 특성에 따라 세부호를 결정합니다.</div>
   `),
 
-  lawsearch: () => simplePage("법령·판례 검색", "관세법령, 고시·훈령, 품목분류 사례, 심판례·판례, 내부 유권해석을 RAG로 통합 검색합니다.", `
-    <div class="query-box"><span>⚖</span><input value="저가신고와 로열티 누락 관련 법령과 유사 판례를 찾아줘"><button class="btn">검색</button></div>
-    ${dataTable(["구분","검색 결과","활용"], [["관세법령","과세가격 결정 및 가산요소 관련 조항","법적 근거"],["심판례","로열티 지급과 과세가격 포함 여부 사례","쟁점 검토"],["내부사례","사후가격조정 조항 관련 심사 사례","조사 방향"]])}
-  `),
+  lawsearch: () => drugInvestigationPage(),
 
   document: () => simplePage("문서검증센터", "비정형 문서를 OCR/LLM으로 인식하고 DB 값과 비교합니다.", `${dataTable(["추출항목","문서값","DB값","판정"], [["품명","Power Module","Power Module","일치"],["단가","USD 120","USD 98","불일치"],["Incoterms","CIF","FOB","불일치"],["로열티","존재","미신고","확인필요"]])}`),
   dw: () => simplePage("데이터 분석실(DW)", "자연어를 SQL/분석절차로 변환하여 DW 데이터를 조회·시각화합니다.", `${barChart([70,55,80,42,65,38,88,48])}`),
@@ -133,6 +130,7 @@ const canvasWorkCategories = [
   "관세조사 분석",
   "기업 수사 분석",
   "개인수사 분석",
+  "마약 수사 분석",
   "위험선별 분석",
   "통관 정보분석",
   "국제정보분석",
@@ -144,12 +142,23 @@ function canvasJobCategory(job){
   return canvasWorkCategories.includes(job?.category) ? job.category : canvasWorkCategories[0];
 }
 
+const defaultDrugInvCases = [
+  {
+    caseId:"DRUG-2026-001",
+    targetName:"김우범 마약 우범여행자 분석",
+    category:"마약 수사 분석",
+    owner:"마약수사 전담팀",
+    updated:"방금",
+    status:{ label:"대기", tone:"wait", done:0, total:6, pct:0 },
+  },
+];
+
 function mainCanvasJob(job){
   const { title, company, owner, updated, companyId, isNew } = job;
   const status = job.status || {};
   const meta = `${company} · ${owner} · ${updated}`;
   return `
-    <article class="main-job-card ${isNew ? "new" : ""}" data-canvas-company="${companyId}">
+    <article class="main-job-card ${isNew ? "new" : ""}" data-analysis-job="${escapeHtml(job.jobId || companyId)}" data-analysis-page="${escapeHtml(job.page || "investigation")}" data-analysis-tab="${escapeHtml(job.openTab || "ongoing")}" data-canvas-company="${escapeHtml(companyId || "")}">
       <div class="main-job-head">
         <div>
           <h3>${title}</h3>
@@ -3550,6 +3559,41 @@ function canvasPage(){
   `;
 }
 
+function drugInvestigationPage(){
+  return `
+    <section class="card gi-hub">
+      <div class="gi-page-head">
+        <div>
+          <h2>마약 수사 분석</h2>
+          <p class="muted">마약 우범자, 여행경로, 반입 패턴, 관계망 기반 분석 작업 현황입니다.</p>
+        </div>
+      </div>
+      <div class="gi-tab-nav">
+        <button class="gi-tab active">진행중인 분석작업</button>
+      </div>
+      <div class="gi-case-grid">
+        ${activeDrugInvestigationJobs().map(job => `
+          <article class="gi-case-card" data-analysis-job="${escapeHtml(job.jobId)}" data-analysis-page="lawsearch" data-analysis-tab="ongoing" data-canvas-company="${escapeHtml(job.companyId)}">
+            <div class="gi-case-head">
+              <div>
+                <span class="canvas-category-chip">${escapeHtml(job.category)}</span>
+                <h3>${escapeHtml(job.title)}</h3>
+                <p class="muted">${escapeHtml(job.company)} · ${escapeHtml(job.owner)} · ${escapeHtml(job.updated)}</p>
+              </div>
+              <span class="job-status ${job.status.tone}">${escapeHtml(job.status.label)}</span>
+            </div>
+            <div class="job-progress"><i style="width:${job.status.pct}%"></i></div>
+            <div class="job-meta">
+              <span>${job.status.done}/${job.status.total} 단계</span>
+              <strong>${job.status.pct}%</strong>
+            </div>
+          </article>
+        `).join("") || `<div class="empty-state">진행 중인 마약 수사 분석 작업이 없습니다.</div>`}
+      </div>
+    </section>
+  `;
+}
+
 function canvasTabContent(){
   if(canvasTab === "profile") return canvasProfilePanel();
   if(canvasTab === "data") return canvasDataPanel();
@@ -3675,6 +3719,69 @@ function isCompletedActiveJob(job){
 
 function activeCanvasJobs(){
   return visibleCanvasJobs().filter(job => !isArchivedJob(job));
+}
+
+function activeGeneralInvestigationJobs(){
+  return allGenInvCases()
+    .filter(item => !item.archived)
+    .filter(item => {
+      if(!item.ownerUserId && !item.assignees) return true;
+      if(item.ownerUserId === currentUserId) return true;
+      return Array.isArray(item.assignees) && item.assignees.includes(currentUserId);
+    })
+    .map(item => {
+      const status = item.status || { label:"대기", done:0, total:activeGiCaseStepsForCard(item).length || 1, pct:0, tone:"wait" };
+      const total = status.total || activeGiCaseStepsForCard(item).length || 1;
+      const done = status.done ?? 0;
+      const targetLabel = item.targetType === "person" ? "개인수사 분석" : "기업 수사 분석";
+      return {
+        jobId: item.caseId,
+        companyId: item.companyId || item.personId || item.caseId,
+        companyName: item.targetName,
+        title: `${item.targetName} ${genInvTypeById(item.invTypeId).label}`,
+        category: targetLabel,
+        company: `${item.targetName} (${item.caseId})`,
+        owner: item.investigator || currentUser().name,
+        updated: item.updated || "방금",
+        status: { ...status, done, total, pct: status.pct ?? Math.round((done / total) * 100) },
+        next: "진행중인 수사",
+        page: "generalinv",
+        openTab: "cases",
+      };
+    });
+}
+
+function activeGiCaseStepsForCard(aCase){
+  if(!aCase) return [];
+  return aCase.giSteps || (GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7 || []);
+}
+
+function activeDrugInvestigationJobs(){
+  return defaultDrugInvCases.map(item => ({
+    jobId: item.caseId,
+    companyId: item.caseId,
+    companyName: item.targetName,
+    title: item.targetName,
+    category: item.category,
+    company: `${item.targetName} (${item.caseId})`,
+    owner: item.owner,
+    updated: item.updated,
+    status: item.status,
+    next: "진행중인 분석작업",
+    page: "lawsearch",
+    openTab: "ongoing",
+  }));
+}
+
+function activeAnalysisJobs(){
+  const customsJobs = activeCanvasJobs().map(job => ({
+    ...job,
+    jobId: job.companyId,
+    page: "investigation",
+    openTab: "ongoing",
+  }));
+  return [...customsJobs, ...activeGeneralInvestigationJobs(), ...activeDrugInvestigationJobs()]
+    .sort((a, b) => (b.updated === "방금") - (a.updated === "방금"));
 }
 
 function archivedCanvasJobs(){
@@ -4011,16 +4118,20 @@ function loadCompanyDetail(companyId){
 }
 
 function canvasOverviewPanel(){
-  const jobs = activeCanvasJobs();
+  const jobs = activeAnalysisJobs();
   const archived = archivedCanvasJobs();
   return `
     <div class="job-board">
       ${jobs.map(job => {
-        const isDone = isCompletedActiveJob(job);
+        const isCustoms = (job.page || "investigation") === "investigation";
+        const isDone = isCustoms && isCompletedActiveJob(job);
         const total = job.status.total ?? "?";
         const done  = job.status.done  ?? 0;
+        const isActive = isCustoms
+          ? job.companyId === activeCanvasCompanyId
+          : job.jobId === activeGenInvCaseId;
         return `
-        <article class="job-card ${job.companyId === activeCanvasCompanyId ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-canvas-company="${job.companyId}" tabindex="0" role="button">
+        <article class="job-card ${isActive ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-analysis-job="${escapeHtml(job.jobId || job.companyId)}" data-analysis-page="${escapeHtml(job.page || "investigation")}" data-analysis-tab="${escapeHtml(job.openTab || "ongoing")}" data-canvas-company="${escapeHtml(job.companyId || "")}" tabindex="0" role="button">
           <div class="job-card-head">
             <div>
               <span class="canvas-category-chip">${escapeHtml(canvasJobCategory(job))}</span>
@@ -4030,7 +4141,7 @@ function canvasOverviewPanel(){
             <div class="job-status-row">
               <span class="job-status ${job.status.tone}">${job.status.label}</span>
               ${isDone ? `<button class="btn-inline-action" data-archive-job="${escapeHtml(job.companyId)}" title="아카이브로 저장">아카이브</button>` : ""}
-              <button class="btn-inline-action job-remove-action" data-remove-job="${escapeHtml(job.companyId)}" title="내 진행작업에서 삭제">삭제</button>
+              ${isCustoms ? `<button class="btn-inline-action job-remove-action" data-remove-job="${escapeHtml(job.companyId)}" title="내 진행작업에서 삭제">삭제</button>` : ""}
             </div>
           </div>
           ${job.scenarioChanged ? `<div class="job-change-note">시나리오가 변경되어 재실행이 필요합니다.</div>` : ""}
@@ -6009,6 +6120,33 @@ document.addEventListener("click", (event)=>{
     render("investigation");
     return;
   }
+
+  const analysisJobCard = event.target.closest("[data-analysis-job]");
+  if(analysisJobCard){
+    const page = analysisJobCard.dataset.analysisPage || "investigation";
+    const targetTab = analysisJobCard.dataset.analysisTab || "ongoing";
+    if(page === "generalinv"){
+      activeGenInvCaseId = analysisJobCard.dataset.analysisJob;
+      generalInvTab = "cases";
+      activeGiStepId = null;
+      saveCanvasState();
+      render("generalinv");
+      return;
+    }
+    if(page !== "investigation"){
+      render(page);
+      return;
+    }
+    activeCanvasCompanyId = analysisJobCard.dataset.canvasCompany;
+    investigationTab = targetTab;
+    scenarioInitialized = false;
+    scenarioLoadedForCompany = null;
+    loadCompanyRunArchive(activeCanvasCompanyId);
+    saveCanvasState();
+    render("investigation");
+    return;
+  }
+
   const companyTarget = event.target.closest("[data-canvas-company]");
   if(companyTarget){
     activeCanvasCompanyId = companyTarget.dataset.canvasCompany;
@@ -6054,6 +6192,8 @@ document.addEventListener("click", (event)=>{
       investigator, team,
       created: new Date().toLocaleDateString("ko-KR"),
       updated: "방금",
+      ownerUserId: currentUserId,
+      assignees: [currentUserId],
     };
     if(giRegTargetType === "person" && selectedPerson){
       newCase.personId = selectedPerson.person_id;
@@ -6310,6 +6450,19 @@ document.addEventListener("click", (event)=>{
   if(pageButton){
     if(pageButton.dataset.openArchive === "true"){
       overviewArchiveOpen = true;
+    }
+    if(pageButton.dataset.canvasTab){
+      canvasTab = pageButton.dataset.canvasTab;
+    }
+    if(pageButton.classList.contains("special-analysis-btn")){
+      if(pageButton.dataset.page === "investigation"){
+        investigationTab = "ongoing";
+        showInvNewJobForm = false;
+      }
+      if(pageButton.dataset.page === "generalinv"){
+        generalInvTab = "cases";
+        showGenInvRegForm = false;
+      }
     }
     render(pageButton.dataset.page);
     return;
