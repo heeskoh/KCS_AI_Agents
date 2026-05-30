@@ -2978,52 +2978,34 @@ function normalizeCompanyName(name){
 function generalInvDataPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  const type = genInvTypeById(aCase.invTypeId);
   if(aCase.targetType === "company"){
     const companyId = generalInvCompanyId(aCase);
-    const type = genInvTypeById(aCase.invTypeId);
     if(!companyId){
-      return `
-        <div class="gi-stub-panel">
-          <div class="gi-stub-head">
-            <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
-            <h3>${escapeHtml(aCase.targetName)} <span class="muted">${escapeHtml(aCase.caseId)}</span></h3>
-          </div>
-          <div class="profile-loading">연결된 기업 프로파일을 찾지 못했습니다. 수사 대상명을 기업 위험도 대시보드의 업체명과 맞춰 등록하세요.</div>
-        </div>
-      `;
+      /* 기업 매칭 실패 — subjectName으로 대상명 표시, 동일 패널 렌더 */
+      return canvasDataPanel(activeCanvasCompanyId, {
+        selectedLabel: "수사 대상 기업",
+        subjectName:   escapeHtml(aCase.targetName),
+        heading:       "기초자료 수집/등록",
+        description:   "연결된 기업 프로파일이 없습니다. 아래에서 직접 자료를 등록하세요.",
+        caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
+      });
     }
     return canvasDataPanel(companyId, {
       selectedLabel: "수사 대상 기업",
-      heading: "기초자료 수집/등록",
-      description: "관세조사와 동일한 자료 업로드·AI 추출·검증 기능을 사용합니다.",
-      caseBadge: `${type.num} ${type.label} · ${aCase.caseId}`,
+      heading:       "기초자료 수집/등록",
+      description:   "관세조사와 동일한 자료 업로드·AI 추출·검증 기능을 사용합니다.",
+      caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
     });
   }
-  return `
-    <div class="gi-stub-panel">
-      <div class="gi-stub-head">
-        <h3>기초자료 수집/등록</h3>
-        <p class="muted">개인 수사에 필요한 기초자료를 DW에서 조회하거나 직접 등록합니다.</p>
-      </div>
-      <div class="gi-stub-body">
-        <div class="gi-stub-card">
-          <strong>수입신고서 조회</strong>
-          <p class="muted">대상 업체의 최근 3년 수입신고 내역</p>
-          <div class="gi-stub-placeholder"></div>
-        </div>
-        <div class="gi-stub-card">
-          <strong>금융거래 자료</strong>
-          <p class="muted">계좌 거래 내역, 외환송금 현황</p>
-          <div class="gi-stub-placeholder"></div>
-        </div>
-        <div class="gi-stub-card">
-          <strong>첨부 자료 등록</strong>
-          <p class="muted">압수 자료, 참고인 진술서, 현장 사진 등</p>
-          <div class="gi-stub-placeholder"></div>
-        </div>
-      </div>
-    </div>
-  `;
+  /* 개인 수사 대상 — subjectName으로 개인명 표시 */
+  return canvasDataPanel(activeCanvasCompanyId, {
+    selectedLabel: "수사 대상 개인",
+    subjectName:   escapeHtml(aCase.targetName),
+    heading:       "기초자료 수집/등록",
+    description:   "개인 수사에 필요한 자료를 DW에서 조회하거나 직접 등록합니다.",
+    caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
+  });
 }
 
 function generalInvReportPanel(){
@@ -3345,7 +3327,11 @@ function investigationPage(){
 function investigationTabContent(){
   if(investigationTab === "ongoing")   return investigationOngoingPanel();
   if(investigationTab === "profile")   return canvasProfilePanel();
-  if(investigationTab === "data")      return canvasDataPanel();
+  if(investigationTab === "data")      return canvasDataPanel(activeCanvasCompanyId, {
+    selectedLabel: "조사 대상 기업",
+    heading:       "기초자료 수집/등록",
+    description:   "관세조사 대상 기업의 서류, 계약서, 수입신고 자료 등을 업로드합니다.",
+  });
   if(investigationTab === "scenario")  return scenarioWorkbenchV2();
   if(investigationTab === "templates") return scenarioTemplatePanel();
   if(investigationTab === "report")    return canvasReportPanel();
@@ -4022,11 +4008,13 @@ function drugNetworkPanel(){
 function drugDataPanel(){
   const aCase = activeDrugCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  return canvasDataPanel(null, {
-    selectedLabel:"수사 대상",
-    heading:"마약 수사 기초자료 수집/등록",
-    description:"수사 대상 관련 서류, 통화 내역, 입출국 기록, 금융거래 내역 등을 업로드합니다.",
-    caseBadge:`${aCase.caseId} · ${escapeHtml(aCase.targetName)}`,
+  const type = drugInvTypeById(aCase.invTypeId);
+  return canvasDataPanel(activeCanvasCompanyId, {
+    selectedLabel: "수사 대상",
+    subjectName:   `${escapeHtml(aCase.targetName)}`,
+    heading:       "기초자료 수집/등록",
+    description:   "수사 대상 관련 서류, 통화 내역, 입출국 기록, 금융거래 내역 등을 업로드합니다.",
+    caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
   });
 }
 
@@ -5474,16 +5462,23 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
 }
 
 function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}){
-  const company = activeCanvasCompany(companyIdOverride);
-  const selectedLabel = options.selectedLabel || "선택 기업";
-  const heading = options.heading || "AI 비정형 데이터 업로드 및 예외 관리기능";
-  const description = options.description || "";
-  const caseBadge = options.caseBadge || "";
+  const selectedLabel  = options.selectedLabel  || "선택 기업";
+  const heading        = options.heading        || "기초자료 수집/등록";
+  const description    = options.description    || "";
+  const caseBadge      = options.caseBadge      || "";
+  // options.subjectName 이 있으면 회사 조회 없이 그 값을 표시 (수사 대상 등)
+  let subjectName;
+  if(options.subjectName){
+    subjectName = escapeHtml(options.subjectName);
+  } else {
+    const company = activeCanvasCompany(companyIdOverride);
+    subjectName = `${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})`;
+  }
   return `
     <section class="data-upload-board">
       <div class="canvas-selected-company">
         <span>${escapeHtml(selectedLabel)}</span>
-        <strong>${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})</strong>
+        <strong>${subjectName}</strong>
         ${caseBadge ? `<em class="canvas-context-badge">${escapeHtml(caseBadge)}</em>` : ""}
       </div>
       <h3>${escapeHtml(heading)}</h3>
