@@ -947,7 +947,7 @@ let invArchiveOpen     = false;
 /* ── 마약수사분석 상태 ──────────────────────────────────────── */
 let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"network"|"region"|"slang"
 let drugInvSelectedTarget = null;
-let drugAccordionOpen    = { cargo:true, traveler:true, modus:true, intl:true };
+let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false };
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
 let riskScreeningTab     = "today";    // "today"|"tracking"
@@ -3838,19 +3838,24 @@ function drugRiskDashboard(){
 
         <!-- 이벤트 패널 — sticky + 자체 스크롤 -->
         <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;
-                    padding:14px 14px;position:sticky;top:12px">
-          <div style="display:flex;align-items:center;margin-bottom:10px">
-            <strong style="font-size:13px;color:#123c85">최근 주요 RISK 이벤트</strong>
-            <span style="margin-left:auto;font-size:10px;color:#6b7f9e">최근 24시간</span>
+                    padding:16px 16px;position:sticky;top:12px">
+          <div style="display:flex;align-items:center;margin-bottom:12px">
+            <strong style="font-size:14px;color:#123c85">최근 주요 RISK 이벤트</strong>
+            <span style="margin-left:auto;font-size:11px;color:#6b7f9e">최근 24시간</span>
           </div>
-          <div style="overflow-y:auto;max-height:560px;display:flex;flex-direction:column;gap:6px;padding-right:2px">
+          <div style="overflow-y:auto;max-height:680px;display:flex;flex-direction:column;gap:8px;padding-right:3px">
             ${EVENTS.map(e=>`
-              <div style="display:flex;align-items:flex-start;gap:7px;padding:7px 9px;
-                          background:${e.bg};border-radius:7px">
-                <span style="font-size:10px;color:#6b7f9e;white-space:nowrap;padding-top:2px;flex:none">${e.time}</span>
-                <span style="background:${e.color};color:#fff;border-radius:3px;padding:1px 6px;
-                             font-size:10px;font-weight:700;white-space:nowrap;flex:none">${e.type}</span>
-                <span style="font-size:11px;color:#1e293b;line-height:1.5">${e.msg}</span>
+              <div style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;
+                          background:${e.bg};border-radius:9px;border:1px solid ${e.color}22">
+                <span style="font-size:12px;color:#6b7f9e;white-space:nowrap;padding-top:1px;
+                             flex:none;min-width:36px">${e.time}</span>
+                <div style="flex:1;min-width:0">
+                  <span style="display:inline-block;background:${e.color};color:#fff;border-radius:4px;
+                               padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:4px">
+                    ${e.type}
+                  </span>
+                  <div style="font-size:13px;color:#1e293b;line-height:1.6">${e.msg}</div>
+                </div>
               </div>
             `).join("")}
           </div>
@@ -7466,6 +7471,7 @@ document.addEventListener("click", (event)=>{
       if(pageButton.dataset.page === "lawsearch"){
         drugInvTab = "dashboard";
         drugInvSelectedTarget = null;
+        drugAccordionOpen = { cargo:true, traveler:false, modus:false, intl:false };
       }
       if(pageButton.dataset.page === "dw"){
         riskScreeningTab = "today";
