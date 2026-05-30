@@ -947,6 +947,7 @@ let invArchiveOpen     = false;
 /* ── 마약수사분석 상태 ──────────────────────────────────────── */
 let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"network"|"region"|"slang"
 let drugInvSelectedTarget = null;
+let drugAccordionOpen    = { cargo:true, traveler:true, modus:true, intl:true };
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
 let riskScreeningTab     = "today";    // "today"|"tracking"
@@ -3712,128 +3713,99 @@ function drugRiskDashboard(){
     const up = now > prev, d = Math.abs(now - prev);
     return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:11px;font-weight:700">${up?"▲":"▼"} ${d}건 (전일 ${prev}건)</span>`;
   }
-  function delta(d){
-    if(d===0) return `<span style="color:#94a3b8;font-size:11px">±0</span>`;
-    return `<span style="color:${d>0?"#dc2626":"#16a34a"};font-size:11px;font-weight:700">${d>0?"+":""}${d}</span>`;
-  }
   function statusChip(s){
     const danger  = ["검사지시","수사중"];
     const warning = ["심사중","추적중","조치중","분석중"];
     const purple  = ["사전등록","공조중"];
-    const c = danger.includes(s)?"#dc2626":warning.includes(s)?"#d97706":purple.includes(s)?"#7c3aed":"#64748b";
-    const bg= danger.includes(s)?"#fee2e2":warning.includes(s)?"#fef3c7":purple.includes(s)?"#ede9fe":"#f1f5f9";
-    return `<span style="background:${bg};color:${c};border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">${escapeHtml(s)}</span>`;
+    const c  = danger.includes(s)?"#dc2626":warning.includes(s)?"#d97706":purple.includes(s)?"#7c3aed":"#64748b";
+    const bg = danger.includes(s)?"#fee2e2":warning.includes(s)?"#fef3c7":purple.includes(s)?"#ede9fe":"#f1f5f9";
+    return `<span style="background:${bg};color:${c};border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap">${escapeHtml(s)}</span>`;
   }
 
-  /* ── 한 줄 고정 높이 요약 카드 ─────────────────────────── */
-  function summaryCard(ind){
+  /* ── 아코디언 섹션 (헤더바 + 테이블) ───────────────────── */
+  function accordionSection(ind){
+    const isOpen  = drugAccordionOpen[ind.key] !== false;
+    const isTraveler = ind.key === "traveler";
+    const col2 = isTraveler ? "성명"     : "대상";
+    const col3 = isTraveler ? "입국경로" : "출처/원산지";
+    const col4 = isTraveler ? "구분"     : "수입자/관련자";
     return `
-      <div style="background:${ind.bg};border:1px solid ${ind.border};border-radius:12px;padding:12px 14px;
-                  display:flex;flex-direction:column;justify-content:space-between;height:100%">
-        <!-- 제목 행 -->
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-          <span style="font-size:18px;line-height:1">${ind.icon}</span>
-          <div>
-            <div style="font-size:12px;font-weight:800;color:${ind.color};white-space:nowrap">${ind.title}</div>
-            <div style="font-size:10px;color:#6b7f9e">${ind.subtitle}</div>
-          </div>
-        </div>
-        <!-- 건수 + 전일 비교 -->
-        <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:8px">
-          <strong style="font-size:32px;font-weight:900;color:${ind.color};line-height:1">${ind.today}</strong>
-          <div style="padding-bottom:2px">
-            <div style="font-size:10px;color:#6b7f9e;line-height:1.2">당일 건수</div>
+      <div style="border:1px solid ${ind.border};border-radius:10px;overflow:hidden">
+        <!-- 헤더바 (클릭 → 토글) -->
+        <div data-drug-acc="${ind.key}"
+             style="background:${ind.bg};padding:10px 16px;display:flex;align-items:center;
+                    gap:10px;cursor:pointer;user-select:none">
+          <span style="font-size:16px;flex:none">${ind.icon}</span>
+          <strong style="font-size:13px;font-weight:800;color:${ind.color};white-space:nowrap">${ind.title}</strong>
+          <span style="font-size:11px;color:#6b7f9e;white-space:nowrap">${ind.subtitle}</span>
+          <strong style="font-size:26px;font-weight:900;color:${ind.color};line-height:1;margin-left:14px;flex:none">${ind.today}</strong>
+          <div style="flex:none">
+            <div style="font-size:10px;color:#6b7f9e;line-height:1.3">당일 건수</div>
             ${trend(ind.today, ind.yesterday)}
           </div>
+          <span style="margin-left:auto;font-size:13px;color:${ind.color};font-weight:700;flex:none">${isOpen?"▲":"▼"}</span>
         </div>
-        <!-- 세부 분류 -->
-        <div style="border-top:1px solid ${ind.border};padding-top:7px;display:flex;flex-direction:column;gap:3px">
-          ${ind.detail.map(d=>`
-            <div style="display:flex;align-items:center">
-              <span style="flex:1;font-size:11px;color:#41506a;white-space:nowrap">${d.label}</span>
-              <strong style="font-size:12px;color:${ind.color};margin-right:4px">${d.count}</strong>
-              ${delta(d.delta)}
-            </div>
-          `).join("")}
-        </div>
-      </div>`;
-  }
-
-  /* ── 지표 헤더바 ────────────────────────────────────────── */
-  function indicatorBar(ind){
-    return `
-      <div style="background:${ind.bg};border:1px solid ${ind.border};border-bottom:none;
-                  border-radius:10px 10px 0 0;padding:10px 16px;
-                  display:flex;align-items:center;gap:10px">
-        <span style="font-size:16px">${ind.icon}</span>
-        <strong style="font-size:13px;font-weight:800;color:${ind.color}">${ind.title}</strong>
-        <span style="font-size:11px;color:#6b7f9e">${ind.subtitle}</span>
-        <strong style="font-size:26px;font-weight:900;color:${ind.color};line-height:1;margin-left:12px">${ind.today}</strong>
-        <div>
-          <div style="font-size:10px;color:#6b7f9e">당일 건수</div>
-          ${trend(ind.today, ind.yesterday)}
-        </div>
-      </div>`;
-  }
-
-  /* ── 당일 목록 테이블 (분석수행 버튼 맨 왼쪽) ──────────── */
-  function detailTable(ind){
-    const isTraveler = ind.key === "traveler";
-    const col2  = isTraveler ? "성명"       : "대상";
-    const col3  = isTraveler ? "입국경로"   : "출처/원산지";
-    const col4  = isTraveler ? "구분"       : "수입자/관련자";
-    return `
-      <div style="border:1px solid ${ind.border};border-radius:0 0 10px 10px;overflow:hidden;margin-bottom:2px">
-        <table class="data-table" style="font-size:12px;margin:0">
-          <thead>
-            <tr>
-              <th style="width:90px">분석 수행</th>
-              <th>ID</th>
-              <th>${col2}</th>
-              <th>${col3}</th>
-              <th>${col4}</th>
-              <th>위험유형</th>
-              <th>위험점수</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${ind.rows.map(r=>`
-              <tr>
-                <td>
-                  <button class="btn small" style="font-size:11px;white-space:nowrap;background:${ind.color};color:#fff;border-color:${ind.color}">분석 수행</button>
-                </td>
-                <td style="font-family:monospace;font-size:11px;color:#1e40af">${escapeHtml(r.id)}</td>
-                <td><strong>${escapeHtml(r.goods)}</strong></td>
-                <td>${escapeHtml(r.origin)}</td>
-                <td style="color:#41506a">${escapeHtml(r.importer)}</td>
-                <td>
-                  <span style="background:${ind.bg};color:${ind.color};border:1px solid ${ind.border};
-                               border-radius:4px;padding:1px 7px;font-size:11px;white-space:nowrap">
-                    ${escapeHtml(r.risk)}
-                  </span>
-                </td>
-                <td style="text-align:center">
-                  <strong style="color:${r.score>=90?"#dc2626":r.score>=75?"#d97706":"#16a34a"}">${r.score}</strong>
-                </td>
-                <td>${statusChip(r.status)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
+        <!-- 테이블 (토글) -->
+        ${isOpen ? `
+          <div style="overflow-x:auto;border-top:1px solid ${ind.border}">
+            <table class="data-table" style="font-size:12px;margin:0">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>${col2}</th>
+                  <th>${col3}</th>
+                  <th>${col4}</th>
+                  <th>위험유형</th>
+                  <th style="text-align:center">위험점수</th>
+                  <th style="text-align:center">상태</th>
+                  <th style="text-align:center;width:90px">분석 수행</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ind.rows.map(r=>`
+                  <tr>
+                    <td style="font-family:monospace;font-size:11px;color:#1e40af">${escapeHtml(r.id)}</td>
+                    <td><strong>${escapeHtml(r.goods)}</strong></td>
+                    <td>${escapeHtml(r.origin)}</td>
+                    <td style="color:#41506a">${escapeHtml(r.importer)}</td>
+                    <td>
+                      <span style="background:${ind.bg};color:${ind.color};border:1px solid ${ind.border};
+                                   border-radius:4px;padding:1px 7px;font-size:11px;white-space:nowrap">
+                        ${escapeHtml(r.risk)}
+                      </span>
+                    </td>
+                    <td style="text-align:center">
+                      <strong style="color:${r.score>=90?"#dc2626":r.score>=75?"#d97706":"#16a34a"}">${r.score}</strong>
+                    </td>
+                    <td style="text-align:center">${statusChip(r.status)}</td>
+                    <td style="text-align:center">
+                      <button class="btn small"
+                              style="font-size:11px;white-space:nowrap;background:${ind.color};
+                                     color:#fff;border-color:${ind.color}">
+                        분석 수행
+                      </button>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        ` : ""}
       </div>`;
   }
 
   const EVENTS = [
     {time:"09:42",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"인천항 화물(APLL2026053001) — 마약 전구물질 검출 의심, 검사지시 발부"},
     {time:"08:15",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"인천공항 김우범(DS-001) 감시구역 진입, 동향 추적 중"},
-    {time:"07:30",type:"New Drug Modus", color:"#7c3aed",bg:"#ede9fe",msg:"SNS 신종 은어 '초록이'(MDMA) 패턴 급증, 사전 추가"},
+    {time:"07:30",type:"New Drug Modus", color:"#7c3aed",bg:"#ede9fe",msg:"SNS 신종 은어 '초록이'(MDMA) 패턴 급증, 사전 추가 완료"},
     {time:"06:55",type:"International",  color:"#0284c7",bg:"#eff6ff",msg:"WCO — 방콕→인천→부산 필로폰 신규 유통경로 식별"},
-    {time:"05:18",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"신규 우범여행자 2명 입국, 관계망 분석 개시"},
-    {time:"03:40",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"인천공항 특송화물 3건 마약 전구물질 포함 의심"},
-    {time:"02:11",type:"International",  color:"#0284c7",bg:"#eff6ff",msg:"INCB — 전구물질 거래량 동남아 급증, 한국 경유 경보"},
-    {time:"01:05",type:"New Drug Modus", color:"#7c3aed",bg:"#ede9fe",msg:"다크웹 펜타닐 유사체 신규 매물 탐지, 수법 분류 등록"},
-    {time:"00:30",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"부산항 컨테이너 화물 — 원산지 위반 의심 건 추가"},
+    {time:"05:18",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"신규 우범여행자 2명 인천공항 입국, 관계망 분석 개시"},
+    {time:"04:50",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"인천공항 특송화물 3건 마약 전구물질 포함 의심"},
+    {time:"03:22",type:"International",  color:"#0284c7",bg:"#eff6ff",msg:"INCB — 전구물질 거래량 동남아 급증, 한국 경유 경보"},
+    {time:"02:41",type:"New Drug Modus", color:"#7c3aed",bg:"#ede9fe",msg:"다크웹 펜타닐 유사체 신규 매물 탐지, 수법 분류 등록"},
+    {time:"01:30",type:"High Risk Cargo",color:"#dc2626",bg:"#fee2e2",msg:"부산항 컨테이너 화물 — 원산지 위반 의심 2건 추가"},
+    {time:"00:48",type:"Traveler Alert", color:"#d97706",bg:"#fef3c7",msg:"이마약(DS-002) 두바이 출발 — 입국 예정, 선제 감시 등록"},
+    {time:"00:15",type:"International",  color:"#0284c7",bg:"#eff6ff",msg:"양자정보 — 미국 DEA, 신종 합성마약 원료 공급망 공유"},
   ];
 
   return `
@@ -3855,27 +3827,26 @@ function drugRiskDashboard(){
         </div>
       </div>
 
-      <!-- ② 위험지표 한 줄(고정 높이) + 이벤트 자체스크롤 -->
-      <div style="display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:stretch">
+      <!-- ② 메인: 좌(아코디언 4개) + 우(이벤트 스크롤) -->
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start">
 
-        <!-- 4개 카드 한 줄 -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-          ${indicators.map(summaryCard).join("")}
+        <!-- 아코디언 4개 -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${indicators.map(accordionSection).join("")}
         </div>
 
-        <!-- 이벤트 — 고정 높이 + 자체 스크롤 -->
+        <!-- 이벤트 패널 — sticky + 자체 스크롤 -->
         <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;
-                    padding:12px 14px;display:flex;flex-direction:column;min-height:0">
-          <div style="display:flex;align-items:center;margin-bottom:8px;flex:none">
+                    padding:14px 14px;position:sticky;top:12px">
+          <div style="display:flex;align-items:center;margin-bottom:10px">
             <strong style="font-size:13px;color:#123c85">최근 주요 RISK 이벤트</strong>
             <span style="margin-left:auto;font-size:10px;color:#6b7f9e">최근 24시간</span>
           </div>
-          <div style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;
-                      max-height:320px;padding-right:2px">
+          <div style="overflow-y:auto;max-height:560px;display:flex;flex-direction:column;gap:6px;padding-right:2px">
             ${EVENTS.map(e=>`
               <div style="display:flex;align-items:flex-start;gap:7px;padding:7px 9px;
-                          background:${e.bg};border-radius:7px;flex:none">
-                <span style="font-size:10px;color:#6b7f9e;white-space:nowrap;padding-top:2px">${e.time}</span>
+                          background:${e.bg};border-radius:7px">
+                <span style="font-size:10px;color:#6b7f9e;white-space:nowrap;padding-top:2px;flex:none">${e.time}</span>
                 <span style="background:${e.color};color:#fff;border-radius:3px;padding:1px 6px;
                              font-size:10px;font-weight:700;white-space:nowrap;flex:none">${e.type}</span>
                 <span style="font-size:11px;color:#1e293b;line-height:1.5">${e.msg}</span>
@@ -3883,16 +3854,8 @@ function drugRiskDashboard(){
             `).join("")}
           </div>
         </div>
+
       </div>
-
-      <!-- ③ 지표별 당일 목록 테이블 (분석수행 버튼 맨 왼쪽) -->
-      ${indicators.map(ind=>`
-        <div style="margin-top:4px">
-          ${indicatorBar(ind)}
-          ${detailTable(ind)}
-        </div>
-      `).join("")}
-
     </div>
   `;
 }
@@ -7339,6 +7302,14 @@ document.addEventListener("click", (event)=>{
   const drugTab = event.target.closest("[data-drug-tab]");
   if(drugTab){
     drugInvTab = drugTab.dataset.drugTab;
+    render("lawsearch");
+    return;
+  }
+
+  const drugAccBtn = event.target.closest("[data-drug-acc]");
+  if(drugAccBtn){
+    const key = drugAccBtn.dataset.drugAcc;
+    drugAccordionOpen[key] = !drugAccordionOpen[key];
     render("lawsearch");
     return;
   }
