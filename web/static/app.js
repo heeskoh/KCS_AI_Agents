@@ -17,7 +17,7 @@
   permission:"권한 승인"
 };
 
-const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 Agent를 선택해 주세요.";
+const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 AI 서비스를 선택해 주세요.";
 const pages = {
   home: () => `
     <div class="home-layout">
@@ -42,7 +42,7 @@ const pages = {
           <button class="home-tool-btn" type="button" data-home-source="db_cdw"><span class="home-check off"></span>CDW조회</button>
           <button class="home-tool-btn" type="button" data-home-source="rag_customs"><span class="home-check off"></span>관세e음 RAG</button>
           <button class="home-tool-btn home-picker-trigger" type="button" data-home-source="rag_audit">업무별 RAG 선택 <span class="home-select-status">×</span></button>
-          <button class="home-tool-btn home-picker-trigger" type="button" data-home-agent="hs_verify">Agent 선택 <span class="home-select-status">×</span></button>
+          <button class="home-tool-btn home-picker-trigger" type="button" data-home-agent="hs_verify">AI 서비스 선택 <span class="home-select-status">×</span></button>
           <div class="home-command-actions">
             <button class="home-action-btn coach" id="coachAnalyzeBtn" type="button"><img class="home-action-icon" src="/static/img/AICoaching.png" alt=""><b>AI코칭</b></button>
             <button class="home-action-btn improve coach-btn-improve" id="coachImproveBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/implement.png" alt=""><b>개선 적용됨</b></button>
@@ -70,7 +70,7 @@ const pages = {
       <section class="card home-canvas-card home-col-card">
         <h3>AI 작업 캔버스</h3>
         <button class="btn secondary canvas-open-main" data-page="canvas" data-canvas-tab="overview">캔버스 열기</button>
-        <p class="canvas-main-copy">다양한 데이터소스와 에이전트를 활용하여 나만의 분석을 수행합니다.</p>
+        <p class="canvas-main-copy">다양한 데이터소스와 AI 서비스를 활용하여 나만의 분석을 수행합니다.</p>
         <div class="main-job-list">
           ${activeCanvasJobs().map(mainCanvasJob).join("") || `<div class="empty-state">진행 중인 분석 작업이 없습니다. 아카이브에서 완료된 결과를 확인할 수 있습니다.</div>`}
         </div>
@@ -242,7 +242,7 @@ function permissionApprovePage(){
       <div class="perm-page-head">
         <div>
           <h2>권한 승인 관리</h2>
-          <p class="muted">사용자가 요청한 데이터소스·Agent 사용 권한을 검토하고 승인 또는 거부합니다.</p>
+          <p class="muted">사용자가 요청한 데이터소스·AI 서비스 사용 권한을 검토하고 승인 또는 거부합니다.</p>
         </div>
         <div class="perm-summary">
           <span class="perm-summary-item requested">요청중 <strong>${requested.length}</strong></span>
@@ -292,25 +292,25 @@ const scenarioSources = {
   rag_global:      { label: "국제정보 RAG",      type: "rag_global",    group: "분석 데이터 소스" },
   rag_consultation:{ label: "상담내역 RAG",      type: "rag_consultation", group: "분석 데이터 소스" },
   rag_risk_select: { label: "위험선별 RAG",      type: "rag_risk_select", group: "분석 데이터 소스" },
-  // ── 사용 가능 Agent ─────────────────────────────────────────────────────────
-  ml:              { label: "ML 모델 실행 Agent",  type: "ml",               group: "사용 가능 Agent" },
-  network:         { label: "관계망 분석 Agent",   type: "network",          group: "사용 가능 Agent" },
-  ontology:        { label: "관세온톨로지 Agent",  type: "ontology",         group: "사용 가능 Agent" },
-  origin_analysis: { label: "원산지 분석 Agent",   type: "origin_analysis",  group: "사용 가능 Agent" },
-  abnormal_trade:  { label: "이상거래 검증 Agent", type: "abnormal_trade",   group: "사용 가능 Agent" },
-  proceeds_tracking:{ label:"범죄수익 추적 Agent", type: "proceeds_tracking",group: "사용 가능 Agent" },
-  route_analysis:  { label: "운송경로 분석 Agent", type: "route_analysis",   group: "사용 가능 Agent" },
-  web_search:      { label: "웹검색 Agent",        type: "web",              group: "사용 가능 Agent" },
-  declaration_verify:{ label:"수입신고검증 Agent", type: "declaration_verify",group: "사용 가능 Agent" },
-  hs_verify:       { label: "품목분류검증 Agent",  type: "hs_verify",        group: "사용 가능 Agent" },
-  customs_value:   { label: "과세가격평가 Agent",  type: "customs_value",    group: "사용 가능 Agent" },
-  patent:          { label: "특허정보 조회 Agent", type: "patent",           group: "사용 가능 Agent" },
-  law:             { label: "법령정보 조회 Agent", type: "law",              group: "사용 가능 Agent" },
-  ocr:             { label: "OCR/문서인식 Agent",  type: "ocr",              group: "사용 가능 Agent" },
-  rag_create:      { label: "RAG 생성 Agent",      type: "rag_create",       group: "사용 가능 Agent" },
-  summary:         { label: "보고서 요약 Agent",   type: "summary",          group: "사용 가능 Agent" },
-  report_generate: { label: "보고서 생성 Agent",   type: "report",           group: "사용 가능 Agent" },
-  report_validate: { label: "보고서 검증 Agent",   type: "validation",       group: "사용 가능 Agent" },
+  // ── 사용 가능 AI 서비스 ─────────────────────────────────────────────────────
+  ml:              { label: "ML 모델 실행 AI 서비스",  type: "ml",               group: "사용 가능 AI 서비스" },
+  network:         { label: "관계망 분석 AI 서비스",   type: "network",          group: "사용 가능 AI 서비스" },
+  ontology:        { label: "관세온톨로지 AI 서비스",  type: "ontology",         group: "사용 가능 AI 서비스" },
+  origin_analysis: { label: "원산지 분석 AI 서비스",   type: "origin_analysis",  group: "사용 가능 AI 서비스" },
+  abnormal_trade:  { label: "이상거래 검증 AI 서비스", type: "abnormal_trade",   group: "사용 가능 AI 서비스" },
+  proceeds_tracking:{ label:"범죄수익 추적 AI 서비스", type: "proceeds_tracking",group: "사용 가능 AI 서비스" },
+  route_analysis:  { label: "운송경로 분석 AI 서비스", type: "route_analysis",   group: "사용 가능 AI 서비스" },
+  web_search:      { label: "웹검색 AI 서비스",        type: "web",              group: "사용 가능 AI 서비스" },
+  declaration_verify:{ label:"수입신고검증 AI 서비스", type: "declaration_verify",group: "사용 가능 AI 서비스" },
+  hs_verify:       { label: "품목분류검증 AI 서비스",  type: "hs_verify",        group: "사용 가능 AI 서비스" },
+  customs_value:   { label: "과세가격평가 AI 서비스",  type: "customs_value",    group: "사용 가능 AI 서비스" },
+  patent:          { label: "특허정보 조회 AI 서비스", type: "patent",           group: "사용 가능 AI 서비스" },
+  law:             { label: "법령정보 조회 AI 서비스", type: "law",              group: "사용 가능 AI 서비스" },
+  ocr:             { label: "OCR/문서인식 AI 서비스",  type: "ocr",              group: "사용 가능 AI 서비스" },
+  rag_create:      { label: "RAG 생성 AI 서비스",      type: "rag_create",       group: "사용 가능 AI 서비스" },
+  summary:         { label: "보고서 요약 AI 서비스",   type: "summary",          group: "사용 가능 AI 서비스" },
+  report_generate: { label: "보고서 생성 AI 서비스",   type: "report",           group: "사용 가능 AI 서비스" },
+  report_validate: { label: "보고서 검증 AI 서비스",   type: "validation",       group: "사용 가능 AI 서비스" },
 };
 
 const sidebarPermissionGroups = {
@@ -670,8 +670,8 @@ const scenarioTemplates = [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["profile_summary"], order:1, instruction:"신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약" },
       { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:2, instruction:"규정 근거 확인 · 과세가격, 원산지, 품목분류 관련 규정 근거 확인" },
       { key:"rag_trade", type:"rag_trade", label:"통관정보 RAG", behaviors:["trade_signal"], order:3, instruction:"무역 징후 확인 · 통관 이상 징후와 참고 근거 확인" },
-      { key:"ml", type:"ml", label:"ML 모델 실행 Agent", behaviors:["industry_stats","hs_risk"], order:4, instruction:"동종업종 통계와 HS 위험점수를 함께 비교" },
-      { key:"report_generate", type:"report", label:"보고서 생성 Agent", behaviors:["full_report"], order:5, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
+      { key:"ml", type:"ml", label:"ML 모델 실행 AI 서비스", behaviors:["industry_stats","hs_risk"], order:4, instruction:"동종업종 통계와 HS 위험점수를 함께 비교" },
+      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:5, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
     ],
   },
   {
@@ -680,10 +680,10 @@ const scenarioTemplates = [
     description: "과세가격, 특수관계, 가격 이상치 검토에 집중하는 조사 흐름",
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["risk_focus","declaration_focus"], order:1, instruction:"위험지표와 신고내역을 함께 상세 확인" },
-      { key:"customs_value", type:"customs_value", label:"과세가격평가 Agent", behaviors:["valuation_basis","undervaluation"], order:2, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
+      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:2, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
       { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis","case_comparison"], order:3, instruction:"관련 규정과 유사사례를 함께 확인" },
-      { key:"ml", type:"ml", label:"ML 모델 실행 Agent", behaviors:["anomaly","hs_risk"], order:4, instruction:"신고가격 이상치와 HS 위험점수 확인" },
-      { key:"report_generate", type:"report", label:"보고서 생성 Agent", behaviors:["issue_report"], order:5, instruction:"저가신고 쟁점 중심 보고서 초안 작성" },
+      { key:"ml", type:"ml", label:"ML 모델 실행 AI 서비스", behaviors:["anomaly","hs_risk"], order:4, instruction:"신고가격 이상치와 HS 위험점수 확인" },
+      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["issue_report"], order:5, instruction:"저가신고 쟁점 중심 보고서 초안 작성" },
     ],
   },
   {
@@ -692,10 +692,10 @@ const scenarioTemplates = [
     description: "HS 분류, 원산지, FTA 증빙 검토에 맞춘 조사 흐름",
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["declaration_focus"], order:1, instruction:"품목, 원산지, 신고가격 중심으로 최근 신고내역 확인" },
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 Agent", behaviors:["classification_check","alternative_hs"], order:2, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
+      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:2, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
       { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:3, instruction:"품목분류와 원산지 관련 규정 확인" },
-      { key:"law", type:"law", label:"법령정보 조회 Agent", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
-      { key:"report_validate", type:"validation", label:"보고서 검증 Agent", behaviors:["evidence_validation"], order:5, instruction:"근거 충실성과 누락 증빙 검증" },
+      { key:"law", type:"law", label:"법령정보 조회 AI 서비스", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
+      { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:5, instruction:"근거 충실성과 누락 증빙 검증" },
     ],
   },
 ];
@@ -822,15 +822,15 @@ let giRegTargetType  = "company"; // 수사 대상 등록 유형: "company" | "p
 
 const GI_STEP_SOURCES = [
   {key:"gi_cdw",      label:"CDW 조회",            type:"db"     },
-  {key:"gi_imp",      label:"수입신고검증 Agent",   type:"agent"  },
-  {key:"gi_val",      label:"과세가격평가 Agent",   type:"agent"  },
-  {key:"gi_hs",       label:"품목분류검증 Agent",   type:"agent"  },
-  {key:"gi_route",    label:"운송경로 분석 Agent",  type:"agent"  },
-  {key:"gi_net",      label:"관계망분석 Agent",     type:"agent"  },
-  {key:"gi_profit",   label:"범죄수익 추적 Agent",  type:"agent"  },
-  {key:"gi_origin",   label:"원산지 검증 Agent",   type:"agent"  },
-  {key:"gi_anomaly",  label:"이상거래 검증 Agent",  type:"agent"  },
-  {key:"gi_patent",   label:"특허정보 조회 Agent",  type:"agent"  },
+  {key:"gi_imp",      label:"수입신고검증 AI 서비스",   type:"agent"  },
+  {key:"gi_val",      label:"과세가격평가 AI 서비스",   type:"agent"  },
+  {key:"gi_hs",       label:"품목분류검증 AI 서비스",   type:"agent"  },
+  {key:"gi_route",    label:"운송경로 분석 AI 서비스",  type:"agent"  },
+  {key:"gi_net",      label:"관계망분석 AI 서비스",     type:"agent"  },
+  {key:"gi_profit",   label:"범죄수익 추적 AI 서비스",  type:"agent"  },
+  {key:"gi_origin",   label:"원산지 검증 AI 서비스",   type:"agent"  },
+  {key:"gi_anomaly",  label:"이상거래 검증 AI 서비스",  type:"agent"  },
+  {key:"gi_patent",   label:"특허정보 조회 AI 서비스",  type:"agent"  },
   {key:"gi_rag_rev",  label:"심사결과 RAG",         type:"rag"    },
   {key:"gi_rag_inv",  label:"조사결과 RAG",         type:"rag"    },
   {key:"gi_rag_int",  label:"국제협력 RAG",         type:"rag"    },
@@ -910,7 +910,7 @@ function giScenarioRunInstruction(step){
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
-  const typeLabel = {db:"DB 조회",agent:"Agent",rag:"RAG",report:"보고서",approve:"승인"};
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
   return GI_STEP_SOURCES.map(source =>
     `<option value="${escapeHtml(source.key)}"${source.key === selectedKey ? " selected" : ""}>${escapeHtml(typeLabel[source.type] || source.type)} · ${escapeHtml(source.label)}</option>`
   ).join("");
@@ -1023,22 +1023,22 @@ function giStreamSteps(aCase, stepsToRun){
 const GI_SCENARIO_STEPS = {
   t1:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_val1",      label:"과세가격평가 Agent",       type:"agent",   note:""},
+    {key:"gi_val1",      label:"과세가격평가 AI 서비스",       type:"agent",   note:""},
     {key:"gi_rag_rev",   label:"심사결과 RAG",            type:"rag",     note:""},
-    {key:"gi_imp1",      label:"수입신고검증 Agent",       type:"agent",   note:""},
-    {key:"gi_val2",      label:"과세가격평가 Agent",       type:"agent",   note:""},
-    {key:"gi_hs1",       label:"품목분류검증 Agent",       type:"agent",   note:""},
-    {key:"gi_anomaly",   label:"이상거래 검증 Agent",      type:"agent",   note:"이상거래 검증 Agent 신규 구성"},
+    {key:"gi_imp1",      label:"수입신고검증 AI 서비스",       type:"agent",   note:""},
+    {key:"gi_val2",      label:"과세가격평가 AI 서비스",       type:"agent",   note:""},
+    {key:"gi_hs1",       label:"품목분류검증 AI 서비스",       type:"agent",   note:""},
+    {key:"gi_anomaly",   label:"이상거래 검증 AI 서비스",      type:"agent",   note:"이상거래 검증 AI 서비스 신규 구성"},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
     {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
     {key:"gi_appr",      label:"보고서 승인",             type:"approve", note:""},
   ],
   t2:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_imp2",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
-    {key:"gi_route2",    label:"운송경로 분석 Agent",      type:"agent",   note:""},
-    {key:"gi_net",       label:"관계망분석 Agent",         type:"agent",   note:"agent_network.py"},
-    {key:"gi_profit",    label:"범죄수익 추적 Agent",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
+    {key:"gi_imp2",      label:"수입신고검증 AI 서비스",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_route2",    label:"운송경로 분석 AI 서비스",      type:"agent",   note:""},
+    {key:"gi_net",       label:"관계망분석 AI 서비스",         type:"agent",   note:"agent_network.py"},
+    {key:"gi_profit",    label:"범죄수익 추적 AI 서비스",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
     {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
     {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
@@ -1047,9 +1047,9 @@ const GI_SCENARIO_STEPS = {
   ],
   t3:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_imp3",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
-    {key:"gi_route3",    label:"운송경로 분석 Agent",      type:"agent",   note:"우회수입 탐지"},
-    {key:"gi_origin",    label:"원산지 검증 Agent",        type:"agent",   note:""},
+    {key:"gi_imp3",      label:"수입신고검증 AI 서비스",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_route3",    label:"운송경로 분석 AI 서비스",      type:"agent",   note:"우회수입 탐지"},
+    {key:"gi_origin",    label:"원산지 검증 AI 서비스",        type:"agent",   note:""},
     {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
     {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
@@ -1058,8 +1058,8 @@ const GI_SCENARIO_STEPS = {
   ],
   t4:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_imp4",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
-    {key:"gi_profit4",   label:"범죄수익 추적 Agent",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
+    {key:"gi_imp4",      label:"수입신고검증 AI 서비스",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_profit4",   label:"범죄수익 추적 AI 서비스",      type:"agent",   note:"자금흐름, 계좌 추적 연계"},
     {key:"gi_rag_inv",   label:"조사결과 RAG",            type:"rag",     note:""},
     {key:"gi_rag_int",   label:"국제협력 RAG",            type:"rag",     note:""},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
@@ -1068,10 +1068,10 @@ const GI_SCENARIO_STEPS = {
   ],
   t5:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_imp5",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
-    {key:"gi_patent",    label:"특허정보 조회 Agent",      type:"agent",   note:"권리자 정보 확인"},
-    {key:"gi_hs5",       label:"품목분류검증 Agent",       type:"agent",   note:"위조품 식별"},
-    {key:"gi_route5",    label:"운송경로 분석 Agent",      type:"agent",   note:"우회수입 탐지, 공급망 역추적"},
+    {key:"gi_imp5",      label:"수입신고검증 AI 서비스",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴"},
+    {key:"gi_patent",    label:"특허정보 조회 AI 서비스",      type:"agent",   note:"권리자 정보 확인"},
+    {key:"gi_hs5",       label:"품목분류검증 AI 서비스",       type:"agent",   note:"위조품 식별"},
+    {key:"gi_route5",    label:"운송경로 분석 AI 서비스",      type:"agent",   note:"우회수입 탐지, 공급망 역추적"},
     {key:"gi_rag_rev5",  label:"심사결과 RAG",            type:"rag",     note:""},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
     {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
@@ -1079,9 +1079,9 @@ const GI_SCENARIO_STEPS = {
   ],
   t6:[
     {key:"gi_cdw",       label:"CDW 조회",               type:"db",      note:""},
-    {key:"gi_imp6",      label:"수입신고검증 Agent",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴, 수출허가 검증"},
-    {key:"gi_hs6",       label:"품목분류검증 Agent",       type:"agent",   note:"전략물자 해당 여부, HS코드 기반 해당 품목 자동 식별, 수출허가 검증"},
-    {key:"gi_patent6",   label:"특허정보 조회 Agent",      type:"agent",   note:"권리자 정보 확인"},
+    {key:"gi_imp6",      label:"수입신고검증 AI 서비스",       type:"agent",   note:"품명·중량·가격 불일치, 화물 이상 패턴, 수출허가 검증"},
+    {key:"gi_hs6",       label:"품목분류검증 AI 서비스",       type:"agent",   note:"전략물자 해당 여부, HS코드 기반 해당 품목 자동 식별, 수출허가 검증"},
+    {key:"gi_patent6",   label:"특허정보 조회 AI 서비스",      type:"agent",   note:"권리자 정보 확인"},
     {key:"gi_rag_int6",  label:"국제협력 RAG",            type:"rag",     note:"대북제재 스크리닝"},
     {key:"gi_law",       label:"법령 검토",               type:"rag",     note:""},
     {key:"gi_rep",       label:"보고서 작성",             type:"report",  note:"증거 정리"},
@@ -1522,24 +1522,24 @@ const HOME_DEFAULT_AGENTS = [
   { type:"rag_global",         label:"국제정보 RAG",          key:"rag_global" },
   { type:"rag_consultation",   label:"상담내역 RAG",          key:"rag_consultation" },
   { type:"rag_risk_select",    label:"위험선별 RAG",          key:"rag_risk_select" },
-  { type:"web",                label:"웹검색 Agent",          key:"web_search" },
-  { type:"declaration_verify", label:"수입신고검증 Agent",    key:"declaration_verify" },
-  { type:"hs_verify",          label:"품목분류검증 Agent",    key:"hs_verify" },
-  { type:"customs_value",      label:"과세가격평가 Agent",    key:"customs_value" },
-  { type:"ml",                 label:"ML 모델 실행 Agent",    key:"ml" },
-  { type:"network",            label:"관계망분석 Agent",      key:"network" },
-  { type:"ontology",           label:"관세온톨로지 Agent",    key:"ontology" },
-  { type:"origin_analysis",    label:"원산지 분석 Agent",     key:"origin_analysis" },
-  { type:"abnormal_trade",     label:"이상거래 검증 Agent",   key:"abnormal_trade" },
-  { type:"proceeds_tracking",  label:"범죄수익 추적 Agent",   key:"proceeds_tracking" },
-  { type:"route_analysis",     label:"운송경로 분석 Agent",   key:"route_analysis" },
-  { type:"patent",             label:"특허정보 조회 Agent",   key:"patent" },
-  { type:"law",                label:"법령정보 조회 Agent",   key:"law" },
-  { type:"ocr",                label:"OCR/문서인식 Agent",    key:"ocr" },
-  { type:"rag_create",         label:"RAG 생성 Agent",        key:"rag_create" },
-  { type:"summary",            label:"보고서 요약 Agent",     key:"summary" },
-  { type:"report",             label:"보고서 생성 Agent",     key:"report_generate" },
-  { type:"validation",         label:"보고서 검증 Agent",     key:"report_validate" },
+  { type:"web",                label:"웹검색 AI 서비스",          key:"web_search" },
+  { type:"declaration_verify", label:"수입신고검증 AI 서비스",    key:"declaration_verify" },
+  { type:"hs_verify",          label:"품목분류검증 AI 서비스",    key:"hs_verify" },
+  { type:"customs_value",      label:"과세가격평가 AI 서비스",    key:"customs_value" },
+  { type:"ml",                 label:"ML 모델 실행 AI 서비스",    key:"ml" },
+  { type:"network",            label:"관계망분석 AI 서비스",      key:"network" },
+  { type:"ontology",           label:"관세온톨로지 AI 서비스",    key:"ontology" },
+  { type:"origin_analysis",    label:"원산지 분석 AI 서비스",     key:"origin_analysis" },
+  { type:"abnormal_trade",     label:"이상거래 검증 AI 서비스",   key:"abnormal_trade" },
+  { type:"proceeds_tracking",  label:"범죄수익 추적 AI 서비스",   key:"proceeds_tracking" },
+  { type:"route_analysis",     label:"운송경로 분석 AI 서비스",   key:"route_analysis" },
+  { type:"patent",             label:"특허정보 조회 AI 서비스",   key:"patent" },
+  { type:"law",                label:"법령정보 조회 AI 서비스",   key:"law" },
+  { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
+  { type:"rag_create",         label:"RAG 생성 AI 서비스",        key:"rag_create" },
+  { type:"summary",            label:"보고서 요약 AI 서비스",     key:"summary" },
+  { type:"report",             label:"보고서 생성 AI 서비스",     key:"report_generate" },
+  { type:"validation",         label:"보고서 검증 AI 서비스",     key:"report_validate" },
 ];
 
 let homeEventSource = null;
@@ -1627,13 +1627,13 @@ function homeSetPickerSelectedKeys(kind, keys){
 }
 
 function homePickerTitle(kind){
-  return kind === "rag" ? "업무별 RAG 선택" : "Agent 선택";
+  return kind === "rag" ? "업무별 RAG 선택" : "AI 서비스 선택";
 }
 
 function homePickerDescription(kind){
   return kind === "rag"
     ? "질의 시 데이터 원천으로 사용할 RAG 시스템을 선택하세요."
-    : "질의 시 활용할 AI Agent를 선택하고, 자동화된 업무를 수행하세요.";
+    : "질의 시 활용할 AI 서비스를 선택하고, 자동화된 업무를 수행하세요.";
 }
 
 function homePickerRowHtml(kind, key){
@@ -1673,7 +1673,7 @@ function openHomePicker(kind){
         <div class="home-permission-body">
           ${homePickerKeys(kind).map(key => homePickerRowHtml(kind, key)).join("")}
         </div>
-        <p class="home-permission-note">※ 질의 시 권한이 없는 데이터 원천이나 Agent가 필요한 경우 조회 권한을 요청하십시오.</p>
+        <p class="home-permission-note">※ 질의 시 권한이 없는 데이터 원천이나 AI 서비스가 필요한 경우 조회 권한을 요청하십시오.</p>
       </div>
     </div>
   `;
@@ -1713,7 +1713,7 @@ function homeDetailMarkup(){
   return `
     <section class="home-result-detail" id="homeResultDetail">
       <h3>분석 상세 결과</h3>
-      ${html || `<div class="home-detail-body muted">실행할 RAG 또는 Agent 결과가 아직 없습니다.</div>`}
+      ${html || `<div class="home-detail-body muted">실행할 RAG 또는 AI 서비스 결과가 아직 없습니다.</div>`}
     </section>
   `;
 }
@@ -1825,7 +1825,7 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
     resultBox.innerHTML = `
       <h3>AI 분석 결과</h3>
       <p class="muted" style="font-size:12px;margin-bottom:8px">
-        ${escapeHtml(reasoning || "내부 에이전트 없이 LLM이 직접 답변합니다.")}
+        ${escapeHtml(reasoning || "내부 AI 서비스 없이 LLM이 직접 답변합니다.")}
       </p>
       <div class="markdown-output">${markdownToHtml(answer || "결과 없음")}</div>
     `;
@@ -1853,7 +1853,7 @@ async function homeRunAnalysis(prompt, btn){
       <h3>AI 분석 결과</h3>
       <div class="home-running-line">
         <span class="home-running-dot"></span>
-        <span>${hasSelectedInternalTool ? "선택된 데이터소스와 Agent를 준비합니다." : "선택된 데이터소스/Agent가 없어 LLM 자체 답변으로 처리합니다."}</span>
+        <span>${hasSelectedInternalTool ? "선택된 데이터소스와 AI 서비스를 준비합니다." : "선택된 데이터소스/AI 서비스가 없어 LLM 자체 답변으로 처리합니다."}</span>
       </div>
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
     `;
@@ -1887,7 +1887,7 @@ async function homeRunAnalysis(prompt, btn){
     } catch(e) {
       answer = "LLM 호출에 실패했습니다.";
     }
-    homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/Agent 없음 · LLM 자체 답변", btn);
+    homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변", btn);
     return;
   }
 
@@ -1974,7 +1974,7 @@ async function homeRunAnalysis(prompt, btn){
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
       <div class="home-progress-bar"><div class="home-progress-fill" style="width:0%"></div></div>
       <p class="muted" style="font-size:12px;margin-top:6px">
-        실행 에이전트: ${escapeHtml(agentNames)}
+        실행 AI 서비스: ${escapeHtml(agentNames)}
         ${reasoning ? `<br>판단 근거: ${escapeHtml(reasoning)}` : ""}
       </p>
       ${homeDetailMarkup()}
@@ -2019,7 +2019,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
     .slice(0, 4)
     .join(" ")
     .slice(0, 300);
-  const summary = summaryLines || "분석이 완료되었습니다. 각 에이전트의 분석 결과는 아래 상세 결과에서 확인하실 수 있습니다.";
+  const summary = summaryLines || "분석이 완료되었습니다. 각 AI 서비스의 분석 결과는 아래 상세 결과에서 확인하실 수 있습니다.";
 
   const agentCount = Object.keys(homeStepStatus).length;
   const hasReport  = "보고서 생성" in homeRunResults;
@@ -2029,7 +2029,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 
   resultBox.innerHTML = `
     <h3>AI 분석 결과</h3>
-    <p>${targetSummary}${agentCount}개 에이전트 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
+    <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
     <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
     ${hasReport || riskHigh || riskMed ? `
     <div class="kpi">
@@ -2850,7 +2850,7 @@ function generalInvWorkbenchPanel(){
   const pct    = total ? Math.round(done / total * 100) : 0;
   const selStep = activeGiStep();
 
-  const typeLabel = {db:"DB 조회",agent:"Agent",rag:"RAG",report:"보고서",approve:"승인"};
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
   /* chip CSS class: reuse canvas workbench chip type classes */
   const chipCls   = {db:"bigdata",agent:"agent",rag:"rag_customs",report:"report",approve:"validation"};
 
@@ -2892,7 +2892,7 @@ function generalInvWorkbenchPanel(){
     </div>
     <div class="scenario-agent-zone" style="overflow-y:auto;flex:1;min-height:0">
       <label class="scenario-field">
-        <span>Agent 단계</span>
+        <span>AI 서비스 단계</span>
         <select id="giWbStepSource" class="gi-reg-select" data-gi-step-id="${escapeHtml(selStep.id)}">
           ${giStepSourceOptionsHtml(canonicalGiStepKey(selStep.key))}
         </select>
@@ -3386,7 +3386,7 @@ function canvasJobs(){
       title:"서울인터내셔널 원유·의류 수입 검토",
       category:"통관 정보분석",
       company:"서울인터내셔널 (C-1002)",
-      owner:"심사정보 RAG Agent",
+      owner:"심사정보 RAG AI 서비스",
       updated:"오늘 08:40",
       status:{ label:"자료 수집", done:2, total:7, pct:29, tone:"running" },
       next:"데이터 수집",
@@ -3399,7 +3399,7 @@ function canvasJobs(){
       title:"제주리테일커머스 환급 이상 검토",
       category:"관세조사 분석",
       company:"제주리테일커머스 (C-1008)",
-      owner:"보고서 생성 Agent",
+      owner:"보고서 생성 AI 서비스",
       updated:"어제",
       status:{ label:"보고서 검증", done:6, total:7, pct:86, tone:"review" },
       next:"분석보고서 및 검증",
@@ -4049,7 +4049,7 @@ function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}
               <th>파일명</th>
               <th>파일유형</th>
               <th>추출데이터</th>
-              <th>활용 Agent</th>
+              <th>활용 AI 서비스</th>
               <th>AI검증결과</th>
               <th>진행상태</th>
             </tr>
@@ -4095,7 +4095,7 @@ function canvasDataPanel(companyIdOverride = activeCanvasCompanyId, options = {}
               file:"개인조사자료.xls",
               type:"매출 관련 정보",
               extracted:["업체정보: 에이비씨 테크","우범자: 김관세","연관자: 김우범"],
-              agents:["RAG생성Agent"],
+              agents:["RAG생성 AI 서비스"],
               result:"처리중",
               status:"분석중",
               tone:"running"
@@ -4144,7 +4144,7 @@ function canvasReportPanel(){
 }
 
 function editingCardStepsHtml(){
-  if(!templateEditorItems.length) return `<li class="template-empty-step">왼쪽에서 Agent 단계를 선택 후 추가하세요.</li>`;
+  if(!templateEditorItems.length) return `<li class="template-empty-step">왼쪽에서 AI 서비스 단계를 선택 후 추가하세요.</li>`;
   const last = templateEditorItems.length - 1;
   return templateEditorItems.map((item, i) => `
     <li class="template-editable-step ${item.id === templateEditorSelectedId ? "selected" : ""}" data-teditor-id="${item.id}">
@@ -4230,7 +4230,7 @@ function scenarioTemplatePanel(){
             <input id="templateNameInput" type="text" placeholder="템플릿 이름을 입력하세요" value="${escapeHtml(editorName)}" ${!hasEditing ? "disabled" : ""}>
           </label>
           <label class="scenario-field">
-            <span>Agent 단계</span>
+            <span>AI 서비스 단계</span>
             <select id="templateSourceSelect" ${!hasEditing ? "disabled" : ""}>${scenarioSourceOptionsHtml()}</select>
           </label>
           <div class="scenario-field">
@@ -4262,7 +4262,7 @@ function scenarioTemplatePanel(){
           ${editingTemplateId === "__new__" ? `
             <article class="template-card template-card-editing" data-template-card="__new__">
               <div class="template-card-head">
-                <div><h3>새 템플릿</h3><p>Agent 단계를 추가하여 새 템플릿을 만드세요.</p></div>
+                <div><h3>새 템플릿</h3><p>AI 서비스 단계를 추가하여 새 템플릿을 만드세요.</p></div>
                 <span class="template-step-count">${templateEditorItems.length}단계</span>
               </div>
               <ol class="template-step-list template-step-list-editable" id="templateEditorStepList">
@@ -4481,7 +4481,7 @@ function scenarioWorkbenchV2(){
 
           <div class="scenario-agent-zone">
             <label class="scenario-field">
-              <span>Agent 단계</span>
+              <span>AI 서비스 단계</span>
               <select id="scenarioSourceSelect"></select>
             </label>
             <div class="scenario-field">
@@ -5595,7 +5595,7 @@ document.addEventListener("click", (event)=>{
     requestPermissions(keys);
     renderScenarioList();
     syncScenarioEditor();
-    alert("권한 요청이 등록되었습니다. 승인 전까지 해당 데이터소스/Agent를 포함한 분석은 실행할 수 없습니다.");
+    alert("권한 요청이 등록되었습니다. 승인 전까지 해당 데이터소스/AI 서비스를 포함한 분석은 실행할 수 없습니다.");
     return;
   }
 
