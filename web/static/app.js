@@ -5,7 +5,7 @@
   generalinv:"일반수사분석",
   profile:"기업 위험도 대시보드",
   classification:"품목분류",
-  lawsearch:"법령·판례",
+  lawsearch:"마약수사분석",
   document:"문서검증",
   dw:"위험선별 분석",
   model:"관세 온톨로지",
@@ -945,7 +945,7 @@ let showInvNewJobForm  = false;
 let invArchiveOpen     = false;
 
 /* ── 마약수사분석 상태 ──────────────────────────────────────── */
-let drugInvTab           = "ongoing";  // "ongoing"|"network"|"region"|"slang"
+let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"network"|"region"|"slang"
 let drugInvSelectedTarget = null;
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
@@ -3595,6 +3595,7 @@ function drugInvestigationPage(){
         ` : ""}
       </div>
       <div class="gi-tab-nav">
+        <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">마약위험 대시보드</button>
         <button class="gi-tab${tab==="ongoing"?" active":""}" data-drug-tab="ongoing">진행중인 수사</button>
         <button class="gi-tab${tab==="network"?" active":""}" data-drug-tab="network">관계망 분석</button>
         <button class="gi-tab${tab==="region"?" active":""}" data-drug-tab="region">지역 통계</button>
@@ -3608,10 +3609,172 @@ function drugInvestigationPage(){
 }
 
 function drugInvTabContent(){
-  if(drugInvTab === "network") return drugNetworkPanel();
-  if(drugInvTab === "region")  return drugRegionPanel();
-  if(drugInvTab === "slang")   return drugSlangRagPanel();
+  if(drugInvTab === "dashboard") return drugRiskDashboard();
+  if(drugInvTab === "network")   return drugNetworkPanel();
+  if(drugInvTab === "region")    return drugRegionPanel();
+  if(drugInvTab === "slang")     return drugSlangRagPanel();
   return drugOngoingPanel();
+}
+
+function drugRiskDashboard(){
+  const today = new Date().toISOString().slice(0,10);
+  const kpis = [
+    { label:"총 RISK 대상 건수",       value:248, unit:"건", accent:"#1e40af" },
+    { label:"당월 신규식별 RISK",       value:34,  unit:"건", accent:"#7c3aed" },
+    { label:"이월 RISK 건수",           value:91,  unit:"건", accent:"#0284c7" },
+    { label:"진행중인 RISK",            value:112, unit:"건", accent:"#d97706" },
+    { label:"당월 완료된 RISK",         value:11,  unit:"건", accent:"#16a34a" },
+    { label:"3개월↑ 장기 진행",         value:19,  unit:"건", accent:"#dc2626" },
+  ];
+  const indicators = [
+    {
+      key:"cargo",
+      title:"High Risk Cargo",
+      subtitle:"고위험 수입 화물",
+      today: 42,  yesterday: 38,
+      icon:"📦",
+      color:"#dc2626", bg:"#fef2f2",
+      border:"#fecaca",
+      detail:[
+        { label:"마약 전구물질", count:18, delta:+3 },
+        { label:"저가신고 의심", count:12, delta:-1 },
+        { label:"원산지 위반",   count:8,  delta:+2 },
+        { label:"이중용도 품목", count:4,  delta: 0 },
+      ],
+    },
+    {
+      key:"traveler",
+      title:"Traveler Alert",
+      subtitle:"우범여행자 입국 경보",
+      today: 17,  yesterday: 21,
+      icon:"✈️",
+      color:"#d97706", bg:"#fffbeb",
+      border:"#fde68a",
+      detail:[
+        { label:"신규 식별",     count:5,  delta:+2 },
+        { label:"기존 우범자",   count:8,  delta:-4 },
+        { label:"감시대상 입국", count:4,  delta: 0 },
+      ],
+    },
+    {
+      key:"modus",
+      title:"New Drug Modus",
+      subtitle:"신종 마약 수법 탐지",
+      today: 6,   yesterday: 4,
+      icon:"🧬",
+      color:"#7c3aed", bg:"#faf5ff",
+      border:"#ddd6fe",
+      detail:[
+        { label:"신종 은어 탐지",  count:3, delta:+1 },
+        { label:"신종 약물 확인",  count:2, delta:+2 },
+        { label:"신규 유통경로",   count:1, delta: 0 },
+      ],
+    },
+    {
+      key:"intl",
+      title:"International Alert",
+      subtitle:"국제 마약 정보 경보",
+      today: 11,  yesterday: 9,
+      icon:"🌐",
+      color:"#0284c7", bg:"#eff6ff",
+      border:"#bfdbfe",
+      detail:[
+        { label:"WCO 경보",      count:4, delta:+2 },
+        { label:"INCB 정보",     count:4, delta: 0 },
+        { label:"양자 정보공유", count:3, delta: 0 },
+      ],
+    },
+  ];
+
+  function deltaChip(d){
+    if(d === 0) return `<span style="color:#6b7f9e;font-size:11px">±0</span>`;
+    const up = d > 0;
+    return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:11px;font-weight:700">${up?"+":""}${d}</span>`;
+  }
+  function trendArrow(now, prev){
+    if(now === prev) return `<span style="color:#6b7f9e;font-size:13px">→ 전일 동일</span>`;
+    const up = now > prev;
+    const diff = Math.abs(now - prev);
+    return `<span style="color:${up?"#dc2626":"#16a34a"};font-size:13px;font-weight:600">${up?"▲":"▼"} ${diff}건 (전일 ${prev}건)</span>`;
+  }
+
+  return `
+    <div class="risk-dashboard">
+
+      <!-- KPI 요약 헤더 -->
+      <div class="risk-dash-header">
+        <div>
+          <h2>마약위험 모니터링 대시보드</h2>
+          <p class="muted">마약 수사 전 분야의 RISK 현황을 실시간으로 모니터링합니다. 기준일: ${today}</p>
+        </div>
+        <div class="risk-kpi-strip">
+          ${kpis.map(k => `
+            <div class="risk-kpi-item">
+              <span>${k.label}</span>
+              <strong style="color:${k.accent}">${k.value.toLocaleString()} <small style="font-size:14px;font-weight:600">${k.unit}</small></strong>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- 4대 핵심 위험지표 -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+        ${indicators.map(ind => `
+          <div style="background:${ind.bg};border:1px solid ${ind.border};border-radius:16px;padding:18px 16px;display:flex;flex-direction:column;gap:12px">
+            <!-- 지표 헤더 -->
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <span style="font-size:24px;line-height:1">${ind.icon}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:800;color:${ind.color}">${ind.title}</div>
+                <div style="font-size:11px;color:#6b7f9e;margin-top:1px">${ind.subtitle}</div>
+              </div>
+            </div>
+            <!-- 당일/전일 비교 -->
+            <div style="display:flex;align-items:flex-end;gap:10px">
+              <strong style="font-size:38px;font-weight:900;color:${ind.color};line-height:1">${ind.today}</strong>
+              <div style="padding-bottom:4px">
+                <div style="font-size:11px;color:#6b7f9e;margin-bottom:2px">당일 건수</div>
+                <div>${trendArrow(ind.today, ind.yesterday)}</div>
+              </div>
+            </div>
+            <!-- 세부 분류 -->
+            <div style="border-top:1px solid ${ind.border};padding-top:10px;display:flex;flex-direction:column;gap:6px">
+              ${ind.detail.map(d => `
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="flex:1;font-size:12px;color:#41506a">${d.label}</span>
+                  <strong style="font-size:13px;color:${ind.color}">${d.count}</strong>
+                  ${deltaChip(d.delta)}
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+
+      <!-- 최근 주요 RISK 이벤트 -->
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <strong style="font-size:14px;color:#123c85">최근 주요 RISK 이벤트</strong>
+          <span style="margin-left:auto;font-size:11px;color:#6b7f9e">최근 24시간 기준</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${[
+            { time:"09:42", type:"High Risk Cargo", color:"#dc2626", bg:"#fee2e2", msg:"인천항 입항 화물(B/L: APLL2026053001) — 마약 전구물질(N-페닐피페라진) 검출 의심, 검사지시 발부" },
+            { time:"08:15", type:"Traveler Alert",  color:"#d97706", bg:"#fef3c7", msg:"인천공항 입국 우범여행자 김우범(DS-001) 감시 구역 진입 확인, 동향 추적 중" },
+            { time:"07:30", type:"New Drug Modus",  color:"#7c3aed", bg:"#ede9fe", msg:"SNS 은어 모니터링 — 신종 은어 '초록이' 마약(MDMA) 관련 사용 패턴 급증, 사전 추가 완료" },
+            { time:"06:55", type:"International",   color:"#0284c7", bg:"#eff6ff", msg:"WCO 긴급경보 — 동남아 경유 필로폰 신규 유통 경로(방콕→인천→부산) 식별, 국내 검색 강화" },
+          ].map(e => `
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:${e.bg};border-radius:8px">
+              <span style="font-size:11px;color:#6b7f9e;white-space:nowrap;padding-top:1px">${e.time}</span>
+              <span style="background:${e.color};color:#fff;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700;white-space:nowrap">${e.type}</span>
+              <span style="font-size:12px;color:#1e293b;line-height:1.5">${e.msg}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+    </div>
+  `;
 }
 
 function drugOngoingPanel(){
@@ -7209,7 +7372,7 @@ document.addEventListener("click", (event)=>{
         showGenInvRegForm = false;
       }
       if(pageButton.dataset.page === "lawsearch"){
-        drugInvTab = "ongoing";
+        drugInvTab = "dashboard";
         drugInvSelectedTarget = null;
       }
       if(pageButton.dataset.page === "dw"){
