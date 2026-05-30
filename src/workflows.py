@@ -19,6 +19,7 @@ from src.agents.agent_db import agent_db
 from src.agents.agent_declaration_verify import agent_declaration_verify
 from src.agents.agent_hs_verify import agent_hs_verify
 from src.agents.agent_law import agent_law
+from src.agents.agent_mail_share import agent_mail_share
 from src.agents.agent_ml import agent_ml
 from src.agents.agent_network import agent_network
 from src.agents.agent_ocr import agent_ocr
@@ -62,6 +63,7 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         "web_result": None,
         "final_report": None,
         "validation_result": None,
+        "mail_share_result": None,
         "ontology_result": None,
         "origin_analysis_result": None,
         "abnormal_trade_result": None,
@@ -128,6 +130,8 @@ def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
         return (f"report_agent_{index}", label, agent_report, "final_report")
     if source_type == "validation":
         return (f"validate_agent_{index}", label, agent_validate, "validation_result")
+    if source_type == "mail_share":
+        return (f"mail_share_agent_{index}", label, agent_mail_share, "mail_share_result")
 
     return None
 
