@@ -149,6 +149,91 @@ const DRUG_INV_TYPES = [
 ];
 function drugInvTypeById(id){ return DRUG_INV_TYPES.find(t=>t.id===id) || DRUG_INV_TYPES[0]; }
 
+/* ── 마약수사 유형별 초기 시나리오 단계 ─────────────────────
+   GI_SERVICE_ALIASES 키 재사용 (gi_cdw, gi_imp, gi_route, gi_net,
+   gi_profit, gi_law, gi_rep, gi_appr) + 마약전용 키 추가          */
+const DRUG_SCENARIO_STEPS = {
+  d1: [ // 마약 밀수입 수사
+    { key:"gi_cdw" },
+    { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
+    { key:"gi_route",  label:"운송경로 분석 AI 서비스" },
+    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+    { key:"gi_profit", label:"범죄수익 추적 AI 서비스" },
+    { key:"gi_rag_inv",label:"조사결과 RAG" },
+    { key:"gi_rag_int",label:"국제공조 RAG" },
+    { key:"gi_law" },
+    { key:"gi_rep" },
+    { key:"gi_appr" },
+  ],
+  d2: [ // 마약 우범여행자 수사
+    { key:"gi_cdw" },
+    { key:"gi_route",  label:"여행경로 분석 AI 서비스" },
+    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+    { key:"gi_rag_inv",label:"조사결과 RAG" },
+    { key:"gi_law" },
+    { key:"gi_rep" },
+    { key:"gi_appr" },
+  ],
+  d3: [ // 마약 자금세탁 수사
+    { key:"gi_cdw" },
+    { key:"gi_profit", label:"자금세탁 추적 AI 서비스" },
+    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+    { key:"gi_rag_inv",label:"조사결과 RAG" },
+    { key:"gi_rag_int",label:"국제공조 RAG" },
+    { key:"gi_law" },
+    { key:"gi_rep" },
+    { key:"gi_appr" },
+  ],
+  d4: [ // 신종마약 유통 수사
+    { key:"gi_cdw" },
+    { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
+    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+    { key:"gi_rag_inv",label:"조사결과 RAG" },
+    { key:"gi_rag_int",label:"국제공조 RAG" },
+    { key:"gi_law" },
+    { key:"gi_rep" },
+    { key:"gi_appr" },
+  ],
+  d5: [ // 국제공조 수사
+    { key:"gi_cdw" },
+    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+    { key:"gi_rag_int",label:"국제공조 RAG" },
+    { key:"gi_rag_inv",label:"조사결과 RAG" },
+    { key:"gi_law" },
+    { key:"gi_rep" },
+    { key:"gi_appr" },
+  ],
+};
+
+/* ── 마약수사 케이스 스텝 초기화/조회 헬퍼 ─────────────────── */
+let activeDrugStepId = null;
+
+function activeDrugCaseSteps(){
+  const aCase = activeDrugCase();
+  if(!aCase) return [];
+  if(!aCase.giSteps){
+    const defaults = DRUG_SCENARIO_STEPS[aCase.invTypeId] || DRUG_SCENARIO_STEPS.d1;
+    aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({
+      ...s, id:`drs_${i}_${uid()}`,
+      label: s.label || GI_STEP_SOURCES_MAP[s.key]?.label || s.key,
+    }, i));
+    aCase.stepStates  = {};
+    aCase.stepResults = {};
+    aCase.stepExpanded= {};
+  }
+  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep(step, index));
+  if(!aCase.stepResults)  aCase.stepResults  = {};
+  if(!aCase.stepExpanded) aCase.stepExpanded = {};
+  return aCase.giSteps;
+}
+
+function activeDrugStep(){
+  return activeDrugCaseSteps().find(s => s.id === activeDrugStepId) || null;
+}
+
+// GI_SERVICE_ALIASES를 key → label 역방향 맵 (정의 후 사용)
+let GI_STEP_SOURCES_MAP = {};
+
 const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-001", invTypeId:"d2",
@@ -1033,6 +1118,12 @@ const GI_SERVICE_ALIASES = {
   gi_rep:      { sourceKey:"report_generate", type:"report", label:"보고서 작성" },
   gi_appr:     { sourceKey:"report_validate", type:"approve", label:"보고서 승인" },
 };
+
+/* GI_STEP_SOURCES_MAP 초기화 (DRUG_SCENARIO_STEPS에서 사용) */
+Object.entries(GI_SERVICE_ALIASES).forEach(([key, alias]) => {
+  const source = scenarioSourceByKey(alias.sourceKey);
+  GI_STEP_SOURCES_MAP[key] = { label: alias.label || source?.label || key, ...alias };
+});
 
 const GI_STEP_SOURCES = Object.entries(GI_SERVICE_ALIASES).map(([key, alias]) => {
   const source = scenarioSourceByKey(alias.sourceKey);
@@ -4070,106 +4161,167 @@ function drugDataPanel(){
   });
 }
 
-/* ── 분석 시나리오 설정 및 실행 ─────────────────────────── */
+/* ── 분석 시나리오 설정 및 실행 — generalInvWorkbenchPanel 동일 구조 ── */
 function drugScenarioPanel(){
   const aCase = activeDrugCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
 
-  /* 마약 수사 전용 AI 서비스 목록 */
-  const drugServices = [
-    { id:"ds1", icon:"🔍", label:"신고검증",              desc:"수입신고 내역 정합성 검증" },
-    { id:"ds2", icon:"✈️", label:"여행경로 분석",          desc:"입출국 패턴·경유지 분석" },
-    { id:"ds3", icon:"🌐", label:"조사·국제 RAG",          desc:"수사보고서·국제 마약정보 검색" },
-    { id:"ds4", icon:"🕸️", label:"관계망 분석",            desc:"우범자 관계 그래프 생성" },
-    { id:"ds5", icon:"💰", label:"범죄수익 추적",           desc:"금융거래·자금세탁 패턴 분석" },
-    { id:"ds6", icon:"💊", label:"마약성분 DB 조회",        desc:"압수물 성분·분류 조회" },
-    { id:"ds7", icon:"📋", label:"물리 검사 결과 등록",     desc:"현장 압수·감정 결과 입력", highlight:true },
-    { id:"ds8", icon:"⚖️", label:"법령정보 조회",           desc:"마약류 관련 법령·판례 검색" },
-    { id:"ds9", icon:"📝", label:"보고서 생성",             desc:"수사 분석보고서 초안 생성" },
-    { id:"ds10",icon:"✅", label:"검증",                   desc:"보고서 내용 팩트체크" },
-  ];
+  const type  = drugInvTypeById(aCase.invTypeId);
+  const steps = activeDrugCaseSteps();
+  if(!activeDrugStepId && steps[0]) activeDrugStepId = steps[0].id;
+  const states = aCase.stepStates  || {};
+  const done   = steps.filter(s => states[s.id] === "done").length;
+  const total  = steps.length;
+  const pct    = total ? Math.round(done / total * 100) : 0;
+  const selStep = activeDrugStep();
 
-  const steps = [
-    {id:"s1",svc:"ds1",status:"완료",output:"수입신고 불일치 3건 확인"},
-    {id:"s2",svc:"ds2",status:"완료",output:"방콕→인천 3회 경유 패턴 식별"},
-    {id:"s3",svc:"ds7",status:"진행중",output:""},
-  ];
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
+  const chipCls   = {db:"bigdata",agent:"agent",rag:"rag_customs",report:"report",approve:"validation"};
+
+  /* 왼쪽: 단계 칩 목록 */
+  const boardChips = steps.map((step, i) => {
+    const state    = states[step.id] || "wait";
+    const isActive = step.id === activeDrugStepId;
+    const isDone   = state === "done";
+    const stateTag = isDone
+      ? `<span class="gi-chip-state done">완료</span>`
+      : state === "run" ? `<span class="gi-chip-state run">실행중</span>` : "";
+    return `
+      <div class="scenario-chip ${chipCls[step.type]||"agent"}${isActive?" active":""}${isDone?" gi-chip-done":""}"
+        data-drug-step-select="${escapeHtml(step.id)}" tabindex="0" role="button" style="position:relative">
+        <div class="chip-num"${isDone?' style="background:#22c55e"':""}}>${isDone?"✓":i+1}</div>
+        <div class="chip-body">
+          <div class="chip-title-row">
+            <strong>${escapeHtml(step.label)}</strong>${stateTag}
+          </div>
+          <p style="margin:0;font-size:12px;color:#64748b">${escapeHtml(typeLabel[step.type]||step.type)}</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          ${i > 0 ? `<button class="gi-move-btn" data-drug-step-up="${escapeHtml(step.id)}">↑</button>` : `<span style="width:22px"></span>`}
+          ${i < steps.length-1 ? `<button class="gi-move-btn" data-drug-step-down="${escapeHtml(step.id)}">↓</button>` : `<span style="width:22px"></span>`}
+        </div>
+      </div>`;
+  }).join("");
+
+  /* 가운데: 단계 설정 */
+  const configPanel = selStep ? `
+    <div class="scenario-config-title" style="margin-bottom:14px">
+      <strong>${escapeHtml(selStep.label)}</strong>
+      <span class="gi-chip-state${states[selStep.id]==="done"?" done":states[selStep.id]==="run"?" run":" wait"}" style="margin-left:8px">
+        ${states[selStep.id]==="done"?"완료":states[selStep.id]==="run"?"실행중":"대기"}
+      </span>
+    </div>
+    <div class="scenario-agent-zone" style="overflow-y:auto;flex:1;min-height:0">
+      <div class="scenario-source-hint">
+        <div class="hint-header">
+          <strong>${escapeHtml(selStep.label)}</strong>
+          <span>${escapeHtml(typeLabel[selStep.type]||selStep.type)}</span>
+        </div>
+      </div>
+      <label class="scenario-field">
+        <span>추가 지시</span>
+        <textarea class="gi-wb2-textarea" rows="4"
+          style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;width:100%;box-sizing:border-box;resize:vertical"
+          placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."
+          data-drug-step-note="${escapeHtml(selStep.id)}">${escapeHtml(selStep.instruction||selStep.note||"")}</textarea>
+      </label>
+    </div>
+    <div class="scenario-actions" style="margin-top:12px">
+      <select id="drugWbAddSource" class="gi-reg-select" style="flex:1">
+        <option value="">+ 단계 추가 선택...</option>
+        ${giStepSourceOptionsHtml()}
+      </select>
+      <button class="btn" type="button" data-drug-step-add>단계 추가</button>
+      <button class="btn secondary" type="button" data-drug-step-delete="${escapeHtml(selStep.id)}">선택 삭제</button>
+    </div>
+  ` : `
+    <div class="scenario-config-title" style="margin-bottom:14px"><strong>분석 시나리오 설정</strong></div>
+    <div class="scenario-agent-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#94a3b8;text-align:center;gap:8px">
+      <span style="font-size:32px;opacity:.25">⚙</span>
+      <p style="margin:0;font-size:13px">왼쪽에서 단계를 선택하면<br>설정을 확인하고 편집할 수 있습니다.</p>
+    </div>
+    <div class="scenario-actions" style="margin-top:12px">
+      <select id="drugWbAddSource" class="gi-reg-select" style="flex:1">
+        <option value="">+ 단계 추가 선택...</option>
+        ${giStepSourceOptionsHtml()}
+      </select>
+      <button class="btn" type="button" data-drug-step-add>단계 추가</button>
+      <button class="btn secondary" type="button" disabled>선택 삭제</button>
+    </div>
+  `;
+
+  /* 오른쪽: 실행 로그 */
+  const stepResults  = aCase.stepResults  || {};
+  const stepExpanded = aCase.stepExpanded || {};
+  const logRows = steps.map((step, i) => {
+    const state     = states[step.id] || "wait";
+    const isDone    = state === "done";
+    const isRun     = state === "run";
+    const isError   = state === "error";
+    const hasResult = !!(stepResults[step.id]);
+    const isExpanded= !!stepExpanded[step.id];
+    const stateCell = isDone
+      ? `<span class="gi-chip-state done">완료</span>
+         ${hasResult ? `<button class="gi-log-act-btn" data-drug-toggle-result="${escapeHtml(step.id)}">${isExpanded?"▲":"▼"}</button>` : ""}
+         <button class="gi-log-act-btn" data-drug-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">↺</button>`
+      : isError
+        ? `<span class="gi-chip-state" style="background:#fee2e2;color:#dc2626">오류</span>
+           <button class="gi-log-act-btn" data-drug-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">↺</button>`
+        : isRun
+          ? `<span class="gi-chip-state run" style="animation:gi-blink 1.2s infinite">실행중...</span>`
+          : `<button class="gi-log-act-btn primary" data-drug-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">▶</button>`;
+    const resultSection = (isDone||isError) && hasResult && isExpanded
+      ? `<div class="gi-log-result">${markdownToHtml(stepResults[step.id])}</div>` : "";
+    return `
+      <div class="gi-log-row${isDone?" gi-log-done":isRun?" gi-log-run":isError?" gi-log-error":""}">
+        <div class="gi-log-num">${isDone?"✓":isError?"!":i+1}</div>
+        <div class="gi-log-name">${escapeHtml(step.label)}</div>
+        <div class="gi-log-state">${stateCell}</div>
+      </div>${resultSection}`;
+  }).join("");
 
   return `
-    <div class="scenario-workbench-v2" style="display:flex;gap:16px;height:100%">
-      <!-- 왼쪽: AI 서비스 선택 -->
-      <div style="width:220px;flex:none;display:flex;flex-direction:column;gap:8px;overflow-y:auto">
-        <div class="panel-section-hdr"><span>AI 분석 서비스</span></div>
-        ${drugServices.map(s=>`
-          <div style="background:${s.highlight?"#fffbeb":"#f8fbff"};border:1px solid ${s.highlight?"#fde68a":"#dde8ff"};
-                      border-radius:8px;padding:10px 12px;cursor:pointer;
-                      ${s.highlight?"border-left:3px solid #d97706;":""}"
-               title="${s.desc}">
-            <div style="display:flex;align-items:center;gap:7px">
-              <span style="font-size:16px">${s.icon}</span>
-              <div>
-                <div style="font-size:12px;font-weight:700;color:${s.highlight?"#92400e":"#123c85"}">${s.label}</div>
-                <div style="font-size:10px;color:#6b7f9e">${s.desc}</div>
-              </div>
-            </div>
-            ${s.highlight?`<span style="display:inline-block;margin-top:5px;font-size:10px;background:#d97706;color:#fff;border-radius:3px;padding:1px 6px">마약전용</span>`:""}
-          </div>
-        `).join("")}
-      </div>
-      <!-- 오른쪽: 시나리오 단계 + 실행 결과 -->
-      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <strong style="font-size:14px;color:#123c85">시나리오 실행 현황</strong>
-          <span style="font-size:12px;color:#6b7f9e">| ${aCase.caseId} · ${escapeHtml(aCase.targetName)}</span>
-          <button class="btn" style="margin-left:auto;height:32px;padding:0 16px;font-size:12px">▶ 시나리오 실행</button>
+    <section class="card scenario-workbench scenario-workbench-v2" style="padding:0;overflow:hidden">
+      <div class="scenario-title-row" style="padding:14px 18px 0">
+        <div>
+          <h3 style="display:flex;align-items:center;gap:10px;margin:0 0 2px">
+            <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+            ${escapeHtml(aCase.targetName)}
+            <span class="muted" style="font-weight:400;font-size:13px">${escapeHtml(aCase.caseId)}</span>
+          </h3>
+          <p class="muted" style="margin:0;font-size:12px">수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다.</p>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1">
-          ${steps.map((s,i)=>{
-            const svc = drugServices.find(d=>d.id===s.svc)||drugServices[0];
-            return `
-              <div style="background:#fff;border:1px solid ${s.status==="진행중"?"#fde68a":s.status==="완료"?"#bbf7d0":"#dde8ff"};
-                          border-radius:10px;padding:12px 14px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:14px">${svc.icon}</span>
-                  <strong style="font-size:13px">${i+1}. ${svc.label}</strong>
-                  <span style="margin-left:auto;font-size:11px;font-weight:700;
-                               color:${s.status==="완료"?"#16a34a":s.status==="진행중"?"#d97706":"#6b7f9e"}">
-                    ${s.status==="진행중"?"⏳ ":s.status==="완료"?"✅ ":"⬜ "}${s.status}
-                  </span>
-                </div>
-                ${s.output?`<div style="margin-top:8px;font-size:12px;color:#41506a;background:#f8fbff;border-radius:6px;padding:8px 10px">${escapeHtml(s.output)}</div>`:""}
-              </div>`;
-          }).join("")}
-          <!-- 물리 검사 결과 등록 폼 -->
-          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-              <span style="font-size:16px">📋</span>
-              <strong style="font-size:13px;color:#92400e">물리 검사 결과 등록</strong>
-              <span style="font-size:10px;background:#d97706;color:#fff;border-radius:3px;padding:1px 6px">마약전용</span>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검사 일시</label>
-                <input class="form-input" style="height:32px;font-size:12px" placeholder="2026-05-30 10:30"></div>
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검사 기관</label>
-                <input class="form-input" style="height:32px;font-size:12px" placeholder="국립과학수사연구원"></div>
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">검출 성분</label>
-                <input class="form-input" style="height:32px;font-size:12px" placeholder="메스암페타민 등"></div>
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">압수 중량(g)</label>
-                <input class="form-input" style="height:32px;font-size:12px" type="number" placeholder="0"></div>
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">순도(%)</label>
-                <input class="form-input" style="height:32px;font-size:12px" type="number" placeholder="0"></div>
-              <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">감정 결과</label>
-                <select class="form-input" style="height:32px;font-size:12px">
-                  <option>양성(마약류)</option><option>음성</option><option>추가 감정 필요</option>
-                </select></div>
-            </div>
-            <div><label style="font-size:12px;color:#41506a;display:block;margin-bottom:4px">특이사항</label>
-              <textarea class="form-input" rows="2" style="font-size:12px" placeholder="현장 상황, 은닉 수법 등 특이사항을 입력하세요"></textarea></div>
-            <button class="btn" style="margin-top:8px;height:32px;padding:0 16px;font-size:12px;background:#d97706;border-color:#d97706;color:#fff">검사 결과 저장</button>
-          </div>
+        <div class="scenario-status">
+          <span>${done===total&&total>0?"완료":done>0?"진행중":"대기"}</span>
+          <strong>${done}/${total}</strong>
         </div>
       </div>
-    </div>
+      <div class="scenario-progress" style="margin:10px 18px 0;height:6px">
+        <i style="width:${pct}%"></i>
+      </div>
+      <div class="scenario-layout scenario-execution-layout" style="padding:14px 18px 14px;margin-top:10px">
+        <section class="scenario-board">
+          <div class="scenario-board-head">
+            <h3>수사 시나리오</h3>
+            <span class="muted" style="font-size:12px">${total}단계</span>
+          </div>
+          <div class="scenario-list-vertical" style="margin-top:10px">${boardChips}</div>
+        </section>
+        <aside class="scenario-config" style="display:flex;flex-direction:column">${configPanel}</aside>
+        <section class="scenario-log" style="display:flex;flex-direction:column">
+          <div class="scenario-log-head">
+            <h3>분석 실행</h3>
+            <div class="scenario-log-actions">
+              <button class="btn" type="button" data-drug-run-step="${escapeHtml(aCase.caseId)}:all">분석 실행</button>
+              <button class="btn secondary" type="button" data-drug-run-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
+            </div>
+          </div>
+          <div class="gi-log-list scenario-step-accordion" style="margin-top:10px;flex:1;overflow-y:auto">
+            ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분석 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
+          </div>
+        </section>
+      </div>
+    </section>
   `;
 }
 
@@ -7655,6 +7807,85 @@ document.addEventListener("click", (event)=>{
     drugInvTab = drugTab.dataset.drugTab;
     render("lawsearch");
     return;
+  }
+
+  /* ── 마약수사 워크벤치 핸들러 ── */
+  const drugStepSelect = event.target.closest("[data-drug-step-select]");
+  if(drugStepSelect && !event.target.closest("[data-drug-step-up],[data-drug-step-down]")){
+    activeDrugStepId = drugStepSelect.dataset.drugStepSelect;
+    render("lawsearch"); return;
+  }
+
+  const drugStepUp = event.target.closest("[data-drug-step-up]");
+  if(drugStepUp){
+    const aCase = activeDrugCase(); if(!aCase) return;
+    const steps = activeDrugCaseSteps();
+    const idx = steps.findIndex(s => s.id === drugStepUp.dataset.drugStepUp);
+    if(idx > 0){ [steps[idx-1], steps[idx]] = [steps[idx], steps[idx-1]]; }
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  const drugStepDown = event.target.closest("[data-drug-step-down]");
+  if(drugStepDown){
+    const aCase = activeDrugCase(); if(!aCase) return;
+    const steps = activeDrugCaseSteps();
+    const idx = steps.findIndex(s => s.id === drugStepDown.dataset.drugStepDown);
+    if(idx < steps.length-1){ [steps[idx], steps[idx+1]] = [steps[idx+1], steps[idx]]; }
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  const drugStepDelete = event.target.closest("[data-drug-step-delete]");
+  if(drugStepDelete){
+    const aCase = activeDrugCase(); if(!aCase) return;
+    const id = drugStepDelete.dataset.drugStepDelete;
+    aCase.giSteps = activeDrugCaseSteps().filter(s => s.id !== id);
+    if(activeDrugStepId === id) activeDrugStepId = aCase.giSteps[0]?.id || null;
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  const drugStepAdd = event.target.closest("[data-drug-step-add]");
+  if(drugStepAdd){
+    const aCase = activeDrugCase(); if(!aCase) return;
+    const sel = document.getElementById("drugWbAddSource");
+    const key = sel?.value; if(!key) return;
+    if(!aCase.giSteps) activeDrugCaseSteps();
+    const src = GI_STEP_SOURCES.find(s => s.key === key) || GI_STEP_SOURCES[0];
+    aCase.giSteps.push(normalizeGiScenarioStep({
+      ...src, id:`drs_${uid()}`,
+      sourceKey: src.sourceKey,
+      behaviors: sourceDefaultBehaviors(src.sourceKey),
+      instruction: sourceDefaultInstruction(src.sourceKey, aCase.targetType||"person"),
+    }, aCase.giSteps.length));
+    activeDrugStepId = aCase.giSteps[aCase.giSteps.length-1].id;
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  const drugRunStep = event.target.closest("[data-drug-run-step]");
+  if(drugRunStep){
+    const [caseId, stepId] = drugRunStep.dataset.drugRunStep.split(":");
+    const aCase = activeDrugCase(); if(!aCase) return;
+    if(stepId === "clear"){
+      aCase.stepStates  = {}; aCase.stepResults = {}; aCase.stepExpanded = {};
+      saveCanvasState(); render("lawsearch"); return;
+    }
+    if(!aCase.stepStates) aCase.stepStates = {};
+    if(!aCase.stepResults) aCase.stepResults = {};
+    const steps = activeDrugCaseSteps();
+    const toRun = stepId === "all" ? steps : steps.filter(s => s.id === stepId);
+    toRun.forEach(s => {
+      aCase.stepStates[s.id] = "done";
+      aCase.stepResults[s.id] = `[${escapeHtml(s.label)}] 분석이 완료되었습니다.`;
+    });
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  const drugToggleResult = event.target.closest("[data-drug-toggle-result]");
+  if(drugToggleResult){
+    const aCase = activeDrugCase(); if(!aCase) return;
+    if(!aCase.stepExpanded) aCase.stepExpanded = {};
+    const id = drugToggleResult.dataset.drugToggleResult;
+    aCase.stepExpanded[id] = !aCase.stepExpanded[id];
+    render("lawsearch"); return;
   }
 
   const drugAccBtn = event.target.closest("[data-drug-acc]");
