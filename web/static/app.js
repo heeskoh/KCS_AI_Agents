@@ -3452,9 +3452,6 @@ function ciOngoingJobCard(job){
         <span>${done}/${total} 단계</span>
         <strong>${job.status.pct}%</strong>
       </div>
-      <button class="btn secondary ci-job-enter-btn">
-        프로파일 보기 →
-      </button>
     </article>
   `;
 }
