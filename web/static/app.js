@@ -3464,28 +3464,25 @@ function invNewJobForm(){
   if(!scenarioCompanies.length) loadScenarioCompanies();
   const companies = scenarioCompanies;
   return `
-    <div class="gi-reg-form">
-      <h3 class="gi-reg-title">신규 관세조사 등록</h3>
-      <div class="gi-reg-grid">
-        <div class="gi-reg-field">
-          <label>조사 대상 업체 <span style="color:var(--red)">*</span></label>
-          <select id="invNewJobCompany" class="gi-reg-select">
+    <div class="gi-reg-form" style="padding:12px 16px">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:nowrap">
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">조사 대상 업체 <span style="color:var(--red)">*</span></label>
+          <select id="invNewJobCompany" class="gi-reg-select" style="width:100%;height:36px">
             <option value="">-- 업체를 선택하세요 --</option>
             ${companies.map(c =>
               `<option value="${escapeHtml(c.company_id)}">${escapeHtml(c.company_name||c.company_id)} (${escapeHtml(c.company_id)})</option>`
             ).join("")}
           </select>
         </div>
-        <div class="gi-reg-field">
-          <label>분석 시나리오 템플릿 <span style="color:var(--red)">*</span></label>
-          <select id="invNewJobTemplate" class="gi-reg-select">
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">분석 시나리오 템플릿 <span style="color:var(--red)">*</span></label>
+          <select id="invNewJobTemplate" class="gi-reg-select" style="width:100%;height:36px">
             ${scenarioTemplateOptionsHtml()}
           </select>
         </div>
-      </div>
-      <div class="gi-reg-actions">
-        <button class="btn" type="button" data-inv-submit>등록</button>
-        <button class="btn secondary" type="button" data-inv-new-job>취소</button>
+        <button class="btn" type="button" data-inv-submit style="height:36px;padding:0 20px;white-space:nowrap;flex:none">등록</button>
+        <button class="btn secondary" type="button" data-inv-new-job style="height:36px;padding:0 16px;white-space:nowrap;flex:none">취소</button>
       </div>
     </div>
   `;
