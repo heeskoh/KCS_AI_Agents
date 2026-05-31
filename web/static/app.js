@@ -3484,7 +3484,7 @@ function invNewJobForm(){
         </div>
       </div>
       <div class="gi-reg-actions">
-        <button class="btn" type="button" data-inv-submit>기업프로파일로 시작 →</button>
+        <button class="btn" type="button" data-inv-submit>등록</button>
         <button class="btn secondary" type="button" data-inv-new-job>취소</button>
       </div>
     </div>
@@ -7288,7 +7288,7 @@ document.addEventListener("click", (event)=>{
     scenarioInitialized = false;
     scenarioLoadedForCompany = null;
     showInvNewJobForm = false;
-    investigationTab = "profile";
+    // 탭 이동 없이 카드 등록 후 목록 유지
     saveCanvasState();
     render("investigation");
     return;
