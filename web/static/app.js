@@ -971,6 +971,7 @@ let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false
 let activeDrugCaseId     = null;
 let showDrugNewCaseForm  = false;
 let drugCaseFilter       = "";
+let drugRegTargetType    = "company"; // 마약수사 등록 대상 유형: "company"|"person"
 let archivedDrugCases    = [];   // 마약수사 완료 아카이브
 let drugArchiveOpen      = false;
 let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
@@ -2857,88 +2858,57 @@ function genInvCaseCard(c){
 function generalInvRegForm(){
   const isCo = giRegTargetType === "company";
   if(!isCo && !riskPersons.length && !riskPersonsLoading) loadRiskPersons();
+
+  const targetOptions = isCo
+    ? `<option value="">-- 기업을 선택하세요 --</option>
+       ${scenarioCompanies.map(c =>
+         `<option value="${escapeHtml(c.company_id)}">${escapeHtml(c.company_name||c.company_id)} (${escapeHtml(c.company_id)})</option>`
+       ).join("")}`
+    : `<option value="">-- 우범자를 선택하세요 --</option>
+       ${riskPersonsLoading
+         ? `<option disabled>로딩 중...</option>`
+         : riskPersons.map(p =>
+             `<option value="${escapeHtml(p.person_id)}">${escapeHtml(p.name)} (${escapeHtml(p.person_id)}) · ${escapeHtml(p.risk_level||"-")}</option>`
+           ).join("")}`;
+
   return `
-    <div class="gi-reg-form">
-      <div class="gi-reg-type-row">
-        <span class="gi-reg-type-label">수사 대상 유형</span>
-        <div class="gi-reg-radio-group">
-          <button class="gi-reg-radio-btn${isCo ? " active" : ""}" data-gi-reg-type="company" type="button">
-            <span class="gi-reg-radio-dot${isCo ? " on" : ""}"></span> 기업
-          </button>
-          <button class="gi-reg-radio-btn${!isCo ? " active" : ""}" data-gi-reg-type="person" type="button">
-            <span class="gi-reg-radio-dot${!isCo ? " on" : ""}"></span> 개인
-          </button>
+    <div class="gi-reg-form" style="padding:12px 16px">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:nowrap">
+
+        <!-- ① 수사대상 유형 -->
+        <div style="flex:none">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사대상 유형 <span style="color:var(--red)">*</span></label>
+          <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:36px">
+            <button type="button" data-gi-reg-type="company"
+              style="padding:0 14px;font-size:12px;font-weight:600;border:none;cursor:pointer;
+                     background:${isCo?"#1e40af":"#fff"};color:${isCo?"#fff":"#41506a"}">기업</button>
+            <button type="button" data-gi-reg-type="person"
+              style="padding:0 14px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--line);cursor:pointer;
+                     background:${!isCo?"#1e40af":"#fff"};color:${!isCo?"#fff":"#41506a"}">개인</button>
+          </div>
         </div>
-      </div>
-      <h3 class="gi-reg-title">수사 대상 등록</h3>
-      ${!isCo ? `
-      <div class="gi-reg-grid">
-        <div class="gi-reg-field">
-          <label>우범자 프로파일 선택</label>
-          <select id="giRegPersonSelect" class="gi-reg-select">
-            <option value="">-- 우범자를 선택하거나 직접 입력하세요 --</option>
-            ${riskPersonsLoading
-              ? `<option value="" disabled>우범자 프로파일 로딩 중...</option>`
-              : riskPersons.map(person => `
-                <option value="${escapeHtml(person.person_id)}">
-                  ${escapeHtml(person.name)} (${escapeHtml(person.person_id)}) · ${escapeHtml(person.profile_type || "-")} · ${escapeHtml(person.risk_level || "-")} ${person.risk_score != null ? Number(person.risk_score).toFixed(1) : ""}
-                </option>
-              `).join("")}
+
+        <!-- ② 수사대상 선택 -->
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사대상 선택 <span style="color:var(--red)">*</span></label>
+          <select id="giRegTargetSelect" class="gi-reg-select" style="width:100%;height:36px">
+            ${targetOptions}
           </select>
         </div>
-      </div>` : ""}
-      <div class="gi-reg-grid gi-reg-grid-3">
-        <div class="gi-reg-field">
-          <label>${isCo ? "업체명" : "성명"}</label>
-          <input id="giRegTarget" placeholder="${isCo ? "업체명을 입력하세요" : "성명을 입력하세요"}">
-        </div>
-        <div class="gi-reg-field">
-          <label>사건번호 (자동생성 가능)</label>
-          <input id="giRegCaseId" placeholder="예: GI-2026-004">
-        </div>
-        <div class="gi-reg-field">
-          <label>일반수사 유형 선택 <span style="color:var(--red)">*</span></label>
-          <select id="giRegTypeSelect" class="gi-reg-select">
+
+        <!-- ③ 수사 유형 선택 -->
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사 유형 선택 <span style="color:var(--red)">*</span></label>
+          <select id="giRegTypeSelect" class="gi-reg-select" style="width:100%;height:36px">
             ${GEN_INV_TYPES.map(t =>
               `<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`
             ).join("")}
           </select>
         </div>
-      </div>
-      ${isCo ? `
-      <div class="gi-reg-grid gi-reg-grid-2">
-        <div class="gi-reg-field">
-          <label>사업자등록번호</label>
-          <input id="giRegBizNo" placeholder="000-00-00000">
-        </div>
-        <div class="gi-reg-field">
-          <label>대표자</label>
-          <input id="giRegCeoName" placeholder="대표자 성명">
-        </div>
-      </div>` : `
-      <div class="gi-reg-grid gi-reg-grid-2">
-        <div class="gi-reg-field">
-          <label>주민등록번호 앞자리</label>
-          <input id="giRegPersonId" placeholder="생년월일 6자리">
-        </div>
-        <div class="gi-reg-field">
-          <label>국적</label>
-          <input id="giRegNation" placeholder="예: 대한민국">
-        </div>
-      </div>`}
-      <div class="gi-reg-row2">
-        <div class="gi-reg-field">
-          <label>담당 수사관</label>
-          <input id="giRegInvestigator" value="${escapeHtml(currentUser().name)}">
-        </div>
-        <div class="gi-reg-field">
-          <label>담당 팀</label>
-          <input id="giRegTeam" value="${escapeHtml(currentUserGroup().org + " " + currentUserGroup().team)}">
-        </div>
-        <div class="gi-reg-actions gi-reg-actions-row">
-          <button class="btn" type="button" data-gi-register>등록</button>
-          <button class="btn secondary" type="button" data-gi-reg-toggle>취소</button>
-        </div>
+
+        <!-- ④ 등록/취소 -->
+        <button class="btn" type="button" data-gi-register style="height:36px;padding:0 20px;white-space:nowrap;flex:none">등록</button>
+        <button class="btn secondary" type="button" data-gi-reg-toggle style="height:36px;padding:0 16px;white-space:nowrap;flex:none">취소</button>
       </div>
     </div>
   `;
@@ -3944,40 +3914,57 @@ function drugCaseCard(c){
 }
 
 function drugNewCaseForm(){
+  const isCo = drugRegTargetType === "company";
+  if(!isCo && !riskPersons.length && !riskPersonsLoading) loadRiskPersons();
+
+  const targetOptions = isCo
+    ? `<option value="">-- 기업을 선택하세요 --</option>
+       ${scenarioCompanies.map(c =>
+         `<option value="${escapeHtml(c.company_id)}">${escapeHtml(c.company_name||c.company_id)} (${escapeHtml(c.company_id)})</option>`
+       ).join("")}`
+    : `<option value="">-- 우범자를 선택하세요 --</option>
+       ${riskPersonsLoading
+         ? `<option disabled>로딩 중...</option>`
+         : riskPersons.map(p =>
+             `<option value="${escapeHtml(p.person_id)}">${escapeHtml(p.name)} (${escapeHtml(p.person_id)}) · ${escapeHtml(p.risk_level||"-")}</option>`
+           ).join("")}`;
+
   return `
-    <div class="gi-reg-form">
-      <h3 class="gi-reg-title">마약 수사 대상 등록</h3>
-      <div class="gi-reg-grid gi-reg-grid-3">
-        <div class="gi-reg-field">
-          <label>수사 대상 성명 / 업체명 <span style="color:var(--red)">*</span></label>
-          <input id="drugRegTarget" placeholder="성명 또는 업체명을 입력하세요">
+    <div class="gi-reg-form" style="padding:12px 16px">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:nowrap">
+
+        <!-- ① 수사대상 유형 -->
+        <div style="flex:none">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사대상 유형 <span style="color:var(--red)">*</span></label>
+          <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:36px">
+            <button type="button" data-drug-reg-type="company"
+              style="padding:0 14px;font-size:12px;font-weight:600;border:none;cursor:pointer;
+                     background:${isCo?"#1e40af":"#fff"};color:${isCo?"#fff":"#41506a"}">기업</button>
+            <button type="button" data-drug-reg-type="person"
+              style="padding:0 14px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--line);cursor:pointer;
+                     background:${!isCo?"#1e40af":"#fff"};color:${!isCo?"#fff":"#41506a"}">개인</button>
+          </div>
         </div>
-        <div class="gi-reg-field">
-          <label>사건번호 (자동생성 가능)</label>
-          <input id="drugRegCaseId" placeholder="예: DRUG-2026-004">
-        </div>
-        <div class="gi-reg-field">
-          <label>수사 유형 <span style="color:var(--red)">*</span></label>
-          <select id="drugRegType" class="gi-reg-select">
-            ${DRUG_INV_TYPES.map(t=>`<option value="${t.id}">${t.num} ${t.label}</option>`).join("")}
+
+        <!-- ② 수사대상 선택 -->
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사대상 선택 <span style="color:var(--red)">*</span></label>
+          <select id="drugRegTargetSelect" class="gi-reg-select" style="width:100%;height:36px">
+            ${targetOptions}
           </select>
         </div>
-        <div class="gi-reg-field">
-          <label>국적 / 관련국</label>
-          <input id="drugRegNation" placeholder="예: 한국, 태국, 미국">
+
+        <!-- ③ 수사 유형 선택 -->
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사 유형 선택 <span style="color:var(--red)">*</span></label>
+          <select id="drugRegType" class="gi-reg-select" style="width:100%;height:36px">
+            ${DRUG_INV_TYPES.map(t=>`<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`).join("")}
+          </select>
         </div>
-        <div class="gi-reg-field">
-          <label>담당 팀</label>
-          <input id="drugRegTeam" placeholder="예: 마약수사 전담팀">
-        </div>
-        <div class="gi-reg-field">
-          <label>담당 조사관</label>
-          <input id="drugRegInvestigator" placeholder="성명">
-        </div>
-      </div>
-      <div class="gi-reg-actions">
-        <button class="btn" type="button" data-drug-reg-submit>등록</button>
-        <button class="btn secondary" type="button" data-drug-reg-toggle>취소</button>
+
+        <!-- ④ 등록/취소 -->
+        <button class="btn" type="button" data-drug-reg-submit style="height:36px;padding:0 20px;white-space:nowrap;flex:none">등록</button>
+        <button class="btn secondary" type="button" data-drug-reg-toggle style="height:36px;padding:0 16px;white-space:nowrap;flex:none">취소</button>
       </div>
     </div>
   `;
@@ -7388,44 +7375,52 @@ document.addEventListener("click", (event)=>{
   const giRegToggle = event.target.closest("[data-gi-reg-toggle]");
   if(giRegToggle){
     showGenInvRegForm = !showGenInvRegForm;
+    if(showGenInvRegForm){
+      if(!scenarioCompanies.length) loadScenarioCompanies();
+    }
     render("generalinv");
     return;
   }
 
   const giRegister = event.target.closest("[data-gi-register]");
   if(giRegister){
-    const selectedPersonId = document.getElementById("giRegPersonSelect")?.value || "";
-    const selectedPerson = riskPersonById(selectedPersonId);
-    const targetName   = document.getElementById("giRegTarget")?.value.trim() || selectedPerson?.name || "";
-    const caseId       = document.getElementById("giRegCaseId")?.value.trim()
-                         || `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
-    const invTypeId    = document.getElementById("giRegTypeSelect")?.value || GEN_INV_TYPES[0].id;
-    const investigator = document.getElementById("giRegInvestigator")?.value.trim() || currentUser().name;
-    const team         = document.getElementById("giRegTeam")?.value.trim() || "";
-    if(!targetName){ alert("수사대상 명칭을 입력하세요."); return; }
+    const selectedId = document.getElementById("giRegTargetSelect")?.value || "";
+    if(!selectedId){ alert("수사 대상을 선택하세요."); return; }
+    const invTypeId = document.getElementById("giRegTypeSelect")?.value || GEN_INV_TYPES[0].id;
+
+    let targetName, extraFields = {};
+    if(giRegTargetType === "company"){
+      const co = findCompanyById(selectedId) || scenarioCompanies.find(c => c.company_id === selectedId);
+      targetName = co?.company_name || selectedId;
+      extraFields = { companyId: selectedId, targetType:"company" };
+    } else {
+      const person = riskPersonById(selectedId);
+      targetName = person?.name || selectedId;
+      extraFields = {
+        targetType:"person", personId: selectedId,
+        personProfileType: person?.profile_type || "",
+        personRiskLevel:   person?.risk_level   || "",
+        personRiskScore:   person?.risk_score,
+        personNationality: person?.nationality   || "",
+      };
+    }
+
+    const caseId = `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
     const newCase = {
       caseId, targetName, invTypeId,
-      targetType: giRegTargetType,
+      ...extraFields,
       status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
-      investigator, team,
+      investigator: currentUser().name,
+      team: currentUserGroup().org + " " + currentUserGroup().team,
       created: new Date().toLocaleDateString("ko-KR"),
       updated: "방금",
       ownerUserId: currentUserId,
       assignees: [currentUserId],
     };
-    if(giRegTargetType === "person" && selectedPerson){
-      newCase.personId = selectedPerson.person_id;
-      newCase.personProfileType = selectedPerson.profile_type || "";
-      newCase.personRiskLevel = selectedPerson.risk_level || "";
-      newCase.personRiskScore = selectedPerson.risk_score;
-      newCase.personRiskTags = selectedPerson.risk_tags || "";
-      newCase.personNationality = selectedPerson.nationality || "";
-    }
     customGenInvCases.unshift(newCase);
-    activeGenInvCaseId = caseId;
-    showGenInvRegForm  = false;
-    giRegTargetType    = "company";
-    generalInvTab      = "profile";
+    showGenInvRegForm = false;
+    giRegTargetType   = "company";
+    // 탭 이동 없이 목록에 카드만 등록
     saveCanvasState();
     render("generalinv");
     return;
@@ -7718,31 +7713,58 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  /* ── 마약수사 등록 대상 유형 전환 ── */
+  const drugRegTypeBtn = event.target.closest("[data-drug-reg-type]");
+  if(drugRegTypeBtn){
+    drugRegTargetType = drugRegTypeBtn.dataset.drugRegType;
+    if(drugRegTargetType === "person") loadRiskPersons();
+    if(drugRegTargetType === "company" && !scenarioCompanies.length) loadScenarioCompanies();
+    render("lawsearch");
+    return;
+  }
+
   const drugRegToggle = event.target.closest("[data-drug-reg-toggle]");
   if(drugRegToggle){
     showDrugNewCaseForm = !showDrugNewCaseForm;
+    if(showDrugNewCaseForm){
+      if(!scenarioCompanies.length) loadScenarioCompanies();
+    }
     render("lawsearch");
     return;
   }
 
   const drugRegSubmit = event.target.closest("[data-drug-reg-submit]");
   if(drugRegSubmit){
-    const f = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
-    const autoId = "DI-" + String(defaultDrugInvCases.length + 1).padStart(3,"0");
+    const selectedId = document.getElementById("drugRegTargetSelect")?.value || "";
+    if(!selectedId){ alert("수사 대상을 선택하세요."); return; }
+    const invTypeId = document.getElementById("drugRegType")?.value || "d1";
+
+    let targetName, extraFields = {};
+    if(drugRegTargetType === "company"){
+      const co = findCompanyById(selectedId) || scenarioCompanies.find(c => c.company_id === selectedId);
+      targetName = co?.company_name || selectedId;
+      extraFields = { companyId: selectedId, targetType:"company" };
+    } else {
+      const person = riskPersonById(selectedId);
+      targetName = person?.name || selectedId;
+      extraFields = { targetType:"person", personId: selectedId, nationality: person?.nationality || "미상" };
+    }
+
+    const autoId = "DRUG-" + new Date().getFullYear() + "-" + String(defaultDrugInvCases.length + 1).padStart(3,"0");
     const newCase = {
-      caseId: f("drugRegCaseId") || autoId,
-      targetName: f("drugRegTarget") || "미입력",
-      invTypeId: f("drugRegType") || "d1",
-      nationality: f("drugRegNation") || "미상",
-      team: f("drugRegTeam") || "",
-      investigator: f("drugRegInvestigator") || "",
+      caseId: autoId,
+      targetName, invTypeId,
+      ...extraFields,
+      team:        "마약수사 전담팀",
+      investigator: currentUser().name,
       updated: "방금",
-      status: { label:"진행중", tone:"running", done:0, total:6, pct:0 },
+      status: { label:"대기", tone:"wait", done:0, total:6, pct:0 },
     };
     defaultDrugInvCases.push(newCase);
-    activeDrugCaseId = newCase.caseId;
     showDrugNewCaseForm = false;
-    drugInvTab = "data";
+    drugRegTargetType   = "company";
+    // 탭 이동 없이 목록에 카드만 등록
+    saveCanvasState();
     render("lawsearch");
     return;
   }
