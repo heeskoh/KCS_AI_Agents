@@ -6,7 +6,14 @@
 import duckdb
 
 from src.agents.state import CustomsState
-from src.agents.scope import has_company_scope, no_company_result
+from src.agents.scope import (
+    has_company_scope,
+    has_person_scope,
+    no_company_result,
+    no_target_result,
+    target_id,
+    target_type,
+)
 from src.paths import DB_PATH
 
 
@@ -29,6 +36,62 @@ def agent_company(state: CustomsState) -> CustomsState:
 
     `company_id` 또는 `business_registration_no` 어느 쪽으로 들어와도 매칭.
     """
+    if target_type(state) == "person":
+        if not has_person_scope(state):
+            return {**state, "company_result": no_target_result(state, "우범자 프로파일 조회")}
+
+        person_id = target_id(state)
+        print(f"\n[Agent] 우범자 프로파일 조회 시작: {person_id}")
+        with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+            exists = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_name = 'risk_person_profile'
+                """
+            ).fetchone()[0]
+            if not exists:
+                return {
+                    **state,
+                    "company_result": (
+                        "[우범자 프로파일 조회]\n"
+                        "- risk_person_profile 테이블이 없습니다.\n"
+                        "- 기업 프로파일 테이블로 대체 조회하지 않았습니다."
+                    ),
+                }
+            df = conn.execute(
+                """
+                SELECT person_id, name, profile_type, name_aliases, birth_date,
+                       gender, nationality, address_region, occupation,
+                       risk_level, risk_score, risk_tags, watch_status, updated_at
+                FROM risk_person_profile
+                WHERE person_id = ?
+                LIMIT 1
+                """,
+                [person_id],
+            ).df()
+
+        if df.empty:
+            result = (
+                "[우범자 프로파일 조회]\n"
+                f"- 개인ID `{person_id}`에 해당하는 우범자 프로파일이 없습니다.\n"
+                "- 기업 프로파일을 대신 조회하지 않았습니다."
+            )
+        else:
+            p = df.to_dict("records")[0]
+            result = "\n".join([
+                "[우범자 프로파일]",
+                f"- 성명: {p.get('name')} (ID: {p.get('person_id')})",
+                f"- 유형: {p.get('profile_type') or '-'} / 국적: {p.get('nationality') or '-'}",
+                f"- 생년월일/성별: {p.get('birth_date') or '-'} / {p.get('gender') or '-'}",
+                f"- 주소권역/직업: {p.get('address_region') or '-'} / {p.get('occupation') or '-'}",
+                f"- 위험등급: {p.get('risk_level') or '-'} (점수 {float(p.get('risk_score') or 0):.1f})",
+                f"- 위험태그: {p.get('risk_tags') or '-'}",
+                f"- 감시상태: {p.get('watch_status') or '-'}",
+            ])
+        print("[Agent] 우범자 프로파일 조회 완료")
+        return {**state, "company_result": result}
+
     if not has_company_scope(state):
         return {**state, "company_result": no_company_result("기업 프로파일 조회")}
 

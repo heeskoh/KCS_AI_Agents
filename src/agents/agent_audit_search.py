@@ -13,7 +13,7 @@ except ImportError:
     Chroma = None
 
 from src.agents.state import CustomsState
-from src.agents.scope import company_id as scoped_company_id, prompt_text, is_no_company_id
+from src.agents.scope import company_id as scoped_company_id, prompt_text, is_no_company_id, target_query_terms
 from src.config import CFG
 from src.embeddings import get_embeddings, get_init_error
 from src.paths import CHROMA_DIR
@@ -49,6 +49,7 @@ def _resolve_query(state: CustomsState) -> str:
     cid = scoped_company_id(state)
     parts = [
         prompt_text(state),
+        *target_query_terms(state),
         state.get("company_result") or "",
         state.get("db_result") or "",
     ]

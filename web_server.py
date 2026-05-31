@@ -1009,6 +1009,37 @@ def _detect_gi_company_id(target_name: str) -> str:
     return "__NO_COMPANY_SELECTED__"
 
 
+def _detect_person_id(target_name: str, target_id: str = "") -> str:
+    """Resolve a person target to risk_person_profile.person_id when possible."""
+    candidate = (target_id or "").strip()
+    if candidate:
+        return candidate
+    name = (target_name or "").strip()
+    if not name:
+        return "__NO_PERSON_SELECTED__"
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        exists = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = 'risk_person_profile'
+            """
+        ).fetchone()[0]
+        if not exists:
+            return "__NO_PERSON_SELECTED__"
+        row = conn.execute(
+            """
+            SELECT person_id
+            FROM risk_person_profile
+            WHERE name = ? OR name_aliases LIKE ?
+            ORDER BY risk_score DESC NULLS LAST
+            LIMIT 1
+            """,
+            [name, f"%{name}%"],
+        ).fetchone()
+    return row[0] if row else "__NO_PERSON_SELECTED__"
+
+
 class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -1157,12 +1188,26 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
     def _stream_workflow(self, company_id: str, scenario: dict[str, object]) -> None:
-        if not company_id:
-            self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
-            return
         scenario["target_type"] = _normalize_target_type(
             scenario.get("target_type") or scenario.get("targetType")
         )
+        if scenario["target_type"] == "person":
+            fallback_person_id = company_id if company_id not in ("", "__NO_COMPANY_SELECTED__") else ""
+            scenario["target_id"] = (
+                scenario.get("target_id")
+                or scenario.get("targetId")
+                or scenario.get("person_id")
+                or scenario.get("personId")
+                or fallback_person_id
+                or _detect_person_id(str(scenario.get("target_name") or scenario.get("targetName") or ""), "")
+            )
+            company_id = "__NO_COMPANY_SELECTED__"
+            if not scenario.get("target_id"):
+                self._send_json({"error": "target_id is required for person target"}, HTTPStatus.BAD_REQUEST)
+                return
+        elif not company_id:
+            self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+            return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -1225,6 +1270,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             (params.get("target_type") or params.get("targetType") or ["company"])[0]
         )
         target_id   = (params.get("target_id")   or [""])[0]
+        if target_type == "person":
+            target_id = _detect_person_id(target_name, target_id)
         try:
             steps_data: list[dict] = json.loads((params.get("steps") or ["[]"])[0])
         except Exception:
@@ -1234,7 +1281,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "steps required"}, HTTPStatus.BAD_REQUEST)
             return
 
-        company_id  = _detect_gi_company_id(target_name)
+        company_id  = _detect_gi_company_id(target_name) if target_type == "company" else "__NO_COMPANY_SELECTED__"
         user_prompt = (
             f"수사 대상: {target_name} (사건번호: {case_id})\n"
             f"일반수사 분析을 수행합니다. 관세청 조사관의 관점에서 분析하세요."
@@ -1283,6 +1330,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             "gi_target_name": target_name,
             "target_type": target_type,
             "target_id": target_id,
+            "person_id": target_id if target_type == "person" else "",
+            "target_name": target_name,
         }
         state = create_initial_state(company_id, scenario)
 

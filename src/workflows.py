@@ -62,10 +62,35 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
     target_type = normalize_target_type(
         scenario.get("target_type") or scenario.get("targetType")
     )
+    target_id = str(
+        scenario.get("target_id")
+        or scenario.get("targetId")
+        or scenario.get("person_id")
+        or scenario.get("personId")
+        or (company_id if target_type == "company" else "")
+        or ""
+    ).strip()
+    person_id = target_id if target_type == "person" else ""
+    scoped_company_id = company_id if target_type == "company" else "__NO_COMPANY_SELECTED__"
+    target_name = str(
+        scenario.get("target_name")
+        or scenario.get("targetName")
+        or scenario.get("gi_target_name")
+        or ""
+    ).strip()
     return {
-        "company_id": company_id,
+        "company_id": scoped_company_id,
+        "person_id": person_id,
+        "target_id": target_id,
+        "target_name": target_name,
         "target_type": target_type,
-        "scenario": {**scenario, "target_type": target_type},
+        "scenario": {
+            **scenario,
+            "target_type": target_type,
+            "target_id": target_id,
+            "person_id": person_id,
+            "target_name": target_name,
+        },
         "company_result": None,
         "db_result": None,
         "rag_result": None,

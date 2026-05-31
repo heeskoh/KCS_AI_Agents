@@ -16,7 +16,7 @@ except ImportError:
     Chroma = None
 
 from src.agents.state import CustomsState
-from src.agents.scope import company_id as scoped_company_id, prompt_text, is_no_company_id
+from src.agents.scope import prompt_text, target_query_terms
 from src.config import CFG
 from src.embeddings import get_embeddings, get_init_error
 from src.llm import llm
@@ -120,10 +120,8 @@ def _run_rag(state: CustomsState, source_label: str, source_key: str) -> Customs
         for item in scenario.get("scenario_items", [])
         if item.get("key") == source_key and item.get("instruction")
     ]
-    cid = scoped_company_id(state)
     query_parts = [prompt_text(state), " ".join(instructions)]
-    if not is_no_company_id(cid):
-        query_parts.append(cid)
+    query_parts.extend(target_query_terms(state))
     db_result = state.get("db_result") or ""
     if db_result and "연관정보 없음" not in db_result:
         query_parts.append(db_result)

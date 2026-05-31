@@ -8,6 +8,9 @@ class CustomsState(TypedDict, total=False):
     """
 
     company_id: str
+    person_id: str
+    target_id: str
+    target_name: str
     target_type: str
     scenario: Optional[dict]
 

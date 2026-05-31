@@ -214,7 +214,7 @@ function activeDrugCaseSteps(){
   if(!aCase.giSteps){
     const defaults = DRUG_SCENARIO_STEPS[aCase.invTypeId] || DRUG_SCENARIO_STEPS.d1;
     aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({
-      ...s, id:`drs_${i}_${uid()}`,
+      ...s, id:`drs_${i}_${uid()}`, targetType:aCase.targetType || "person", target_type:aCase.targetType || "person",
       label: s.label || GI_STEP_SOURCES_MAP[s.key]?.label || s.key,
     }, i));
     aCase.stepStates  = {};
@@ -237,21 +237,21 @@ let GI_STEP_SOURCES_MAP = {};
 const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-001", invTypeId:"d2",
-    targetName:"김우범", nationality:"한국",
+    targetName:"김우범", targetType:"person", personId:"RP-0001", nationality:"한국",
     team:"마약수사 전담팀", investigator:"홍길동",
     updated:"방금",
     status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
   },
   {
     caseId:"DRUG-2026-002", invTypeId:"d1",
-    targetName:"(주)위장무역", nationality:"한국",
+    targetName:"(주)위장무역", targetType:"company", companyId:"__NO_COMPANY_SELECTED__", drugOrgId:"RO-002", nationality:"한국",
     team:"마약수사 전담팀", investigator:"김조사",
     updated:"오늘 09:10",
     status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
   },
   {
     caseId:"DRUG-2026-003", invTypeId:"d5",
-    targetName:"Park James", nationality:"미국",
+    targetName:"Park James", targetType:"person", personId:"RP-0003", nationality:"미국",
     team:"국제협력팀", investigator:"이국제",
     updated:"어제",
     status:{ label:"보고서 검증", tone:"review", done:5, total:6, pct:83 },
@@ -1050,7 +1050,7 @@ let showInvNewJobForm  = false;
 let invArchiveOpen     = false;
 
 /* ── 마약수사분석 상태 ──────────────────────────────────────── */
-let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"data"|"scenario"|"network"|"forensic"|"report"|"slang"
+let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"profile"|"data"|"scenario"|"network"|"forensic"|"report"|"slang"
 let drugInvSelectedTarget = null;
 let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false };
 let activeDrugCaseId     = null;
@@ -1059,6 +1059,10 @@ let drugCaseFilter       = "";
 let drugRegTargetType    = "company"; // 마약수사 등록 대상 유형: "company"|"person"
 let archivedDrugCases    = [];   // 마약수사 완료 아카이브
 let drugArchiveOpen      = false;
+let drugDataSubTab       = "profile";
+let drugNetworkSubTab    = "graph";
+let drugForensicSubTab   = "dashboard";
+let drugReportSubTab     = "draft";
 let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
 let genInvArchiveOpen    = false;
 
@@ -1306,6 +1310,84 @@ function giStreamSteps(aCase, stepsToRun){
     });
     saveCanvasState();
     render("generalinv");
+  };
+}
+
+function drugStreamSteps(aCase, stepsToRun){
+  if(!aCase || !stepsToRun.length) return;
+  if(giRunEventSource){ try{ giRunEventSource.close(); }catch(e){} giRunEventSource = null; }
+
+  if(!aCase.stepStates)  aCase.stepStates  = {};
+  if(!aCase.stepResults) aCase.stepResults = {};
+  stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
+  saveCanvasState();
+  render("lawsearch");
+
+  const targetType = aCase.targetType || "person";
+  const stepsPayload = stepsToRun.map(s => ({
+    id: s.id,
+    key: s.key,
+    label: s.label,
+    type: s.type,
+    sourceKey: s.sourceKey || giCommonSourceKey(s.key),
+    target_type: targetType,
+    targetType,
+    behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
+    note: giScenarioRunInstruction(s, targetType),
+  }));
+  const params = new URLSearchParams({
+    case_id: aCase.caseId,
+    target_name: aCase.targetName,
+    target_type: targetType,
+    targetType,
+    target_id: targetType === "person" ? (aCase.personId || "") : (aCase.companyId || ""),
+    steps: JSON.stringify(stepsPayload),
+  });
+  giRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
+
+  giRunEventSource.addEventListener("step", e => {
+    const data = JSON.parse(e.data);
+    const step = stepsToRun.find(s => s.id === data.gi_step_id);
+    if(!step) return;
+    if(data.status === "running"){
+      aCase.stepStates[step.id] = "run";
+    } else if(data.status === "done"){
+      aCase.stepStates[step.id] = "done";
+      aCase.stepResults[step.id] = data.output || "";
+      const allSteps = aCase.giSteps || [];
+      const doneCnt = allSteps.filter(s => (aCase.stepStates || {})[s.id] === "done").length;
+      aCase.status = {
+        ...aCase.status,
+        done: doneCnt,
+        total: allSteps.length,
+        pct: allSteps.length ? Math.round(doneCnt / allSteps.length * 100) : 0,
+        label: doneCnt === allSteps.length ? "완료" : "진행중",
+        tone: doneCnt === allSteps.length ? "done" : "run",
+      };
+    } else if(data.status === "error"){
+      aCase.stepStates[step.id] = "error";
+      aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
+    }
+    saveCanvasState();
+    render("lawsearch");
+  });
+
+  giRunEventSource.addEventListener("workflow", e => {
+    const data = JSON.parse(e.data);
+    if(data.status === "completed" || data.status === "failed"){
+      if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+      saveCanvasState();
+      render("lawsearch");
+    }
+  });
+
+  giRunEventSource.onerror = () => {
+    if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+    stepsToRun.forEach(s => {
+      if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
+    });
+    saveCanvasState();
+    render("lawsearch");
   };
 }
 
@@ -2464,6 +2546,10 @@ function saveCanvasState(){
       activeGenInvCaseId,
       drugInvTab,
       activeDrugCaseId,
+      drugDataSubTab,
+      drugNetworkSubTab,
+      drugForensicSubTab,
+      drugReportSubTab,
       investigationTab,
     }));
   }catch(error){
@@ -2521,6 +2607,12 @@ function saveCurrentUserWorkspace(){
     canvasTab,
     generalInvTab,
     activeGenInvCaseId,
+    drugInvTab,
+    activeDrugCaseId,
+    drugDataSubTab,
+    drugNetworkSubTab,
+    drugForensicSubTab,
+    drugReportSubTab,
     latestReport,
     latestValidation,
     customCanvasJobs: cloneSavedValue(customCanvasJobs, []),
@@ -2589,9 +2681,15 @@ function restoreUserWorkspace(userId){
     ? workspace.activeGenInvCaseId
     : null;
   drugInvTab = workspace.drugInvTab || "ongoing";
+  if(drugInvTab === "company_profile" || drugInvTab === "person_profile") drugInvTab = "profile";
   activeDrugCaseId = workspace.activeDrugCaseId && defaultDrugInvCases.some(c => c.caseId === workspace.activeDrugCaseId)
     ? workspace.activeDrugCaseId
     : null;
+  drugDataSubTab = workspace.drugDataSubTab || "profile";
+  drugNetworkSubTab = workspace.drugNetworkSubTab || "graph";
+  drugForensicSubTab = workspace.drugForensicSubTab || "dashboard";
+  drugReportSubTab = workspace.drugReportSubTab || "draft";
+  if(activeDrugCaseId && !drugInvSelectedTarget) resetDrugCaseSubTabs(activeDrugCase(), false);
   scenarioLoadedForCompany = null;
   scenarioInitialized = false;
   loadCompanyRunArchive(activeCanvasCompanyId);
@@ -3102,6 +3200,121 @@ function generalInvDataPanel(){
   });
 }
 
+function reportRequiredSections(kind, context = {}){
+  const targetName = context.targetName || context.companyName || "수사 대상";
+  const commonAction = [
+    `- 즉시 조치: ${targetName} 관련 위험 신고·화물·거래 내역을 우선 보전하고 담당 조사관에게 배정합니다.`,
+    "- 단기 조치: 관련 신고번호, 계좌, 운송장, 통화·디지털 단서를 교차 확인합니다.",
+    "- 중기 조치: 유사 패턴 사건과 관계망을 확장 분석하고 추가 조사 여부를 결정합니다.",
+  ].join("\n");
+  const map = {
+    customs: [
+      {
+        title: "조치계획",
+        body: [
+          `- 즉시 조치: ${targetName} 관련 수입신고와 과세가격·품목분류·원산지 증빙을 보전합니다.`,
+          "- 단기 조치: 계약서, 송품장, 원산지증명서, 대금지급 자료 제출을 요구합니다.",
+          "- 중기 조치: 동종 업종 비교, 과거 신고 정정 이력, 특수관계 거래 여부를 추가 검토합니다.",
+        ].join("\n"),
+      },
+      {
+        title: "조사 착안사항",
+        body: [
+          "- 과세가격 적정성: 신고가격과 동종·동질 물품 거래가격 차이를 확인합니다.",
+          "- 품목분류 적정성: HS 코드와 실제 물품 특성, 세율 차이에 따른 탈루 가능성을 검토합니다.",
+          "- 원산지 검증: 원산지증명서 발급기관, 원재료 구성, 직접운송 요건 충족 여부를 확인합니다.",
+        ].join("\n"),
+      },
+    ],
+    general: [
+      { title: "조치계획", body: commonAction },
+      {
+        title: "증거관련 항목",
+        body: [
+          "- 문서 증거: 신고서, 계약서, 송품장, 계좌거래 내역, 내부 결재자료를 확보합니다.",
+          "- 진술 증거: 수입자, 운송 관계자, 자금 관련자 진술의 일관성을 확인합니다.",
+          "- 디지털 증거: 메신저, 이메일, 파일 메타데이터와 로그의 원본성을 검증합니다.",
+          "- 증거 보전: 원본 제출, 해시값 산출, 압수·임의제출 절차 적정성을 기록합니다.",
+        ].join("\n"),
+      },
+    ],
+    drug: [
+      { title: "조치계획", body: commonAction },
+      {
+        title: "증거관련 항목",
+        body: [
+          "- 물리 증거: 압수물, 성분 감정서, 중량·순도, 봉인 상태와 인수인계 기록을 확인합니다.",
+          "- 디지털 증거: 은어, 메신저 주문, SNS·다크웹 계정, 위치정보와 삭제 파일 복원 결과를 정리합니다.",
+          "- 자금 증거: 분산송금, 현금화, 해외송금, 암호화폐 주소 등 대금 흐름을 연결합니다.",
+          "- 관계망 증거: 운반책, 수취인, 연락책, 공급자 간 연결성과 역할을 명시합니다.",
+        ].join("\n"),
+      },
+      {
+        title: "국제공조 항목",
+        body: [
+          "- 공조 대상국: 출발·경유·공급 국가와 관련 기관을 특정합니다.",
+          "- 요청 범위: 출입국, 배송, 통신, 계좌, 해외 공급자 정보를 구분해 요청합니다.",
+          "- 국제기구 공유: WCO CEN, INCB 등 통보·정보공유 필요 여부를 검토합니다.",
+          "- 회신 관리: 공조 요청일, 회신 기한, 후속 조치 담당자를 보고서에 기록합니다.",
+        ].join("\n"),
+      },
+    ],
+  };
+  return map[kind] || [];
+}
+
+function ensureReportRequiredSections(raw, kind, context = {}){
+  const base = String(raw || "").trim() || "보고서가 아직 생성되지 않았습니다.";
+  const sections = reportRequiredSections(kind, context);
+  const missing = sections.filter(section => !base.includes(section.title));
+  if(!missing.length) return base;
+  return `${base}\n\n## 필수 포함 항목\n\n${missing.map(section => `### ${section.title}\n${section.body}`).join("\n\n")}`;
+}
+
+function commonAnalysisReportPanel({
+  selectedLabel = "수사 대상",
+  targetText = "",
+  badgeHtml = "",
+  statusHtml = "",
+  reportTitle = "분석 보고서",
+  validationTitle = "보고서 검증",
+  reportHtml = "",
+  validationHtml = "",
+  reportActions = "",
+  validationActions = "",
+  reportId = "",
+  validationId = "",
+} = {}){
+  const reportAttr = reportId ? ` id="${escapeHtml(reportId)}"` : "";
+  const validationAttr = validationId ? ` id="${escapeHtml(validationId)}"` : "";
+  return `
+    <div class="canvas-report-wrap">
+      <div class="canvas-selected-company">
+        ${badgeHtml}
+        <span>${escapeHtml(selectedLabel)}</span>
+        <strong>${targetText}</strong>
+        ${statusHtml}
+      </div>
+      <div class="scenario-results canvas-report-results">
+        <section class="scenario-result-panel">
+          <div class="scenario-result-panel-head">
+            <h3>${escapeHtml(reportTitle)}</h3>
+            ${reportActions}
+          </div>
+          <div${reportAttr} class="markdown-output">${reportHtml}</div>
+        </section>
+        <section class="scenario-result-panel">
+          <div class="scenario-result-panel-head">
+            <h3>${escapeHtml(validationTitle)}</h3>
+            ${validationActions}
+          </div>
+          <div${validationAttr} class="markdown-output">${validationHtml}</div>
+        </section>
+      </div>
+    </div>
+  `;
+}
+
 function generalInvReportPanel(){
   const aCase = activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
@@ -3151,39 +3364,25 @@ function generalInvReportPanel(){
         : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}" ${!repDone ? "disabled title='보고서 작성 후 실행 가능'" : ""}>▶ 실행</button>`}
     </div>` : "";
 
-  return `
-    <div class="canvas-report-wrap">
-      <div class="canvas-selected-company">
-        <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
-        <strong>${escapeHtml(aCase.targetName)}</strong>
-        <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>
-        ${badge}
-      </div>
-      <div class="scenario-results canvas-report-results">
-
-        <section class="scenario-result-panel">
-          <div class="scenario-result-panel-head">
-            <h3>수사 보고서</h3>
-            ${repActions}
-          </div>
-          <div class="markdown-output">
-            ${repDone ? markdownToHtml(repText) : placeholder("보고서 작성(gi_rep)", "workbench")}
-          </div>
-        </section>
-
-        <section class="scenario-result-panel">
-          <div class="scenario-result-panel-head">
-            <h3>보고서 검증 · 승인</h3>
-            ${apprActions}
-          </div>
-          <div class="markdown-output">
-            ${apprDone ? markdownToHtml(apprText) : placeholder("보고서 승인(gi_appr)", "workbench")}
-          </div>
-        </section>
-
-      </div>
-    </div>
-  `;
+  const reportHtml = repDone
+    ? markdownToHtml(ensureReportRequiredSections(repText, "general", { targetName: aCase.targetName }))
+    : `${placeholder("보고서 작성(gi_rep)", "workbench")}
+       <div class="report-required-preview">
+         ${markdownToHtml(ensureReportRequiredSections("", "general", { targetName: aCase.targetName }))}
+       </div>`;
+  const validationHtml = apprDone ? markdownToHtml(apprText) : placeholder("보고서 승인(gi_appr)", "workbench");
+  return commonAnalysisReportPanel({
+    selectedLabel: aCase.targetType === "company" ? "수사 대상 기업" : "수사 대상 개인",
+    targetText: `${escapeHtml(aCase.targetName)} <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>`,
+    badgeHtml: `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`,
+    statusHtml: badge,
+    reportTitle: "수사 보고서",
+    validationTitle: "보고서 검증 · 승인",
+    reportHtml,
+    validationHtml,
+    reportActions: repActions,
+    validationActions: apprActions,
+  });
 }
 
 /* ── [분석 시나리오 설정 및 수행] 패널 ────────────────────── */
@@ -3318,16 +3517,21 @@ function generalInvWorkbenchPanel(){
           : `<button class="gi-log-act-btn primary" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}" title="실행" ${isGiRunning?"disabled":""}>▶</button>`;
 
     const resultSection = (isDone || isError) && hasResult && isExpanded
-      ? `<div class="gi-log-result">${markdownToHtml(stepResults[step.id])}</div>`
+      ? `<div class="gi-log-result-frame">
+          <div class="gi-log-result-scroll">${markdownToHtml(stepResults[step.id])}</div>
+        </div>`
       : "";
 
     return `
-      <div class="gi-log-row${isDone ? " gi-log-done" : isRun ? " gi-log-run" : isError ? " gi-log-error" : ""}">
-        <div class="gi-log-num">${isDone ? "✓" : isError ? "!" : i+1}</div>
-        <div class="gi-log-name">${escapeHtml(step.label)}</div>
-        <div class="gi-log-state">${stateCell}</div>
+      <div class="gi-log-item${isExpanded ? " open" : ""}${isDone ? " gi-log-done" : isRun ? " gi-log-run" : isError ? " gi-log-error" : ""}">
+        <div class="gi-log-row">
+          <div class="gi-log-num">${isDone ? "✓" : isError ? "!" : i+1}</div>
+          <div class="gi-log-name">${escapeHtml(step.label)}</div>
+          <div class="gi-log-state">${stateCell}</div>
+        </div>
+        ${resultSection}
       </div>
-      ${resultSection}`;
+      `;
   }).join("");
 
   return `
@@ -3378,7 +3582,7 @@ function generalInvWorkbenchPanel(){
               <button class="btn secondary" type="button" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
             </div>
           </div>
-          <div class="gi-log-list scenario-step-accordion" style="margin-top:10px;flex:1;overflow-y:auto">
+          <div class="gi-log-list scenario-step-accordion scenario-ai-results" style="margin-top:10px;flex:1;overflow-y:auto">
             ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분석 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
           </div>
         </section>
@@ -3603,6 +3807,79 @@ function activeDrugCase(){
   return defaultDrugInvCases.find(c => c.caseId === activeDrugCaseId) || null;
 }
 
+function drugCaseTargetType(aCase = activeDrugCase()){
+  return aCase?.targetType === "company" ? "company" : "person";
+}
+
+function drugCaseContext(aCase = activeDrugCase()){
+  if(!aCase) return null;
+  const targetType = drugCaseTargetType(aCase);
+  const person = targetType === "person" ? (riskPersonById(aCase.personId) || null) : null;
+  const company = targetType === "company"
+    ? (findCompanyById(aCase.companyId) || scenarioCompanies.find(c => c.company_id === aCase.companyId) || null)
+    : null;
+  const targetName = aCase.targetName || (targetType === "company" ? company?.company_name : person?.name) || "";
+  const targetId = targetType === "company"
+    ? (aCase.companyId || aCase.drugOrgId || "")
+    : (aCase.personId || "");
+  return {
+    case: aCase,
+    type: drugInvTypeById(aCase.invTypeId),
+    targetType,
+    targetName,
+    targetId,
+    person,
+    company,
+    label: targetType === "company" ? "기업" : "우범자",
+    profileTab: "profile",
+  };
+}
+
+function drugContextHeader(ctx, title, desc){
+  if(!ctx) return "";
+  return `
+    <div class="drug-context-head">
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(desc || "")}</p>
+      </div>
+      <div class="drug-context-target">
+        <span>${escapeHtml(ctx.label)}</span>
+        <b>${escapeHtml(ctx.targetName)}</b>
+        <small>${escapeHtml(ctx.case.caseId)} · ${escapeHtml(ctx.type.label)}</small>
+      </div>
+    </div>
+  `;
+}
+
+function drugSubTabNav(group, active, tabs){
+  return `
+    <div class="drug-subtabs">
+      ${tabs.map(t => `
+        <button type="button" class="${active === t.key ? "active" : ""}"
+          data-drug-subtab="${escapeHtml(group)}:${escapeHtml(t.key)}">
+          ${escapeHtml(t.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function resetDrugCaseSubTabs(aCase = activeDrugCase(), resetTabs = true){
+  const targetType = drugCaseTargetType(aCase);
+  if(resetTabs){
+    drugDataSubTab = "profile";
+    drugNetworkSubTab = "graph";
+    drugForensicSubTab = "dashboard";
+    drugReportSubTab = "draft";
+  }
+  drugInvSelectedTarget = aCase ? {
+    name: aCase.targetName,
+    id: targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.drugOrgId || aCase.caseId),
+    type: targetType,
+  } : null;
+}
+
 function drugInvestigationPage(){
   const tab    = drugInvTab;
   const aCase  = activeDrugCase();
@@ -3630,6 +3907,7 @@ function drugInvestigationPage(){
         <div style="display:flex;gap:2px">
           <button class="gi-tab${tab==="ongoing"?" active":""}"  data-drug-tab="ongoing">진행중인 수사</button>
           ${aCase ? `
+            <button class="gi-tab${tab==="profile"?" active":""}" data-drug-tab="profile">마약프로파일</button>
             <button class="gi-tab${tab==="data"?" active":""}"     data-drug-tab="data">기초자료 수집/등록</button>
             <button class="gi-tab${tab==="scenario"?" active":""}" data-drug-tab="scenario">분석 시나리오 설정 및 실행</button>
             <button class="gi-tab${tab==="network"?" active":""}"  data-drug-tab="network">관계망 분석</button>
@@ -3651,7 +3929,9 @@ function drugInvestigationPage(){
 }
 
 function drugInvTabContent(){
+  if(drugInvTab === "company_profile" || drugInvTab === "person_profile") drugInvTab = "profile";
   if(drugInvTab === "dashboard") return drugRiskDashboard();
+  if(drugInvTab === "profile") return drugProfilePanel();
   if(drugInvTab === "data")      return drugDataPanel();
   if(drugInvTab === "scenario")  return drugScenarioPanel();
   if(drugInvTab === "network")   return drugNetworkPanel();
@@ -4061,18 +4341,233 @@ function drugNewCaseForm(){
   `;
 }
 
+function drugProfilePanel(){
+  const ctx = drugCaseContext();
+  if(!ctx) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  return ctx.targetType === "company" ? drugCompanyProfilePanel() : drugPersonProfilePanel();
+}
+
+function drugRiskScoreClass(score){
+  const value = Number(score || 0);
+  if(value >= 85) return "high";
+  if(value >= 65) return "mid";
+  return "low";
+}
+
+function drugRiskLevelLabel(level){
+  const key = String(level || "").toUpperCase();
+  if(key === "CRITICAL") return "긴급";
+  if(key === "HIGH") return "고위험";
+  if(key === "MEDIUM") return "중위험";
+  if(key === "LOW") return "저위험";
+  return level || "미분류";
+}
+
+function drugMetricCards(metrics){
+  return `
+    <div class="drug-profile-metrics">
+      ${metrics.map(m => `
+        <div class="drug-profile-metric ${escapeHtml(m.tone || "")}">
+          <span>${escapeHtml(m.label)}</span>
+          <strong>${escapeHtml(String(m.value))}</strong>
+          <p>${escapeHtml(m.desc || "")}</p>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function drugProfileShell(title, subtitle, badge, body){
+  return `
+    <div class="drug-profile-wrap">
+      <div class="drug-profile-head">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(subtitle)}</p>
+        </div>
+        <span class="gi-type-chip gi-t2">${escapeHtml(badge)}</span>
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+function drugCompanyProfilePanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  if(!scenarioCompanies.length) loadScenarioCompanies();
+
+  const isCompany = aCase.targetType === "company";
+  const company = isCompany
+    ? (findCompanyById(aCase.companyId) || scenarioCompanies.find(c => c.company_id === aCase.companyId))
+    : null;
+  const name = isCompany ? (company?.company_name || aCase.targetName) : "관련 기업군";
+  const id = isCompany ? (aCase.drugOrgId || aCase.companyId || "마약수사 기업 프로파일") : "PERSON-LINKED-ORG";
+  const baseScore = isCompany
+    ? Math.max(72, Math.round(company?.risk_score || 82))
+    : 89;
+  const riskTags = isCompany
+    ? "마약 전구물질, 위장수입, 국제특송 반복, 고위험국 경유"
+    : "명의대여 법인, 특송업체 반복 이용, 위장 수입자, 분산 배송";
+  const metrics = [
+    { label:"마약위험 종합점수", value:`${baseScore}`, desc:"화물·거래·경로·관계망 통합", tone:drugRiskScoreClass(baseScore) },
+    { label:"전구물질 거래지수", value:isCompany ? "91" : "84", desc:"N-페닐피페라진 등 의심 품목", tone:"high" },
+    { label:"국제특송 반복도", value:isCompany ? "78" : "86", desc:"소량·분산 반입 패턴", tone:"mid" },
+    { label:"고위험국 경유", value:isCompany ? "4개국" : "3개국", desc:"MX·NL·TH·PH 경유 이력", tone:"mid" },
+    { label:"위장수입자 연계", value:isCompany ? "높음" : "매우 높음", desc:"명의대여·실화주 불일치 의심", tone:"high" },
+    { label:"자금세탁 의심", value:isCompany ? "주의" : "고위험", desc:"분산송금·ATM 출금 연계", tone:isCompany ? "mid" : "high" },
+  ];
+  const cargoRows = [
+    ["APLL2026053001", "N-페닐피페라진 유도체", "CN→KR", "전구물질", "95", "검사지시"],
+    ["MSCU2026053002", "유기화합물 혼합분말", "MX→NL→KR", "전구물질", "91", "검사지시"],
+    ["DHL2026052917", "전자부품 샘플", "TH→KR", "은닉 반입", "84", "분석중"],
+    ["EMS2026052711", "건강보조식품", "PH→KR", "반복 소량", "79", "감시중"],
+  ];
+  const relatedRows = [
+    ["김우범", "연락책", "필로폰 관련 별칭·메신저 주문", "49.9"],
+    ["박공범", "수취인", "소량 반복 수령·주소 분산", "78"],
+    ["최연락", "중개자", "특송번호 공유·공동 출입국", "82"],
+    ["ABC Courier", "운송업체", "고위험 화물 반복 취급", "76"],
+  ];
+  const body = `
+    ${drugMetricCards(metrics)}
+    <div class="drug-profile-grid">
+      <section class="drug-profile-panel">
+        <h4>기업 마약 프로파일</h4>
+        <dl class="drug-profile-defs">
+          <dt>대상</dt><dd>${escapeHtml(name)} (${escapeHtml(id)})</dd>
+          <dt>유형</dt><dd>${isCompany ? "수입·물류 관련 기업" : "개인 수사대상 연계 기업군"}</dd>
+          <dt>감시상태</dt><dd>${isCompany ? "검사지시/분석중" : "관계망 추적"}</dd>
+          <dt>마약위험 태그</dt><dd>${escapeHtml(riskTags)}</dd>
+          <dt>중점 확인</dt><dd>실화주 확인, 전구물질 품명 위장, 특송 분산 반입, 해외 공급자 연계</dd>
+        </dl>
+      </section>
+      <section class="drug-profile-panel">
+        <h4>마약수사 중심 위험지표</h4>
+        <ul class="drug-risk-list">
+          <li><strong>전구물질 품명 위장</strong><span>화학품·전자부품·건강식품 명목 반입</span></li>
+          <li><strong>반복 소량 배송</strong><span>통관 회피 목적의 물량 분산 의심</span></li>
+          <li><strong>고위험국 경유</strong><span>마약류 생산·환적 국가 이동 경로 포함</span></li>
+          <li><strong>실화주 불명확</strong><span>수입자·수취인·대금지급자 불일치</span></li>
+        </ul>
+      </section>
+    </div>
+    <div class="drug-profile-grid">
+      <section class="drug-profile-panel">
+        <h4>의심 화물/통관 이력</h4>
+        ${dataTable(["관리번호","품명","경로","위험유형","점수","상태"], cargoRows)}
+      </section>
+      <section class="drug-profile-panel">
+        <h4>연계 인물/조직</h4>
+        ${dataTable(["대상","역할","마약수사 단서","위험점수"], relatedRows)}
+      </section>
+    </div>
+  `;
+  return drugProfileShell("마약프로파일", "선택한 기업의 마약류·전구물질·위장수입 위험을 조직 단위로 재구성한 프로파일입니다.", `${aCase.caseId} · 기업 · ${drugInvTypeById(aCase.invTypeId).label}`, body);
+}
+
+function drugPersonProfilePanel(){
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  if(!riskPersons.length && !riskPersonsLoading) loadRiskPersons();
+
+  const person = aCase.targetType === "person"
+    ? (riskPersonById(aCase.personId) || null)
+    : null;
+  const name = aCase.targetType === "person" ? aCase.targetName : (person?.name || "연계 우범자군");
+  const personId = person?.person_id || aCase.personId || "PERSON-LINKED-RISK";
+  const score = Math.round(Number(person?.risk_score || (aCase.targetType === "person" ? 82 : 76)));
+  const level = drugRiskLevelLabel(person?.risk_level || (score >= 85 ? "CRITICAL" : score >= 70 ? "HIGH" : "MEDIUM"));
+  const tags = person?.risk_tags || "마약류, 필로폰, 고위험국 이동, 분산송금";
+  const metrics = [
+    { label:"우범자 마약위험", value:`${score}`, desc:"개인 프로파일·사건·관계망 통합", tone:drugRiskScoreClass(score) },
+    { label:"고위험국 이동", value:"92", desc:"NL·TH·PH 반복 이동/배송", tone:"high" },
+    { label:"관계망 근접도", value:"0.78", desc:"기존 적발자와 2촌 이내 연결", tone:"high" },
+    { label:"소량 반복 반입", value:"5회", desc:"국제우편·특송 분산 수령", tone:"mid" },
+    { label:"은어/SNS 단서", value:"18건", desc:"필로폰·MDMA 관련 별칭 탐지", tone:"high" },
+    { label:"분산송금 패턴", value:"주의", desc:"소액 반복·ATM 출금 연계", tone:"mid" },
+  ];
+  const incidentRows = [
+    ["RS-2026-0001", "밀수입", "필로폰", "공항 여행자", "연락책", "강함"],
+    ["RS-2026-0001-02", "밀반출", "위조상품", "국제우편", "연락책", "중간"],
+    ["RS-2026-DRG-07", "마약 자금세탁", "분산송금", "ATM/해외송금", "자금책 의심", "중간"],
+  ];
+  const indicatorRows = [
+    ["HIGH_RISK_ROUTE", "고위험국 반복 이동/배송", "92", "필로폰 관련 경로 반복"],
+    ["NETWORK_PROXIMITY", "기존 적발자와 관계망 근접도", "86", "공범·수취인 연결"],
+    ["SMALL_BATCH_REPEAT", "소량 반복 반입 패턴", "85", "국제우편 분산 반입"],
+    ["SLANG_SOCIAL_SIGNAL", "은어/SNS 거래 단서", "81", "메신저 별칭·주문 흔적"],
+    ["SPLIT_REMITTANCE", "분산송금/현금화", "77", "소액 반복 이체와 출금"],
+  ];
+  const body = `
+    ${drugMetricCards(metrics)}
+    <div class="drug-profile-grid">
+      <section class="drug-profile-panel">
+        <h4>우범자 마약 프로파일</h4>
+        <dl class="drug-profile-defs">
+          <dt>대상</dt><dd>${escapeHtml(name)} (${escapeHtml(personId)})</dd>
+          <dt>유형</dt><dd>${escapeHtml(person?.profile_type || "마약수사 연계 우범자")}</dd>
+          <dt>국적/권역</dt><dd>${escapeHtml(person?.nationality || aCase.nationality || "미상")} / ${escapeHtml(person?.address_region || "추적중")}</dd>
+          <dt>위험등급</dt><dd>${escapeHtml(level)} · ${score}점</dd>
+          <dt>마약위험 태그</dt><dd>${escapeHtml(tags)}</dd>
+          <dt>감시상태</dt><dd>${escapeHtml(person?.watch_status || "추적중")}</dd>
+        </dl>
+      </section>
+      <section class="drug-profile-panel">
+        <h4>마약수사 중심 확인 포인트</h4>
+        <ul class="drug-risk-list">
+          <li><strong>입국/배송 경로</strong><span>고위험국 출발·경유·도착 패턴</span></li>
+          <li><strong>수취·연락 역할</strong><span>반복 수취인, 연락책, 운반책 여부</span></li>
+          <li><strong>디지털 단서</strong><span>은어, 메신저 주문, SNS 채널 참여</span></li>
+          <li><strong>자금 흐름</strong><span>분산송금, 현금화, 해외송금 연결</span></li>
+        </ul>
+      </section>
+    </div>
+    <div class="drug-profile-grid">
+      <section class="drug-profile-panel">
+        <h4>개인 위험지표</h4>
+        ${dataTable(["코드","지표명","점수","마약수사 단서"], indicatorRows)}
+      </section>
+      <section class="drug-profile-panel">
+        <h4>관련 사건 이력</h4>
+        ${dataTable(["사건번호","유형","품목/단서","채널","역할","증거수준"], incidentRows)}
+      </section>
+    </div>
+  `;
+  return drugProfileShell("마약프로파일", "선택한 우범자의 이동·관계망·디지털·자금 단서를 마약수사 지표 중심으로 재구성한 프로파일입니다.", `${aCase.caseId} · 우범자 · ${drugInvTypeById(aCase.invTypeId).label}`, body);
+}
+
 function drugNetworkPanel(){
-  const t = drugInvSelectedTarget;
-  const nodes = t ? [
-    { id:"center", label: t.name, type:"suspect", x:50, y:50 },
+  const aCase = activeDrugCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  const ctx = drugCaseContext(aCase);
+  const centerType = ctx.targetType === "company" ? "company" : "suspect";
+  const nodes = ctx.targetType === "company" ? [
+    { id:"center", label: ctx.targetName, type:centerType, x:50, y:50 },
+    { id:"n1", label:"김우범", type:"suspect", x:20, y:25 },
+    { id:"n2", label:"박공범", type:"associate", x:75, y:22 },
+    { id:"n3", label:"ABC Courier", type:"company", x:18, y:70 },
+    { id:"n4", label:"전구물질 화물", type:"cargo_owner", x:80, y:72 },
+    { id:"n5", label:"해외공급자", type:"associate", x:55, y:84 },
+    { id:"n6", label:"분산송금 계좌", type:"money", x:32, y:48 },
+  ] : [
+    { id:"center", label: ctx.targetName, type:centerType, x:50, y:50 },
     { id:"n1", label:"박공범", type:"associate", x:20, y:25 },
     { id:"n2", label:"최연락", type:"associate", x:75, y:20 },
-    { id:"n3", label:"이중간", type:"associate", x:15, y:70 },
+    { id:"n3", label:"이중간", type:"money", x:15, y:70 },
     { id:"n4", label:"김화주", type:"cargo_owner", x:80, y:75 },
-    { id:"n5", label:"(주)위장무역", type:"company", x:55, y:80 },
+    { id:"n5", label:"(주)위장무역", type:"company", x:55, y:82 },
     { id:"n6", label:"ABC Courier", type:"company", x:30, y:48 },
-  ] : [];
-  const edges = t ? [
+  ];
+  const edges = ctx.targetType === "company" ? [
+    { from:"center", to:"n1", label:"연락책" },
+    { from:"center", to:"n2", label:"수취인" },
+    { from:"center", to:"n3", label:"운송계약" },
+    { from:"center", to:"n4", label:"수입신고" },
+    { from:"n4", to:"n5", label:"공급" },
+    { from:"center", to:"n6", label:"대금" },
+    { from:"n1", to:"n6", label:"분산송금" },
+  ] : [
     { from:"center", to:"n1", label:"친인척" },
     { from:"center", to:"n2", label:"동업자" },
     { from:"center", to:"n3", label:"자금책" },
@@ -4080,68 +4575,70 @@ function drugNetworkPanel(){
     { from:"n4", to:"n5", label:"대표자" },
     { from:"center", to:"n6", label:"이용업체" },
     { from:"n1", to:"n5", label:"관계사" },
-  ] : [];
+  ];
+  const actorRows = ctx.targetType === "company"
+    ? [["김우범","연락책","기업 화물 주문·수취 조율","92"],["박공범","수취인","주소 분산 수령","78"],["ABC Courier","운송업체","특송 반복 취급","76"],["해외공급자","공급망","전구물질 공급 의심","88"]]
+    : [["박공범","친인척","소량 수령·분산 주소","78"],["최연락","동업자","운송장 공유","82"],["이중간","자금책","소액 반복 이체","64"],["(주)위장무역","관련기업","위장수입 의심","89"]];
+  const routeRows = ctx.targetType === "company"
+    ? [["APLL2026053001","CN→KR","전구물질","검사지시"],["MSCU2026053002","MX→NL→KR","환적 경유","검사지시"],["DHL2026052917","TH→KR","특송 분산","분석중"]]
+    : [["DS-001","방콕→인천","고위험국 이동","추적중"],["EMS2026052711","PH→KR","소량 수령","감시중"],["DHL2026052917","TH→KR","공범 주소 수령","분석중"]];
+  const evidenceRows = [["디지털","메신저 은어","아이스·초록이 주문 표현","포렌식"],["자금","분산송금","소액 반복 이체·ATM 출금","자금분석"],["CDW","위험지표","고위험 경로·소량반복 반입","DB조회"],["관계망","2촌 연결","기존 적발자와 직접/간접 연결","분석완료"]];
+  const graphSvg = `
+    <svg width="100%" height="100%" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" class="drug-network-svg">
+      ${edges.map(e=>{
+        const from = nodes.find(n=>n.id===e.from);
+        const to   = nodes.find(n=>n.id===e.to);
+        if(!from||!to) return "";
+        const x1=from.x*10, y1=from.y*5.6, x2=to.x*10, y2=to.y*5.6;
+        const mx=(x1+x2)/2, my=(y1+y2)/2;
+        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />
+                <text x="${mx}" y="${my - 6}" text-anchor="middle">${escapeHtml(e.label)}</text>`;
+      }).join("")}
+      ${nodes.map(n=>{
+        const colors={suspect:"#dc2626",associate:"#d97706",cargo_owner:"#7c3aed",company:"#0284c7",money:"#16a34a"};
+        const labels={suspect:"우범자",associate:"관계자",cargo_owner:"화물",company:"기업",money:"자금"};
+        const x=n.x*10, y=n.y*5.6;
+        return `<g class="drug-network-node">
+          <circle cx="${x}" cy="${y}" r="${n.id === "center" ? 28 : 24}" fill="${colors[n.type]}" />
+          <text x="${x}" y="${y + 4}" class="node-label" text-anchor="middle">${escapeHtml(n.label.substring(0,4))}</text>
+          <text x="${x}" y="${y + 46}" class="node-type" text-anchor="middle">${escapeHtml(labels[n.type])}</text>
+        </g>`;
+      }).join("")}
+    </svg>
+  `;
   return `
-    <div style="display:flex;gap:16px;height:100%">
-      <div style="flex:1;min-width:0">
-        <div class="panel-section-hdr" style="margin-bottom:8px">
-          <span>관계망 그래프</span>
-          ${t ? `<span class="muted" style="font-size:12px">중심: ${escapeHtml(t.name)}</span>` : ""}
+    <div class="drug-network-page">
+      ${drugContextHeader(ctx, "관계망 분석", "선택한 수사 대상을 중심으로 관계자·화물·자금·증거 단서를 재구성합니다.")}
+      <div class="drug-network-layout">
+        <div class="drug-network-left">
+          <section class="drug-network-frame drug-network-graph-frame">
+            <div class="drug-network-frame-head">
+              <h4>관계망 그래프</h4>
+              <span>중심: ${escapeHtml(ctx.targetName)}</span>
+            </div>
+            <div class="drug-network-graph" id="drugNetworkCanvas">${graphSvg}</div>
+          </section>
+          <section class="drug-network-frame drug-network-evidence-frame">
+            <div class="drug-network-frame-head"><h4>증거 단서</h4></div>
+            <div class="drug-network-scroll">
+              ${dataTable(["분류","단서","내용","후속분석"], evidenceRows)}
+            </div>
+          </section>
         </div>
-        ${t ? `
-          <div class="network-canvas" id="drugNetworkCanvas" style="position:relative;height:420px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
-            <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
-              ${edges.map(e=>{
-                const from = nodes.find(n=>n.id===e.from);
-                const to   = nodes.find(n=>n.id===e.to);
-                if(!from||!to) return "";
-                const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
-                const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
-                return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#aac7ff" stroke-width="1.5"/>
-                        <text x="${mx}" y="${my}" font-size="10" fill="#6b7f9e" text-anchor="middle">${escapeHtml(e.label)}</text>`;
-              }).join("")}
-            </svg>
-            ${nodes.map(n=>{
-              const colors={suspect:"#dc2626",associate:"#d97706",cargo_owner:"#7c3aed",company:"#0284c7"};
-              const labels={suspect:"용의자",associate:"관계자",cargo_owner:"화주",company:"기업"};
-              return `<div style="position:absolute;left:calc(${n.x}% - 32px);top:calc(${n.y}% - 32px);text-align:center;width:64px">
-                <div style="width:44px;height:44px;border-radius:50%;background:${colors[n.type]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin:0 auto;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">${escapeHtml(n.label.substring(0,4))}</div>
-                <div style="font-size:10px;color:#41506a;margin-top:2px;background:rgba(255,255,255,.85);border-radius:4px;padding:1px 3px">${escapeHtml(labels[n.type])}</div>
-              </div>`;
-            }).join("")}
-          </div>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            ${[["용의자","#dc2626"],["관계자","#d97706"],["화주","#7c3aed"],["기업","#0284c7"]].map(([l,c])=>`
-              <span style="display:flex;align-items:center;gap:4px;font-size:12px"><span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>
-            `).join("")}
-          </div>
-        ` : `<div class="empty-state">좌측 '진행중인 수사' 탭에서 우범자를 선택하거나, 우범자 목록에서 [관계망 보기] 버튼을 클릭하세요.</div>`}
-      </div>
-      <div style="width:260px;flex:none">
-        <div class="panel-section-hdr" style="margin-bottom:8px"><span>관계자 목록</span></div>
-        ${t ? `
-          <div style="display:flex;flex-direction:column;gap:6px">
-            ${[
-              {name:"박공범",rel:"친인척",risk:"고위험",riskScore:78},
-              {name:"최연락",rel:"동업자",risk:"고위험",riskScore:82},
-              {name:"이중간",rel:"자금책",risk:"중위험",riskScore:64},
-              {name:"김화주",rel:"화주명의",risk:"중위험",riskScore:55},
-              {name:"(주)위장무역",rel:"관련기업(대표)",risk:"고위험",riskScore:89},
-              {name:"ABC Courier",rel:"이용업체",risk:"중위험",riskScore:60},
-            ].map(r=>`
-              <div class="gi-case-card" style="padding:10px 12px">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <div>
-                    <strong style="font-size:13px">${escapeHtml(r.name)}</strong>
-                    <span class="muted" style="font-size:11px;margin-left:6px">${escapeHtml(r.rel)}</span>
-                  </div>
-                  <span class="risk-chip ${r.risk==="고위험"?"high":"mid"}">${escapeHtml(r.risk)}</span>
-                </div>
-                <div style="font-size:12px;color:#6b7f9e;margin-top:4px">위험점수: <strong>${r.riskScore}</strong></div>
-              </div>
-            `).join("")}
-          </div>
-        ` : `<div class="empty-state muted" style="font-size:12px">대상자를 선택하면 관계자 목록이 표시됩니다.</div>`}
+        <aside class="drug-network-right">
+          <section class="drug-network-frame">
+            <div class="drug-network-frame-head"><h4>연계 대상</h4></div>
+            <div class="drug-network-scroll">
+              ${dataTable(["대상","역할","마약수사 단서","위험점수"], actorRows)}
+            </div>
+          </section>
+          <section class="drug-network-frame">
+            <div class="drug-network-frame-head"><h4>경로·화물</h4></div>
+            <div class="drug-network-scroll">
+              ${dataTable(["관리번호","경로","위험유형","상태"], routeRows)}
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
   `;
@@ -4151,14 +4648,76 @@ function drugNetworkPanel(){
 function drugDataPanel(){
   const aCase = activeDrugCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  const type = drugInvTypeById(aCase.invTypeId);
-  return canvasDataPanel(activeCanvasCompanyId, {
-    selectedLabel: "수사 대상",
-    subjectName:   `${escapeHtml(aCase.targetName)}`,
-    heading:       "기초자료 수집/등록",
-    description:   "수사 대상 관련 서류, 통화 내역, 입출국 기록, 금융거래 내역 등을 업로드합니다.",
-    caseBadge:     `${type.num} ${type.label} · ${aCase.caseId}`,
-  });
+  const ctx = drugCaseContext(aCase);
+  const tabs = ctx.targetType === "company"
+    ? [
+        {key:"profile", label:"기업 프로파일"},
+        {key:"cargo", label:"화물·특송"},
+        {key:"trade", label:"거래·자금"},
+        {key:"people", label:"연계 인물"},
+      ]
+    : [
+        {key:"profile", label:"우범자 프로파일"},
+        {key:"travel", label:"입출국·여행"},
+        {key:"digital", label:"통화·디지털"},
+        {key:"finance", label:"금융거래"},
+      ];
+  if(!tabs.some(t => t.key === drugDataSubTab)) drugDataSubTab = "profile";
+  const tableByTab = {
+    profile: ctx.targetType === "company"
+      ? dataTable(["항목","내용","마약수사 관점"], [
+          ["대상 기업", ctx.targetName, "실화주·명의대여·위장수입 여부 확인"],
+          ["식별 ID", ctx.targetId || ctx.case.drugOrgId || "-", "마약프로파일 기준키"],
+          ["주요 위험", "전구물질, 국제특송 반복, 고위험국 경유", "CDW·DB 조회 우선"],
+          ["수집자료", "수입신고, BL, 송품장, 운송장, 대금지급 내역", "화물-자금-관계망 연결"],
+        ])
+      : dataTable(["항목","내용","마약수사 관점"], [
+          ["대상 우범자", ctx.targetName, "개인 프로파일 기준 수사"],
+          ["식별 ID", ctx.targetId || "-", "우범자 프로파일 기준키"],
+          ["주요 위험", ctx.person?.risk_tags || "고위험국 이동, 소량 반복 반입, 은어/SNS 단서", "개인 DB·관계망 조회 우선"],
+          ["수집자료", "입출국 기록, 특송 수령, 통화/SNS, 금융거래", "개인 행위 패턴 연결"],
+        ]),
+    cargo: dataTable(["관리번호","품명","경로","위험유형","상태"], [
+      ["APLL2026053001", "N-페닐피페라진 유도체", "CN→KR", "전구물질", "검사지시"],
+      ["EMS2026052711", "건강보조식품", "PH→KR", "소량분산", "감시중"],
+      ["DHL2026052917", "전자부품 샘플", "TH→KR", "은닉반입", "분석중"],
+    ]),
+    trade: dataTable(["일자","상대방","금액","유형","마약수사 단서"], [
+      ["2026-05-28", "해외 공급자", "USD 12,000", "해외송금", "전구물질 대금 의심"],
+      ["2026-05-26", "김우범", "15,000,000원", "법인이체", "실화주 불일치"],
+      ["2026-05-20", "불상 계좌", "5,500,000원", "ATM출금", "현금화"],
+    ]),
+    people: dataTable(["대상","역할","관계","위험점수"], [
+      ["김우범", "연락책", "화물 수취/주문", "92"],
+      ["박공범", "수취인", "주소 분산", "78"],
+      ["최연락", "중개자", "운송장 공유", "82"],
+    ]),
+    travel: dataTable(["일자","경로","체류/수령지","위험단서","상태"], [
+      ["2026-05-28", "방콕→인천", "인천공항", "고위험국 반복", "추적중"],
+      ["2026-05-21", "암스테르담→인천", "서울", "특송 수령 직후 입국", "분석중"],
+      ["2026-05-02", "마닐라→부산", "부산", "분산 배송지 접근", "감시중"],
+    ]),
+    digital: dataTable(["출처","단서","키워드","위험도","처리"], [
+      ["메신저", "주문 대화", "아이스/작대기", "높음", "포렌식 연계"],
+      ["SNS", "비공개 채널", "초록이", "중간", "은어사전 RAG"],
+      ["통화", "해외번호 반복", "+63/+66", "중간", "통화상대 분석"],
+    ]),
+    finance: dataTable(["일자","거래처","금액","패턴","위험도"], [
+      ["2026-05-28", "박공범", "2,800,000원", "소액 반복", "의심"],
+      ["2026-05-20", "불상", "5,500,000원", "ATM 현금화", "의심"],
+      ["2026-05-15", "해외송금", "USD 12,000", "대금 분산", "고위험"],
+    ]),
+  };
+  return `
+    <div class="drug-tab-stack">
+      ${drugContextHeader(ctx, "기초자료 수집/등록", "선택한 마약수사 대상 기준으로 필요한 자료 묶음과 서브탭을 고정합니다.")}
+      ${drugSubTabNav("data", drugDataSubTab, tabs)}
+      <section class="drug-profile-panel">
+        <h4>${escapeHtml(tabs.find(t => t.key === drugDataSubTab)?.label || "기초자료")}</h4>
+        ${tableByTab[drugDataSubTab] || tableByTab.profile}
+      </section>
+    </div>
+  `;
 }
 
 /* ── 분석 시나리오 설정 및 실행 — generalInvWorkbenchPanel 동일 구조 ── */
@@ -4271,13 +4830,18 @@ function drugScenarioPanel(){
           ? `<span class="gi-chip-state run" style="animation:gi-blink 1.2s infinite">실행중...</span>`
           : `<button class="gi-log-act-btn primary" data-drug-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">▶</button>`;
     const resultSection = (isDone||isError) && hasResult && isExpanded
-      ? `<div class="gi-log-result">${markdownToHtml(stepResults[step.id])}</div>` : "";
+      ? `<div class="gi-log-result-frame">
+          <div class="gi-log-result-scroll">${markdownToHtml(stepResults[step.id])}</div>
+        </div>` : "";
     return `
-      <div class="gi-log-row${isDone?" gi-log-done":isRun?" gi-log-run":isError?" gi-log-error":""}">
-        <div class="gi-log-num">${isDone?"✓":isError?"!":i+1}</div>
-        <div class="gi-log-name">${escapeHtml(step.label)}</div>
-        <div class="gi-log-state">${stateCell}</div>
-      </div>${resultSection}`;
+      <div class="gi-log-item${isExpanded ? " open" : ""}${isDone?" gi-log-done":isRun?" gi-log-run":isError?" gi-log-error":""}">
+        <div class="gi-log-row">
+          <div class="gi-log-num">${isDone?"✓":isError?"!":i+1}</div>
+          <div class="gi-log-name">${escapeHtml(step.label)}</div>
+          <div class="gi-log-state">${stateCell}</div>
+        </div>
+        ${resultSection}
+      </div>`;
   }).join("");
 
   return `
@@ -4316,7 +4880,7 @@ function drugScenarioPanel(){
               <button class="btn secondary" type="button" data-drug-run-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
             </div>
           </div>
-          <div class="gi-log-list scenario-step-accordion" style="margin-top:10px;flex:1;overflow-y:auto">
+          <div class="gi-log-list scenario-step-accordion scenario-ai-results" style="margin-top:10px;flex:1;overflow-y:auto">
             ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">분석 실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
           </div>
         </section>
@@ -4329,64 +4893,255 @@ function drugScenarioPanel(){
 function drugForensicPanel(){
   const aCase = activeDrugCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-
-  const forTabs = ["자금 흐름 분석","디지털 포렌식","SNS·다크웹 모니터링"];
-  const txData = [
-    {date:"2026-05-28",from:"김우범",to:"박공범",  amount:"₩ 2,800,000",type:"현금이체",risk:"의심",riskScore:88},
-    {date:"2026-05-26",from:"김우범",to:"위장무역",amount:"₩15,000,000",type:"법인이체",risk:"고위험",riskScore:93},
+  const ctx = drugCaseContext(aCase);
+  const tabs = [
+    {key:"dashboard", label:"종합 분석 대시보드"},
+    {key:"money", label:"자금흐름"},
+    {key:"account", label:"계좌관계"},
+    {key:"suspicious", label:"의심거래 탐지"},
+    {key:"comm", label:"통신관계"},
+    {key:"crypto", label:"가상자산 흐름"},
+    {key:"cash", label:"현금인출 패턴"},
+    {key:"movement", label:"이동경로 동선"},
+    {key:"social", label:"SNS/다크웹"},
+    {key:"message", label:"메시지/대화"},
+    {key:"location", label:"사진정보 기반 위치/관계인"},
+    {key:"device", label:"디바이스 사용 이력"},
+  ];
+  if(!tabs.some(t => t.key === drugForensicSubTab)) drugForensicSubTab = "dashboard";
+  const txData = ctx.targetType === "company" ? [
+    {date:"2026-05-28",from:ctx.targetName,to:"해외 공급자",  amount:"USD 12,000",type:"해외송금",risk:"고위험",riskScore:95},
+    {date:"2026-05-26",from:"김우범",to:ctx.targetName,amount:"₩15,000,000",type:"법인이체",risk:"고위험",riskScore:93},
+    {date:"2026-05-20",from:ctx.targetName,to:"불상 계좌", amount:"₩ 5,500,000",type:"ATM출금", risk:"의심",riskScore:81},
+    {date:"2026-05-15",from:"박공범",to:ctx.targetName,amount:"₩ 2,800,000",type:"분산입금",risk:"의심",riskScore:88},
+  ] : [
+    {date:"2026-05-28",from:ctx.targetName,to:"박공범",  amount:"₩ 2,800,000",type:"현금이체",risk:"의심",riskScore:88},
+    {date:"2026-05-26",from:ctx.targetName,to:"위장무역",amount:"₩15,000,000",type:"법인이체",risk:"고위험",riskScore:93},
     {date:"2026-05-20",from:"박공범",to:"불상",    amount:"₩ 5,500,000",type:"ATM출금", risk:"의심",riskScore:81},
     {date:"2026-05-15",from:"위장무역",to:"해외송금",amount:"USD 12,000",type:"해외송금",risk:"고위험",riskScore:95},
   ];
-  return `
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;padding:12px 16px">
-        <strong style="font-size:13px;color:#123c85">수사 대상</strong>
-        <span style="margin-left:10px;font-size:13px">${aCase.caseId} · ${escapeHtml(aCase.targetName)}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <!-- 자금흐름 -->
-        <div>
-          <div class="panel-section-hdr" style="margin-bottom:10px"><span>💰 자금 흐름 분석</span></div>
-          <div style="overflow-x:auto">
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>일자</th><th>출금처</th><th>입금처</th><th>금액</th><th>구분</th><th>위험도</th></tr></thead>
-              <tbody>
-                ${txData.map(t=>`
-                  <tr>
-                    <td>${t.date}</td>
-                    <td>${escapeHtml(t.from)}</td>
-                    <td>${escapeHtml(t.to)}</td>
-                    <td style="font-weight:700;white-space:nowrap">${escapeHtml(t.amount)}</td>
-                    <td>${escapeHtml(t.type)}</td>
-                    <td><span class="risk-chip ${t.risk==="고위험"?"high":"mid"}">${escapeHtml(t.risk)}</span></td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
+  const digitalItems = ctx.targetType === "company" ? [
+    {type:"업무메일/문서",items:["송품장 품명 반복 수정 11건","운송장 수취지 변경 7건","실화주 미기재 파일 4건"],status:"분석완료"},
+    {type:"법인 단말 분석",items:["해외 공급자 연락처 6건","특송번호 공유 내역 18건","삭제 파일 복원 12건"],status:"진행중"},
+    {type:"계정/접속 로그",items:["해외 IP 접속 9건","야간 대량 업로드 3건"],status:"검토중"},
+  ] : [
+    {type:"휴대폰 분석",items:["카카오톡 대화 142건","삭제 파일 복원 23건","GPS 이동경로 34일치"],status:"분석완료"},
+    {type:"SNS 모니터링",items:["텔레그램 채널 3개 식별","은어 사용 메시지 18건","공모자 계정 2개 특정"],status:"진행중"},
+    {type:"다크웹 흔적",items:["마켓 계정 연관 의심 1건","암호화폐 주소 연결 가능성"],status:"검토중"},
+  ];
+  const detailRows = {
+    money: dataTable(["시각","송금인","수취인","금액","위험단서"], txData.map(t => [t.date, t.from, t.to, t.amount, `${t.type} · ${t.risk}`])),
+    account: dataTable(["계좌/지갑","소유/사용자","연계 대상","중심도","상태"], [
+      ["KB-2145-****", ctx.targetName, "박공범·위장무역", "0.85", "추적"],
+      ["NH-7712-****", "박공범", "현금화 계좌", "0.77", "확인"],
+      ["USDT-0x8F...21", "불상", "해외 공급자", "0.69", "보전요청"],
+      ["카드-9981", ctx.targetName, "숙박·이동 결제", "0.58", "분석중"],
+    ]),
+    suspicious: dataTable(["탐지규칙","건수","대표 단서","위험도"], [
+      ["소액 반복 송금", "23건", "100만원 이하 48시간 내 반복", "매우 높음"],
+      ["ATM 현금화", "11건", "송금 직후 인출", "높음"],
+      ["해외송금 분산", "7건", "동일 공급자 유사 금액", "높음"],
+      ["법인계좌 우회", "5건", "수취인·실화주 불일치", "중간"],
+    ]),
+    comm: dataTable(["대상","통화/메시지","주요 시간대","연결강도","단서"], [
+      [ctx.targetName, "박공범", "22-02시", "0.85", "입금 직전 연락"],
+      [ctx.targetName, "최연락", "18-24시", "0.72", "운송장 공유"],
+      ["박공범", "해외번호 +66", "심야", "0.69", "도착 전 통화"],
+      ["ABC Courier", ctx.targetName, "업무시간", "0.52", "특송 문의"],
+    ]),
+    crypto: dataTable(["지갑","거래유형","금액","거래소/체인","상태"], [
+      ["0x8F...21", "USDT 입금", "12,840 USDT", "TRON", "추적"],
+      ["bc1q...5k", "BTC 전환", "0.41 BTC", "Bitcoin", "분석중"],
+      ["업비트 연계", "원화 출금", "8,200,000원", "거래소", "조회요청"],
+    ]),
+    cash: dataTable(["일시","장소","금액","연계거래","판정"], [
+      ["2026-05-28 23:14", "부산 해운대 ATM", "2,000,000원", "박공범 송금", "의심"],
+      ["2026-05-26 01:42", "서울 강남 ATM", "3,500,000원", "법인 입금", "고위험"],
+      ["2026-05-21 22:08", "인천공항 ATM", "1,800,000원", "입국 직후", "의심"],
+    ]),
+    movement: dataTable(["일시","위치","대상","단서","연계"], [
+      ["2026-05-28", "인천공항", ctx.targetName, "입국/특송 수령 근접", "높음"],
+      ["2026-05-29", "부산항", "박공범", "화물 반출지 접근", "중간"],
+      ["2026-05-30", "서울 강남", "최연락", "자금 인출지 인접", "중간"],
+    ]),
+    social: dataTable(["채널","계정/방","탐지어","마약수사 의미","위험도"], [
+      ["텔레그램", "비공개 채널 A", "아이스/작대기", "필로폰 거래 의심", "높음"],
+      ["SNS", "계정 @green", "초록이", "MDMA 은어", "중간"],
+      ["다크웹", "마켓 계정 후보", "샘플/배송", "구매·판매 흔적", "높음"],
+    ]),
+    message: dataTable(["대화상대","메시지 단서","시각","분석결과"], [
+      ["박공범", "오늘 밤 물건 도착", "2026-05-28 21:12", "수령 지시"],
+      ["최연락", "번호 바꿔서 보내", "2026-05-27 18:44", "특송 분산"],
+      ["해외번호", "sample ready", "2026-05-26 02:19", "공급자 연락"],
+    ]),
+    location: dataTable(["파일","촬영위치","관련인","단서","정확도"], [
+      ["IMG_2048.jpg", "부산항 인근", "박공범", "화물 반출지", "92%"],
+      ["IMG_2051.jpg", "인천공항", ctx.targetName, "입국 동선", "88%"],
+      ["IMG_2060.jpg", "강남 ATM", "최연락", "현금화 장소", "81%"],
+    ]),
+    device: dataTable(["디바이스","사용자","접속IP/위치","주요 이벤트","상태"], [
+      ["iPhone 15", ctx.targetName, "KR/Seoul", "삭제 메시지 복원 23건", "분석완료"],
+      ["Galaxy S24", "박공범", "KR/Busan", "특송 앱 조회 17건", "진행중"],
+      ["노트북", "불상", "NL/Amsterdam", "VPN 접속", "검토중"],
+    ]),
+  };
+  const detailTitle = tabs.find(t => t.key === drugForensicSubTab)?.label || "상세분석";
+  const renderTrend = values => values.map((v,i)=>`
+    <span style="height:${v}%;left:${i*9.09}%"></span>
+  `).join("");
+  const dashboard = `
+    <div class="drug-forensic-kpis">
+      <button class="drug-forensic-upload" type="button">자료등록 및 검증/삭제</button>
+      ${[
+        ["총 파일 수", "867 개"],
+        ["문서 개수", "110개"],
+        ["이미지 개수", "410개"],
+        ["영상 개수", "50개"],
+        ["대화내역 건수", "43건"],
+        ["식별 우범 관계인수", "130명"],
+      ].map(item => `
+        <div class="drug-forensic-kpi">
+          <span>${item[0]}</span>
+          <strong>${item[1]}</strong>
         </div>
-        <!-- 디지털 포렌식 -->
+      `).join("")}
+    </div>
+    <div class="drug-forensic-dashboard">
+      <div class="drug-forensic-toolbar">
+        <strong>종합 분석 대시보드</strong>
+        <span>자금·디지털 포렌식 통합 현황</span>
         <div>
-          <div class="panel-section-hdr" style="margin-bottom:10px"><span>💻 디지털 포렌식</span></div>
-          <div style="display:flex;flex-direction:column;gap:8px">
+          <button>분석기간 2025-06-01 - 2026-06-17</button>
+          <button>대상 전체</button>
+          <button>관할 전체</button>
+          <button>새로고침</button>
+        </div>
+      </div>
+      <div class="drug-forensic-grid">
+        <section class="df-card df-risk-score">
+          <h4>종합 위험도</h4>
+          <div class="df-score"><strong>92</strong><span>/100</span></div>
+          <b>매우 높음</b>
+          <div class="df-spark">${renderTrend([35,22,31,18,29,16,42,33,51,45,39,62])}</div>
+        </section>
+        <section class="df-card">
+          <h4>위험도 분포</h4>
+          <div class="df-donut"></div>
+          <ul class="df-legend">
+            <li><i style="background:#ef4444"></i>매우 높음 38%</li>
+            <li><i style="background:#f59e0b"></i>높음 42%</li>
+            <li><i style="background:#facc15"></i>보통 15%</li>
+            <li><i style="background:#22c55e"></i>낮음 5%</li>
+          </ul>
+        </section>
+        <section class="df-card df-wide">
+          <h4>핵심 위험 지표</h4>
+          <div class="df-gauge-row">
             ${[
-              {type:"휴대폰 분석",items:["카카오톡 대화 142건","삭제 파일 복원 23건","GPS 이동경로 34일치"],status:"분석완료"},
-              {type:"SNS 모니터링",items:["텔레그램 채널 3개 식별","은어 사용 메시지 18건","공모자 계정 2개 특정"],status:"진행중"},
-              {type:"다크웹 흔적",items:["마켓 계정 연관 의심 1건","암호화폐 주소 연결 가능성"],status:"검토중"},
-            ].map(f=>`
-              <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:12px 14px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                  <strong style="font-size:13px;color:#123c85">${f.type}</strong>
-                  <span style="margin-left:auto;font-size:11px;color:${f.status==="분석완료"?"#16a34a":f.status==="진행중"?"#d97706":"#6b7f9e"};font-weight:700">${f.status}</span>
-                </div>
-                <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
-                  ${f.items.map(i=>`<li style="font-size:12px;color:#41506a">${i}</li>`).join("")}
-                </ul>
+              ["자금 흐름",94],["의심 거래",89],["계좌 네트워크",91],["가상자산",88],["현금 인출",76],["통신/메시지",85],["SNS/다크웹",87],
+            ].map(([label,score])=>`
+              <div class="df-gauge">
+                <div style="--score:${score}"><strong>${score}</strong></div>
+                <span>${label}</span>
               </div>
             `).join("")}
           </div>
-        </div>
+          <div class="df-trend-row">
+            ${[
+              ["총 거래 금액","₩11,250,000,000","+18.3%"],
+              ["의심 거래 건수","326건","+18.0%"],
+              ["해외 송금 금액","₩2,350,000,000","+25.7%"],
+              ["현금 인출 금액","₩380,000,000","+12.1%"],
+              ["가상자산 거래액","$1,250,000","+31.5%"],
+              ["통신 연관 빈도","2,845회","+9.2%"],
+            ].map(([label,val,delta])=>`
+              <div><span>${label}</span><strong>${val}</strong><em>${delta}</em></div>
+            `).join("")}
+          </div>
+        </section>
+        <section class="df-card">
+          <h4>위험 Top 5 인물/계좌</h4>
+          ${dataTable(["순위","이름/계좌","역할","위험도"], [
+            ["1","김OO","총책/자금책","96"],
+            ["2","이OO","운반책","94"],
+            ["3","박OO","수취인","91"],
+            ["4","최OO","연락책","86"],
+            ["5","OO물류","운송사","78"],
+          ])}
+        </section>
+        <section class="df-card">
+          <h4>실시간 알림</h4>
+          <ul class="df-alerts">
+            <li><b>고위험 의심거래 탐지</b><span>12건</span></li>
+            <li><b>해외 자금 유입 시도</b><span>3건</span></li>
+            <li><b>현금 다량 인출 감지</b><span>5건</span></li>
+            <li><b>가상자산 의심 월렛</b><span>2건</span></li>
+            <li><b>위치 기반 이상 활동</b><span>4건</span></li>
+          </ul>
+        </section>
+        <section class="df-card">
+          <h4>분석 대상 개요</h4>
+          <div class="df-icon-stats">
+            ${[["분석 인물","128명"],["분석 계좌","623개"],["분석 디바이스","246대"],["분석 파일/증거","456개"]].map(([a,b])=>`<div><i></i><span>${a}</span><strong>${b}</strong></div>`).join("")}
+          </div>
+        </section>
+        <section class="df-card">
+          <h4>네트워크 중심도 Top 10</h4>
+          <div class="df-bars">
+            ${[["김OO",.85],["이OO",.77],["박OO",.71],["최OO",.65],["정OO",.46],["송OO",.44],["문OO",.38],["한OO",.28]].map(([n,v])=>`<div><span>${n}</span><i><b style="width:${v*100}%"></b></i><em>${v}</em></div>`).join("")}
+          </div>
+        </section>
+        <section class="df-card df-map">
+          <h4>자금 흐름 요약 지도</h4>
+          <svg viewBox="0 0 520 210" preserveAspectRatio="none">
+            <path d="M30 120 C130 70, 220 90, 300 60 S420 50, 490 80" />
+            <path d="M45 130 C160 150, 230 110, 340 150 S430 165, 490 120" />
+            <circle cx="80" cy="115" r="5"/><circle cx="260" cy="80" r="5"/><circle cx="420" cy="88" r="5"/><circle cx="350" cy="148" r="5"/>
+          </svg>
+        </section>
+        <section class="df-card">
+          <h4>의심 유형 분포</h4>
+          <div class="df-donut df-donut-alt"></div>
+          <strong class="df-center-number">326건</strong>
+        </section>
+        <section class="df-card">
+          <h4>시간대별 의심 활동</h4>
+          <div class="df-heatmap">${Array.from({length:56}).map((_,i)=>`<i style="opacity:${0.18 + ((i*7)%10)/12}"></i>`).join("")}</div>
+        </section>
       </div>
+    </div>
+  `;
+  return `
+    <div class="drug-forensic-page">
+      ${drugContextHeader(ctx, "자금·디지털 포렌식 분석", "선택 대상 유형에 맞춰 자금·디지털·SNS 단서를 전환합니다.")}
+      ${drugSubTabNav("forensic", drugForensicSubTab, tabs)}
+      ${drugForensicSubTab === "dashboard" ? dashboard : `
+        <section class="drug-forensic-detail">
+          <div class="drug-forensic-detail-head">
+            <h4>${escapeHtml(detailTitle)} 상세분석 대시보드</h4>
+            <span>${escapeHtml(ctx.case.caseId)} · ${escapeHtml(ctx.targetName)}</span>
+          </div>
+          <div class="drug-forensic-detail-grid">
+            <div class="df-card df-wide">
+              <h4>${escapeHtml(detailTitle)} 분석 결과</h4>
+              <div class="drug-forensic-scroll">${detailRows[drugForensicSubTab] || detailRows.money}</div>
+            </div>
+            <div class="df-card">
+              <h4>위험 요약</h4>
+              <div class="df-score small"><strong>${drugForensicSubTab === "crypto" ? "88" : drugForensicSubTab === "comm" ? "85" : "92"}</strong><span>/100</span></div>
+              <ul class="df-alerts">
+                <li><b>고위험 단서</b><span>12건</span></li>
+                <li><b>추가 확인</b><span>7건</span></li>
+                <li><b>증거 보전</b><span>필요</span></li>
+              </ul>
+            </div>
+            <div class="df-card df-wide">
+              <h4>시간 흐름</h4>
+              <div class="df-spark detail">${renderTrend([18,28,25,40,33,52,48,62,70,54,78,83])}</div>
+            </div>
+          </div>
+        </section>
+      `}
     </div>
   `;
 }
@@ -4395,75 +5150,33 @@ function drugForensicPanel(){
 function drugReportPanel(){
   const aCase = activeDrugCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  return `
-    <div class="canvas-report-wrap">
-      <div class="canvas-selected-company">
-        <span>수사 대상</span>
-        <strong>${aCase.caseId} · ${escapeHtml(aCase.targetName)}</strong>
-        <span class="gi-type-chip ${drugInvTypeById(aCase.invTypeId).cls}" style="margin-left:8px">
-          ${drugInvTypeById(aCase.invTypeId).num} ${escapeHtml(drugInvTypeById(aCase.invTypeId).label)}
-        </span>
-      </div>
-      <div class="scenario-results canvas-report-results">
-        <section class="scenario-result-panel">
-          <h3>분석 보고서</h3>
-          <div class="markdown-output" style="min-height:120px">${markdownToHtml(latestReport) || "<p class='muted'>분석 시나리오를 실행하면 보고서가 생성됩니다.</p>"}</div>
-        </section>
-        <section class="scenario-result-panel">
-          <h3>보고서 검증</h3>
-          <div class="markdown-output" style="min-height:80px">${markdownToHtml(latestValidation) || "<p class='muted'>보고서 생성 후 검증 결과가 표시됩니다.</p>"}</div>
-        </section>
-      </div>
+  const ctx = drugCaseContext(aCase);
+  const targetSummary = ctx.targetType === "company"
+    ? `${ctx.targetName}의 전구물질 수입, 특송 분산, 해외 공급망, 실화주 불일치 위험을 중심으로 분석합니다.`
+    : `${ctx.targetName}의 고위험국 이동, 소량 반복 수령, 은어/SNS, 분산송금 단서를 중심으로 분석합니다.`;
+  const reportDraft = latestReport || `
+### ${ctx.targetName} 마약수사 분석 요약
 
-      <!-- 마약수사 전용 추가 섹션 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
-
-        <!-- 국제공조 요건 -->
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span style="font-size:18px">🌐</span>
-            <strong style="font-size:14px;color:#1e40af">국제공조 요건</strong>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            ${[
-              {label:"공조 요청 대상국",value:"태국, 멕시코",status:"확인"},
-              {label:"MLA(형사사법공조) 요건",value:"요청서 작성 필요",status:"준비중"},
-              {label:"INCB 통보 필요 여부",value:"전구물질 해당 시 필수",status:"검토중"},
-              {label:"WCO CEN 등록",value:"밀수 정보 공유 등록",status:"미등록"},
-            ].map(r=>`
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:7px">
-                <span style="flex:1;font-size:12px;color:#1e293b">${r.label}</span>
-                <span style="font-size:12px;color:#1e40af">${r.value}</span>
-                <span style="font-size:11px;font-weight:700;color:${r.status==="확인"?"#16a34a":r.status==="준비중"||r.status==="검토중"?"#d97706":"#dc2626"}">${r.status}</span>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-
-        <!-- 물리 검사 결과 요약 -->
-        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span style="font-size:18px">🔬</span>
-            <strong style="font-size:14px;color:#92400e">물리 검사 결과 요약</strong>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            ${[
-              {label:"감정 기관",value:"국립과학수사연구원"},
-              {label:"검출 성분",value:"메스암페타민 (필로폰)"},
-              {label:"압수 중량",value:"285g"},
-              {label:"순도",value:"89.3%"},
-              {label:"감정 결과",value:"양성 (마약류)", highlight:true},
-            ].map(r=>`
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:7px">
-                <span style="flex:1;font-size:12px;color:#41506a">${r.label}</span>
-                <strong style="font-size:12px;color:${r.highlight?"#dc2626":"#1e293b"}">${r.value}</strong>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+- 대상 유형: ${ctx.label}
+- 사건 번호: ${ctx.case.caseId}
+- 수사 유형: ${ctx.type.label}
+- 핵심 판단: ${targetSummary}
+- 권고 조치: CDW 조회 결과와 관계망·포렌식 단서를 병합하여 검사/추적 우선순위를 지정합니다.
+`;
+  const validation = latestValidation || `
+- 대상 식별자와 프로파일 유형이 일치합니다.
+- 마약수사 중심 위험지표가 보고서에 반영되어 있습니다.
+- 추가 확인 필요: 물리 감정 결과, 국제공조 회신, 자금거래 원천자료.
+`;
+  return commonAnalysisReportPanel({
+    selectedLabel: ctx.label,
+    targetText: `${escapeHtml(ctx.targetName)} <span class="muted" style="font-size:12px">${escapeHtml(ctx.case.caseId)}</span>`,
+    badgeHtml: `<span class="gi-type-chip ${ctx.type.cls}">${ctx.type.num} ${escapeHtml(ctx.type.label)}</span>`,
+    reportTitle: "분석 보고서",
+    validationTitle: "보고서 검증",
+    reportHtml: markdownToHtml(ensureReportRequiredSections(reportDraft, "drug", { targetName: ctx.targetName })),
+    validationHtml: markdownToHtml(validation),
+  });
 }
 
 function drugSlangRagPanel(){
@@ -5407,6 +6120,9 @@ function loadRiskPersons(){
       if(currentPage === "generalinv" && showGenInvRegForm && giRegTargetType === "person"){
         render("generalinv");
       }
+      if(currentPage === "lawsearch" && drugInvTab === "profile" && drugCaseTargetType() === "person"){
+        render("lawsearch");
+      }
     })
     .catch(error => {
       riskPersonsLoading = false;
@@ -5782,24 +6498,17 @@ function uploadRow({file,type,extracted,agents,result,status,tone}){
 
 function canvasReportPanel(){
   const company = activeCanvasCompany();
-  return `
-    <div class="canvas-report-wrap">
-      <div class="canvas-selected-company">
-        <span>선택 기업</span>
-        <strong>${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})</strong>
-      </div>
-      <div class="scenario-results canvas-report-results">
-        <section class="scenario-result-panel">
-          <h3>분석 보고서</h3>
-          <div id="scenarioReportOutput" class="markdown-output">${markdownToHtml(latestReport)}</div>
-        </section>
-        <section class="scenario-result-panel">
-          <h3>보고서 검증</h3>
-          <div id="scenarioValidationOutput" class="markdown-output">${markdownToHtml(latestValidation)}</div>
-        </section>
-      </div>
-    </div>
-  `;
+  const companyName = `${company.company_name} (${company.company_id})`;
+  return commonAnalysisReportPanel({
+    selectedLabel: "선택 기업",
+    targetText: escapeHtml(companyName),
+    reportTitle: "분석 보고서",
+    validationTitle: "보고서 검증",
+    reportHtml: markdownToHtml(ensureReportRequiredSections(latestReport, "customs", { targetName: companyName })),
+    validationHtml: markdownToHtml(latestValidation),
+    reportId: "scenarioReportOutput",
+    validationId: "scenarioValidationOutput",
+  });
 }
 
 function editingCardStepsHtml(){
@@ -7005,7 +7714,9 @@ function runScenarioWorkflow(){
       updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:runnableItems.length, pct:runnableItems.length ? Math.round((completed / runnableItems.length) * 100) : 0, tone:"running" });
       if(data.result_key === "final_report"){
         latestReport = data.output || "보고서 없음";
-        setMarkdown(document.getElementById("scenarioReportOutput"), latestReport);
+        const company = activeCanvasCompany();
+        const companyName = company ? `${company.company_name} (${company.company_id})` : activeCanvasCompanyId;
+        setMarkdown(document.getElementById("scenarioReportOutput"), ensureReportRequiredSections(latestReport, "customs", { targetName: companyName }));
       }
       if(data.result_key === "validation_result"){
         latestValidation = data.output || "검증 결과 없음";
@@ -7062,7 +7773,8 @@ function render(page="home"){
   const contentEl = document.getElementById("content");
   const fillPage = (page === "canvas" && canvasTab === "report") ||
                    (page === "investigation" && investigationTab === "scenario") ||
-                   (page === "generalinv" && generalInvTab === "workbench");
+                   (page === "generalinv" && generalInvTab === "workbench") ||
+                   (page === "lawsearch" && (drugInvTab === "scenario" || drugInvTab === "network" || drugInvTab === "forensic" || drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : pages.home();
   if(page === "home"){
@@ -7088,8 +7800,12 @@ function render(page="home"){
     }
   }
   if(page === "lawsearch"){
-    if(drugInvTab === "data"){
+    const drugCtx = drugCaseContext();
+    if(drugCtx?.targetType === "company" || drugInvTab === "data" || drugInvTab === "profile"){
       if(!scenarioCompanies.length) loadScenarioCompanies();
+    }
+    if((drugCtx?.targetType === "person" || drugInvTab === "profile") && !riskPersons.length && !riskPersonsLoading){
+      loadRiskPersons();
     }
   }
   if(page === "investigation"){
@@ -7805,6 +8521,19 @@ document.addEventListener("click", (event)=>{
   const drugTab = event.target.closest("[data-drug-tab]");
   if(drugTab){
     drugInvTab = drugTab.dataset.drugTab;
+    saveCanvasState();
+    render("lawsearch");
+    return;
+  }
+
+  const drugSubTab = event.target.closest("[data-drug-subtab]");
+  if(drugSubTab){
+    const [group, tab] = drugSubTab.dataset.drugSubtab.split(":");
+    if(group === "data") drugDataSubTab = tab;
+    if(group === "network") drugNetworkSubTab = tab;
+    if(group === "forensic") drugForensicSubTab = tab;
+    if(group === "report") drugReportSubTab = tab;
+    saveCanvasState();
     render("lawsearch");
     return;
   }
@@ -7872,11 +8601,8 @@ document.addEventListener("click", (event)=>{
     if(!aCase.stepResults) aCase.stepResults = {};
     const steps = activeDrugCaseSteps();
     const toRun = stepId === "all" ? steps : steps.filter(s => s.id === stepId);
-    toRun.forEach(s => {
-      aCase.stepStates[s.id] = "done";
-      aCase.stepResults[s.id] = `[${escapeHtml(s.label)}] 분석이 완료되었습니다.`;
-    });
-    saveCanvasState(); render("lawsearch"); return;
+    drugStreamSteps(aCase, toRun);
+    return;
   }
 
   const drugToggleResult = event.target.closest("[data-drug-toggle-result]");
@@ -7939,7 +8665,10 @@ document.addEventListener("click", (event)=>{
   const drugCaseBtn = event.target.closest("[data-drug-case]");
   if(drugCaseBtn){
     activeDrugCaseId = drugCaseBtn.dataset.drugCase;
-    drugInvTab = "data";
+    const selectedDrugCase = activeDrugCase();
+    resetDrugCaseSubTabs(selectedDrugCase);
+    drugInvTab = "profile";
+    saveCanvasState();
     render("lawsearch");
     return;
   }
@@ -7992,9 +8721,11 @@ document.addEventListener("click", (event)=>{
       status: { label:"대기", tone:"wait", done:0, total:6, pct:0 },
     };
     defaultDrugInvCases.push(newCase);
+    activeDrugCaseId = newCase.caseId;
+    resetDrugCaseSubTabs(newCase);
+    drugInvTab = "profile";
     showDrugNewCaseForm = false;
     drugRegTargetType   = "company";
-    // 탭 이동 없이 목록에 카드만 등록
     saveCanvasState();
     render("lawsearch");
     return;

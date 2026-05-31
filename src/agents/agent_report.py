@@ -94,24 +94,24 @@ def _fallback_report(state: CustomsState, company_result: str, preceding: list[d
     lines += ["## 1. 업체 개요\n", company_result, ""]
 
     # 2. 통합 요약
-    lines.append("## 2. 에이전트 분석 결과 통합 요약\n")
+    lines.append("## 2. AI서비스 분석 결과 통합 요약\n")
     if preceding:
-        lines.append(f"총 {len(preceding)}개 에이전트 분석을 수행하였습니다. 각 단계의 핵심 발견사항을 종합하면 다음과 같습니다.\n")
+        lines.append(f"총 {len(preceding)}개 AI 서비스 분석을 수행하였습니다. 각 단계의 핵심 발견사항을 종합하면 다음과 같습니다.\n")
         for r in preceding:
             first_line = r["result"].split("\n")[0].strip()
             if first_line:
                 lines.append(f"- **{r['label']}**: {first_line}")
     else:
-        lines.append("실행된 에이전트 결과가 없습니다.")
+        lines.append("실행된 AI 서비스 결과가 없습니다.")
     lines.append("")
 
-    # 3. 에이전트별 결과
-    lines.append("## 3. 에이전트별 분석 결과\n")
+    # 3. AI 서비스 별 결과
+    lines.append("## 3. AI 서비스 별 분석 결과\n")
     if preceding:
         for i, r in enumerate(preceding, 1):
             lines += [f"### 3-{i}. {r['label']}\n", r["result"], ""]
     else:
-        lines.append("실행된 에이전트 결과가 없습니다.\n")
+        lines.append("실행된 AI 서비스  결과가 없습니다.\n")
 
     # 4. 조사 착안사항 (법령 근거 포함)
     lines.append("## 4. 조사 착안사항\n")
@@ -183,9 +183,9 @@ def agent_report(state: CustomsState) -> CustomsState:
             f"[{r['label']}]\n{r['result']}" for r in preceding
         ) or "분석 결과 없음"
         agent_section_outline = "\n".join(
-            f"   3-{i}. {r['label']}: 해당 에이전트 결과를 분석하여 핵심 내용 요약"
+            f"   3-{i}. {r['label']}: 해당 AI 서비스  결과를 분석하여 핵심 내용 요약"
             for i, r in enumerate(preceding, 1)
-        ) or "   (실행된 에이전트 없음)"
+        ) or "   (실행된 AI 서비스  없음)"
         prompt = REPORT_PROMPT.format(
             company_result=company_result,
             agent_results=agent_results,

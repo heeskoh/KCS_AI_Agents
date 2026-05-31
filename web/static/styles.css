@@ -562,12 +562,12 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-move-btn{width:22px;height:22px;border:1px solid var(--line);background:#f8fafc;border-radius:6px;cursor:pointer;font-size:11px;color:#64748b;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0}
 .gi-move-btn:hover{background:#e2e8f0;color:#1e293b}
 .gi-chip-done{opacity:.75}
-.gi-log-list{display:flex;flex-direction:column;gap:0}
-.gi-log-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #f1f5f9;transition:background .1s}
-.gi-log-row:last-child{border-bottom:none}
+.gi-log-list{display:flex;flex-direction:column;gap:8px;padding:10px;background:#f8fbff}
+.gi-log-item{border:1px solid #dbe7f6;border-radius:10px;background:#fff;overflow:hidden;flex:none;min-height:0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.gi-log-row{display:flex;align-items:center;gap:10px;padding:9px 12px;transition:background .1s}
 .gi-log-row:hover{background:#f8faff}
-.gi-log-row.gi-log-done{background:#f0fdf4}
-.gi-log-row.gi-log-run{background:#eff6ff}
+.gi-log-item.gi-log-done>.gi-log-row{background:#ecfdf3}
+.gi-log-item.gi-log-run>.gi-log-row{background:#eff6ff}
 .gi-log-num{width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .gi-log-done .gi-log-num{background:#bbf7d0;color:#15803d}
 .gi-log-run .gi-log-num{background:#bfdbfe;color:#1d4ed8}
@@ -577,14 +577,144 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .gi-log-act-btn.primary{background:#2563eb;color:#fff}
 .gi-log-act-btn:hover{filter:brightness(.93)}
 .gi-log-act-btn:disabled{opacity:.4;cursor:not-allowed}
-.gi-log-error{background:#fff5f5}
+.gi-log-error>.gi-log-row{background:#fff5f5}
 .gi-log-error .gi-log-num{background:#fecaca;color:#dc2626}
-.gi-log-result{padding:10px 12px 12px 44px;font-size:12px;line-height:1.7;color:#334155;border-bottom:1px solid #f1f5f9;background:#f8faff}
-.gi-log-result p{margin:4px 0}
-.gi-log-result ul,.gi-log-result ol{margin:4px 0;padding-left:18px}
-.gi-log-result h1,.gi-log-result h2,.gi-log-result h3,.gi-log-result h4{font-size:13px;font-weight:900;margin:8px 0 4px;color:#1e3a5f}
-.gi-log-result strong{font-weight:800}
-.gi-log-result code{background:#e2e8f0;border-radius:4px;padding:0 4px;font-size:11px}
+.gi-log-result-frame{border-top:1px solid #dbe7f6;background:#f8fbff;padding:10px 12px}
+.gi-log-result-scroll{max-height:220px;min-height:72px;overflow-y:auto;overflow-x:auto;border:1px solid #d7e4f5;border-radius:8px;background:#fff;padding:12px 14px;font-size:12px;line-height:1.7;color:#334155;white-space:normal}
+.gi-log-result-scroll p{margin:4px 0}
+.gi-log-result-scroll ul,.gi-log-result-scroll ol{margin:4px 0;padding-left:18px}
+.gi-log-result-scroll h1,.gi-log-result-scroll h2,.gi-log-result-scroll h3,.gi-log-result-scroll h4{font-size:13px;font-weight:900;margin:8px 0 4px;color:#1e3a5f}
+.gi-log-result-scroll strong{font-weight:800}
+.gi-log-result-scroll code{background:#e2e8f0;border-radius:4px;padding:0 4px;font-size:11px}
+.gi-log-result-scroll table{border-collapse:collapse;min-width:100%}
+.gi-log-result-scroll pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:4px 0}
+.drug-profile-wrap{display:flex;flex-direction:column;gap:14px}
+.drug-profile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:#f8fbff;border:1px solid #dbe7f6;border-radius:10px;padding:14px 16px}
+.drug-profile-head h3{margin:0 0 4px;font-size:17px;color:#0f2f6b}
+.drug-profile-head p{margin:0;color:#64748b;font-size:12px;line-height:1.5}
+.drug-profile-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.drug-profile-metric{border:1px solid #dbe7f6;border-radius:10px;background:#fff;padding:12px;min-height:88px}
+.drug-profile-metric span{display:block;font-size:11px;font-weight:800;color:#64748b}
+.drug-profile-metric strong{display:block;margin-top:5px;font-size:22px;font-weight:900;color:#123c85;line-height:1}
+.drug-profile-metric p{margin:7px 0 0;font-size:11px;line-height:1.35;color:#64748b}
+.drug-profile-metric.high{border-color:#fecaca;background:#fff7f7}
+.drug-profile-metric.high strong{color:#dc2626}
+.drug-profile-metric.mid{border-color:#fde68a;background:#fffbeb}
+.drug-profile-metric.mid strong{color:#d97706}
+.drug-profile-metric.low{border-color:#bbf7d0;background:#f0fdf4}
+.drug-profile-metric.low strong{color:#16a34a}
+.drug-profile-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.drug-profile-panel{border:1px solid #dbe7f6;border-radius:10px;background:#fff;padding:14px;min-width:0;overflow:hidden}
+.drug-profile-panel h4{margin:0 0 10px;font-size:14px;color:#123c85}
+.drug-profile-defs{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px 12px;margin:0}
+.drug-profile-defs dt{font-size:12px;font-weight:900;color:#64748b}
+.drug-profile-defs dd{margin:0;font-size:13px;color:#1f2f46;line-height:1.45;overflow-wrap:anywhere}
+.drug-risk-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.drug-risk-list li{border:1px solid #edf2fb;border-radius:8px;background:#f8fbff;padding:10px 12px}
+.drug-risk-list strong{display:block;font-size:13px;color:#1e3a8a}
+.drug-risk-list span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.4}
+.drug-tab-stack{display:flex;flex-direction:column;gap:12px;min-height:0}
+.drug-context-head{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #dbe7f6;border-radius:10px;background:#f8fbff;padding:12px 14px}
+.drug-context-head strong{display:block;font-size:15px;color:#123c85}
+.drug-context-head p{margin:3px 0 0;font-size:12px;color:#64748b;line-height:1.45}
+.drug-context-target{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.drug-context-target span{font-size:11px;font-weight:900;color:#1e40af;background:#eef4ff;border-radius:999px;padding:3px 8px}
+.drug-context-target b{font-size:14px;color:#0f172a}
+.drug-context-target small{font-size:11px;color:#64748b}
+.drug-subtabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #dbe7f6}
+.drug-subtabs button{height:32px;border:1px solid #dbe7f6;border-bottom:0;background:#f8fbff;color:#41506a;border-radius:8px 8px 0 0;padding:0 12px;font-size:12px;font-weight:900;cursor:pointer}
+.drug-subtabs button.active{background:#fff;color:#123c85;border-color:#9fc0f5;box-shadow:0 -2px 10px rgba(8,31,72,.05)}
+.drug-network-page{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}
+.drug-network-layout{display:grid;grid-template-columns:7fr 3fr;gap:14px;flex:1;min-height:560px}
+.drug-network-left{display:grid;grid-template-rows:7fr 3fr;gap:10px;min-width:0;min-height:0}
+.drug-network-right{display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:10px;min-width:0;min-height:0}
+.drug-network-frame{border:1px solid #dbe7f6;border-radius:8px;background:#fff;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.drug-network-frame-head{height:42px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #edf2fb;background:#f8fbff;flex:none}
+.drug-network-frame-head h4{margin:0;font-size:13px;color:#123c85}
+.drug-network-frame-head span{font-size:12px;color:#64748b}
+.drug-network-graph-frame{min-height:0}
+.drug-network-graph{flex:1;min-height:0;background:#f8fbff;display:flex;align-items:center;justify-content:center;padding:10px}
+.drug-network-svg{width:100%;height:100%;max-height:100%}
+.drug-network-svg line{stroke:#9bbcff;stroke-width:2}
+.drug-network-svg text{font-size:12px;fill:#64748b}
+.drug-network-svg .node-label{font-size:13px;fill:#fff;font-weight:800}
+.drug-network-svg .node-type{font-size:12px;fill:#41506a}
+.drug-network-svg circle{stroke:#fff;stroke-width:4;filter:drop-shadow(0 2px 5px rgba(15,23,42,.18))}
+.drug-network-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:auto;padding:10px}
+.drug-network-scroll .data-table{width:100%;min-width:0;font-size:12px}
+.drug-network-scroll .data-table th,.drug-network-scroll .data-table td{white-space:normal;vertical-align:top}
+.drug-forensic-page{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}
+.drug-forensic-page .drug-subtabs{flex:none;overflow-x:auto;flex-wrap:nowrap;padding-bottom:0}
+.drug-forensic-page .drug-subtabs button{border-radius:0;background:#e5e5e5;border-color:#d2d6dd;color:#111827;height:28px;padding:0 10px}
+.drug-forensic-page .drug-subtabs button.active{background:#c7f0ff;border-color:#89d5ec;color:#003d6b}
+.drug-forensic-kpis{display:grid;grid-template-columns:1.15fr repeat(6,1fr);gap:10px;flex:none}
+.drug-forensic-upload,.drug-forensic-kpi{border:2px solid #0f5b9f;border-radius:9px;background:#fff;color:#0b2b47;min-height:66px}
+.drug-forensic-upload{font-weight:900;font-size:14px;cursor:pointer}
+.drug-forensic-kpi{display:flex;flex-direction:column;align-items:center;justify-content:center;border-left-style:dashed}
+.drug-forensic-kpi span{font-size:13px;font-weight:800}
+.drug-forensic-kpi strong{font-size:24px;margin-top:4px;color:#0b2b47}
+.drug-forensic-dashboard{border:1px solid #d8e2ee;background:#f8fbff;display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+.drug-forensic-toolbar{height:44px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0;background:#fff;padding:0 12px;flex:none}
+.drug-forensic-toolbar strong{font-size:14px;color:#123c85}
+.drug-forensic-toolbar span{font-size:11px;color:#64748b}
+.drug-forensic-toolbar div{margin-left:auto;display:flex;gap:8px}
+.drug-forensic-toolbar button{height:28px;border:1px solid #e2e8f0;background:#fff;border-radius:5px;font-size:11px;color:#334155}
+.drug-forensic-grid{display:grid;grid-template-columns:1.05fr 1.25fr 2fr 1.35fr 1.25fr;grid-auto-rows:minmax(150px,1fr);gap:8px;padding:8px;overflow:auto;min-height:0}
+.df-card{border:1px solid #dbe7f6;background:#fff;border-radius:7px;padding:12px;min-width:0;min-height:0;overflow:hidden;position:relative}
+.df-card h4{margin:0 0 10px;font-size:12px;color:#123c85}
+.df-wide{grid-column:span 2}
+.df-risk-score{display:flex;flex-direction:column}
+.df-score{display:flex;align-items:flex-end;justify-content:center;color:#2563eb;line-height:1;margin:8px 0}
+.df-score strong{font-size:48px;font-weight:900}
+.df-score span{font-size:18px;color:#64748b;margin-bottom:7px}
+.df-score.small strong{font-size:42px}
+.df-risk-score>b{text-align:center;color:#2563eb;font-size:16px}
+.df-spark{height:48px;position:relative;margin-top:auto;border-bottom:1px solid #bfdbfe}
+.df-spark span{position:absolute;bottom:0;width:7%;background:linear-gradient(#93c5fd,#dbeafe);border-radius:4px 4px 0 0}
+.df-spark.detail{height:120px;border:1px solid #dbe7f6;border-radius:7px;background:#f8fbff}
+.df-donut{width:96px;height:96px;border-radius:50%;background:conic-gradient(#ef4444 0 38%,#f59e0b 38% 80%,#facc15 80% 95%,#22c55e 95% 100%);margin:8px auto;position:relative}
+.df-donut:after{content:"";position:absolute;inset:24px;background:#fff;border-radius:50%}
+.df-donut-alt{background:conic-gradient(#ef4444 0 38%,#f59e0b 38% 60%,#facc15 60% 78%,#60a5fa 78% 90%,#22c55e 90% 100%)}
+.df-center-number{display:block;text-align:center;font-size:18px;color:#123c85;margin-top:-62px;position:relative;z-index:1}
+.df-legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:11px}
+.df-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.df-gauge-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.df-gauge{text-align:center;min-width:0}
+.df-gauge div{width:54px;height:34px;border-radius:54px 54px 0 0;background:conic-gradient(from 270deg,#ef4444 calc(var(--score)*1%),#e2e8f0 0);margin:0 auto 4px;display:grid;place-items:end center;padding-bottom:2px}
+.df-gauge strong{font-size:14px;color:#ef4444}
+.df-gauge span{font-size:10px;color:#64748b;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.df-trend-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-top:12px}
+.df-trend-row div{border:1px solid #edf2fb;background:#f8fbff;border-radius:6px;padding:8px}
+.df-trend-row span{display:block;font-size:10px;color:#64748b}
+.df-trend-row strong{display:block;font-size:12px;margin-top:4px}
+.df-trend-row em{font-style:normal;color:#16a34a;font-size:10px}
+.df-alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.df-alerts li{display:flex;align-items:center;gap:8px;border-bottom:1px solid #edf2fb;padding-bottom:6px;font-size:12px}
+.df-alerts b{flex:1;color:#334155}
+.df-alerts span{font-weight:900;color:#dc2626}
+.df-icon-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.df-icon-stats div{border:1px solid #edf2fb;border-radius:8px;padding:12px 6px}
+.df-icon-stats i{display:block;width:26px;height:26px;border-radius:50%;background:#e6f0ff;margin:0 auto 8px}
+.df-icon-stats span{display:block;font-size:10px;color:#64748b}
+.df-icon-stats strong{font-size:13px;color:#2563eb}
+.df-bars{display:flex;flex-direction:column;gap:7px}
+.df-bars div{display:grid;grid-template-columns:44px 1fr 34px;gap:6px;align-items:center;font-size:10px}
+.df-bars i{height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.df-bars b{display:block;height:100%;background:linear-gradient(90deg,#93c5fd,#ef4444)}
+.df-bars em{font-style:normal;color:#475569}
+.df-map svg{width:100%;height:150px;background:linear-gradient(#f8fbff,#eef6ff);border-radius:7px}
+.df-map path{fill:none;stroke:#ef4444;stroke-width:2}
+.df-map path+path{stroke:#f59e0b}
+.df-map circle{fill:#2563eb}
+.df-heatmap{display:grid;grid-template-columns:repeat(14,1fr);gap:3px}
+.df-heatmap i{aspect-ratio:1;background:#ef4444;border-radius:2px}
+.drug-forensic-detail{min-height:0;flex:1;display:flex;flex-direction:column;border:1px solid #dbe7f6;border-radius:8px;background:#fff;overflow:hidden}
+.drug-forensic-detail-head{height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #edf2fb;background:#f8fbff;flex:none}
+.drug-forensic-detail-head h4{margin:0;color:#123c85}
+.drug-forensic-detail-head span{font-size:12px;color:#64748b;margin-left:auto}
+.drug-forensic-detail-grid{display:grid;grid-template-columns:2fr 1fr;grid-auto-rows:minmax(160px,auto);gap:10px;padding:10px;overflow:auto}
+.drug-forensic-scroll{max-height:360px;overflow:auto}
+.drug-forensic-scroll .data-table{width:100%;font-size:12px}
 @keyframes gi-blink{0%,100%{opacity:1}50%{opacity:.35}}
 /* 기존 단순 워크벤치 유지 (공통) */
 .gi-wb-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -895,6 +1025,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .scenario-result-panel{height:360px;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
 .canvas-report-results .scenario-result-panel{height:100%;min-height:0}
 .scenario-result-panel .markdown-output{min-height:0;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:14px}
+.report-required-preview{margin-top:14px;border-top:1px solid #dbe7f6;padding-top:12px}
 .markdown-output{line-height:1.65;word-break:keep-all;overflow-wrap:anywhere}
 .markdown-output h1,.markdown-output h2,.markdown-output h3,.markdown-output h4{margin:16px 0 8px;line-height:1.35}
 .markdown-output h1:first-child,.markdown-output h2:first-child,.markdown-output h3:first-child,.markdown-output h4:first-child{margin-top:0}
