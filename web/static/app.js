@@ -971,6 +971,10 @@ let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false
 let activeDrugCaseId     = null;
 let showDrugNewCaseForm  = false;
 let drugCaseFilter       = "";
+let archivedDrugCases    = [];   // 마약수사 완료 아카이브
+let drugArchiveOpen      = false;
+let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
+let genInvArchiveOpen    = false;
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
 let riskScreeningTab     = "today";    // "today"|"tracking"
@@ -2782,13 +2786,47 @@ function generalInvCasesPanel(){
         ${filtered.map(genInvCaseCard).join("") ||
           `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
       </div>
+
+      <div class="overview-archive-section">
+        <button class="overview-archive-toggle" data-gi-toggle-archive>
+          완료건 확인 <strong>(${archivedGenInvCases.length}건)</strong>
+          <span>${genInvArchiveOpen ? "▲" : "▼"}</span>
+        </button>
+        ${genInvArchiveOpen ? `
+          <div class="job-board archive-board" style="margin-top:12px">
+            ${archivedGenInvCases.map(c => {
+              const type = genInvTypeById(c.invTypeId);
+              return `
+                <article class="job-card archive-card" tabindex="0">
+                  <div class="job-card-head">
+                    <div>
+                      <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
+                      <h3>${escapeHtml(c.targetName)}</h3>
+                      <p class="muted">${escapeHtml(c.investigator)} · ${escapeHtml(c.team)} · ${escapeHtml(c.updated)}</p>
+                    </div>
+                    <div class="job-status-row">
+                      <span class="job-status done">아카이브</span>
+                      <button class="btn-inline-action" data-gi-restore-case="${escapeHtml(c.caseId)}">복원</button>
+                    </div>
+                  </div>
+                  <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+                  <div class="archive-summary" style="margin-top:8px">
+                    <span>${c.status.done}/${c.status.total} 단계 완료</span>
+                    <strong>${c.status.pct}%</strong>
+                  </div>
+                </article>`;
+            }).join("") || `<div class="empty-state">완료된 수사 결과가 없습니다.</div>`}
+          </div>
+        ` : ""}
+      </div>
     </div>
   `;
 }
 
 function genInvCaseCard(c){
-  const type   = genInvTypeById(c.invTypeId);
+  const type     = genInvTypeById(c.invTypeId);
   const isActive = c.caseId === activeGenInvCaseId;
+  const isDone   = c.status.pct >= 100 || c.status.tone === "done";
   return `
     <article class="gi-case-card${isActive ? " active" : ""}" data-gi-case="${escapeHtml(c.caseId)}" tabindex="0" role="button">
       <div class="gi-case-head">
@@ -2796,7 +2834,11 @@ function genInvCaseCard(c){
           <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
           <h3 class="gi-case-name">${escapeHtml(c.targetName)}</h3>
         </div>
-        <span class="job-status ${c.status.tone}">${c.status.label}</span>
+        <div class="job-status-row">
+          <span class="job-status ${c.status.tone}">${c.status.label}</span>
+          ${isDone ? `<button class="btn-inline-action" data-gi-archive-case="${escapeHtml(c.caseId)}" title="아카이브">아카이브</button>` : ""}
+          <button class="btn-inline-action job-remove-action" data-gi-remove-case="${escapeHtml(c.caseId)}" title="삭제">삭제</button>
+        </div>
       </div>
       <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
       <div class="job-progress"><i style="width:${c.status.pct}%"></i></div>
@@ -3838,6 +3880,39 @@ function drugOngoingPanel(){
         ${filtered.map(drugCaseCard).join("") ||
           `<div class="empty-state">등록된 마약 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
       </div>
+
+      <div class="overview-archive-section">
+        <button class="overview-archive-toggle" data-drug-toggle-archive>
+          완료건 확인 <strong>(${archivedDrugCases.length}건)</strong>
+          <span>${drugArchiveOpen ? "▲" : "▼"}</span>
+        </button>
+        ${drugArchiveOpen ? `
+          <div class="job-board archive-board" style="margin-top:12px">
+            ${archivedDrugCases.map(c => {
+              const type = drugInvTypeById(c.invTypeId);
+              return `
+                <article class="job-card archive-card" tabindex="0">
+                  <div class="job-card-head">
+                    <div>
+                      <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
+                      <h3>${escapeHtml(c.targetName)}</h3>
+                      <p class="muted">${escapeHtml(c.investigator)} · ${escapeHtml(c.team)} · ${escapeHtml(c.updated)}</p>
+                    </div>
+                    <div class="job-status-row">
+                      <span class="job-status done">아카이브</span>
+                      <button class="btn-inline-action" data-drug-restore-case="${escapeHtml(c.caseId)}">복원</button>
+                    </div>
+                  </div>
+                  <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+                  <div class="archive-summary" style="margin-top:8px">
+                    <span>${c.status.done}/${c.status.total} 단계 완료</span>
+                    <strong>${c.status.pct}%</strong>
+                  </div>
+                </article>`;
+            }).join("") || `<div class="empty-state">완료된 수사 결과가 없습니다.</div>`}
+          </div>
+        ` : ""}
+      </div>
     </div>
   `;
 }
@@ -3845,6 +3920,7 @@ function drugOngoingPanel(){
 function drugCaseCard(c){
   const type     = drugInvTypeById(c.invTypeId);
   const isActive = c.caseId === activeDrugCaseId;
+  const isDone   = c.status.pct >= 100 || c.status.tone === "done";
   return `
     <article class="gi-case-card${isActive ? " active" : ""}"
              data-drug-case="${escapeHtml(c.caseId)}" tabindex="0" role="button">
@@ -3853,7 +3929,11 @@ function drugCaseCard(c){
           <span class="gi-case-no">${escapeHtml(c.caseId)}</span>
           <h3 class="gi-case-name">${escapeHtml(c.targetName)}</h3>
         </div>
-        <span class="job-status ${c.status.tone}">${escapeHtml(c.status.label)}</span>
+        <div class="job-status-row">
+          <span class="job-status ${c.status.tone}">${escapeHtml(c.status.label)}</span>
+          ${isDone ? `<button class="btn-inline-action" data-drug-archive-case="${escapeHtml(c.caseId)}" title="아카이브">아카이브</button>` : ""}
+          <button class="btn-inline-action job-remove-action" data-drug-remove-case="${escapeHtml(c.caseId)}" title="삭제">삭제</button>
+        </div>
       </div>
       <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
       <div class="job-progress" style="margin:8px 0 4px"><i style="width:${c.status.pct}%"></i></div>
@@ -7357,6 +7437,50 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  /* ── 일반수사 케이스 삭제 ── */
+  const giRemoveCase = event.target.closest("[data-gi-remove-case]");
+  if(giRemoveCase){
+    event.stopPropagation();
+    const caseId = giRemoveCase.dataset.giRemoveCase;
+    const idx = defaultGenInvCases.findIndex(c => c.caseId === caseId);
+    if(idx !== -1) defaultGenInvCases.splice(idx, 1);
+    const cidx = customGenInvCases.findIndex(c => c.caseId === caseId);
+    if(cidx !== -1) customGenInvCases.splice(cidx, 1);
+    if(activeGenInvCaseId === caseId){ activeGenInvCaseId = null; generalInvTab = "cases"; }
+    saveCanvasState(); render("generalinv"); return;
+  }
+
+  /* ── 일반수사 케이스 아카이브 ── */
+  const giArchiveCase = event.target.closest("[data-gi-archive-case]");
+  if(giArchiveCase){
+    event.stopPropagation();
+    const caseId = giArchiveCase.dataset.giArchiveCase;
+    const fromDefault = defaultGenInvCases.findIndex(c => c.caseId === caseId);
+    const fromCustom  = customGenInvCases.findIndex(c => c.caseId === caseId);
+    const c = fromDefault !== -1 ? defaultGenInvCases.splice(fromDefault, 1)[0]
+            : fromCustom  !== -1 ? customGenInvCases.splice(fromCustom, 1)[0] : null;
+    if(c){ archivedGenInvCases.unshift({...c, archivedAt: new Date().toLocaleString()}); }
+    if(activeGenInvCaseId === caseId){ activeGenInvCaseId = null; generalInvTab = "cases"; }
+    saveCanvasState(); render("generalinv"); return;
+  }
+
+  /* ── 일반수사 아카이브 복원 ── */
+  const giRestoreCase = event.target.closest("[data-gi-restore-case]");
+  if(giRestoreCase){
+    event.stopPropagation();
+    const caseId = giRestoreCase.dataset.giRestoreCase;
+    const idx = archivedGenInvCases.findIndex(c => c.caseId === caseId);
+    if(idx !== -1){ customGenInvCases.push(archivedGenInvCases.splice(idx, 1)[0]); }
+    saveCanvasState(); render("generalinv"); return;
+  }
+
+  /* ── 일반수사 아카이브 토글 ── */
+  const giToggleArchive = event.target.closest("[data-gi-toggle-archive]");
+  if(giToggleArchive){
+    genInvArchiveOpen = !genInvArchiveOpen;
+    render("generalinv"); return;
+  }
+
   const giCase = event.target.closest("[data-gi-case]");
   if(giCase){
     activeGenInvCaseId = giCase.dataset.giCase;
@@ -7550,6 +7674,46 @@ document.addEventListener("click", (event)=>{
     drugAccordionOpen[key] = !drugAccordionOpen[key];
     render("lawsearch");
     return;
+  }
+
+  /* ── 마약수사 케이스 삭제 ── */
+  const drugRemoveCase = event.target.closest("[data-drug-remove-case]");
+  if(drugRemoveCase){
+    event.stopPropagation();
+    const caseId = drugRemoveCase.dataset.drugRemoveCase;
+    const idx = defaultDrugInvCases.findIndex(c => c.caseId === caseId);
+    if(idx !== -1) defaultDrugInvCases.splice(idx, 1);
+    if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  /* ── 마약수사 케이스 아카이브 ── */
+  const drugArchiveCase = event.target.closest("[data-drug-archive-case]");
+  if(drugArchiveCase){
+    event.stopPropagation();
+    const caseId = drugArchiveCase.dataset.drugArchiveCase;
+    const idx = defaultDrugInvCases.findIndex(c => c.caseId === caseId);
+    const c = idx !== -1 ? defaultDrugInvCases.splice(idx, 1)[0] : null;
+    if(c){ archivedDrugCases.unshift({...c, archivedAt: new Date().toLocaleString()}); }
+    if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  /* ── 마약수사 아카이브 복원 ── */
+  const drugRestoreCase = event.target.closest("[data-drug-restore-case]");
+  if(drugRestoreCase){
+    event.stopPropagation();
+    const caseId = drugRestoreCase.dataset.drugRestoreCase;
+    const idx = archivedDrugCases.findIndex(c => c.caseId === caseId);
+    if(idx !== -1){ defaultDrugInvCases.push(archivedDrugCases.splice(idx, 1)[0]); }
+    saveCanvasState(); render("lawsearch"); return;
+  }
+
+  /* ── 마약수사 아카이브 토글 ── */
+  const drugToggleArchive = event.target.closest("[data-drug-toggle-archive]");
+  if(drugToggleArchive){
+    drugArchiveOpen = !drugArchiveOpen;
+    render("lawsearch"); return;
   }
 
   const drugCaseBtn = event.target.closest("[data-drug-case]");
