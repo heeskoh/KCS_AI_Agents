@@ -21,6 +21,6 @@ def agent_route_analysis(state: CustomsState) -> CustomsState:
             "공급망 역추적 가설",
             "추가 확인할 운송·물류 자료",
         ],
-        fallback="# 운송경로 분석 Agent 결과\n\nLLM을 사용할 수 없어 운송경로 분석 시뮬레이션을 생성하지 못했습니다.",
+        fallback="[운송경로 분석 Agent 결과]\n\nLLM을 사용할 수 없어 운송경로 분석 시뮬레이션을 생성하지 못했습니다.",
     )
     return {**state, "route_analysis_result": result}

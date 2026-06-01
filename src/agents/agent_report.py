@@ -86,6 +86,17 @@ def _collect_preceding(state: CustomsState) -> list[dict]:
     return results
 
 
+def _normalize_embedded_agent_result(result: str) -> str:
+    """Keep agent-level markdown headings from becoming oversized report headings."""
+    lines = str(result or "").splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped:
+            lines[index] = stripped.replace("# ", "", 1) if stripped.startswith("# ") else line
+            break
+    return "\n".join(lines).strip()
+
+
 def _fallback_report(state: CustomsState, company_result: str, preceding: list[dict]) -> str:
     company_id = state.get("company_id", "")
     lines: list[str] = ["# 조사보고서 초안\n"]
@@ -109,7 +120,7 @@ def _fallback_report(state: CustomsState, company_result: str, preceding: list[d
     lines.append("## 3. AI 서비스 별 분석 결과\n")
     if preceding:
         for i, r in enumerate(preceding, 1):
-            lines += [f"### 3-{i}. {r['label']}\n", r["result"], ""]
+            lines += [f"### 3-{i}. {r['label']}\n", _normalize_embedded_agent_result(r["result"]), ""]
     else:
         lines.append("실행된 AI 서비스  결과가 없습니다.\n")
 
