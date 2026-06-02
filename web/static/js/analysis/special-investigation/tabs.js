@@ -1,12 +1,12 @@
-import { renderDashboardPanel } from "./dashboard.js";
-import { renderDataPanel } from "./data.js";
-import { renderForensicPanel } from "./forensic.js";
-import { renderNetworkPanel } from "./network.js";
-import { renderOngoingPanel } from "./ongoing.js";
-import { renderProfilePanel } from "./profile.js";
-import { renderReportPanel } from "./report.js";
-import { renderScenarioPanel } from "./scenario.js";
-import { renderSlangPanel } from "./slang.js";
+import { dashboardSubtab } from "./dashboard.js";
+import { dataSubtab } from "./data.js";
+import { forensicSubtab } from "./forensic.js";
+import { networkSubtab } from "./network.js";
+import { ongoingSubtab } from "./ongoing.js";
+import { profileSubtab } from "./profile.js";
+import { reportSubtab } from "./report.js";
+import { scenarioSubtab } from "./scenario.js";
+import { slangSubtab } from "./slang.js";
 
 export const SPECIAL_INVESTIGATION_CONFIG = {
   lawsearch: {
@@ -23,16 +23,21 @@ export const SPECIAL_INVESTIGATION_CONFIG = {
   },
 };
 
+export const SPECIAL_INVESTIGATION_SUBTABS = [
+  ongoingSubtab,
+  profileSubtab,
+  dataSubtab,
+  scenarioSubtab,
+  networkSubtab,
+  forensicSubtab,
+  reportSubtab,
+  slangSubtab,
+  dashboardSubtab,
+];
+
 export function createSpecialInvestigationTabs(deps){
-  return [
-    { id:"ongoing", label:"진행중인 수사", render:() => renderOngoingPanel(deps) },
-    { id:"profile", label:ctx => ctx.config.profileTab, showWhen:ctx => !!ctx.case, render:() => renderProfilePanel(deps) },
-    { id:"data", label:"기초자료 수집/등록", showWhen:ctx => !!ctx.case, render:() => renderDataPanel(deps) },
-    { id:"scenario", label:"분석 시나리오 설정 및 실행", showWhen:ctx => !!ctx.case, render:() => renderScenarioPanel(deps) },
-    { id:"network", label:"관계망 분석", showWhen:ctx => !!ctx.case, render:() => renderNetworkPanel(deps) },
-    { id:"forensic", label:"자금·디지털 포렌식 분석", showWhen:ctx => !!ctx.case, render:() => renderForensicPanel(deps) },
-    { id:"report", label:"분석보고서 및 검증", showWhen:ctx => !!ctx.case, render:() => renderReportPanel(deps) },
-    { id:"slang", label:"은어사전 RAG", group:"tools", render:() => renderSlangPanel(deps) },
-    { id:"dashboard", label:ctx => ctx.config.dashboardTab, group:"tools", render:() => renderDashboardPanel(deps) },
-  ];
+  return SPECIAL_INVESTIGATION_SUBTABS.map(subtab => ({
+    ...subtab,
+    render: () => subtab.render(deps),
+  }));
 }
