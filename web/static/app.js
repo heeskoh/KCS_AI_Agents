@@ -1,6 +1,7 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml } from "./js/core/dom.js";
 import { createPageRegistry, pageNames } from "./js/core/page-registry.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "./js/core/tabs.js";
+import { createGeneralInvestigation } from "./js/analysis/general-investigation/index.js";
 import { createSpecialInvestigation } from "./js/analysis/special-investigation/index.js";
 
 const pages = createPageRegistry({
@@ -984,14 +985,6 @@ const specialInvestigation = createSpecialInvestigation({
   },
 });
 
-const GENERAL_INVESTIGATION_TABS = [
-  { id:"cases", label:"진행중인 수사", render:() => generalInvCasesPanel() },
-  { id:"profile", label:ctx => ctx.profileLabel, showWhen:ctx => !!ctx.case, render:() => generalInvProfilePanel() },
-  { id:"data", label:"기초자료 수집/등록", showWhen:ctx => !!ctx.case, render:() => generalInvDataPanel() },
-  { id:"workbench", label:"분석 시나리오 설정 및 수행", showWhen:ctx => !!ctx.case, render:() => generalInvWorkbenchPanel() },
-  { id:"report", label:"분석 보고서 및 검증", showWhen:ctx => !!ctx.case, render:() => generalInvReportPanel() },
-];
-
 const CUSTOMS_INVESTIGATION_TABS = [
   { id:"ongoing", label:"진행중인 관세조사", group:"work", render:() => investigationOngoingPanel() },
   { id:"profile", label:"기업프로파일", group:"work", render:() => canvasProfilePanel() },
@@ -1060,6 +1053,19 @@ function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_
 let activeGiStepId = null;  // 워크벤치 선택 단계 ID
 let giRunEventSource = null; // 일반수사 분석 실행 SSE 연결
 let giRegTargetType  = "company"; // 수사 대상 등록 유형: "company" | "person"
+
+const generalInvestigation = createGeneralInvestigation({
+  getGeneralInvTab: () => generalInvTab,
+  activeGenInvCase,
+  genInvTypeById,
+  panels: {
+    generalInvCasesPanel,
+    generalInvDataPanel,
+    generalInvProfilePanel,
+    generalInvReportPanel,
+    generalInvWorkbenchPanel,
+  },
+});
 
 const GI_SERVICE_ALIASES = {
   gi_cdw:      { sourceKey:"db_cdw", type:"db" },
@@ -2864,37 +2870,11 @@ function syncSidebarCollapseIcons(){
 ═══════════════════════════════════════════════════════════════ */
 
 function generalInvPage(){
-  const aCase = activeGenInvCase();
-  const tab   = generalInvTab;
-  const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
-  const tabContext = { case:aCase, profileLabel };
-  return `
-    <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
-      <div class="gi-page-head">
-        <div>
-          <h2>일반수사 분석</h2>
-          <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
-        </div>
-        ${aCase ? `
-          <div class="gi-active-badge">
-            <span class="muted">수사 대상</span>
-            <strong>${escapeHtml(aCase.targetName)}</strong>
-            <span class="gi-type-chip ${genInvTypeById(aCase.invTypeId).cls}">${genInvTypeById(aCase.invTypeId).num} ${escapeHtml(genInvTypeById(aCase.invTypeId).label)}</span>
-          </div>
-        ` : ""}
-      </div>
-      <div class="gi-tab-nav">
-        ${renderAnalysisTabButtons(GENERAL_INVESTIGATION_TABS, tab, "data-gi-tab", "gi-tab", tabContext)}
-      </div>
-      <div class="gi-tab-body">
-        ${generalInvTabContent(tabContext)}
-      </div>
-    </section>
-  `;
+  return generalInvestigation.generalInvPage();
 }
 
 function generalInvTabContent(context = {}){
-  return renderAnalysisTabContent(GENERAL_INVESTIGATION_TABS, generalInvTab, context, "cases");
+  return generalInvestigation.generalInvTabContent(context);
 }
 
 /* ── [진행중인 수사] 패널 ──────────────────────────────────── */
