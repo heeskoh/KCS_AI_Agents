@@ -1085,6 +1085,75 @@ const SPECIAL_INVESTIGATION_CONFIG = {
   },
 };
 
+function analysisTabVisible(tab, context = {}){
+  return typeof tab.showWhen === "function" ? !!tab.showWhen(context) : tab.showWhen !== false;
+}
+
+function analysisTabLabel(tab, context = {}){
+  return typeof tab.label === "function" ? tab.label(context) : tab.label;
+}
+
+function renderAnalysisTabButtons(tabs, activeTab, dataAttr, className, context = {}){
+  return tabs
+    .filter(tab => analysisTabVisible(tab, context))
+    .map(tab => {
+      const classes = `${className}${tab.className ? ` ${tab.className}` : ""}${activeTab === tab.id ? " active" : ""}`;
+      return `
+      <button class="${classes}" ${dataAttr}="${escapeHtml(tab.id)}">
+        ${escapeHtml(analysisTabLabel(tab, context))}
+      </button>
+    `;
+    })
+    .join("");
+}
+
+function renderAnalysisTabContent(tabs, activeTab, context = {}, fallbackId = ""){
+  const visibleTabs = tabs.filter(tab => analysisTabVisible(tab, context));
+  const tab = visibleTabs.find(item => item.id === activeTab)
+    || visibleTabs.find(item => item.id === fallbackId)
+    || visibleTabs[0];
+  return tab?.render ? tab.render(context) : "";
+}
+
+const SPECIAL_INVESTIGATION_TABS = [
+  { id:"ongoing", label:"진행중인 수사", render:() => drugOngoingPanel() },
+  { id:"profile", label:ctx => ctx.config.profileTab, showWhen:ctx => !!ctx.case, render:() => drugProfilePanel() },
+  { id:"data", label:"기초자료 수집/등록", showWhen:ctx => !!ctx.case, render:() => drugDataPanel() },
+  { id:"scenario", label:"분석 시나리오 설정 및 실행", showWhen:ctx => !!ctx.case, render:() => drugScenarioPanel() },
+  { id:"network", label:"관계망 분석", showWhen:ctx => !!ctx.case, render:() => drugNetworkPanel() },
+  { id:"forensic", label:"자금·디지털 포렌식 분석", showWhen:ctx => !!ctx.case, render:() => drugForensicPanel() },
+  { id:"report", label:"분석보고서 및 검증", showWhen:ctx => !!ctx.case, render:() => drugReportPanel() },
+  { id:"slang", label:"은어사전 RAG", group:"tools", render:() => drugSlangRagPanel() },
+  { id:"dashboard", label:ctx => ctx.config.dashboardTab, group:"tools", render:() => drugRiskDashboard() },
+];
+
+const GENERAL_INVESTIGATION_TABS = [
+  { id:"cases", label:"진행중인 수사", render:() => generalInvCasesPanel() },
+  { id:"profile", label:ctx => ctx.profileLabel, showWhen:ctx => !!ctx.case, render:() => generalInvProfilePanel() },
+  { id:"data", label:"기초자료 수집/등록", showWhen:ctx => !!ctx.case, render:() => generalInvDataPanel() },
+  { id:"workbench", label:"분석 시나리오 설정 및 수행", showWhen:ctx => !!ctx.case, render:() => generalInvWorkbenchPanel() },
+  { id:"report", label:"분석 보고서 및 검증", showWhen:ctx => !!ctx.case, render:() => generalInvReportPanel() },
+];
+
+const CUSTOMS_INVESTIGATION_TABS = [
+  { id:"ongoing", label:"진행중인 관세조사", group:"work", render:() => investigationOngoingPanel() },
+  { id:"profile", label:"기업프로파일", group:"work", render:() => canvasProfilePanel() },
+  {
+    id:"data",
+    label:"기초자료 수집/등록",
+    group:"work",
+    render:() => canvasDataPanel(activeCanvasCompanyId, {
+      selectedLabel: "조사 대상 기업",
+      heading: "기초자료 수집/등록",
+      description: "관세조사 대상 기업의 서류, 계약서, 수입신고 자료 등을 업로드합니다.",
+    }),
+  },
+  { id:"scenario", label:"분석 시나리오 설정 및 수행", group:"work", render:() => scenarioWorkbenchV2() },
+  { id:"report", label:"분석 보고서 및 검증", group:"work", render:() => canvasReportPanel() },
+  { id:"dashboard", label:"기업 위험도 대시보드", group:"tools", render:() => investigationDashboardPanel() },
+  { id:"templates", label:"분석 시나리오 템플릿", group:"tools", className:"ci-tab-template", render:() => scenarioTemplatePanel() },
+];
+
 function isSpecialInvestigationPage(page = currentPage){
   return page === "lawsearch" || page === "fxsearch";
 }
@@ -2944,8 +3013,8 @@ function syncSidebarCollapseIcons(){
 function generalInvPage(){
   const aCase = activeGenInvCase();
   const tab   = generalInvTab;
-  const showSubs = !!aCase;
   const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
+  const tabContext = { case:aCase, profileLabel };
   return `
     <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
@@ -2962,27 +3031,17 @@ function generalInvPage(){
         ` : ""}
       </div>
       <div class="gi-tab-nav">
-        <button class="gi-tab${tab==="cases"?" active":""}" data-gi-tab="cases">진행중인 수사</button>
-        ${showSubs ? `
-          <button class="gi-tab${tab==="profile"?" active":""}" data-gi-tab="profile">${profileLabel}</button>
-          <button class="gi-tab${tab==="data"?" active":""}" data-gi-tab="data">기초자료 수집/등록</button>
-          <button class="gi-tab${tab==="workbench"?" active":""}" data-gi-tab="workbench">분석 시나리오 설정 및 수행</button>
-          <button class="gi-tab${tab==="report"?" active":""}" data-gi-tab="report">분석 보고서 및 검증</button>
-        ` : ""}
+        ${renderAnalysisTabButtons(GENERAL_INVESTIGATION_TABS, tab, "data-gi-tab", "gi-tab", tabContext)}
       </div>
       <div class="gi-tab-body">
-        ${generalInvTabContent()}
+        ${generalInvTabContent(tabContext)}
       </div>
     </section>
   `;
 }
 
-function generalInvTabContent(){
-  if(generalInvTab === "profile")   return generalInvProfilePanel();
-  if(generalInvTab === "data")      return generalInvDataPanel();
-  if(generalInvTab === "workbench") return generalInvWorkbenchPanel();
-  if(generalInvTab === "report")    return generalInvReportPanel();
-  return generalInvCasesPanel();
+function generalInvTabContent(context = {}){
+  return renderAnalysisTabContent(GENERAL_INVESTIGATION_TABS, generalInvTab, context, "cases");
 }
 
 /* ── [진행중인 수사] 패널 ──────────────────────────────────── */
@@ -3628,6 +3687,8 @@ function generalInvWorkbenchPanel(){
 }
 function investigationPage(){
   const tab = investigationTab;
+  const workTabs = CUSTOMS_INVESTIGATION_TABS.filter(item => item.group !== "tools");
+  const toolTabs = CUSTOMS_INVESTIGATION_TABS.filter(item => item.group === "tools");
   const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
   return `
     <section class="card ci-hub${isFullHeight ? " ci-hub-full" : ""}">
@@ -3639,15 +3700,10 @@ function investigationPage(){
       </div>
       <div class="ci-tab-nav">
         <div class="ci-tabs-left">
-          <button class="ci-tab${tab==="ongoing"?" active":""}" data-investigation-tab="ongoing">진행중인 관세조사</button>
-          <button class="ci-tab${tab==="profile"?" active":""}" data-investigation-tab="profile">기업프로파일</button>
-          <button class="ci-tab${tab==="data"?" active":""}" data-investigation-tab="data">기초자료 수집/등록</button>
-          <button class="ci-tab${tab==="scenario"?" active":""}" data-investigation-tab="scenario">분석 시나리오 설정 및 수행</button>
-          <button class="ci-tab${tab==="report"?" active":""}" data-investigation-tab="report">분석 보고서 및 검증</button>
+          ${renderAnalysisTabButtons(workTabs, tab, "data-investigation-tab", "ci-tab")}
         </div>
         <div class="ci-tabs-right">
-          <button class="ci-tab${tab==="dashboard"?" active":""}" data-investigation-tab="dashboard">기업 위험도 대시보드</button>
-          <button class="ci-tab ci-tab-template${tab==="templates"?" active":""}" data-investigation-tab="templates">분석 시나리오 템플릿</button>
+          ${renderAnalysisTabButtons(toolTabs, tab, "data-investigation-tab", "ci-tab")}
         </div>
       </div>
       <div class="ci-tab-body">
@@ -3658,17 +3714,7 @@ function investigationPage(){
 }
 
 function investigationTabContent(){
-  if(investigationTab === "ongoing")   return investigationOngoingPanel();
-  if(investigationTab === "profile")   return canvasProfilePanel();
-  if(investigationTab === "data")      return canvasDataPanel(activeCanvasCompanyId, {
-    selectedLabel: "조사 대상 기업",
-    heading:       "기초자료 수집/등록",
-    description:   "관세조사 대상 기업의 서류, 계약서, 수입신고 자료 등을 업로드합니다.",
-  });
-  if(investigationTab === "scenario")  return scenarioWorkbenchV2();
-  if(investigationTab === "templates") return scenarioTemplatePanel();
-  if(investigationTab === "report")    return canvasReportPanel();
-  return investigationDashboardPanel();
+  return renderAnalysisTabContent(CUSTOMS_INVESTIGATION_TABS, investigationTab, {}, "dashboard");
 }
 
 function investigationOngoingPanel(){
@@ -3820,6 +3866,8 @@ function ciRunDwQuery(){
   }, 800);
 }
 
+window.ciRunDwQuery = ciRunDwQuery;
+
 /* ═══════════════════════════════════════════════════════════════ */
 
 function canvasPage(){
@@ -3919,6 +3967,9 @@ function drugInvestigationPage(pageKey = activeSpecialInvestigationPage()){
   const config = specialInvestigationConfig(pageKey);
   const tab    = drugInvTab;
   const aCase  = activeDrugCase();
+  const tabContext = { pageKey, config, case:aCase };
+  const workTabs = SPECIAL_INVESTIGATION_TABS.filter(item => item.group !== "tools");
+  const toolTabs = SPECIAL_INVESTIGATION_TABS.filter(item => item.group === "tools");
   const isFullHeight = tab === "scenario" || tab === "report";
   return `
     <section class="card gi-hub${isFullHeight ? " gi-hub-full" : ""}">
@@ -3941,40 +3992,23 @@ function drugInvestigationPage(pageKey = activeSpecialInvestigationPage()){
       <!-- 탭 내비게이션: 좌측 업무탭 + 우측 도구탭 -->
       <div class="gi-tab-nav" style="justify-content:space-between">
         <div style="display:flex;gap:2px">
-          <button class="gi-tab${tab==="ongoing"?" active":""}"  data-drug-tab="ongoing">진행중인 수사</button>
-          ${aCase ? `
-            <button class="gi-tab${tab==="profile"?" active":""}" data-drug-tab="profile">${escapeHtml(config.profileTab)}</button>
-            <button class="gi-tab${tab==="data"?" active":""}"     data-drug-tab="data">기초자료 수집/등록</button>
-            <button class="gi-tab${tab==="scenario"?" active":""}" data-drug-tab="scenario">분석 시나리오 설정 및 실행</button>
-            <button class="gi-tab${tab==="network"?" active":""}"  data-drug-tab="network">관계망 분석</button>
-            <button class="gi-tab${tab==="forensic"?" active":""}" data-drug-tab="forensic">자금·디지털 포렌식 분석</button>
-            <button class="gi-tab${tab==="report"?" active":""}"   data-drug-tab="report">분석보고서 및 검증</button>
-          ` : ""}
+          ${renderAnalysisTabButtons(workTabs, tab, "data-drug-tab", "gi-tab", tabContext)}
         </div>
         <div style="display:flex;gap:2px">
-          <button class="gi-tab${tab==="slang"?" active":""}"     data-drug-tab="slang">은어사전 RAG</button>
-          <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">${escapeHtml(config.dashboardTab)}</button>
+          ${renderAnalysisTabButtons(toolTabs, tab, "data-drug-tab", "gi-tab", tabContext)}
         </div>
       </div>
 
       <div class="gi-tab-body">
-        ${drugInvTabContent()}
+        ${drugInvTabContent(tabContext)}
       </div>
     </section>
   `;
 }
 
-function drugInvTabContent(){
+function drugInvTabContent(context = {}){
   if(drugInvTab === "company_profile" || drugInvTab === "person_profile") drugInvTab = "profile";
-  if(drugInvTab === "dashboard") return drugRiskDashboard();
-  if(drugInvTab === "profile") return drugProfilePanel();
-  if(drugInvTab === "data")      return drugDataPanel();
-  if(drugInvTab === "scenario")  return drugScenarioPanel();
-  if(drugInvTab === "network")   return drugNetworkPanel();
-  if(drugInvTab === "forensic")  return drugForensicPanel();
-  if(drugInvTab === "report")    return drugReportPanel();
-  if(drugInvTab === "slang")     return drugSlangRagPanel();
-  return drugOngoingPanel();
+  return renderAnalysisTabContent(SPECIAL_INVESTIGATION_TABS, drugInvTab, context, "ongoing");
 }
 
 function drugRiskDashboard(){
