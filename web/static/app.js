@@ -1,6 +1,6 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml } from "./js/core/dom.js";
 import { createPageRegistry, pageNames } from "./js/core/page-registry.js";
-import { renderAnalysisTabButtons, renderAnalysisTabContent } from "./js/core/tabs.js";
+import { createCustomsInvestigation } from "./js/analysis/customs/index.js";
 import { createGeneralInvestigation } from "./js/analysis/general-investigation/index.js";
 import { createSpecialInvestigation } from "./js/analysis/special-investigation/index.js";
 
@@ -985,24 +985,19 @@ const specialInvestigation = createSpecialInvestigation({
   },
 });
 
-const CUSTOMS_INVESTIGATION_TABS = [
-  { id:"ongoing", label:"진행중인 관세조사", group:"work", render:() => investigationOngoingPanel() },
-  { id:"profile", label:"기업프로파일", group:"work", render:() => canvasProfilePanel() },
-  {
-    id:"data",
-    label:"기초자료 수집/등록",
-    group:"work",
-    render:() => canvasDataPanel(activeCanvasCompanyId, {
-      selectedLabel: "조사 대상 기업",
-      heading: "기초자료 수집/등록",
-      description: "관세조사 대상 기업의 서류, 계약서, 수입신고 자료 등을 업로드합니다.",
-    }),
+const customsInvestigation = createCustomsInvestigation({
+  getInvestigationTab: () => investigationTab,
+  getActiveCanvasCompanyId: () => activeCanvasCompanyId,
+  panels: {
+    canvasDataPanel,
+    canvasProfilePanel,
+    canvasReportPanel,
+    investigationDashboardPanel,
+    investigationOngoingPanel,
+    scenarioTemplatePanel,
+    scenarioWorkbenchV2,
   },
-  { id:"scenario", label:"분석 시나리오 설정 및 수행", group:"work", render:() => scenarioWorkbenchV2() },
-  { id:"report", label:"분석 보고서 및 검증", group:"work", render:() => canvasReportPanel() },
-  { id:"dashboard", label:"기업 위험도 대시보드", group:"tools", render:() => investigationDashboardPanel() },
-  { id:"templates", label:"분석 시나리오 템플릿", group:"tools", className:"ci-tab-template", render:() => scenarioTemplatePanel() },
-];
+});
 
 function isSpecialInvestigationPage(page = currentPage){
   return specialInvestigation.isSpecialInvestigationPage(page);
@@ -3519,35 +3514,11 @@ function generalInvWorkbenchPanel(){
   `;
 }
 function investigationPage(){
-  const tab = investigationTab;
-  const workTabs = CUSTOMS_INVESTIGATION_TABS.filter(item => item.group !== "tools");
-  const toolTabs = CUSTOMS_INVESTIGATION_TABS.filter(item => item.group === "tools");
-  const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
-  return `
-    <section class="card ci-hub${isFullHeight ? " ci-hub-full" : ""}">
-      <div class="ci-page-head">
-        <div>
-          <h2>관세조사 분석</h2>
-          <p class="muted">조사 우선순위가 높은 업체를 객관적 기준으로 선정하여 기초자료들을 등록하고, 표준 분석시나리오에 따라 분석을 수행합니다. 필요에 따라 분석 시나리오는 변경하여 맞춤형 시나리오를 구축할 수 있습니다.</p>
-        </div>
-      </div>
-      <div class="ci-tab-nav">
-        <div class="ci-tabs-left">
-          ${renderAnalysisTabButtons(workTabs, tab, "data-investigation-tab", "ci-tab")}
-        </div>
-        <div class="ci-tabs-right">
-          ${renderAnalysisTabButtons(toolTabs, tab, "data-investigation-tab", "ci-tab")}
-        </div>
-      </div>
-      <div class="ci-tab-body">
-        ${investigationTabContent()}
-      </div>
-    </section>
-  `;
+  return customsInvestigation.investigationPage();
 }
 
 function investigationTabContent(){
-  return renderAnalysisTabContent(CUSTOMS_INVESTIGATION_TABS, investigationTab, {}, "dashboard");
+  return customsInvestigation.investigationTabContent();
 }
 
 function investigationOngoingPanel(){
