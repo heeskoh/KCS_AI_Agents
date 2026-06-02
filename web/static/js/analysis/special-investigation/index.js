@@ -6,7 +6,7 @@ import {
 } from "./tabs.js";
 
 export function createSpecialInvestigation(deps){
-  const tabs = createSpecialInvestigationTabs(deps.panels);
+  const tabs = createSpecialInvestigationTabs(deps);
 
   function isSpecialInvestigationPage(page = deps.getCurrentPage()){
     return page === "lawsearch" || page === "fxsearch";
