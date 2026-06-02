@@ -10,30 +10,7 @@ except ModuleNotFoundError:
     END = None
     StateGraph = None
 
-from src.agents.agent_audit_search import agent_audit_search
-from src.agents.agent_abnormal_trade import agent_abnormal_trade
-from src.agents.agent_bigdata import agent_bigdata
-from src.agents.agent_company import agent_company
-from src.agents.agent_customs_value import agent_customs_value
-from src.agents.agent_db import agent_db
-from src.agents.agent_declaration_verify import agent_declaration_verify
-from src.agents.agent_hs_verify import agent_hs_verify
-from src.agents.agent_law import agent_law
-from src.agents.agent_mail_share import agent_mail_share
-from src.agents.agent_ml import agent_ml
-from src.agents.agent_network import agent_network
-from src.agents.agent_ocr import agent_ocr
-from src.agents.agent_ontology import agent_ontology
-from src.agents.agent_origin_analysis import agent_origin_analysis
-from src.agents.agent_patent import agent_patent
-from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
-from src.agents.agent_rag import agent_rag_source
-from src.agents.agent_rag_create import agent_rag_create
-from src.agents.agent_report import agent_report
-from src.agents.agent_route_analysis import agent_route_analysis
-from src.agents.agent_summary import agent_summary
-from src.agents.agent_validate import agent_validate
-from src.agents.agent_web import agent_web
+from src.agents.module_registry import step_from_item
 from src.agents.service_registry import (
     AI_SERVICE_TARGET_CONFIG,
     default_prompt,
@@ -109,67 +86,7 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
 
 
 def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
-    source_type = item.get("type")
-    source_key = item.get("key") or source_type
-    label = item.get("label") or source_key or f"Step {index}"
-
-    if source_type == "company":
-        return (f"company_agent_{index}", label, agent_company, "company_result")
-    if source_type == "db":
-        return (f"db_agent_{index}", label, agent_db, "db_result")
-    if source_type in RAG_TYPES:
-        agent_key, default_label = RAG_TYPES[source_type]
-        source_label = label or default_label
-        return (
-            f"{agent_key}_{index}",
-            source_label,
-            agent_rag_source(source_label, source_type),
-            "rag_result",
-        )
-    if source_type == "audit_search":
-        return (f"audit_search_agent_{index}", label, agent_audit_search, "audit_search_result")
-    if source_type == "bigdata":
-        return (f"bigdata_agent_{index}", label, agent_bigdata, "bigdata_result")
-    if source_type == "ml":
-        return (f"ml_agent_{index}", label, agent_ml, "ml_result")
-    if source_type == "web":
-        return (f"web_agent_{index}", label, agent_web, "web_result")
-    if source_type == "ocr":
-        return (f"ocr_agent_{index}", label, agent_ocr, "ocr_result")
-    if source_type == "network":
-        return (f"network_agent_{index}", label, agent_network, "network_result")
-    if source_type == "ontology":
-        return (f"ontology_agent_{index}", label, agent_ontology, "ontology_result")
-    if source_type == "origin_analysis":
-        return (f"origin_analysis_agent_{index}", label, agent_origin_analysis, "origin_analysis_result")
-    if source_type == "abnormal_trade":
-        return (f"abnormal_trade_agent_{index}", label, agent_abnormal_trade, "abnormal_trade_result")
-    if source_type == "proceeds_tracking":
-        return (f"proceeds_tracking_agent_{index}", label, agent_proceeds_tracking, "proceeds_tracking_result")
-    if source_type == "route_analysis":
-        return (f"route_analysis_agent_{index}", label, agent_route_analysis, "route_analysis_result")
-    if source_type == "declaration_verify":
-        return (f"declaration_verify_agent_{index}", label, agent_declaration_verify, "declaration_verify_result")
-    if source_type == "hs_verify":
-        return (f"hs_verify_agent_{index}", label, agent_hs_verify, "hs_verify_result")
-    if source_type == "customs_value":
-        return (f"customs_value_agent_{index}", label, agent_customs_value, "customs_value_result")
-    if source_type == "summary":
-        return (f"summary_agent_{index}", label, agent_summary, "summary_result")
-    if source_type == "patent":
-        return (f"patent_agent_{index}", label, agent_patent, "patent_result")
-    if source_type == "rag_create":
-        return (f"rag_create_agent_{index}", label, agent_rag_create, "rag_create_result")
-    if source_type == "law":
-        return (f"law_agent_{index}", label, agent_law, "law_result")
-    if source_type == "report":
-        return (f"report_agent_{index}", label, agent_report, "final_report")
-    if source_type == "validation":
-        return (f"validate_agent_{index}", label, agent_validate, "validation_result")
-    if source_type == "mail_share":
-        return (f"mail_share_agent_{index}", label, agent_mail_share, "mail_share_result")
-
-    return None
+    return step_from_item(item, index)
 
 
 def _normalize_scenario_item(item: dict[str, Any], target_type: str) -> dict[str, Any] | None:
@@ -204,48 +121,49 @@ def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
                 mapped_steps.append(step)
         return mapped_steps
 
-    steps: list[Step] = []
+    default_steps: list[Step] = []
+
+    def add_default_step(source_type: str, label: str) -> None:
+        step = _step_from_item(
+            {"type": source_type, "key": source_type, "label": label},
+            len(default_steps) + 1,
+        )
+        if step:
+            default_steps.append(step)
 
     if scenario.get("company_lookup", True):
-        steps.append(("company_agent", "기업 프로파일 조회", agent_company, "company_result"))
+        add_default_step("company", "기업 프로파일 조회")
 
     if scenario.get("db_query", True):
-        steps.append(("db_agent", "CDW 조회", agent_db, "db_result"))
+        add_default_step("db", "CDW 조회")
 
     rag_flags = {
-        "rag_customs_public": "rag_customs",
-        "rag_trade": "rag_trade",
-        "rag_audit": "rag_audit",
-        "rag_investigation": "rag_investigation",
-        "rag_global": "rag_global",
+        "rag_customs_public": ("rag_customs", "관세e음 RAG"),
+        "rag_trade": ("rag_trade", "통관정보 RAG"),
+        "rag_audit": ("rag_audit", "심사정보 RAG"),
+        "rag_investigation": ("rag_investigation", "조사정보 RAG"),
+        "rag_global": ("rag_global", "국제정보 RAG"),
     }
-    for flag, source_type in rag_flags.items():
+    for flag, (source_type, label) in rag_flags.items():
         if scenario.get(flag, scenario.get("rag_enabled", True)):
-            agent_key, label = RAG_TYPES[source_type]
-            steps.append((agent_key, label, agent_rag_source(label, source_type), "rag_result"))
+            add_default_step(source_type, label)
 
     if scenario.get("audit_search_enabled", False):
-        steps.append((
-            "audit_search_agent",
-            "조사보고서 검색",
-            agent_audit_search,
-            "audit_search_result",
-        ))
+        add_default_step("audit_search", "조사보고서 검색")
 
     if scenario.get("bigdata_enabled", True):
-        steps.append(("bigdata_agent", "빅데이터 통계 분석", agent_bigdata, "bigdata_result"))
+        add_default_step("bigdata", "빅데이터 통계 분석")
 
     if scenario.get("web_enabled", True):
-        steps.append(("web_agent", "웹 정보 검색", agent_web, "web_result"))
+        add_default_step("web", "웹 정보 검색")
 
     if scenario.get("report_enabled", True):
-        steps.append(("report_agent", "보고서 생성", agent_report, "final_report"))
+        add_default_step("report", "보고서 생성")
 
     if scenario.get("validation_enabled", True):
-        steps.append(("validate_agent", "보고서 검증", agent_validate, "validation_result"))
+        add_default_step("validation", "보고서 검증")
 
-    return steps
-
+    return default_steps
 
 def run_scenario(company_id: str, scenario: dict[str, Any] | None = None) -> CustomsState:
     state = create_initial_state(company_id, scenario)
