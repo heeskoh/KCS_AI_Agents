@@ -6,6 +6,7 @@
   profile:"기업 위험도 대시보드",
   classification:"품목분류",
   lawsearch:"마약수사분석",
+  fxsearch:"외환수사분석",
   document:"문서검증",
   dw:"위험선별 분석",
   model:"관세 온톨로지",
@@ -84,7 +85,8 @@ const pages = {
           <button class="special-analysis-btn sky" data-page="investigation">관세 조사 분석</button>
           <button class="special-analysis-btn rose" data-page="generalinv">일반 수사 분석</button>
           <button class="special-analysis-btn purple" data-page="lawsearch">마약 수사 분석</button>
-<button class="special-analysis-btn olive" data-page="case">국제 정보분석</button>
+          <button class="special-analysis-btn teal" data-page="fxsearch">외환 수사 분석</button>
+          <button class="special-analysis-btn olive" data-page="case">국제 정보분석</button>
           <button class="special-analysis-btn lime" data-page="model">관세 온톨로지</button>
           <button class="special-analysis-btn brown" data-page="report">Case별 RAG</button>
         </div>
@@ -109,6 +111,7 @@ const pages = {
   `),
 
   lawsearch: () => drugInvestigationPage(),
+  fxsearch: () => drugInvestigationPage("fxsearch"),
 
   document: () => simplePage("문서검증센터", "비정형 문서를 OCR/LLM으로 인식하고 DB 값과 비교합니다.", `${dataTable(["추출항목","문서값","DB값","판정"], [["품명","Power Module","Power Module","일치"],["단가","USD 120","USD 98","불일치"],["Incoterms","CIF","FOB","불일치"],["로열티","존재","미신고","확인필요"]])}`),
   dw: () => riskScreeningPage(),
@@ -129,6 +132,7 @@ const canvasWorkCategories = [
   "기업 수사 분석",
   "개인수사 분석",
   "마약 수사 분석",
+  "외환 수사 분석",
   "위험선별 분석",
   "통관 정보분석",
   "국제정보분석",
@@ -1066,6 +1070,37 @@ let drugReportSubTab     = "draft";
 let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
 let genInvArchiveOpen    = false;
 
+const SPECIAL_INVESTIGATION_CONFIG = {
+  lawsearch: {
+    title: "마약 수사 분석",
+    description: "마약 우범자 수사 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.",
+    profileTab: "마약프로파일",
+    dashboardTab: "마약위험 대시보드",
+  },
+  fxsearch: {
+    title: "외환 수사 분석",
+    description: "외환 수사 대상 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.",
+    profileTab: "외환프로파일",
+    dashboardTab: "외환위험 대시보드",
+  },
+};
+
+function isSpecialInvestigationPage(page = currentPage){
+  return page === "lawsearch" || page === "fxsearch";
+}
+
+function activeSpecialInvestigationPage(){
+  return isSpecialInvestigationPage(currentPage) ? currentPage : "lawsearch";
+}
+
+function specialInvestigationConfig(page = activeSpecialInvestigationPage()){
+  return SPECIAL_INVESTIGATION_CONFIG[page] || SPECIAL_INVESTIGATION_CONFIG.lawsearch;
+}
+
+function renderSpecialInvestigation(){
+  render(activeSpecialInvestigationPage());
+}
+
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
 let riskScreeningTab     = "today";    // "today"|"tracking"
 
@@ -1321,7 +1356,7 @@ function drugStreamSteps(aCase, stepsToRun){
   if(!aCase.stepResults) aCase.stepResults = {};
   stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
   saveCanvasState();
-  render("lawsearch");
+  renderSpecialInvestigation();
 
   const targetType = aCase.targetType || "person";
   const stepsPayload = stepsToRun.map(s => ({
@@ -1369,7 +1404,7 @@ function drugStreamSteps(aCase, stepsToRun){
       aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
     }
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
   });
 
   giRunEventSource.addEventListener("workflow", e => {
@@ -1377,7 +1412,7 @@ function drugStreamSteps(aCase, stepsToRun){
     if(data.status === "completed" || data.status === "failed"){
       if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
       saveCanvasState();
-      render("lawsearch");
+      renderSpecialInvestigation();
     }
   });
 
@@ -1387,7 +1422,7 @@ function drugStreamSteps(aCase, stepsToRun){
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
   };
 }
 
@@ -3880,7 +3915,8 @@ function resetDrugCaseSubTabs(aCase = activeDrugCase(), resetTabs = true){
   } : null;
 }
 
-function drugInvestigationPage(){
+function drugInvestigationPage(pageKey = activeSpecialInvestigationPage()){
+  const config = specialInvestigationConfig(pageKey);
   const tab    = drugInvTab;
   const aCase  = activeDrugCase();
   const isFullHeight = tab === "scenario" || tab === "report";
@@ -3888,8 +3924,8 @@ function drugInvestigationPage(){
     <section class="card gi-hub${isFullHeight ? " gi-hub-full" : ""}">
       <div class="gi-page-head">
         <div>
-          <h2>마약 수사 분석</h2>
-          <p class="muted">마약 우범자 수사 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.</p>
+          <h2>${escapeHtml(config.title)}</h2>
+          <p class="muted">${escapeHtml(config.description)}</p>
         </div>
         ${aCase ? `
           <div class="gi-active-badge">
@@ -3907,7 +3943,7 @@ function drugInvestigationPage(){
         <div style="display:flex;gap:2px">
           <button class="gi-tab${tab==="ongoing"?" active":""}"  data-drug-tab="ongoing">진행중인 수사</button>
           ${aCase ? `
-            <button class="gi-tab${tab==="profile"?" active":""}" data-drug-tab="profile">마약프로파일</button>
+            <button class="gi-tab${tab==="profile"?" active":""}" data-drug-tab="profile">${escapeHtml(config.profileTab)}</button>
             <button class="gi-tab${tab==="data"?" active":""}"     data-drug-tab="data">기초자료 수집/등록</button>
             <button class="gi-tab${tab==="scenario"?" active":""}" data-drug-tab="scenario">분석 시나리오 설정 및 실행</button>
             <button class="gi-tab${tab==="network"?" active":""}"  data-drug-tab="network">관계망 분석</button>
@@ -3917,7 +3953,7 @@ function drugInvestigationPage(){
         </div>
         <div style="display:flex;gap:2px">
           <button class="gi-tab${tab==="slang"?" active":""}"     data-drug-tab="slang">은어사전 RAG</button>
-          <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">마약위험 대시보드</button>
+          <button class="gi-tab${tab==="dashboard"?" active":""}" data-drug-tab="dashboard">${escapeHtml(config.dashboardTab)}</button>
         </div>
       </div>
 
@@ -6120,8 +6156,8 @@ function loadRiskPersons(){
       if(currentPage === "generalinv" && showGenInvRegForm && giRegTargetType === "person"){
         render("generalinv");
       }
-      if(currentPage === "lawsearch" && drugInvTab === "profile" && drugCaseTargetType() === "person"){
-        render("lawsearch");
+      if(isSpecialInvestigationPage(currentPage) && drugInvTab === "profile" && drugCaseTargetType() === "person"){
+        renderSpecialInvestigation();
       }
     })
     .catch(error => {
@@ -7774,7 +7810,7 @@ function render(page="home"){
   const fillPage = (page === "canvas" && canvasTab === "report") ||
                    (page === "investigation" && investigationTab === "scenario") ||
                    (page === "generalinv" && generalInvTab === "workbench") ||
-                   (page === "lawsearch" && (drugInvTab === "scenario" || drugInvTab === "network" || drugInvTab === "forensic" || drugInvTab === "report"));
+                   (isSpecialInvestigationPage(page) && (drugInvTab === "scenario" || drugInvTab === "network" || drugInvTab === "forensic" || drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : pages.home();
   if(page === "home"){
@@ -7799,7 +7835,7 @@ function render(page="home"){
       if(companyId && !scenarioCompanies.length) loadScenarioCompanies();
     }
   }
-  if(page === "lawsearch"){
+  if(isSpecialInvestigationPage(page)){
     const drugCtx = drugCaseContext();
     if(drugCtx?.targetType === "company" || drugInvTab === "data" || drugInvTab === "profile"){
       if(!scenarioCompanies.length) loadScenarioCompanies();
@@ -7841,7 +7877,7 @@ function render(page="home"){
 document.addEventListener("input", (event) => {
   if(event.target && event.target.id === "drugSearchInput"){
     drugCaseFilter = event.target.value;
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 });
@@ -8522,7 +8558,7 @@ document.addEventListener("click", (event)=>{
   if(drugTab){
     drugInvTab = drugTab.dataset.drugTab;
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8534,7 +8570,7 @@ document.addEventListener("click", (event)=>{
     if(group === "forensic") drugForensicSubTab = tab;
     if(group === "report") drugReportSubTab = tab;
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8542,7 +8578,7 @@ document.addEventListener("click", (event)=>{
   const drugStepSelect = event.target.closest("[data-drug-step-select]");
   if(drugStepSelect && !event.target.closest("[data-drug-step-up],[data-drug-step-down]")){
     activeDrugStepId = drugStepSelect.dataset.drugStepSelect;
-    render("lawsearch"); return;
+    renderSpecialInvestigation(); return;
   }
 
   const drugStepUp = event.target.closest("[data-drug-step-up]");
@@ -8551,7 +8587,7 @@ document.addEventListener("click", (event)=>{
     const steps = activeDrugCaseSteps();
     const idx = steps.findIndex(s => s.id === drugStepUp.dataset.drugStepUp);
     if(idx > 0){ [steps[idx-1], steps[idx]] = [steps[idx], steps[idx-1]]; }
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   const drugStepDown = event.target.closest("[data-drug-step-down]");
@@ -8560,7 +8596,7 @@ document.addEventListener("click", (event)=>{
     const steps = activeDrugCaseSteps();
     const idx = steps.findIndex(s => s.id === drugStepDown.dataset.drugStepDown);
     if(idx < steps.length-1){ [steps[idx], steps[idx+1]] = [steps[idx+1], steps[idx]]; }
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   const drugStepDelete = event.target.closest("[data-drug-step-delete]");
@@ -8569,7 +8605,7 @@ document.addEventListener("click", (event)=>{
     const id = drugStepDelete.dataset.drugStepDelete;
     aCase.giSteps = activeDrugCaseSteps().filter(s => s.id !== id);
     if(activeDrugStepId === id) activeDrugStepId = aCase.giSteps[0]?.id || null;
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   const drugStepAdd = event.target.closest("[data-drug-step-add]");
@@ -8586,7 +8622,7 @@ document.addEventListener("click", (event)=>{
       instruction: sourceDefaultInstruction(src.sourceKey, aCase.targetType||"person"),
     }, aCase.giSteps.length));
     activeDrugStepId = aCase.giSteps[aCase.giSteps.length-1].id;
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   const drugRunStep = event.target.closest("[data-drug-run-step]");
@@ -8595,7 +8631,7 @@ document.addEventListener("click", (event)=>{
     const aCase = activeDrugCase(); if(!aCase) return;
     if(stepId === "clear"){
       aCase.stepStates  = {}; aCase.stepResults = {}; aCase.stepExpanded = {};
-      saveCanvasState(); render("lawsearch"); return;
+      saveCanvasState(); renderSpecialInvestigation(); return;
     }
     if(!aCase.stepStates) aCase.stepStates = {};
     if(!aCase.stepResults) aCase.stepResults = {};
@@ -8611,14 +8647,14 @@ document.addEventListener("click", (event)=>{
     if(!aCase.stepExpanded) aCase.stepExpanded = {};
     const id = drugToggleResult.dataset.drugToggleResult;
     aCase.stepExpanded[id] = !aCase.stepExpanded[id];
-    render("lawsearch"); return;
+    renderSpecialInvestigation(); return;
   }
 
   const drugAccBtn = event.target.closest("[data-drug-acc]");
   if(drugAccBtn){
     const key = drugAccBtn.dataset.drugAcc;
     drugAccordionOpen[key] = !drugAccordionOpen[key];
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8630,7 +8666,7 @@ document.addEventListener("click", (event)=>{
     const idx = defaultDrugInvCases.findIndex(c => c.caseId === caseId);
     if(idx !== -1) defaultDrugInvCases.splice(idx, 1);
     if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   /* ── 마약수사 케이스 아카이브 ── */
@@ -8642,7 +8678,7 @@ document.addEventListener("click", (event)=>{
     const c = idx !== -1 ? defaultDrugInvCases.splice(idx, 1)[0] : null;
     if(c){ archivedDrugCases.unshift({...c, archivedAt: new Date().toLocaleString()}); }
     if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   /* ── 마약수사 아카이브 복원 ── */
@@ -8652,14 +8688,14 @@ document.addEventListener("click", (event)=>{
     const caseId = drugRestoreCase.dataset.drugRestoreCase;
     const idx = archivedDrugCases.findIndex(c => c.caseId === caseId);
     if(idx !== -1){ defaultDrugInvCases.push(archivedDrugCases.splice(idx, 1)[0]); }
-    saveCanvasState(); render("lawsearch"); return;
+    saveCanvasState(); renderSpecialInvestigation(); return;
   }
 
   /* ── 마약수사 아카이브 토글 ── */
   const drugToggleArchive = event.target.closest("[data-drug-toggle-archive]");
   if(drugToggleArchive){
     drugArchiveOpen = !drugArchiveOpen;
-    render("lawsearch"); return;
+    renderSpecialInvestigation(); return;
   }
 
   const drugCaseBtn = event.target.closest("[data-drug-case]");
@@ -8669,7 +8705,7 @@ document.addEventListener("click", (event)=>{
     resetDrugCaseSubTabs(selectedDrugCase);
     drugInvTab = "profile";
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8679,7 +8715,7 @@ document.addEventListener("click", (event)=>{
     drugRegTargetType = drugRegTypeBtn.dataset.drugRegType;
     if(drugRegTargetType === "person") loadRiskPersons();
     if(drugRegTargetType === "company" && !scenarioCompanies.length) loadScenarioCompanies();
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8689,7 +8725,7 @@ document.addEventListener("click", (event)=>{
     if(showDrugNewCaseForm){
       if(!scenarioCompanies.length) loadScenarioCompanies();
     }
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8727,7 +8763,7 @@ document.addEventListener("click", (event)=>{
     showDrugNewCaseForm = false;
     drugRegTargetType   = "company";
     saveCanvasState();
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8735,7 +8771,7 @@ document.addEventListener("click", (event)=>{
   if(drugNetworkBtn){
     try{ drugInvSelectedTarget = JSON.parse(drugNetworkBtn.dataset.drugNetworkTarget); }catch(e){}
     drugInvTab = "network";
-    render("lawsearch");
+    renderSpecialInvestigation();
     return;
   }
 
@@ -8879,7 +8915,7 @@ document.addEventListener("click", (event)=>{
         generalInvTab = "cases";
         showGenInvRegForm = false;
       }
-      if(pageButton.dataset.page === "lawsearch"){
+      if(isSpecialInvestigationPage(pageButton.dataset.page)){
         drugInvTab = "dashboard";
         drugInvSelectedTarget = null;
         drugAccordionOpen = { cargo:true, traveler:false, modus:false, intl:false };
