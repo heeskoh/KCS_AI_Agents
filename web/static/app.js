@@ -1,6 +1,7 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml } from "./js/core/dom.js";
 import { createPageRegistry, pageNames } from "./js/core/page-registry.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "./js/core/tabs.js";
+import { createSpecialInvestigation } from "./js/analysis/special-investigation/index.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -963,32 +964,25 @@ let drugReportSubTab     = "draft";
 let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
 let genInvArchiveOpen    = false;
 
-const SPECIAL_INVESTIGATION_CONFIG = {
-  lawsearch: {
-    title: "마약 수사 분석",
-    description: "마약 우범자 수사 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.",
-    profileTab: "마약프로파일",
-    dashboardTab: "마약위험 대시보드",
+const specialInvestigation = createSpecialInvestigation({
+  getCurrentPage: () => currentPage,
+  getDrugInvTab: () => drugInvTab,
+  setDrugInvTab: value => { drugInvTab = value; },
+  activeDrugCase,
+  drugInvTypeById,
+  render,
+  panels: {
+    drugDataPanel,
+    drugForensicPanel,
+    drugNetworkPanel,
+    drugOngoingPanel,
+    drugProfilePanel,
+    drugReportPanel,
+    drugRiskDashboard,
+    drugScenarioPanel,
+    drugSlangRagPanel,
   },
-  fxsearch: {
-    title: "외환 수사 분석",
-    description: "외환 수사 대상 등록부터 시나리오 실행, 관계망·포렌식 분석, 보고서 생성까지 통합 수사 워크플로우를 제공합니다.",
-    profileTab: "외환프로파일",
-    dashboardTab: "외환위험 대시보드",
-  },
-};
-
-const SPECIAL_INVESTIGATION_TABS = [
-  { id:"ongoing", label:"진행중인 수사", render:() => drugOngoingPanel() },
-  { id:"profile", label:ctx => ctx.config.profileTab, showWhen:ctx => !!ctx.case, render:() => drugProfilePanel() },
-  { id:"data", label:"기초자료 수집/등록", showWhen:ctx => !!ctx.case, render:() => drugDataPanel() },
-  { id:"scenario", label:"분석 시나리오 설정 및 실행", showWhen:ctx => !!ctx.case, render:() => drugScenarioPanel() },
-  { id:"network", label:"관계망 분석", showWhen:ctx => !!ctx.case, render:() => drugNetworkPanel() },
-  { id:"forensic", label:"자금·디지털 포렌식 분석", showWhen:ctx => !!ctx.case, render:() => drugForensicPanel() },
-  { id:"report", label:"분석보고서 및 검증", showWhen:ctx => !!ctx.case, render:() => drugReportPanel() },
-  { id:"slang", label:"은어사전 RAG", group:"tools", render:() => drugSlangRagPanel() },
-  { id:"dashboard", label:ctx => ctx.config.dashboardTab, group:"tools", render:() => drugRiskDashboard() },
-];
+});
 
 const GENERAL_INVESTIGATION_TABS = [
   { id:"cases", label:"진행중인 수사", render:() => generalInvCasesPanel() },
@@ -1018,19 +1012,15 @@ const CUSTOMS_INVESTIGATION_TABS = [
 ];
 
 function isSpecialInvestigationPage(page = currentPage){
-  return page === "lawsearch" || page === "fxsearch";
+  return specialInvestigation.isSpecialInvestigationPage(page);
 }
 
 function activeSpecialInvestigationPage(){
-  return isSpecialInvestigationPage(currentPage) ? currentPage : "lawsearch";
-}
-
-function specialInvestigationConfig(page = activeSpecialInvestigationPage()){
-  return SPECIAL_INVESTIGATION_CONFIG[page] || SPECIAL_INVESTIGATION_CONFIG.lawsearch;
+  return specialInvestigation.activeSpecialInvestigationPage();
 }
 
 function renderSpecialInvestigation(){
-  render(activeSpecialInvestigationPage());
+  specialInvestigation.renderSpecialInvestigation();
 }
 
 /* ── 위험선별 분석 상태 ─────────────────────────────────────── */
@@ -3827,51 +3817,7 @@ function resetDrugCaseSubTabs(aCase = activeDrugCase(), resetTabs = true){
 }
 
 function drugInvestigationPage(pageKey = activeSpecialInvestigationPage()){
-  const config = specialInvestigationConfig(pageKey);
-  const tab    = drugInvTab;
-  const aCase  = activeDrugCase();
-  const tabContext = { pageKey, config, case:aCase };
-  const workTabs = SPECIAL_INVESTIGATION_TABS.filter(item => item.group !== "tools");
-  const toolTabs = SPECIAL_INVESTIGATION_TABS.filter(item => item.group === "tools");
-  const isFullHeight = tab === "scenario" || tab === "report";
-  return `
-    <section class="card gi-hub${isFullHeight ? " gi-hub-full" : ""}">
-      <div class="gi-page-head">
-        <div>
-          <h2>${escapeHtml(config.title)}</h2>
-          <p class="muted">${escapeHtml(config.description)}</p>
-        </div>
-        ${aCase ? `
-          <div class="gi-active-badge">
-            <span class="muted">수사 대상</span>
-            <strong>${escapeHtml(aCase.targetName)}</strong>
-            <span class="gi-type-chip ${drugInvTypeById(aCase.invTypeId).cls}">
-              ${drugInvTypeById(aCase.invTypeId).num} ${escapeHtml(drugInvTypeById(aCase.invTypeId).label)}
-            </span>
-          </div>
-        ` : ""}
-      </div>
-
-      <!-- 탭 내비게이션: 좌측 업무탭 + 우측 도구탭 -->
-      <div class="gi-tab-nav" style="justify-content:space-between">
-        <div style="display:flex;gap:2px">
-          ${renderAnalysisTabButtons(workTabs, tab, "data-drug-tab", "gi-tab", tabContext)}
-        </div>
-        <div style="display:flex;gap:2px">
-          ${renderAnalysisTabButtons(toolTabs, tab, "data-drug-tab", "gi-tab", tabContext)}
-        </div>
-      </div>
-
-      <div class="gi-tab-body">
-        ${drugInvTabContent(tabContext)}
-      </div>
-    </section>
-  `;
-}
-
-function drugInvTabContent(context = {}){
-  if(drugInvTab === "company_profile" || drugInvTab === "person_profile") drugInvTab = "profile";
-  return renderAnalysisTabContent(SPECIAL_INVESTIGATION_TABS, drugInvTab, context, "ongoing");
+  return specialInvestigation.drugInvestigationPage(pageKey);
 }
 
 function drugRiskDashboard(){
