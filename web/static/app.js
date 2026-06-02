@@ -1,4 +1,7 @@
-﻿const pageNames = {
+﻿import { dataTable, escapeHtml, markdownToHtml } from "./js/core/dom.js";
+import { renderAnalysisTabButtons, renderAnalysisTabContent } from "./js/core/tabs.js";
+
+const pageNames = {
   home:"My AI 분석",
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
@@ -285,7 +288,6 @@ function mainCanvasJob(job){
   `;
 }
 function barChart(arr){return `<div class="chart">${arr.map(v=>`<div class="bar" style="height:${v}%"></div>`).join("")}</div>`}
-function dataTable(headers, rows){return `<table class="table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
 function simplePage(title,desc,body){return `<section class="card"><h2>${title}</h2><p class="muted">${desc}</p>${body}</section>`}
 
 function permissionApprovePage(){
@@ -1084,36 +1086,6 @@ const SPECIAL_INVESTIGATION_CONFIG = {
     dashboardTab: "외환위험 대시보드",
   },
 };
-
-function analysisTabVisible(tab, context = {}){
-  return typeof tab.showWhen === "function" ? !!tab.showWhen(context) : tab.showWhen !== false;
-}
-
-function analysisTabLabel(tab, context = {}){
-  return typeof tab.label === "function" ? tab.label(context) : tab.label;
-}
-
-function renderAnalysisTabButtons(tabs, activeTab, dataAttr, className, context = {}){
-  return tabs
-    .filter(tab => analysisTabVisible(tab, context))
-    .map(tab => {
-      const classes = `${className}${tab.className ? ` ${tab.className}` : ""}${activeTab === tab.id ? " active" : ""}`;
-      return `
-      <button class="${classes}" ${dataAttr}="${escapeHtml(tab.id)}">
-        ${escapeHtml(analysisTabLabel(tab, context))}
-      </button>
-    `;
-    })
-    .join("");
-}
-
-function renderAnalysisTabContent(tabs, activeTab, context = {}, fallbackId = ""){
-  const visibleTabs = tabs.filter(tab => analysisTabVisible(tab, context));
-  const tab = visibleTabs.find(item => item.id === activeTab)
-    || visibleTabs.find(item => item.id === fallbackId)
-    || visibleTabs[0];
-  return tab?.render ? tab.render(context) : "";
-}
 
 const SPECIAL_INVESTIGATION_TABS = [
   { id:"ongoing", label:"진행중인 수사", render:() => drugOngoingPanel() },
@@ -6959,73 +6931,6 @@ function scenarioWorkbenchV2(){
 function uid(){
   if(window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function escapeHtml(value){
-  return String(value ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-function inlineMarkdown(value){
-  return escapeHtml(value)
-    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g,"<em>$1</em>")
-    .replace(/`(.+?)`/g,"<code>$1</code>");
-}
-
-function markdownToHtml(value){
-  const lines = String(value ?? "").replace(/\r\n/g,"\n").split("\n");
-  const html = [];
-  let listOpen = false;
-  let listType = "";
-  const closeList = () => {
-    if(listOpen){
-      html.push(`</${listType}>`);
-      listOpen = false;
-      listType = "";
-    }
-  };
-  const openList = (type) => {
-    if(listOpen && listType !== type) closeList();
-    if(!listOpen){
-      html.push(`<${type}>`);
-      listOpen = true;
-      listType = type;
-    }
-  };
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if(!trimmed){ closeList(); return; }
-
-    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
-    if(heading){
-      closeList();
-      const level = heading[1].length;
-      html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
-      return;
-    }
-    const bullet = trimmed.match(/^[-*]\s+(.+)$/);
-    if(bullet){
-      openList("ul");
-      html.push(`<li>${inlineMarkdown(bullet[1])}</li>`);
-      return;
-    }
-    const numbered = trimmed.match(/^\d+\.\s+(.+)$/);
-    if(numbered){
-      openList("ol");
-      html.push(`<li>${inlineMarkdown(numbered[1])}</li>`);
-      return;
-    }
-    closeList();
-    html.push(`<p>${inlineMarkdown(trimmed)}</p>`);
-  });
-  closeList();
-  return html.join("");
 }
 
 function setMarkdown(target, value){
