@@ -2,10 +2,13 @@
 import { createPageRegistry, pageNames } from "./js/core/page-registry.js";
 import { createCustomsInvestigation } from "./js/analysis/customs/index.js";
 import { registerCustomsEvents } from "./js/analysis/customs/events.js";
+import { customsState } from "./js/analysis/customs/state.js";
 import { createGeneralInvestigation } from "./js/analysis/general-investigation/index.js";
 import { registerGeneralInvestigationEvents } from "./js/analysis/general-investigation/events.js";
+import { generalInvestigationState } from "./js/analysis/general-investigation/state.js";
 import { createSpecialInvestigation } from "./js/analysis/special-investigation/index.js";
 import { registerSpecialInvestigationEvents } from "./js/analysis/special-investigation/events.js";
+import { specialInvestigationState } from "./js/analysis/special-investigation/state.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -109,8 +112,6 @@ const DRUG_SCENARIO_STEPS = {
 };
 
 /* ── 마약수사 케이스 스텝 초기화/조회 헬퍼 ─────────────────── */
-let activeDrugStepId = null;
-
 function activeDrugCaseSteps(){
   const aCase = activeDrugCase();
   if(!aCase) return [];
@@ -131,7 +132,7 @@ function activeDrugCaseSteps(){
 }
 
 function activeDrugStep(){
-  return activeDrugCaseSteps().find(s => s.id === activeDrugStepId) || null;
+  return activeDrugCaseSteps().find(s => s.id === specialInvestigationState.activeDrugStepId) || null;
 }
 
 // GI_SERVICE_ALIASES를 key → label 역방향 맵 (정의 후 사용)
@@ -947,31 +948,11 @@ let templateEditorSelectedId = null;
 let templateEditorInitialized = false;
 let templateDraftName = "";
 let canvasTab = "overview";
-let investigationTab   = "ongoing";
-let showInvNewJobForm  = false;
-let invArchiveOpen     = false;
-
-/* ── 마약수사분석 상태 ──────────────────────────────────────── */
-let drugInvTab           = "dashboard"; // "dashboard"|"ongoing"|"profile"|"data"|"scenario"|"network"|"forensic"|"report"|"slang"
-let drugInvSelectedTarget = null;
-let drugAccordionOpen    = { cargo:true, traveler:false, modus:false, intl:false };
-let activeDrugCaseId     = null;
-let showDrugNewCaseForm  = false;
-let drugCaseFilter       = "";
-let drugRegTargetType    = "company"; // 마약수사 등록 대상 유형: "company"|"person"
-let archivedDrugCases    = [];   // 마약수사 완료 아카이브
-let drugArchiveOpen      = false;
-let drugDataSubTab       = "profile";
-let drugNetworkSubTab    = "graph";
-let drugForensicSubTab   = "dashboard";
-let drugReportSubTab     = "draft";
-let archivedGenInvCases  = [];   // 일반수사 완료 아카이브
-let genInvArchiveOpen    = false;
 
 const specialInvestigation = createSpecialInvestigation({
   getCurrentPage: () => currentPage,
-  getDrugInvTab: () => drugInvTab,
-  setDrugInvTab: value => { drugInvTab = value; },
+  getDrugInvTab: () => specialInvestigationState.drugInvTab,
+  setDrugInvTab: value => { specialInvestigationState.drugInvTab = value; },
   activeDrugCase,
   drugInvTypeById,
   render,
@@ -989,7 +970,7 @@ const specialInvestigation = createSpecialInvestigation({
 });
 
 const customsInvestigation = createCustomsInvestigation({
-  getInvestigationTab: () => investigationTab,
+  getInvestigationTab: () => customsState.investigationTab,
   getActiveCanvasCompanyId: () => activeCanvasCompanyId,
   panels: {
     canvasDataPanel,
@@ -1029,11 +1010,6 @@ let intlInfoMessages     = [];
 let ontologyTab          = "graph";    // "graph"|"rules"|"inference"
 
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
-let generalInvTab        = "cases";   // "cases"|"profile"|"data"|"workbench"|"report"
-let activeGenInvCaseId   = null;
-let showGenInvRegForm    = false;
-let genInvFilter         = "";
-let customGenInvCases    = [];
 let riskPersons          = [];
 let riskPersonsLoading   = false;
 
@@ -1048,12 +1024,10 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
-let activeGiStepId = null;  // 워크벤치 선택 단계 ID
 let giRunEventSource = null; // 일반수사 분석 실행 SSE 연결
-let giRegTargetType  = "company"; // 수사 대상 등록 유형: "company" | "person"
 
 const generalInvestigation = createGeneralInvestigation({
-  getGeneralInvTab: () => generalInvTab,
+  getGeneralInvTab: () => generalInvestigationState.generalInvTab,
   activeGenInvCase,
   genInvTypeById,
   panels: {
@@ -1184,7 +1158,7 @@ function activeGiCaseSteps(){
 }
 
 function activeGiStep(){
-  return activeGiCaseSteps().find(s => s.id === activeGiStepId) || null;
+  return activeGiCaseSteps().find(s => s.id === generalInvestigationState.activeGiStepId) || null;
 }
 
 /* ── 일반수사 분석 SSE 실행 ──────────────────────────────── */
@@ -1498,8 +1472,8 @@ const defaultGenInvCases = [
 ];
 const defaultGenInvCasesBaseline = JSON.parse(JSON.stringify(defaultGenInvCases));
 
-function allGenInvCases(){ return [...defaultGenInvCases, ...customGenInvCases]; }
-function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === activeGenInvCaseId) || null; }
+function allGenInvCases(){ return [...defaultGenInvCases, ...generalInvestigationState.customGenInvCases]; }
+function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === generalInvestigationState.activeGenInvCaseId) || null; }
 function riskPersonById(personId){ return riskPersons.find(person => person.person_id === personId) || null; }
 /* ─────────────────────────────────────────────────────────── */
 let activeCanvasCompanyId = "C-1001";
@@ -2459,7 +2433,7 @@ function loadCanvasState(){
   try{
     const saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
     if(Array.isArray(saved.customCanvasJobs)) customCanvasJobs = saved.customCanvasJobs;
-    if(Array.isArray(saved.customGenInvCases)) customGenInvCases = saved.customGenInvCases;
+    if(Array.isArray(saved.customGenInvCases)) generalInvestigationState.customGenInvCases = saved.customGenInvCases;
     if(saved.activeCanvasCompanyId) activeCanvasCompanyId = saved.activeCanvasCompanyId;
     if(saved.activeScenarioTemplateId) activeScenarioTemplateId = saved.activeScenarioTemplateId;
     if(saved.latestReport) latestReport = saved.latestReport;
@@ -2488,7 +2462,7 @@ function saveCanvasState(){
     saveCurrentUserWorkspace();
     localStorage.setItem(canvasStateKey, JSON.stringify({
       customCanvasJobs,
-      customGenInvCases,
+      customGenInvCases: generalInvestigationState.customGenInvCases,
       activeCanvasCompanyId,
       activeScenarioTemplateId,
       latestReport,
@@ -2503,15 +2477,15 @@ function saveCanvasState(){
       hiddenBuiltinIds: [...hiddenBuiltinIds],
       builtinOverrides,
       currentUserId,
-      generalInvTab,
-      activeGenInvCaseId,
-      drugInvTab,
-      activeDrugCaseId,
-      drugDataSubTab,
-      drugNetworkSubTab,
-      drugForensicSubTab,
-      drugReportSubTab,
-      investigationTab,
+      generalInvTab: generalInvestigationState.generalInvTab,
+      activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
+      drugInvTab: specialInvestigationState.drugInvTab,
+      activeDrugCaseId: specialInvestigationState.activeDrugCaseId,
+      drugDataSubTab: specialInvestigationState.drugDataSubTab,
+      drugNetworkSubTab: specialInvestigationState.drugNetworkSubTab,
+      drugForensicSubTab: specialInvestigationState.drugForensicSubTab,
+      drugReportSubTab: specialInvestigationState.drugReportSubTab,
+      investigationTab: customsState.investigationTab,
     }));
   }catch(error){
     console.warn("진행작업 상태를 저장하지 못했습니다.", error);
@@ -2549,7 +2523,7 @@ function migrateLegacyWorkspaceState(saved){
   userWorkspaces[currentUserId] = {
     ...(existing || {}),
     customCanvasJobs: cloneSavedValue(customCanvasJobs, []),
-    customGenInvCases: cloneSavedValue(customGenInvCases, []),
+    customGenInvCases: cloneSavedValue(generalInvestigationState.customGenInvCases, []),
     defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
     companyScenarios: cloneSavedValue(companyScenarios, {}),
     canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
@@ -2564,20 +2538,20 @@ function saveCurrentUserWorkspace(){
     ...(userWorkspaces[currentUserId] || {}),
     activeCanvasCompanyId,
     activeScenarioTemplateId,
-    investigationTab,
+    investigationTab: customsState.investigationTab,
     canvasTab,
-    generalInvTab,
-    activeGenInvCaseId,
-    drugInvTab,
-    activeDrugCaseId,
-    drugDataSubTab,
-    drugNetworkSubTab,
-    drugForensicSubTab,
-    drugReportSubTab,
+    generalInvTab: generalInvestigationState.generalInvTab,
+    activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
+    drugInvTab: specialInvestigationState.drugInvTab,
+    activeDrugCaseId: specialInvestigationState.activeDrugCaseId,
+    drugDataSubTab: specialInvestigationState.drugDataSubTab,
+    drugNetworkSubTab: specialInvestigationState.drugNetworkSubTab,
+    drugForensicSubTab: specialInvestigationState.drugForensicSubTab,
+    drugReportSubTab: specialInvestigationState.drugReportSubTab,
     latestReport,
     latestValidation,
     customCanvasJobs: cloneSavedValue(customCanvasJobs, []),
-    customGenInvCases: cloneSavedValue(customGenInvCases, []),
+    customGenInvCases: cloneSavedValue(generalInvestigationState.customGenInvCases, []),
     defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
     companyScenarios: cloneSavedValue(companyScenarios, {}),
     canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
@@ -2592,7 +2566,7 @@ function restoreWorkspaceWorkState(userId){
   customCanvasJobs = Array.isArray(workspace.customCanvasJobs)
     ? cloneSavedValue(workspace.customCanvasJobs, [])
     : [];
-  customGenInvCases = Array.isArray(workspace.customGenInvCases)
+  generalInvestigationState.customGenInvCases = Array.isArray(workspace.customGenInvCases)
     ? cloneSavedValue(workspace.customGenInvCases, [])
     : [];
   defaultGenInvCases.splice(
@@ -2635,22 +2609,22 @@ function restoreUserWorkspace(userId){
   }
 
   activeScenarioTemplateId = workspace.activeScenarioTemplateId || activeScenarioTemplateId || "customs-basic";
-  investigationTab = workspace.investigationTab || "ongoing";
+  customsState.investigationTab = workspace.investigationTab || "ongoing";
   canvasTab = workspace.canvasTab || "overview";
-  generalInvTab = workspace.generalInvTab || "cases";
-  activeGenInvCaseId = workspace.activeGenInvCaseId && allGenInvCases().some(item => item.caseId === workspace.activeGenInvCaseId)
+  generalInvestigationState.generalInvTab = workspace.generalInvTab || "cases";
+  generalInvestigationState.activeGenInvCaseId = workspace.activeGenInvCaseId && allGenInvCases().some(item => item.caseId === workspace.activeGenInvCaseId)
     ? workspace.activeGenInvCaseId
     : null;
-  drugInvTab = workspace.drugInvTab || "ongoing";
-  if(drugInvTab === "company_profile" || drugInvTab === "person_profile") drugInvTab = "profile";
-  activeDrugCaseId = workspace.activeDrugCaseId && defaultDrugInvCases.some(c => c.caseId === workspace.activeDrugCaseId)
+  specialInvestigationState.drugInvTab = workspace.drugInvTab || "ongoing";
+  if(specialInvestigationState.drugInvTab === "company_profile" || specialInvestigationState.drugInvTab === "person_profile") specialInvestigationState.drugInvTab = "profile";
+  specialInvestigationState.activeDrugCaseId = workspace.activeDrugCaseId && defaultDrugInvCases.some(c => c.caseId === workspace.activeDrugCaseId)
     ? workspace.activeDrugCaseId
     : null;
-  drugDataSubTab = workspace.drugDataSubTab || "profile";
-  drugNetworkSubTab = workspace.drugNetworkSubTab || "graph";
-  drugForensicSubTab = workspace.drugForensicSubTab || "dashboard";
-  drugReportSubTab = workspace.drugReportSubTab || "draft";
-  if(activeDrugCaseId && !drugInvSelectedTarget) resetDrugCaseSubTabs(activeDrugCase(), false);
+  specialInvestigationState.drugDataSubTab = workspace.drugDataSubTab || "profile";
+  specialInvestigationState.drugNetworkSubTab = workspace.drugNetworkSubTab || "graph";
+  specialInvestigationState.drugForensicSubTab = workspace.drugForensicSubTab || "dashboard";
+  specialInvestigationState.drugReportSubTab = workspace.drugReportSubTab || "draft";
+  if(specialInvestigationState.activeDrugCaseId && !specialInvestigationState.drugInvSelectedTarget) resetDrugCaseSubTabs(activeDrugCase(), false);
   scenarioLoadedForCompany = null;
   scenarioInitialized = false;
   loadCompanyRunArchive(activeCanvasCompanyId);
@@ -2878,7 +2852,7 @@ function generalInvTabContent(context = {}){
 /* ── [진행중인 수사] 패널 ──────────────────────────────────── */
 function generalInvCasesPanel(){
   const all = allGenInvCases();
-  const q   = genInvFilter.toLowerCase();
+  const q   = generalInvestigationState.genInvFilter.toLowerCase();
   const filtered = q ? all.filter(c =>
     c.targetName.toLowerCase().includes(q) ||
     c.caseId.toLowerCase().includes(q) ||
@@ -2889,13 +2863,13 @@ function generalInvCasesPanel(){
     <div class="gi-cases-panel">
       <div class="gi-cases-toolbar">
         <input class="gi-search" id="giSearchInput" placeholder="수사대상, 사건번호, 수사유형 검색..."
-          value="${escapeHtml(genInvFilter)}">
+          value="${escapeHtml(generalInvestigationState.genInvFilter)}">
         <button class="btn gi-reg-toggle-btn" data-gi-reg-toggle type="button">
-          ${showGenInvRegForm ? "✕ 닫기" : "+ 수사 등록"}
+          ${generalInvestigationState.showGenInvRegForm ? "✕ 닫기" : "+ 수사 등록"}
         </button>
       </div>
 
-      ${showGenInvRegForm ? generalInvRegForm() : ""}
+      ${generalInvestigationState.showGenInvRegForm ? generalInvRegForm() : ""}
 
       <div class="gi-case-board">
         ${filtered.map(genInvCaseCard).join("") ||
@@ -2904,12 +2878,12 @@ function generalInvCasesPanel(){
 
       <div class="overview-archive-section">
         <button class="overview-archive-toggle" data-gi-toggle-archive>
-          완료건 확인 <strong>(${archivedGenInvCases.length}건)</strong>
-          <span>${genInvArchiveOpen ? "▲" : "▼"}</span>
+          완료건 확인 <strong>(${generalInvestigationState.archivedGenInvCases.length}건)</strong>
+          <span>${generalInvestigationState.genInvArchiveOpen ? "▲" : "▼"}</span>
         </button>
-        ${genInvArchiveOpen ? `
+        ${generalInvestigationState.genInvArchiveOpen ? `
           <div class="job-board archive-board" style="margin-top:12px">
-            ${archivedGenInvCases.map(c => {
+            ${generalInvestigationState.archivedGenInvCases.map(c => {
               const type = genInvTypeById(c.invTypeId);
               return `
                 <article class="job-card archive-card" tabindex="0">
@@ -2940,7 +2914,7 @@ function generalInvCasesPanel(){
 
 function genInvCaseCard(c){
   const type     = genInvTypeById(c.invTypeId);
-  const isActive = c.caseId === activeGenInvCaseId;
+  const isActive = c.caseId === generalInvestigationState.activeGenInvCaseId;
   const isDone   = c.status.pct >= 100 || c.status.tone === "done";
   return `
     <article class="gi-case-card${isActive ? " active" : ""}" data-gi-case="${escapeHtml(c.caseId)}" tabindex="0" role="button">
@@ -2970,7 +2944,7 @@ function genInvCaseCard(c){
 }
 
 function generalInvRegForm(){
-  const isCo = giRegTargetType === "company";
+  const isCo = generalInvestigationState.giRegTargetType === "company";
   if(!isCo && !riskPersons.length && !riskPersonsLoading) loadRiskPersons();
 
   const targetOptions = isCo
@@ -3317,7 +3291,7 @@ function generalInvWorkbenchPanel(){
 
   const type   = genInvTypeById(aCase.invTypeId);
   const steps  = activeGiCaseSteps();
-  if(!activeGiStepId && steps[0]) activeGiStepId = steps[0].id;
+  if(!generalInvestigationState.activeGiStepId && steps[0]) generalInvestigationState.activeGiStepId = steps[0].id;
   const states = aCase.stepStates || {};
   const done   = steps.filter(s => states[s.id] === "done").length;
   const total  = steps.length;
@@ -3331,7 +3305,7 @@ function generalInvWorkbenchPanel(){
   /* ── 왼쪽 보드: 시나리오 단계 칩 목록 */
   const boardChips = steps.map((step, i) => {
     const state    = states[step.id] || "wait";
-    const isActive = step.id === activeGiStepId;
+    const isActive = step.id === generalInvestigationState.activeGiStepId;
     const isDone   = state === "done";
     const stateTag = isDone
       ? `<span class="gi-chip-state done">완료</span>`
@@ -3535,11 +3509,11 @@ function investigationOngoingPanel(){
           <p class="muted">관세조사 분석 카테고리로 등록된 분석 작업 현황입니다.</p>
         </div>
         <button class="btn" data-inv-new-job type="button">
-          ${showInvNewJobForm ? "✕ 취소" : "+ 신규 조사 등록"}
+          ${customsState.showInvNewJobForm ? "✕ 취소" : "+ 신규 조사 등록"}
         </button>
       </div>
 
-      ${showInvNewJobForm ? invNewJobForm() : ""}
+      ${customsState.showInvNewJobForm ? invNewJobForm() : ""}
 
       <div class="job-board">
         ${jobs.map(job => ciOngoingJobCard(job)).join("") ||
@@ -3549,9 +3523,9 @@ function investigationOngoingPanel(){
       <div class="overview-archive-section">
         <button class="overview-archive-toggle" data-inv-toggle-archive>
           완료건 확인 <strong>(${archived.length}건)</strong>
-          <span>${invArchiveOpen ? "▲" : "▼"}</span>
+          <span>${customsState.invArchiveOpen ? "▲" : "▼"}</span>
         </button>
-        ${invArchiveOpen ? `
+        ${customsState.invArchiveOpen ? `
           <div class="job-board archive-board" style="margin-top:12px">
             ${archived.map(job => {
               const archive = currentRunArchive(job.companyId);
@@ -3694,7 +3668,7 @@ function canvasPage(){
 }
 
 function activeDrugCase(){
-  return defaultDrugInvCases.find(c => c.caseId === activeDrugCaseId) || null;
+  return defaultDrugInvCases.find(c => c.caseId === specialInvestigationState.activeDrugCaseId) || null;
 }
 
 function drugCaseTargetType(aCase = activeDrugCase()){
@@ -3758,12 +3732,12 @@ function drugSubTabNav(group, active, tabs){
 function resetDrugCaseSubTabs(aCase = activeDrugCase(), resetTabs = true){
   const targetType = drugCaseTargetType(aCase);
   if(resetTabs){
-    drugDataSubTab = "profile";
-    drugNetworkSubTab = "graph";
-    drugForensicSubTab = "dashboard";
-    drugReportSubTab = "draft";
+    specialInvestigationState.drugDataSubTab = "profile";
+    specialInvestigationState.drugNetworkSubTab = "graph";
+    specialInvestigationState.drugForensicSubTab = "dashboard";
+    specialInvestigationState.drugReportSubTab = "draft";
   }
-  drugInvSelectedTarget = aCase ? {
+  specialInvestigationState.drugInvSelectedTarget = aCase ? {
     name: aCase.targetName,
     id: targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.drugOrgId || aCase.caseId),
     type: targetType,
@@ -3881,7 +3855,7 @@ function drugRiskDashboard(){
 
   /* ── 아코디언 섹션 (헤더바 + 테이블) ───────────────────── */
   function accordionSection(ind){
-    const isOpen  = drugAccordionOpen[ind.key] !== false;
+    const isOpen  = specialInvestigationState.drugAccordionOpen[ind.key] !== false;
     const isTraveler = ind.key === "traveler";
     const col2 = isTraveler ? "성명"     : "대상";
     const col3 = isTraveler ? "입국경로" : "출처/원산지";
@@ -4025,7 +3999,7 @@ function drugRiskDashboard(){
 
 function drugOngoingPanel(){
   const all      = defaultDrugInvCases;
-  const q        = drugCaseFilter.toLowerCase();
+  const q        = specialInvestigationState.drugCaseFilter.toLowerCase();
   const filtered = q ? all.filter(c =>
     c.targetName.toLowerCase().includes(q) ||
     c.caseId.toLowerCase().includes(q) ||
@@ -4036,13 +4010,13 @@ function drugOngoingPanel(){
     <div class="gi-cases-panel">
       <div class="gi-cases-toolbar">
         <input class="gi-search" id="drugSearchInput" placeholder="수사대상, 사건번호, 수사유형 검색..."
-          value="${escapeHtml(drugCaseFilter)}">
+          value="${escapeHtml(specialInvestigationState.drugCaseFilter)}">
         <button class="btn gi-reg-toggle-btn" data-drug-reg-toggle type="button">
-          ${showDrugNewCaseForm ? "✕ 닫기" : "+ 수사 등록"}
+          ${specialInvestigationState.showDrugNewCaseForm ? "✕ 닫기" : "+ 수사 등록"}
         </button>
       </div>
 
-      ${showDrugNewCaseForm ? drugNewCaseForm() : ""}
+      ${specialInvestigationState.showDrugNewCaseForm ? drugNewCaseForm() : ""}
 
       <div class="gi-case-board">
         ${filtered.map(drugCaseCard).join("") ||
@@ -4051,12 +4025,12 @@ function drugOngoingPanel(){
 
       <div class="overview-archive-section">
         <button class="overview-archive-toggle" data-drug-toggle-archive>
-          완료건 확인 <strong>(${archivedDrugCases.length}건)</strong>
-          <span>${drugArchiveOpen ? "▲" : "▼"}</span>
+          완료건 확인 <strong>(${specialInvestigationState.archivedDrugCases.length}건)</strong>
+          <span>${specialInvestigationState.drugArchiveOpen ? "▲" : "▼"}</span>
         </button>
-        ${drugArchiveOpen ? `
+        ${specialInvestigationState.drugArchiveOpen ? `
           <div class="job-board archive-board" style="margin-top:12px">
-            ${archivedDrugCases.map(c => {
+            ${specialInvestigationState.archivedDrugCases.map(c => {
               const type = drugInvTypeById(c.invTypeId);
               return `
                 <article class="job-card archive-card" tabindex="0">
@@ -4087,7 +4061,7 @@ function drugOngoingPanel(){
 
 function drugCaseCard(c){
   const type     = drugInvTypeById(c.invTypeId);
-  const isActive = c.caseId === activeDrugCaseId;
+  const isActive = c.caseId === specialInvestigationState.activeDrugCaseId;
   const isDone   = c.status.pct >= 100 || c.status.tone === "done";
   return `
     <article class="gi-case-card${isActive ? " active" : ""}"
@@ -4118,7 +4092,7 @@ function drugCaseCard(c){
 }
 
 function drugNewCaseForm(){
-  const isCo = drugRegTargetType === "company";
+  const isCo = specialInvestigationState.drugRegTargetType === "company";
   if(!isCo && !riskPersons.length && !riskPersonsLoading) loadRiskPersons();
 
   const targetOptions = isCo
@@ -4495,7 +4469,7 @@ function drugDataPanel(){
         {key:"digital", label:"통화·디지털"},
         {key:"finance", label:"금융거래"},
       ];
-  if(!tabs.some(t => t.key === drugDataSubTab)) drugDataSubTab = "profile";
+  if(!tabs.some(t => t.key === specialInvestigationState.drugDataSubTab)) specialInvestigationState.drugDataSubTab = "profile";
   const tableByTab = {
     profile: ctx.targetType === "company"
       ? dataTable(["항목","내용","마약수사 관점"], [
@@ -4544,10 +4518,10 @@ function drugDataPanel(){
   return `
     <div class="drug-tab-stack">
       ${drugContextHeader(ctx, "기초자료 수집/등록", "선택한 마약수사 대상 기준으로 필요한 자료 묶음과 서브탭을 고정합니다.")}
-      ${drugSubTabNav("data", drugDataSubTab, tabs)}
+      ${drugSubTabNav("data", specialInvestigationState.drugDataSubTab, tabs)}
       <section class="drug-profile-panel">
-        <h4>${escapeHtml(tabs.find(t => t.key === drugDataSubTab)?.label || "기초자료")}</h4>
-        ${tableByTab[drugDataSubTab] || tableByTab.profile}
+        <h4>${escapeHtml(tabs.find(t => t.key === specialInvestigationState.drugDataSubTab)?.label || "기초자료")}</h4>
+        ${tableByTab[specialInvestigationState.drugDataSubTab] || tableByTab.profile}
       </section>
     </div>
   `;
@@ -4560,7 +4534,7 @@ function drugScenarioPanel(){
 
   const type  = drugInvTypeById(aCase.invTypeId);
   const steps = activeDrugCaseSteps();
-  if(!activeDrugStepId && steps[0]) activeDrugStepId = steps[0].id;
+  if(!specialInvestigationState.activeDrugStepId && steps[0]) specialInvestigationState.activeDrugStepId = steps[0].id;
   const states = aCase.stepStates  || {};
   const done   = steps.filter(s => states[s.id] === "done").length;
   const total  = steps.length;
@@ -4573,7 +4547,7 @@ function drugScenarioPanel(){
   /* 왼쪽: 단계 칩 목록 */
   const boardChips = steps.map((step, i) => {
     const state    = states[step.id] || "wait";
-    const isActive = step.id === activeDrugStepId;
+    const isActive = step.id === specialInvestigationState.activeDrugStepId;
     const isDone   = state === "done";
     const stateTag = isDone
       ? `<span class="gi-chip-state done">완료</span>`
@@ -4741,7 +4715,7 @@ function drugForensicPanel(){
     {key:"location", label:"사진정보 기반 위치/관계인"},
     {key:"device", label:"디바이스 사용 이력"},
   ];
-  if(!tabs.some(t => t.key === drugForensicSubTab)) drugForensicSubTab = "dashboard";
+  if(!tabs.some(t => t.key === specialInvestigationState.drugForensicSubTab)) specialInvestigationState.drugForensicSubTab = "dashboard";
   const txData = ctx.targetType === "company" ? [
     {date:"2026-05-28",from:ctx.targetName,to:"해외 공급자",  amount:"USD 12,000",type:"해외송금",risk:"고위험",riskScore:95},
     {date:"2026-05-26",from:"김우범",to:ctx.targetName,amount:"₩15,000,000",type:"법인이체",risk:"고위험",riskScore:93},
@@ -4818,7 +4792,7 @@ function drugForensicPanel(){
       ["노트북", "불상", "NL/Amsterdam", "VPN 접속", "검토중"],
     ]),
   };
-  const detailTitle = tabs.find(t => t.key === drugForensicSubTab)?.label || "상세분석";
+  const detailTitle = tabs.find(t => t.key === specialInvestigationState.drugForensicSubTab)?.label || "상세분석";
   const renderTrend = values => values.map((v,i)=>`
     <span style="height:${v}%;left:${i*9.09}%"></span>
   `).join("");
@@ -4947,8 +4921,8 @@ function drugForensicPanel(){
   return `
     <div class="drug-forensic-page">
       ${drugContextHeader(ctx, "자금·디지털 포렌식 분석", "선택 대상 유형에 맞춰 자금·디지털·SNS 단서를 전환합니다.")}
-      ${drugSubTabNav("forensic", drugForensicSubTab, tabs)}
-      ${drugForensicSubTab === "dashboard" ? dashboard : `
+      ${drugSubTabNav("forensic", specialInvestigationState.drugForensicSubTab, tabs)}
+      ${specialInvestigationState.drugForensicSubTab === "dashboard" ? dashboard : `
         <section class="drug-forensic-detail">
           <div class="drug-forensic-detail-head">
             <h4>${escapeHtml(detailTitle)} 상세분석 대시보드</h4>
@@ -4957,11 +4931,11 @@ function drugForensicPanel(){
           <div class="drug-forensic-detail-grid">
             <div class="df-card df-wide">
               <h4>${escapeHtml(detailTitle)} 분석 결과</h4>
-              <div class="drug-forensic-scroll">${detailRows[drugForensicSubTab] || detailRows.money}</div>
+              <div class="drug-forensic-scroll">${detailRows[specialInvestigationState.drugForensicSubTab] || detailRows.money}</div>
             </div>
             <div class="df-card">
               <h4>위험 요약</h4>
-              <div class="df-score small"><strong>${drugForensicSubTab === "crypto" ? "88" : drugForensicSubTab === "comm" ? "85" : "92"}</strong><span>/100</span></div>
+              <div class="df-score small"><strong>${specialInvestigationState.drugForensicSubTab === "crypto" ? "88" : specialInvestigationState.drugForensicSubTab === "comm" ? "85" : "92"}</strong><span>/100</span></div>
               <ul class="df-alerts">
                 <li><b>고위험 단서</b><span>12건</span></li>
                 <li><b>추가 확인</b><span>7건</span></li>
@@ -5928,7 +5902,7 @@ function loadScenarioCompanies(){
       refreshCompanyPicker();
       if(canvasTab === "overview" && showScenarioCompanyPicker) render("canvas");
       if(currentPage === "profile") render("profile");
-      if(currentPage === "investigation" && investigationTab === "dashboard") render("investigation");
+      if(currentPage === "investigation" && customsState.investigationTab === "dashboard") render("investigation");
     })
     .catch(error => {
       scenarioCompaniesLoading = false;
@@ -5950,10 +5924,10 @@ function loadRiskPersons(){
     .then(data => {
       riskPersons = data.persons || [];
       riskPersonsLoading = false;
-      if(currentPage === "generalinv" && showGenInvRegForm && giRegTargetType === "person"){
+      if(currentPage === "generalinv" && generalInvestigationState.showGenInvRegForm && generalInvestigationState.giRegTargetType === "person"){
         render("generalinv");
       }
-      if(isSpecialInvestigationPage(currentPage) && drugInvTab === "profile" && drugCaseTargetType() === "person"){
+      if(isSpecialInvestigationPage(currentPage) && specialInvestigationState.drugInvTab === "profile" && drugCaseTargetType() === "person"){
         renderSpecialInvestigation();
       }
     })
@@ -5971,14 +5945,14 @@ function loadCompanyDetail(companyId){
     .then(data => {
       companyDetailCache[companyId] = { ...data, loading: false };
       if(canvasTab === "profile") render("canvas");
-      if(currentPage === "generalinv" && generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
-      if(currentPage === "investigation" && investigationTab === "profile") render("investigation");
+      if(currentPage === "generalinv" && generalInvestigationState.generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
+      if(currentPage === "investigation" && customsState.investigationTab === "profile") render("investigation");
     })
     .catch(err => {
       companyDetailCache[companyId] = { error: String(err), loading: false };
       if(canvasTab === "profile") render("canvas");
-      if(currentPage === "generalinv" && generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
-      if(currentPage === "investigation" && investigationTab === "profile") render("investigation");
+      if(currentPage === "generalinv" && generalInvestigationState.generalInvTab === "profile" && generalInvCompanyId(activeGenInvCase()) === companyId) render("generalinv");
+      if(currentPage === "investigation" && customsState.investigationTab === "profile") render("investigation");
     });
 }
 
@@ -5994,7 +5968,7 @@ function canvasOverviewPanel(){
         const done  = job.status.done  ?? 0;
         const isActive = isCustoms
           ? job.companyId === activeCanvasCompanyId
-          : job.jobId === activeGenInvCaseId;
+          : job.jobId === generalInvestigationState.activeGenInvCaseId;
         return `
         <article class="job-card ${isActive ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-analysis-job="${escapeHtml(job.jobId || job.companyId)}" data-analysis-page="${escapeHtml(job.page || "investigation")}" data-analysis-tab="${escapeHtml(job.openTab || "ongoing")}" data-canvas-company="${escapeHtml(job.companyId || "")}" tabindex="0" role="button">
           <div class="job-card-head">
@@ -6904,10 +6878,10 @@ function initGenInvSearch(){
   const input = document.getElementById("giSearchInput");
   if(!input) return;
   input.addEventListener("input", () => {
-    genInvFilter = input.value;
+    generalInvestigationState.genInvFilter = input.value;
     const board = document.querySelector(".gi-case-board");
     if(!board) return;
-    const q = genInvFilter.toLowerCase();
+    const q = generalInvestigationState.genInvFilter.toLowerCase();
     const all = allGenInvCases();
     const filtered = q ? all.filter(c =>
       c.targetName.toLowerCase().includes(q) ||
@@ -7538,9 +7512,9 @@ function render(page="home"){
   document.querySelectorAll(`[data-page="${page}"]`).forEach(b=>b.classList.add("active"));
   const contentEl = document.getElementById("content");
   const fillPage = (page === "canvas" && canvasTab === "report") ||
-                   (page === "investigation" && investigationTab === "scenario") ||
-                   (page === "generalinv" && generalInvTab === "workbench") ||
-                   (isSpecialInvestigationPage(page) && (drugInvTab === "scenario" || drugInvTab === "network" || drugInvTab === "forensic" || drugInvTab === "report"));
+                   (page === "investigation" && customsState.investigationTab === "scenario") ||
+                   (page === "generalinv" && generalInvestigationState.generalInvTab === "workbench") ||
+                   (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : pages.home();
   if(page === "home"){
@@ -7555,35 +7529,35 @@ function render(page="home"){
   if(page === "generalinv"){
     initGenInvSearch();
     if(!scenarioCompanies.length) loadScenarioCompanies();
-    if(showGenInvRegForm && giRegTargetType === "person") loadRiskPersons();
-    if(generalInvTab === "profile"){
+    if(generalInvestigationState.showGenInvRegForm && generalInvestigationState.giRegTargetType === "person") loadRiskPersons();
+    if(generalInvestigationState.generalInvTab === "profile"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId) loadCompanyDetail(companyId);
     }
-    if(generalInvTab === "data"){
+    if(generalInvestigationState.generalInvTab === "data"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId && !scenarioCompanies.length) loadScenarioCompanies();
     }
   }
   if(isSpecialInvestigationPage(page)){
     const drugCtx = drugCaseContext();
-    if(drugCtx?.targetType === "company" || drugInvTab === "data" || drugInvTab === "profile"){
+    if(drugCtx?.targetType === "company" || specialInvestigationState.drugInvTab === "data" || specialInvestigationState.drugInvTab === "profile"){
       if(!scenarioCompanies.length) loadScenarioCompanies();
     }
-    if((drugCtx?.targetType === "person" || drugInvTab === "profile") && !riskPersons.length && !riskPersonsLoading){
+    if((drugCtx?.targetType === "person" || specialInvestigationState.drugInvTab === "profile") && !riskPersons.length && !riskPersonsLoading){
       loadRiskPersons();
     }
   }
   if(page === "investigation"){
     if(!scenarioCompanies.length) loadScenarioCompanies();
-    if(investigationTab === "ongoing" && showScenarioCompanyPicker) loadScenarioCompanies();
-    if(investigationTab === "dashboard") initRiskDashboard();
-    if(investigationTab === "profile")   loadCompanyDetail(activeCanvasCompanyId);
-    if(investigationTab === "scenario"){
+    if(customsState.investigationTab === "ongoing" && showScenarioCompanyPicker) loadScenarioCompanies();
+    if(customsState.investigationTab === "dashboard") initRiskDashboard();
+    if(customsState.investigationTab === "profile")   loadCompanyDetail(activeCanvasCompanyId);
+    if(customsState.investigationTab === "scenario"){
       scenarioInitialized = false;
       initScenarioWorkbench();
     }
-    if(investigationTab === "templates"){
+    if(customsState.investigationTab === "templates"){
       templateEditorInitialized = false;
       initTemplateEditor();
     }
@@ -7606,7 +7580,7 @@ function render(page="home"){
 
 document.addEventListener("input", (event) => {
   if(event.target && event.target.id === "drugSearchInput"){
-    drugCaseFilter = event.target.value;
+    specialInvestigationState.drugCaseFilter = event.target.value;
     renderSpecialInvestigation();
     return;
   }
@@ -7627,8 +7601,8 @@ document.addEventListener("change", (event) => {
 });
 
 registerCustomsEvents({
-  get showInvNewJobForm(){ return showInvNewJobForm; },
-  set showInvNewJobForm(value){ showInvNewJobForm = value; },
+  get showInvNewJobForm(){ return customsState.showInvNewJobForm; },
+  set showInvNewJobForm(value){ customsState.showInvNewJobForm = value; },
   get scenarioCompanies(){ return scenarioCompanies; },
   get activeCanvasCompanyId(){ return activeCanvasCompanyId; },
   set activeCanvasCompanyId(value){ activeCanvasCompanyId = value; },
@@ -7651,10 +7625,10 @@ registerCustomsEvents({
   set scenarioInitialized(value){ scenarioInitialized = value; },
   get scenarioLoadedForCompany(){ return scenarioLoadedForCompany; },
   set scenarioLoadedForCompany(value){ scenarioLoadedForCompany = value; },
-  get invArchiveOpen(){ return invArchiveOpen; },
-  set invArchiveOpen(value){ invArchiveOpen = value; },
-  get investigationTab(){ return investigationTab; },
-  set investigationTab(value){ investigationTab = value; },
+  get invArchiveOpen(){ return customsState.invArchiveOpen; },
+  set invArchiveOpen(value){ customsState.invArchiveOpen = value; },
+  get investigationTab(){ return customsState.investigationTab; },
+  set investigationTab(value){ customsState.investigationTab = value; },
   get showScenarioCompanyPicker(){ return showScenarioCompanyPicker; },
   set showScenarioCompanyPicker(value){ showScenarioCompanyPicker = value; },
   archiveCanvasJob,
@@ -7674,23 +7648,23 @@ registerCustomsEvents({
 });
 
 registerGeneralInvestigationEvents({
-  get giRegTargetType(){ return giRegTargetType; },
-  set giRegTargetType(value){ giRegTargetType = value; },
-  get showGenInvRegForm(){ return showGenInvRegForm; },
-  set showGenInvRegForm(value){ showGenInvRegForm = value; },
+  get giRegTargetType(){ return generalInvestigationState.giRegTargetType; },
+  set giRegTargetType(value){ generalInvestigationState.giRegTargetType = value; },
+  get showGenInvRegForm(){ return generalInvestigationState.showGenInvRegForm; },
+  set showGenInvRegForm(value){ generalInvestigationState.showGenInvRegForm = value; },
   get scenarioCompanies(){ return scenarioCompanies; },
-  get customGenInvCases(){ return customGenInvCases; },
+  get customGenInvCases(){ return generalInvestigationState.customGenInvCases; },
   get defaultGenInvCases(){ return defaultGenInvCases; },
-  get archivedGenInvCases(){ return archivedGenInvCases; },
+  get archivedGenInvCases(){ return generalInvestigationState.archivedGenInvCases; },
   get GEN_INV_TYPES(){ return GEN_INV_TYPES; },
-  get activeGenInvCaseId(){ return activeGenInvCaseId; },
-  set activeGenInvCaseId(value){ activeGenInvCaseId = value; },
-  get generalInvTab(){ return generalInvTab; },
-  set generalInvTab(value){ generalInvTab = value; },
-  get activeGiStepId(){ return activeGiStepId; },
-  set activeGiStepId(value){ activeGiStepId = value; },
-  get genInvArchiveOpen(){ return genInvArchiveOpen; },
-  set genInvArchiveOpen(value){ genInvArchiveOpen = value; },
+  get activeGenInvCaseId(){ return generalInvestigationState.activeGenInvCaseId; },
+  set activeGenInvCaseId(value){ generalInvestigationState.activeGenInvCaseId = value; },
+  get generalInvTab(){ return generalInvestigationState.generalInvTab; },
+  set generalInvTab(value){ generalInvestigationState.generalInvTab = value; },
+  get activeGiStepId(){ return generalInvestigationState.activeGiStepId; },
+  set activeGiStepId(value){ generalInvestigationState.activeGiStepId = value; },
+  get genInvArchiveOpen(){ return generalInvestigationState.genInvArchiveOpen; },
+  set genInvArchiveOpen(value){ generalInvestigationState.genInvArchiveOpen = value; },
   get giRunEventSource(){ return giRunEventSource; },
   set giRunEventSource(value){ giRunEventSource = value; },
   get currentUserId(){ return currentUserId; },
@@ -7715,32 +7689,32 @@ registerGeneralInvestigationEvents({
 });
 
 registerSpecialInvestigationEvents({
-  get drugInvTab(){ return drugInvTab; },
-  set drugInvTab(value){ drugInvTab = value; },
-  get drugDataSubTab(){ return drugDataSubTab; },
-  set drugDataSubTab(value){ drugDataSubTab = value; },
-  get drugNetworkSubTab(){ return drugNetworkSubTab; },
-  set drugNetworkSubTab(value){ drugNetworkSubTab = value; },
-  get drugForensicSubTab(){ return drugForensicSubTab; },
-  set drugForensicSubTab(value){ drugForensicSubTab = value; },
-  get drugReportSubTab(){ return drugReportSubTab; },
-  set drugReportSubTab(value){ drugReportSubTab = value; },
-  get activeDrugStepId(){ return activeDrugStepId; },
-  set activeDrugStepId(value){ activeDrugStepId = value; },
-  get drugAccordionOpen(){ return drugAccordionOpen; },
-  get activeDrugCaseId(){ return activeDrugCaseId; },
-  set activeDrugCaseId(value){ activeDrugCaseId = value; },
+  get drugInvTab(){ return specialInvestigationState.drugInvTab; },
+  set drugInvTab(value){ specialInvestigationState.drugInvTab = value; },
+  get drugDataSubTab(){ return specialInvestigationState.drugDataSubTab; },
+  set drugDataSubTab(value){ specialInvestigationState.drugDataSubTab = value; },
+  get drugNetworkSubTab(){ return specialInvestigationState.drugNetworkSubTab; },
+  set drugNetworkSubTab(value){ specialInvestigationState.drugNetworkSubTab = value; },
+  get drugForensicSubTab(){ return specialInvestigationState.drugForensicSubTab; },
+  set drugForensicSubTab(value){ specialInvestigationState.drugForensicSubTab = value; },
+  get drugReportSubTab(){ return specialInvestigationState.drugReportSubTab; },
+  set drugReportSubTab(value){ specialInvestigationState.drugReportSubTab = value; },
+  get activeDrugStepId(){ return specialInvestigationState.activeDrugStepId; },
+  set activeDrugStepId(value){ specialInvestigationState.activeDrugStepId = value; },
+  get drugAccordionOpen(){ return specialInvestigationState.drugAccordionOpen; },
+  get activeDrugCaseId(){ return specialInvestigationState.activeDrugCaseId; },
+  set activeDrugCaseId(value){ specialInvestigationState.activeDrugCaseId = value; },
   get defaultDrugInvCases(){ return defaultDrugInvCases; },
-  get archivedDrugCases(){ return archivedDrugCases; },
-  get drugArchiveOpen(){ return drugArchiveOpen; },
-  set drugArchiveOpen(value){ drugArchiveOpen = value; },
-  get drugRegTargetType(){ return drugRegTargetType; },
-  set drugRegTargetType(value){ drugRegTargetType = value; },
-  get showDrugNewCaseForm(){ return showDrugNewCaseForm; },
-  set showDrugNewCaseForm(value){ showDrugNewCaseForm = value; },
+  get archivedDrugCases(){ return specialInvestigationState.archivedDrugCases; },
+  get drugArchiveOpen(){ return specialInvestigationState.drugArchiveOpen; },
+  set drugArchiveOpen(value){ specialInvestigationState.drugArchiveOpen = value; },
+  get drugRegTargetType(){ return specialInvestigationState.drugRegTargetType; },
+  set drugRegTargetType(value){ specialInvestigationState.drugRegTargetType = value; },
+  get showDrugNewCaseForm(){ return specialInvestigationState.showDrugNewCaseForm; },
+  set showDrugNewCaseForm(value){ specialInvestigationState.showDrugNewCaseForm = value; },
   get scenarioCompanies(){ return scenarioCompanies; },
-  get drugInvSelectedTarget(){ return drugInvSelectedTarget; },
-  set drugInvSelectedTarget(value){ drugInvSelectedTarget = value; },
+  get drugInvSelectedTarget(){ return specialInvestigationState.drugInvSelectedTarget; },
+  set drugInvSelectedTarget(value){ specialInvestigationState.drugInvSelectedTarget = value; },
   get GI_STEP_SOURCES(){ return GI_STEP_SOURCES; },
   activeDrugCase,
   activeDrugCaseSteps,
@@ -8005,9 +7979,9 @@ document.addEventListener("click", (event)=>{
     const page = analysisJobCard.dataset.analysisPage || "investigation";
     const targetTab = analysisJobCard.dataset.analysisTab || "ongoing";
     if(page === "generalinv"){
-      activeGenInvCaseId = analysisJobCard.dataset.analysisJob;
-      generalInvTab = "cases";
-      activeGiStepId = null;
+      generalInvestigationState.activeGenInvCaseId = analysisJobCard.dataset.analysisJob;
+      generalInvestigationState.generalInvTab = "cases";
+      generalInvestigationState.activeGiStepId = null;
       saveCanvasState();
       render("generalinv");
       return;
@@ -8017,7 +7991,7 @@ document.addEventListener("click", (event)=>{
       return;
     }
     activeCanvasCompanyId = analysisJobCard.dataset.canvasCompany;
-    investigationTab = targetTab;
+    customsState.investigationTab = targetTab;
     scenarioInitialized = false;
     scenarioLoadedForCompany = null;
     loadCompanyRunArchive(activeCanvasCompanyId);
@@ -8117,17 +8091,17 @@ document.addEventListener("click", (event)=>{
     }
     if(pageButton.classList.contains("special-analysis-btn")){
       if(pageButton.dataset.page === "investigation"){
-        investigationTab = "ongoing";
-        showInvNewJobForm = false;
+        customsState.investigationTab = "ongoing";
+        customsState.showInvNewJobForm = false;
       }
       if(pageButton.dataset.page === "generalinv"){
-        generalInvTab = "cases";
-        showGenInvRegForm = false;
+        generalInvestigationState.generalInvTab = "cases";
+        generalInvestigationState.showGenInvRegForm = false;
       }
       if(isSpecialInvestigationPage(pageButton.dataset.page)){
-        drugInvTab = "dashboard";
-        drugInvSelectedTarget = null;
-        drugAccordionOpen = { cargo:true, traveler:false, modus:false, intl:false };
+        specialInvestigationState.drugInvTab = "dashboard";
+        specialInvestigationState.drugInvSelectedTarget = null;
+        specialInvestigationState.drugAccordionOpen = { cargo:true, traveler:false, modus:false, intl:false };
       }
       if(pageButton.dataset.page === "dw"){
         riskScreeningTab = "today";

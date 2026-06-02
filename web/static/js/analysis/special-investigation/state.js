@@ -1,0 +1,16 @@
+export const specialInvestigationState = {
+  drugInvTab: "dashboard",
+  drugInvSelectedTarget: null,
+  drugAccordionOpen: { cargo:true, traveler:false, modus:false, intl:false },
+  activeDrugCaseId: null,
+  showDrugNewCaseForm: false,
+  drugCaseFilter: "",
+  drugRegTargetType: "company",
+  archivedDrugCases: [],
+  drugArchiveOpen: false,
+  drugDataSubTab: "profile",
+  drugNetworkSubTab: "graph",
+  drugForensicSubTab: "dashboard",
+  drugReportSubTab: "draft",
+  activeDrugStepId: null,
+};
