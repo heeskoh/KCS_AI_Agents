@@ -1,8 +1,11 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml } from "./js/core/dom.js";
 import { createPageRegistry, pageNames } from "./js/core/page-registry.js";
 import { createCustomsInvestigation } from "./js/analysis/customs/index.js";
+import { registerCustomsEvents } from "./js/analysis/customs/events.js";
 import { createGeneralInvestigation } from "./js/analysis/general-investigation/index.js";
+import { registerGeneralInvestigationEvents } from "./js/analysis/general-investigation/events.js";
 import { createSpecialInvestigation } from "./js/analysis/special-investigation/index.js";
+import { registerSpecialInvestigationEvents } from "./js/analysis/special-investigation/events.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -7623,6 +7626,140 @@ document.addEventListener("change", (event) => {
   }
 });
 
+registerCustomsEvents({
+  get showInvNewJobForm(){ return showInvNewJobForm; },
+  set showInvNewJobForm(value){ showInvNewJobForm = value; },
+  get scenarioCompanies(){ return scenarioCompanies; },
+  get activeCanvasCompanyId(){ return activeCanvasCompanyId; },
+  set activeCanvasCompanyId(value){ activeCanvasCompanyId = value; },
+  get activeScenarioTemplateId(){ return activeScenarioTemplateId; },
+  set activeScenarioTemplateId(value){ activeScenarioTemplateId = value; },
+  get scenarioItems(){ return scenarioItems; },
+  set scenarioItems(value){ scenarioItems = value; },
+  get selectedScenarioId(){ return selectedScenarioId; },
+  set selectedScenarioId(value){ selectedScenarioId = value; },
+  get companyScenarios(){ return companyScenarios; },
+  get stepOutputs(){ return stepOutputs; },
+  set stepOutputs(value){ stepOutputs = value; },
+  get stepStatuses(){ return stepStatuses; },
+  set stepStatuses(value){ stepStatuses = value; },
+  get openedSteps(){ return openedSteps; },
+  set openedSteps(value){ openedSteps = value; },
+  get expandedResultStepId(){ return expandedResultStepId; },
+  set expandedResultStepId(value){ expandedResultStepId = value; },
+  get scenarioInitialized(){ return scenarioInitialized; },
+  set scenarioInitialized(value){ scenarioInitialized = value; },
+  get scenarioLoadedForCompany(){ return scenarioLoadedForCompany; },
+  set scenarioLoadedForCompany(value){ scenarioLoadedForCompany = value; },
+  get invArchiveOpen(){ return invArchiveOpen; },
+  set invArchiveOpen(value){ invArchiveOpen = value; },
+  get investigationTab(){ return investigationTab; },
+  set investigationTab(value){ investigationTab = value; },
+  get showScenarioCompanyPicker(){ return showScenarioCompanyPicker; },
+  set showScenarioCompanyPicker(value){ showScenarioCompanyPicker = value; },
+  archiveCanvasJob,
+  canvasJobs,
+  createCanvasJob,
+  findCompanyById,
+  loadCompanyRunArchive,
+  loadScenarioCompanies,
+  normalizeScenarioItem,
+  patchCanvasJob,
+  removeCanvasJobForCurrentUser,
+  render,
+  restoreRunArchiveToWorkspace,
+  saveCanvasState,
+  scenarioTemplateById,
+  uid,
+});
+
+registerGeneralInvestigationEvents({
+  get giRegTargetType(){ return giRegTargetType; },
+  set giRegTargetType(value){ giRegTargetType = value; },
+  get showGenInvRegForm(){ return showGenInvRegForm; },
+  set showGenInvRegForm(value){ showGenInvRegForm = value; },
+  get scenarioCompanies(){ return scenarioCompanies; },
+  get customGenInvCases(){ return customGenInvCases; },
+  get defaultGenInvCases(){ return defaultGenInvCases; },
+  get archivedGenInvCases(){ return archivedGenInvCases; },
+  get GEN_INV_TYPES(){ return GEN_INV_TYPES; },
+  get activeGenInvCaseId(){ return activeGenInvCaseId; },
+  set activeGenInvCaseId(value){ activeGenInvCaseId = value; },
+  get generalInvTab(){ return generalInvTab; },
+  set generalInvTab(value){ generalInvTab = value; },
+  get activeGiStepId(){ return activeGiStepId; },
+  set activeGiStepId(value){ activeGiStepId = value; },
+  get genInvArchiveOpen(){ return genInvArchiveOpen; },
+  set genInvArchiveOpen(value){ genInvArchiveOpen = value; },
+  get giRunEventSource(){ return giRunEventSource; },
+  set giRunEventSource(value){ giRunEventSource = value; },
+  get currentUserId(){ return currentUserId; },
+  activeGenInvCase,
+  activeGiCaseSteps,
+  allGenInvCases,
+  currentUser,
+  currentUserGroup,
+  findCompanyById,
+  giCommonSourceKey,
+  giSourceByKey,
+  giStreamSteps,
+  loadRiskPersons,
+  loadScenarioCompanies,
+  normalizeGiScenarioStep,
+  render,
+  riskPersonById,
+  saveCanvasState,
+  sourceDefaultBehaviors,
+  sourceDefaultInstruction,
+  uid,
+});
+
+registerSpecialInvestigationEvents({
+  get drugInvTab(){ return drugInvTab; },
+  set drugInvTab(value){ drugInvTab = value; },
+  get drugDataSubTab(){ return drugDataSubTab; },
+  set drugDataSubTab(value){ drugDataSubTab = value; },
+  get drugNetworkSubTab(){ return drugNetworkSubTab; },
+  set drugNetworkSubTab(value){ drugNetworkSubTab = value; },
+  get drugForensicSubTab(){ return drugForensicSubTab; },
+  set drugForensicSubTab(value){ drugForensicSubTab = value; },
+  get drugReportSubTab(){ return drugReportSubTab; },
+  set drugReportSubTab(value){ drugReportSubTab = value; },
+  get activeDrugStepId(){ return activeDrugStepId; },
+  set activeDrugStepId(value){ activeDrugStepId = value; },
+  get drugAccordionOpen(){ return drugAccordionOpen; },
+  get activeDrugCaseId(){ return activeDrugCaseId; },
+  set activeDrugCaseId(value){ activeDrugCaseId = value; },
+  get defaultDrugInvCases(){ return defaultDrugInvCases; },
+  get archivedDrugCases(){ return archivedDrugCases; },
+  get drugArchiveOpen(){ return drugArchiveOpen; },
+  set drugArchiveOpen(value){ drugArchiveOpen = value; },
+  get drugRegTargetType(){ return drugRegTargetType; },
+  set drugRegTargetType(value){ drugRegTargetType = value; },
+  get showDrugNewCaseForm(){ return showDrugNewCaseForm; },
+  set showDrugNewCaseForm(value){ showDrugNewCaseForm = value; },
+  get scenarioCompanies(){ return scenarioCompanies; },
+  get drugInvSelectedTarget(){ return drugInvSelectedTarget; },
+  set drugInvSelectedTarget(value){ drugInvSelectedTarget = value; },
+  get GI_STEP_SOURCES(){ return GI_STEP_SOURCES; },
+  activeDrugCase,
+  activeDrugCaseSteps,
+  currentUser,
+  drugStreamSteps,
+  escapeHtml,
+  findCompanyById,
+  loadRiskPersons,
+  loadScenarioCompanies,
+  normalizeGiScenarioStep,
+  renderSpecialInvestigation,
+  resetDrugCaseSubTabs,
+  riskPersonById,
+  saveCanvasState,
+  sourceDefaultBehaviors,
+  sourceDefaultInstruction,
+  uid,
+});
+
 document.addEventListener("click", (event)=>{
   if(event.target.closest("#shutdownAllBtn")){
     shutdownAllServers();
@@ -7863,100 +8000,6 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  /* ── 진행중인 관세조사 핸들러 ── */
-  const invNewJobBtn = event.target.closest("[data-inv-new-job]");
-  if(invNewJobBtn){
-    showInvNewJobForm = !showInvNewJobForm;
-    if(showInvNewJobForm && !scenarioCompanies.length) loadScenarioCompanies();
-    render("investigation");
-    return;
-  }
-
-  const invSubmitBtn = event.target.closest("[data-inv-submit]");
-  if(invSubmitBtn){
-    const companyId = document.getElementById("invNewJobCompany")?.value;
-    const templateId = document.getElementById("invNewJobTemplate")?.value;
-    if(!companyId){ alert("조사 대상 업체를 선택하세요."); return; }
-    const company = findCompanyById(companyId) || { company_id:companyId, company_name:companyId };
-    createCanvasJob(company);
-    activeCanvasCompanyId = companyId;
-    const tpl = scenarioTemplateById(templateId || "customs-basic") || scenarioTemplateById("customs-basic");
-    if(tpl){
-      activeScenarioTemplateId = tpl.id;
-      scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
-      selectedScenarioId = scenarioItems[0]?.id || null;
-      companyScenarios[companyId] = scenarioItems.map(item => ({...item}));
-      stepOutputs = {};
-      stepStatuses = {};
-      openedSteps = new Set();
-      expandedResultStepId = null;
-      patchCanvasJob(companyId, {
-        status:{ label:"대기", tone:"wait", pct:0, done:0, total:scenarioItems.length },
-        tab:"profile",
-        scenarioChanged:false,
-      });
-    }
-    loadCompanyRunArchive(companyId);
-    scenarioInitialized = false;
-    scenarioLoadedForCompany = null;
-    showInvNewJobForm = false;
-    // 탭 이동 없이 카드 등록 후 목록 유지
-    saveCanvasState();
-    render("investigation");
-    return;
-  }
-
-  const invToggleArchive = event.target.closest("[data-inv-toggle-archive]");
-  if(invToggleArchive){
-    invArchiveOpen = !invArchiveOpen;
-    render("investigation");
-    return;
-  }
-
-  const invArchiveJobBtn = event.target.closest("[data-inv-archive-job]");
-  if(invArchiveJobBtn){
-    const companyId = invArchiveJobBtn.dataset.invArchiveJob;
-    archiveCanvasJob(companyId);
-    invArchiveOpen = true;
-    render("investigation");
-    return;
-  }
-
-  const invRestoreJobBtn = event.target.closest("[data-inv-restore-job]");
-  if(invRestoreJobBtn){
-    const companyId = invRestoreJobBtn.dataset.invRestoreJob;
-    restoreRunArchiveToWorkspace(companyId, { tab:"profile" });
-    invArchiveOpen = false;
-    investigationTab = "ongoing";
-    render("investigation");
-    return;
-  }
-
-  const invRemoveJobBtn = event.target.closest("[data-inv-remove-job]");
-  if(invRemoveJobBtn){
-    const companyId = invRemoveJobBtn.dataset.invRemoveJob;
-    const job = canvasJobs().find(item => item.companyId === companyId);
-    const name = job?.companyName || job?.company || companyId;
-    if(!confirm(`${name} 진행작업을 내 목록에서 삭제하시겠습니까?`)) return;
-    removeCanvasJobForCurrentUser(companyId);
-    render("investigation");
-    return;
-  }
-
-  const invCompanyCard = event.target.closest("[data-inv-company]");
-  if(invCompanyCard && !event.target.closest("[data-inv-archive-job],[data-inv-restore-job],[data-inv-remove-job]")){
-    const companyId = invCompanyCard.dataset.invCompany;
-    const targetTab = invCompanyCard.dataset.invTab || "profile";
-    activeCanvasCompanyId = companyId;
-    investigationTab = targetTab;
-    scenarioInitialized = false;
-    scenarioLoadedForCompany = null;
-    loadCompanyRunArchive(companyId);
-    saveCanvasState();
-    render("investigation");
-    return;
-  }
-
   const analysisJobCard = event.target.closest("[data-analysis-job]");
   if(analysisJobCard){
     const page = analysisJobCard.dataset.analysisPage || "investigation";
@@ -7992,538 +8035,6 @@ document.addEventListener("click", (event)=>{
     loadCompanyRunArchive(activeCanvasCompanyId);
     if(companyTarget.dataset.openCompanyProfile === "true") canvasTab = "profile";
     saveCanvasState();
-  }
-
-  /* ── 일반수사분석 클릭 핸들러 ── */
-  const giRegTypeBtn = event.target.closest("[data-gi-reg-type]");
-  if(giRegTypeBtn){
-    giRegTargetType = giRegTypeBtn.dataset.giRegType;
-    if(giRegTargetType === "person") loadRiskPersons();
-    render("generalinv");
-    return;
-  }
-
-  const giRegToggle = event.target.closest("[data-gi-reg-toggle]");
-  if(giRegToggle){
-    showGenInvRegForm = !showGenInvRegForm;
-    if(showGenInvRegForm){
-      if(!scenarioCompanies.length) loadScenarioCompanies();
-    }
-    render("generalinv");
-    return;
-  }
-
-  const giRegister = event.target.closest("[data-gi-register]");
-  if(giRegister){
-    const selectedId = document.getElementById("giRegTargetSelect")?.value || "";
-    if(!selectedId){ alert("수사 대상을 선택하세요."); return; }
-    const invTypeId = document.getElementById("giRegTypeSelect")?.value || GEN_INV_TYPES[0].id;
-
-    let targetName, extraFields = {};
-    if(giRegTargetType === "company"){
-      const co = findCompanyById(selectedId) || scenarioCompanies.find(c => c.company_id === selectedId);
-      targetName = co?.company_name || selectedId;
-      extraFields = { companyId: selectedId, targetType:"company" };
-    } else {
-      const person = riskPersonById(selectedId);
-      targetName = person?.name || selectedId;
-      extraFields = {
-        targetType:"person", personId: selectedId,
-        personProfileType: person?.profile_type || "",
-        personRiskLevel:   person?.risk_level   || "",
-        personRiskScore:   person?.risk_score,
-        personNationality: person?.nationality   || "",
-      };
-    }
-
-    const caseId = `GI-${new Date().getFullYear()}-${String(customGenInvCases.length + defaultGenInvCases.length + 1).padStart(3,"0")}`;
-    const newCase = {
-      caseId, targetName, invTypeId,
-      ...extraFields,
-      status:{ label:"대기", tone:"wait", pct:0, done:0, total:7 },
-      investigator: currentUser().name,
-      team: currentUserGroup().org + " " + currentUserGroup().team,
-      created: new Date().toLocaleDateString("ko-KR"),
-      updated: "방금",
-      ownerUserId: currentUserId,
-      assignees: [currentUserId],
-    };
-    customGenInvCases.unshift(newCase);
-    showGenInvRegForm = false;
-    giRegTargetType   = "company";
-    // 탭 이동 없이 목록에 카드만 등록
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  /* ── 일반수사 케이스 삭제 ── */
-  const giRemoveCase = event.target.closest("[data-gi-remove-case]");
-  if(giRemoveCase){
-    event.stopPropagation();
-    const caseId = giRemoveCase.dataset.giRemoveCase;
-    const idx = defaultGenInvCases.findIndex(c => c.caseId === caseId);
-    if(idx !== -1) defaultGenInvCases.splice(idx, 1);
-    const cidx = customGenInvCases.findIndex(c => c.caseId === caseId);
-    if(cidx !== -1) customGenInvCases.splice(cidx, 1);
-    if(activeGenInvCaseId === caseId){ activeGenInvCaseId = null; generalInvTab = "cases"; }
-    saveCanvasState(); render("generalinv"); return;
-  }
-
-  /* ── 일반수사 케이스 아카이브 ── */
-  const giArchiveCase = event.target.closest("[data-gi-archive-case]");
-  if(giArchiveCase){
-    event.stopPropagation();
-    const caseId = giArchiveCase.dataset.giArchiveCase;
-    const fromDefault = defaultGenInvCases.findIndex(c => c.caseId === caseId);
-    const fromCustom  = customGenInvCases.findIndex(c => c.caseId === caseId);
-    const c = fromDefault !== -1 ? defaultGenInvCases.splice(fromDefault, 1)[0]
-            : fromCustom  !== -1 ? customGenInvCases.splice(fromCustom, 1)[0] : null;
-    if(c){ archivedGenInvCases.unshift({...c, archivedAt: new Date().toLocaleString()}); }
-    if(activeGenInvCaseId === caseId){ activeGenInvCaseId = null; generalInvTab = "cases"; }
-    saveCanvasState(); render("generalinv"); return;
-  }
-
-  /* ── 일반수사 아카이브 복원 ── */
-  const giRestoreCase = event.target.closest("[data-gi-restore-case]");
-  if(giRestoreCase){
-    event.stopPropagation();
-    const caseId = giRestoreCase.dataset.giRestoreCase;
-    const idx = archivedGenInvCases.findIndex(c => c.caseId === caseId);
-    if(idx !== -1){ customGenInvCases.push(archivedGenInvCases.splice(idx, 1)[0]); }
-    saveCanvasState(); render("generalinv"); return;
-  }
-
-  /* ── 일반수사 아카이브 토글 ── */
-  const giToggleArchive = event.target.closest("[data-gi-toggle-archive]");
-  if(giToggleArchive){
-    genInvArchiveOpen = !genInvArchiveOpen;
-    render("generalinv"); return;
-  }
-
-  const giCase = event.target.closest("[data-gi-case]");
-  if(giCase){
-    activeGenInvCaseId = giCase.dataset.giCase;
-    generalInvTab      = "profile";
-    activeGiStepId     = null;
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  /* ── 워크벤치 단계 핸들러 ── */
-  const giStepSelect = event.target.closest("[data-gi-step-select]");
-  if(giStepSelect && !event.target.closest("[data-gi-step-up],[data-gi-step-down]")){
-    activeGiStepId = giStepSelect.dataset.giStepSelect;
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giStepUp = event.target.closest("[data-gi-step-up]");
-  if(giStepUp){
-    const aCase = activeGenInvCase();
-    const steps = aCase?.giSteps;
-    if(steps){
-      const id = giStepUp.dataset.giStepUp;
-      const i = steps.findIndex(s => s.id === id);
-      if(i > 0){ [steps[i-1], steps[i]] = [steps[i], steps[i-1]]; }
-    }
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giStepDown = event.target.closest("[data-gi-step-down]");
-  if(giStepDown){
-    const aCase = activeGenInvCase();
-    const steps = aCase?.giSteps;
-    if(steps){
-      const id = giStepDown.dataset.giStepDown;
-      const i = steps.findIndex(s => s.id === id);
-      if(i >= 0 && i < steps.length - 1){ [steps[i], steps[i+1]] = [steps[i+1], steps[i]]; }
-    }
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giStepAdd = event.target.closest("[data-gi-step-add]");
-  if(giStepAdd){
-    const sel = document.getElementById("giWbAddSource");
-    if(!sel?.value){ alert("추가할 단계를 선택하세요."); return; }
-    const key = sel.value;
-    const src = giSourceByKey(key);
-    const aCase = activeGenInvCase();
-    if(aCase){
-      if(!aCase.giSteps) activeGiCaseSteps();
-      const sourceKey = giCommonSourceKey(src.key);
-      aCase.giSteps.push(normalizeGiScenarioStep({
-        ...src,
-        id:`gis_${uid()}`,
-        sourceKey,
-        targetType: aCase.targetType || "company",
-        target_type: aCase.targetType || "company",
-        behaviors: sourceDefaultBehaviors(sourceKey),
-        instruction: sourceDefaultInstruction(sourceKey, aCase.targetType),
-      }, aCase.giSteps.length));
-      activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
-    }
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giStepDelete = event.target.closest("[data-gi-step-delete]");
-  if(giStepDelete){
-    const id = giStepDelete.dataset.giStepDelete;
-    const aCase = activeGenInvCase();
-    if(aCase?.giSteps){
-      aCase.giSteps = aCase.giSteps.filter(s => s.id !== id);
-      if(aCase.stepStates) delete aCase.stepStates[id];
-      if(activeGiStepId === id) activeGiStepId = null;
-    }
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giRunStep = event.target.closest("[data-gi-run-step]");
-  if(giRunStep){
-    const val = giRunStep.dataset.giRunStep;
-    const colonIdx = val.indexOf(":");
-    const caseId = val.slice(0, colonIdx);
-    const stepId = val.slice(colonIdx + 1);
-    const aCase = allGenInvCases().find(c => c.caseId === caseId);
-    if(aCase){
-      const steps = activeGenInvCaseId === caseId ? activeGiCaseSteps() : (aCase.giSteps || []);
-      if(stepId === "all"){
-        /* 완료되지 않은 전체 단계를 SSE로 실행 */
-        const toRun = steps.filter(s => (aCase.stepStates||{})[s.id] !== "done");
-        giStreamSteps(aCase, toRun.length ? toRun : steps);
-      } else {
-        /* 개별 단계 실행 */
-        const step = steps.find(s => s.id === stepId);
-        if(step) giStreamSteps(aCase, [step]);
-      }
-    }
-    return;
-  }
-
-  const giRerunStep = event.target.closest("[data-gi-rerun-step]");
-  if(giRerunStep){
-    const val = giRerunStep.dataset.giRerunStep;
-    const colonIdx = val.indexOf(":");
-    const caseId = val.slice(0, colonIdx);
-    const stepId = val.slice(colonIdx + 1);
-    const aCase = allGenInvCases().find(c => c.caseId === caseId);
-    if(aCase){
-      if(!aCase.stepStates)  aCase.stepStates  = {};
-      if(!aCase.stepResults) aCase.stepResults = {};
-      const steps = activeGenInvCaseId === caseId ? activeGiCaseSteps() : (aCase.giSteps || []);
-      if(stepId === "clear"){
-        /* 전체 초기화 (재실행 없이 상태만 지움) */
-        if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
-        aCase.stepStates  = {};
-        aCase.stepResults = {};
-        aCase.stepExpanded = {};
-        aCase.stepsDone = 0;
-        aCase.status = { ...aCase.status, done:0, pct:0, label:"대기", tone:"wait" };
-        saveCanvasState();
-        render("generalinv");
-      } else {
-        /* 개별 단계 재실행: 상태 초기화 후 SSE 실행 */
-        delete aCase.stepStates[stepId];
-        delete aCase.stepResults[stepId];
-        const step = steps.find(s => s.id === stepId);
-        if(step) giStreamSteps(aCase, [step]);
-      }
-    }
-    return;
-  }
-
-  /* 결과 펼침/접기 */
-  const giToggleResult = event.target.closest("[data-gi-toggle-result]");
-  if(giToggleResult){
-    const stepId = giToggleResult.dataset.giToggleResult;
-    const aCase  = activeGenInvCase();
-    if(aCase){
-      if(!aCase.stepExpanded) aCase.stepExpanded = {};
-      aCase.stepExpanded[stepId] = !aCase.stepExpanded[stepId];
-      saveCanvasState();
-      render("generalinv");
-    }
-    return;
-  }
-
-  const giType = event.target.closest("[data-gi-type]");
-  if(giType){
-    const typeId = giType.dataset.giType;
-    const aCase  = activeGenInvCase();
-    if(aCase){
-      const idx = customGenInvCases.findIndex(c => c.caseId === aCase.caseId);
-      if(idx >= 0) customGenInvCases[idx].invTypeId = typeId;
-      else {
-        const di = defaultGenInvCases.findIndex(c => c.caseId === aCase.caseId);
-        if(di >= 0) defaultGenInvCases[di].invTypeId = typeId;
-      }
-    }
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const giTab = event.target.closest("[data-gi-tab]");
-  if(giTab){
-    generalInvTab = giTab.dataset.giTab;
-    saveCanvasState();
-    render("generalinv");
-    return;
-  }
-
-  const drugTab = event.target.closest("[data-drug-tab]");
-  if(drugTab){
-    drugInvTab = drugTab.dataset.drugTab;
-    saveCanvasState();
-    renderSpecialInvestigation();
-    return;
-  }
-
-  const drugSubTab = event.target.closest("[data-drug-subtab]");
-  if(drugSubTab){
-    const [group, tab] = drugSubTab.dataset.drugSubtab.split(":");
-    if(group === "data") drugDataSubTab = tab;
-    if(group === "network") drugNetworkSubTab = tab;
-    if(group === "forensic") drugForensicSubTab = tab;
-    if(group === "report") drugReportSubTab = tab;
-    saveCanvasState();
-    renderSpecialInvestigation();
-    return;
-  }
-
-  /* ── 마약수사 워크벤치 핸들러 ── */
-  const drugStepSelect = event.target.closest("[data-drug-step-select]");
-  if(drugStepSelect && !event.target.closest("[data-drug-step-up],[data-drug-step-down]")){
-    activeDrugStepId = drugStepSelect.dataset.drugStepSelect;
-    renderSpecialInvestigation(); return;
-  }
-
-  const drugStepUp = event.target.closest("[data-drug-step-up]");
-  if(drugStepUp){
-    const aCase = activeDrugCase(); if(!aCase) return;
-    const steps = activeDrugCaseSteps();
-    const idx = steps.findIndex(s => s.id === drugStepUp.dataset.drugStepUp);
-    if(idx > 0){ [steps[idx-1], steps[idx]] = [steps[idx], steps[idx-1]]; }
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  const drugStepDown = event.target.closest("[data-drug-step-down]");
-  if(drugStepDown){
-    const aCase = activeDrugCase(); if(!aCase) return;
-    const steps = activeDrugCaseSteps();
-    const idx = steps.findIndex(s => s.id === drugStepDown.dataset.drugStepDown);
-    if(idx < steps.length-1){ [steps[idx], steps[idx+1]] = [steps[idx+1], steps[idx]]; }
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  const drugStepDelete = event.target.closest("[data-drug-step-delete]");
-  if(drugStepDelete){
-    const aCase = activeDrugCase(); if(!aCase) return;
-    const id = drugStepDelete.dataset.drugStepDelete;
-    aCase.giSteps = activeDrugCaseSteps().filter(s => s.id !== id);
-    if(activeDrugStepId === id) activeDrugStepId = aCase.giSteps[0]?.id || null;
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  const drugStepAdd = event.target.closest("[data-drug-step-add]");
-  if(drugStepAdd){
-    const aCase = activeDrugCase(); if(!aCase) return;
-    const sel = document.getElementById("drugWbAddSource");
-    const key = sel?.value; if(!key) return;
-    if(!aCase.giSteps) activeDrugCaseSteps();
-    const src = GI_STEP_SOURCES.find(s => s.key === key) || GI_STEP_SOURCES[0];
-    aCase.giSteps.push(normalizeGiScenarioStep({
-      ...src, id:`drs_${uid()}`,
-      sourceKey: src.sourceKey,
-      behaviors: sourceDefaultBehaviors(src.sourceKey),
-      instruction: sourceDefaultInstruction(src.sourceKey, aCase.targetType||"person"),
-    }, aCase.giSteps.length));
-    activeDrugStepId = aCase.giSteps[aCase.giSteps.length-1].id;
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  const drugRunStep = event.target.closest("[data-drug-run-step]");
-  if(drugRunStep){
-    const [caseId, stepId] = drugRunStep.dataset.drugRunStep.split(":");
-    const aCase = activeDrugCase(); if(!aCase) return;
-    if(stepId === "clear"){
-      aCase.stepStates  = {}; aCase.stepResults = {}; aCase.stepExpanded = {};
-      saveCanvasState(); renderSpecialInvestigation(); return;
-    }
-    if(!aCase.stepStates) aCase.stepStates = {};
-    if(!aCase.stepResults) aCase.stepResults = {};
-    const steps = activeDrugCaseSteps();
-    const toRun = stepId === "all" ? steps : steps.filter(s => s.id === stepId);
-    drugStreamSteps(aCase, toRun);
-    return;
-  }
-
-  const drugToggleResult = event.target.closest("[data-drug-toggle-result]");
-  if(drugToggleResult){
-    const aCase = activeDrugCase(); if(!aCase) return;
-    if(!aCase.stepExpanded) aCase.stepExpanded = {};
-    const id = drugToggleResult.dataset.drugToggleResult;
-    aCase.stepExpanded[id] = !aCase.stepExpanded[id];
-    renderSpecialInvestigation(); return;
-  }
-
-  const drugAccBtn = event.target.closest("[data-drug-acc]");
-  if(drugAccBtn){
-    const key = drugAccBtn.dataset.drugAcc;
-    drugAccordionOpen[key] = !drugAccordionOpen[key];
-    renderSpecialInvestigation();
-    return;
-  }
-
-  /* ── 마약수사 케이스 삭제 ── */
-  const drugRemoveCase = event.target.closest("[data-drug-remove-case]");
-  if(drugRemoveCase){
-    event.stopPropagation();
-    const caseId = drugRemoveCase.dataset.drugRemoveCase;
-    const idx = defaultDrugInvCases.findIndex(c => c.caseId === caseId);
-    if(idx !== -1) defaultDrugInvCases.splice(idx, 1);
-    if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  /* ── 마약수사 케이스 아카이브 ── */
-  const drugArchiveCase = event.target.closest("[data-drug-archive-case]");
-  if(drugArchiveCase){
-    event.stopPropagation();
-    const caseId = drugArchiveCase.dataset.drugArchiveCase;
-    const idx = defaultDrugInvCases.findIndex(c => c.caseId === caseId);
-    const c = idx !== -1 ? defaultDrugInvCases.splice(idx, 1)[0] : null;
-    if(c){ archivedDrugCases.unshift({...c, archivedAt: new Date().toLocaleString()}); }
-    if(activeDrugCaseId === caseId){ activeDrugCaseId = null; drugInvTab = "ongoing"; }
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  /* ── 마약수사 아카이브 복원 ── */
-  const drugRestoreCase = event.target.closest("[data-drug-restore-case]");
-  if(drugRestoreCase){
-    event.stopPropagation();
-    const caseId = drugRestoreCase.dataset.drugRestoreCase;
-    const idx = archivedDrugCases.findIndex(c => c.caseId === caseId);
-    if(idx !== -1){ defaultDrugInvCases.push(archivedDrugCases.splice(idx, 1)[0]); }
-    saveCanvasState(); renderSpecialInvestigation(); return;
-  }
-
-  /* ── 마약수사 아카이브 토글 ── */
-  const drugToggleArchive = event.target.closest("[data-drug-toggle-archive]");
-  if(drugToggleArchive){
-    drugArchiveOpen = !drugArchiveOpen;
-    renderSpecialInvestigation(); return;
-  }
-
-  const drugCaseBtn = event.target.closest("[data-drug-case]");
-  if(drugCaseBtn){
-    activeDrugCaseId = drugCaseBtn.dataset.drugCase;
-    const selectedDrugCase = activeDrugCase();
-    resetDrugCaseSubTabs(selectedDrugCase);
-    drugInvTab = "profile";
-    saveCanvasState();
-    renderSpecialInvestigation();
-    return;
-  }
-
-  /* ── 마약수사 등록 대상 유형 전환 ── */
-  const drugRegTypeBtn = event.target.closest("[data-drug-reg-type]");
-  if(drugRegTypeBtn){
-    drugRegTargetType = drugRegTypeBtn.dataset.drugRegType;
-    if(drugRegTargetType === "person") loadRiskPersons();
-    if(drugRegTargetType === "company" && !scenarioCompanies.length) loadScenarioCompanies();
-    renderSpecialInvestigation();
-    return;
-  }
-
-  const drugRegToggle = event.target.closest("[data-drug-reg-toggle]");
-  if(drugRegToggle){
-    showDrugNewCaseForm = !showDrugNewCaseForm;
-    if(showDrugNewCaseForm){
-      if(!scenarioCompanies.length) loadScenarioCompanies();
-    }
-    renderSpecialInvestigation();
-    return;
-  }
-
-  const drugRegSubmit = event.target.closest("[data-drug-reg-submit]");
-  if(drugRegSubmit){
-    const selectedId = document.getElementById("drugRegTargetSelect")?.value || "";
-    if(!selectedId){ alert("수사 대상을 선택하세요."); return; }
-    const invTypeId = document.getElementById("drugRegType")?.value || "d1";
-
-    let targetName, extraFields = {};
-    if(drugRegTargetType === "company"){
-      const co = findCompanyById(selectedId) || scenarioCompanies.find(c => c.company_id === selectedId);
-      targetName = co?.company_name || selectedId;
-      extraFields = { companyId: selectedId, targetType:"company" };
-    } else {
-      const person = riskPersonById(selectedId);
-      targetName = person?.name || selectedId;
-      extraFields = { targetType:"person", personId: selectedId, nationality: person?.nationality || "미상" };
-    }
-
-    const autoId = "DRUG-" + new Date().getFullYear() + "-" + String(defaultDrugInvCases.length + 1).padStart(3,"0");
-    const newCase = {
-      caseId: autoId,
-      targetName, invTypeId,
-      ...extraFields,
-      team:        "마약수사 전담팀",
-      investigator: currentUser().name,
-      updated: "방금",
-      status: { label:"대기", tone:"wait", done:0, total:6, pct:0 },
-    };
-    defaultDrugInvCases.push(newCase);
-    activeDrugCaseId = newCase.caseId;
-    resetDrugCaseSubTabs(newCase);
-    drugInvTab = "profile";
-    showDrugNewCaseForm = false;
-    drugRegTargetType   = "company";
-    saveCanvasState();
-    renderSpecialInvestigation();
-    return;
-  }
-
-  const drugNetworkBtn = event.target.closest("[data-drug-network-target]");
-  if(drugNetworkBtn){
-    try{ drugInvSelectedTarget = JSON.parse(drugNetworkBtn.dataset.drugNetworkTarget); }catch(e){}
-    drugInvTab = "network";
-    renderSpecialInvestigation();
-    return;
-  }
-
-  const slangDecodeBtn = event.target.closest("[data-slang-decode]");
-  if(slangDecodeBtn){
-    const input = document.getElementById("slangInput");
-    const result = document.getElementById("slangDecodeResult");
-    if(input && result){
-      const slangMap = {"아이스":"필로폰(메스암페타민)","작대기":"주사기","떡":"대마초 압축분","야바":"메스암페타민 알약","찰리":"코카인","초코":"헤로인","LSD":"환각제","빽빽이":"필로폰 대량(1kg↑)"};
-      const text = input.value;
-      let decoded = text;
-      let found = [];
-      Object.entries(slangMap).forEach(([term,meaning])=>{
-        if(text.includes(term)){ decoded = decoded.replace(new RegExp(term,"g"),`<mark title="${meaning}">${term}(=${meaning})</mark>`); found.push(`${term} → ${meaning}`); }
-      });
-      result.innerHTML = found.length ? `<div style="margin-bottom:8px;color:#16a34a;font-size:12px">탐지된 은어 ${found.length}건</div>${decoded}<hr style="margin:8px 0;border-color:#dde8ff"><div style="font-size:12px;color:#6b7f9e">${found.join(" | ")}</div>` : `<span style="color:#6b7f9e">탐지된 은어가 없습니다: ${escapeHtml(text)}</span>`;
-    }
-    return;
-  }
-
-  const slangSuggestBtn = event.target.closest("[data-slang-suggest]");
-  if(slangSuggestBtn){
-    const input = document.getElementById("slangInput");
-    if(input) input.value = slangSuggestBtn.dataset.slangSuggest;
-    return;
   }
 
   const riskScreeningTabBtn = event.target.closest("[data-rs-tab]");
@@ -8569,35 +8080,6 @@ document.addEventListener("click", (event)=>{
   if(intlTemplateBtn){
     const input = document.getElementById("intlChatInput");
     if(input) input.value = intlTemplateBtn.dataset.intlTemplate;
-    return;
-  }
-
-  const investigationSelectBtn = event.target.closest("[data-investigation-select]");
-  if(investigationSelectBtn){
-    const companyId = investigationSelectBtn.dataset.investigationSelect;
-    activeCanvasCompanyId = companyId;
-    investigationTab = "profile";
-    scenarioInitialized = false;
-    scenarioLoadedForCompany = null;
-    loadCompanyRunArchive(companyId);
-    saveCanvasState();
-    render("investigation");
-    return;
-  }
-
-  const investigationTabButton = event.target.closest("[data-investigation-tab]");
-  if(investigationTabButton){
-    const companyId = investigationTabButton.dataset.canvasCompany;
-    if(companyId){
-      activeCanvasCompanyId = companyId;
-      scenarioInitialized = false;
-      scenarioLoadedForCompany = null;
-      loadCompanyRunArchive(companyId);
-      showScenarioCompanyPicker = false;
-      saveCanvasState();
-    }
-    investigationTab = investigationTabButton.dataset.investigationTab;
-    render("investigation");
     return;
   }
 
