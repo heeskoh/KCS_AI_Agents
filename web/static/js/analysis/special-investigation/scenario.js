@@ -1,53 +1,27 @@
 import { escapeHtml } from "../../core/dom.js";
 import { specialInvestigationState } from "./state.js";
-import { renderSharedWorkbench } from "../shared/workbench.js";
 
 export function renderScenarioPanel(deps) {
   const aCase = deps.activeDrugCase();
   if (!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
 
-  const type  = deps.drugInvTypeById(aCase.invTypeId);
-  const steps = deps.activeDrugCaseSteps();
-  if (!specialInvestigationState.activeDrugStepId && steps[0]) {
-    specialInvestigationState.activeDrugStepId = steps[0].id;
-  }
+  const type = deps.drugInvTypeById(aCase.invTypeId);
 
-  const typeChip = `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`;
-
-  // 마약수사유형별 템플릿 옵션
+  // 마약수사유형별 기본 템플릿 옵션 (DRUG_SCENARIO_STEPS d1~d5)
   const templateOptionsHtml = deps.drugScenarioTemplateOptionsHtml
     ? deps.drugScenarioTemplateOptionsHtml(aCase.invTypeId)
-    : null;
+    : "";
 
-  return renderSharedWorkbench(deps, {
-    ns:           "drug",
-    aCase,
-    typeChip,
-    subtitle:     "수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다.",
-    steps,
-    states:       aCase.stepStates  || {},
-    activeStepId: specialInvestigationState.activeDrugStepId,
-    stepResults:  aCase.stepResults  || {},
-    stepExpanded: aCase.stepExpanded || {},
-    isRunning:    !!deps.getDrugRunEventSource?.(),
+  // 관세조사 workbench 와 동일한 공통 HTML 사용
+  return deps.sharedScenarioWorkbenchHtml({
+    archived: false,
+    titleHtml: `
+      <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+      ${escapeHtml(aCase.targetName)}
+      <span class="muted" style="font-weight:400;font-size:13px">${escapeHtml(aCase.caseId)}</span>
+    `,
+    subtitleHtml: "수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다.",
     templateOptionsHtml,
-    sourceOptionsHtml:  deps.giStepSourceOptionsHtml ? deps.giStepSourceOptionsHtml() : "",
-    getBehaviorHtml:    deps.behaviorOptionsHtml
-      ? (key, bvs) => deps.behaviorOptionsHtml(key, bvs)
-      : null,
-    getSourceHint: deps.scenarioSourceByKey && deps.sourceDefaultInstruction
-      ? (key, targetType) => {
-          const resolvedKey = deps.giCommonSourceKey ? deps.giCommonSourceKey(key) : key;
-          const src = deps.scenarioSourceByKey(resolvedKey);
-          return src ? {
-            label:       src.label || key,
-            typeLabel:   ({ db:"DB 조회", agent:"AI 서비스", rag:"RAG", report:"보고서", approve:"승인" })[src.type] || src.type,
-            description: deps.sourceDefaultInstruction(src.key, aCase.targetType || "person") || "이 단계의 추가 지시를 입력하세요.",
-          } : null;
-        }
-      : null,
-    getPermissionStatus: deps.permissionStatus   || null,
-    getPermissionLabel:  deps.permissionLabel    || null,
   });
 }
 

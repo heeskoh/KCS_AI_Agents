@@ -1009,14 +1009,8 @@ const specialInvestigation = createSpecialInvestigation({
   riskPersonById,
   giStepSourceOptionsHtml,
   DRUG_INV_TYPES,
-  // shared workbench 추가 deps
-  behaviorOptionsHtml,
-  giCommonSourceKey,
-  scenarioSourceByKey,
-  sourceDefaultInstruction,
-  permissionStatus,
-  permissionLabel,
   getDrugRunEventSource: () => drugRunEventSource,
+  sharedScenarioWorkbenchHtml,
   drugScenarioTemplateOptionsHtml: (currentInvTypeId) =>
     DRUG_INV_TYPES.map(t =>
       `<option value="${escapeHtml(t.id)}"${t.id === currentInvTypeId ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
@@ -1124,6 +1118,7 @@ const generalInvestigation = createGeneralInvestigation({
     giScenarioTemplates.map(tpl =>
       `<option value="${escapeHtml(tpl.id)}"${tpl.id === currentInvTypeId ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
     ).join(""),
+  sharedScenarioWorkbenchHtml,
 });
 
 const GI_SERVICE_ALIASES = {
@@ -4953,15 +4948,25 @@ function initTemplateEditor(){
   });
 }
 
-function scenarioWorkbenchV2(){
-  const company = activeCanvasCompany();
-  const archived = isCompanyArchived(company.company_id);
+/* ═══════════════════════════════════════════════════════════════
+   공통 분석 시나리오 워크벤치 HTML 생성 함수
+   - 관세조사 scenarioWorkbenchV2 를 표준으로 추출
+   - ctx 파라미터로 제목/부제목/템플릿 옵션만 다르게 주입
+   - 모든 DOM ID 는 동일 (한 번에 하나만 표시)
+   - 홈화면·캔버스와 무관
+   ═══════════════════════════════════════════════════════════════ */
+function sharedScenarioWorkbenchHtml(ctx = {}){
+  const archived          = ctx.archived          || false;
+  const titleHtml         = ctx.titleHtml         || "분석 시나리오 설정 및 실행";
+  const subtitleHtml      = ctx.subtitleHtml       || "";
+  const templateOptionsHtml = ctx.templateOptionsHtml || scenarioTemplateOptionsHtml();
+
   return `
     <section class="card scenario-workbench scenario-workbench-v2">
       <div class="scenario-title-row">
         <div>
-          <h3>${escapeHtml(company.company_name)} 분석 시나리오 설정 및 실행</h3>
-          <p class="muted">템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다."}</em></p>
+          <h3>${titleHtml}</h3>
+          <p class="muted">${subtitleHtml}</p>
         </div>
         <div class="scenario-status">
           <span id="scenarioRunStatus">대기</span>
@@ -4971,7 +4976,7 @@ function scenarioWorkbenchV2(){
       <div class="scenario-layout scenario-execution-layout">
         <section class="scenario-board">
           <div class="scenario-board-head">
-            <h3>조사 시나리오</h3>
+            <h3>시나리오 단계</h3>
           </div>
           <ol id="scenarioList" class="scenario-list scenario-list-vertical"></ol>
           <div class="scenario-progress">
@@ -4987,9 +4992,14 @@ function scenarioWorkbenchV2(){
           <div class="scenario-template-zone">
             <div class="scenario-template-zone-head">
               <span>분석 시나리오 템플릿</span>
-              <button id="scenarioTemplateApplyButton" type="button" class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>템플릿 적용하기</button>
+              <button id="scenarioTemplateApplyButton" type="button"
+                class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
+                템플릿 적용하기
+              </button>
             </div>
-            <select id="scenarioTemplateSelect" class="scenario-template-select">${scenarioTemplateOptionsHtml()}</select>
+            <select id="scenarioTemplateSelect" class="scenario-template-select">
+              ${templateOptionsHtml}
+            </select>
           </div>
 
           <div class="scenario-agent-zone">
@@ -5004,23 +5014,29 @@ function scenarioWorkbenchV2(){
             <div id="scenarioSourceHint" class="scenario-source-hint"></div>
             <label class="scenario-field">
               <span>추가 지시</span>
-              <textarea id="scenarioInstruction" placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."></textarea>
+              <textarea id="scenarioInstruction"
+                placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."></textarea>
             </label>
           </div>
 
           <div class="scenario-actions">
-            <button id="scenarioAddButton" type="button" class="btn" ${archived ? "disabled" : ""}>단계 추가</button>
-            <button id="scenarioDeleteButton" type="button" class="btn secondary" disabled>선택 삭제</button>
+            <button id="scenarioAddButton" type="button" class="btn"
+              ${archived ? "disabled" : ""}>단계 추가</button>
+            <button id="scenarioDeleteButton" type="button" class="btn secondary"
+              disabled>선택 삭제</button>
           </div>
-          <button id="scenarioSaveButton" type="button" class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
+          <button id="scenarioSaveButton" type="button"
+            class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
         </aside>
 
         <section class="scenario-log">
           <div class="scenario-log-head">
             <h3>분석 실행 로그</h3>
             <div class="scenario-log-actions">
-              <button id="scenarioRunButton" type="button" class="btn" ${archived ? "disabled" : ""}>분석 실행</button>
-              <button id="scenarioClearButton" type="button" class="btn secondary" ${archived ? "disabled" : ""}>결과 지우기</button>
+              <button id="scenarioRunButton" type="button" class="btn"
+                ${archived ? "disabled" : ""}>분석 실행</button>
+              <button id="scenarioClearButton" type="button" class="btn secondary"
+                ${archived ? "disabled" : ""}>결과 지우기</button>
             </div>
           </div>
           <div id="scenarioStepAccordion" class="scenario-step-accordion"></div>
@@ -5028,6 +5044,18 @@ function scenarioWorkbenchV2(){
       </div>
     </section>
   `;
+}
+
+/* 관세조사 — 기존 동작 유지 (공통 함수 호출) */
+function scenarioWorkbenchV2(){
+  const company = activeCanvasCompany();
+  const archived = isCompanyArchived(company.company_id);
+  return sharedScenarioWorkbenchHtml({
+    archived,
+    titleHtml:    `${escapeHtml(company.company_name)} 분석 시나리오 설정 및 실행`,
+    subtitleHtml: `템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다."}</em>`,
+    templateOptionsHtml: scenarioTemplateOptionsHtml(),
+  });
 }
 
 
@@ -5753,6 +5781,262 @@ function clearScenarioResults(){
   saveIntermediateResults(activeCanvasCompanyId);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   일반수사 / 마약수사 시나리오 워크벤치 초기화
+   - sharedScenarioWorkbenchHtml 이 렌더한 동일한 DOM ID 재사용
+   - scenarioItems ← aCase.giSteps 변환 후 기존 init 로직 공유
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 케이스 단계를 전역 scenarioItems 형식으로 로드 */
+function loadCaseStepsToWorkbench(aCase){
+  if(!aCase) return;
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
+  scenarioItems = (aCase.giSteps || []).map((step, i) => {
+    const sk = step.sourceKey || giCommonSourceKey(step.key);
+    return {
+      id:           step.id,
+      key:          sk,
+      type:         step.type,
+      label:        step.label,
+      behaviors:    step.behaviors || sourceDefaultBehaviors(sk),
+      behavior:     step.behavior  || step.behaviors?.[0] || sourceDefaultBehavior(sk),
+      behaviorLabel:sourceBehaviorLabels(sk, step.behaviors).join(", "),
+      order:        i + 1,
+      instruction:  step.instruction || step.note || sourceDefaultInstruction(sk, aCase.targetType || "person"),
+    };
+  });
+  selectedScenarioId = scenarioItems[0]?.id || null;
+
+  // stepStates(wait/run/done/error) → stepStatuses(대기/실행중/완료/오류)
+  const stateToLabel = { done:"완료", run:"실행중", error:"오류", wait:"대기" };
+  stepStatuses = {};
+  stepOutputs  = {};
+  Object.entries(aCase.stepStates  || {}).forEach(([id, s]) => { stepStatuses[id] = stateToLabel[s] || "대기"; });
+  Object.entries(aCase.stepResults || {}).forEach(([id, r]) => { stepOutputs[id]  = r; });
+  openedSteps = new Set();
+}
+
+/* 전역 scenarioItems 를 케이스 단계로 저장 */
+function saveWorkbenchToCaseSteps(aCase){
+  if(!aCase) return;
+  const labelToState = { 완료:"done", 실행중:"run", 오류:"error", 대기:"wait" };
+  aCase.giSteps = scenarioItems.map((item, i) => normalizeGiScenarioStep({
+    ...item,
+    id:         item.id,
+    key:        canonicalGiStepKey(item.key) || item.key,
+    sourceKey:  item.key,
+    note:       item.instruction,
+    targetType: aCase.targetType || "person",
+  }, i));
+  aCase.stepStates  = {};
+  aCase.stepResults = {};
+  Object.entries(stepStatuses).forEach(([id, s]) => { aCase.stepStates[id]  = labelToState[s] || "wait"; });
+  Object.entries(stepOutputs ).forEach(([id, r]) => { aCase.stepResults[id] = r; });
+}
+
+/* 일반수사 워크벤치 초기화 */
+function initGiScenarioWorkbench(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return;
+  loadCaseStepsToWorkbench(aCase);
+
+  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  if(!sourceSelect) return;
+  sourceSelect.innerHTML = scenarioSourceOptionsHtml();
+
+  if(scenarioInitialized) return;
+  scenarioInitialized = true;
+
+  document.getElementById("scenarioAddButton")?.addEventListener("click", () => {
+    const key = sourceSelect.value;
+    const src = scenarioSourceByKey(key);
+    if(!src) return;
+    const behaviors = selectedBehaviorValues();
+    const item = normalizeScenarioItem({
+      id: uid(), key, type: src.type, label: src.label,
+      behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
+      instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType),
+    }, scenarioItems.length);
+    scenarioItems.push(item);
+    selectedScenarioId = item.id;
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+  });
+
+  document.getElementById("scenarioDeleteButton")?.addEventListener("click", () => {
+    if(!selectedScenarioId) return;
+    scenarioItems = scenarioItems.filter(i => i.id !== selectedScenarioId);
+    delete stepStatuses[selectedScenarioId];
+    delete stepOutputs[selectedScenarioId];
+    selectedScenarioId = scenarioItems[0]?.id || null;
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+  });
+
+  document.getElementById("scenarioTemplateApplyButton")?.addEventListener("click", () => {
+    const tplId = document.getElementById("scenarioTemplateSelect")?.value;
+    if(!tplId) return;
+    const tpl = giScenarioTemplates.find(t => t.id === tplId);
+    if(!tpl) return;
+    scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
+    selectedScenarioId = scenarioItems[0]?.id || null;
+    stepStatuses = {};
+    stepOutputs  = {};
+    openedSteps  = new Set();
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+    setScenarioStatus("템플릿 적용됨");
+  });
+
+  document.getElementById("scenarioSaveButton")?.addEventListener("click", () => {
+    const name = prompt("저장할 템플릿 이름을 입력하세요:", `${aCase.targetName} 수사 템플릿`);
+    if(!name?.trim()) return;
+    const newTemplate = {
+      id:`gi-custom-${uid()}`, name:name.trim(),
+      description:`${new Date().toLocaleDateString("ko-KR")} 저장 · ${scenarioItems.length}단계`,
+      items: scenarioItems.map(item=>({...item, id:uid()})),
+      isCustom:true, ownerUserId:currentUserId, ownerName:currentUser().name, shared:true,
+    };
+    giScenarioTemplates.unshift(newTemplate);
+    saveCanvasState();
+    setScenarioStatus("템플릿 저장됨");
+  });
+
+  document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+    saveWorkbenchToCaseSteps(aCase);
+    const toRun = scenarioItems.filter(s => (aCase.stepStates||{})[s.id] !== "done");
+    giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
+  });
+
+  document.getElementById("scenarioClearButton")?.addEventListener("click", () => {
+    aCase.stepStates  = {};
+    aCase.stepResults = {};
+    stepStatuses = {};
+    stepOutputs  = {};
+    openedSteps  = new Set();
+    saveCanvasState();
+    updateScenarioProgress(0);
+    renderScenarioSteps();
+    setScenarioStatus("대기");
+  });
+
+  sourceSelect.addEventListener("change", event => updateSelectedScenarioSource(event.target.value));
+  document.getElementById("scenarioInstruction")?.addEventListener("input", event => {
+    const item = selectedScenarioItem();
+    if(item){ item.instruction = event.target.value; saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+  });
+
+  syncScenarioEditor();
+  renderScenarioList();
+  renderScenarioSteps();
+}
+
+/* 마약수사 워크벤치 초기화 */
+function initDrugScenarioWorkbench(){
+  const aCase = activeDrugCase();
+  if(!aCase) return;
+  loadCaseStepsToWorkbench(aCase);
+
+  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  if(!sourceSelect) return;
+  sourceSelect.innerHTML = scenarioSourceOptionsHtml();
+
+  if(scenarioInitialized) return;
+  scenarioInitialized = true;
+
+  document.getElementById("scenarioAddButton")?.addEventListener("click", () => {
+    const key = sourceSelect.value;
+    const src = scenarioSourceByKey(key);
+    if(!src) return;
+    const behaviors = selectedBehaviorValues();
+    const item = normalizeScenarioItem({
+      id:uid(), key, type:src.type, label:src.label,
+      behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
+      instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType || "person"),
+    }, scenarioItems.length);
+    scenarioItems.push(item);
+    selectedScenarioId = item.id;
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+  });
+
+  document.getElementById("scenarioDeleteButton")?.addEventListener("click", () => {
+    if(!selectedScenarioId) return;
+    scenarioItems = scenarioItems.filter(i => i.id !== selectedScenarioId);
+    delete stepStatuses[selectedScenarioId];
+    delete stepOutputs[selectedScenarioId];
+    selectedScenarioId = scenarioItems[0]?.id || null;
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+  });
+
+  document.getElementById("scenarioTemplateApplyButton")?.addEventListener("click", () => {
+    const tplId = document.getElementById("scenarioTemplateSelect")?.value;
+    if(!tplId || !DRUG_SCENARIO_STEPS[tplId]) return;
+    const defaults = DRUG_SCENARIO_STEPS[tplId];
+    scenarioItems = defaults.map((s, i) => normalizeScenarioItem({...s, id:uid()}, i));
+    selectedScenarioId = scenarioItems[0]?.id || null;
+    stepStatuses = {};
+    stepOutputs  = {};
+    openedSteps  = new Set();
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+    renderScenarioList();
+    renderScenarioSteps();
+    syncScenarioEditor();
+    setScenarioStatus("템플릿 적용됨");
+  });
+
+  document.getElementById("scenarioSaveButton")?.addEventListener("click", () => {
+    const name = prompt("저장할 템플릿 이름을 입력하세요:", `${aCase.targetName} 마약수사 템플릿`);
+    if(!name?.trim()) return;
+    setScenarioStatus("템플릿 저장됨");
+  });
+
+  document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+    saveWorkbenchToCaseSteps(aCase);
+    const toRun = aCase.giSteps?.filter(s => (aCase.stepStates||{})[s.id] !== "done") || [];
+    if(toRun.length) drugStreamSteps(aCase, toRun);
+  });
+
+  document.getElementById("scenarioClearButton")?.addEventListener("click", () => {
+    aCase.stepStates  = {};
+    aCase.stepResults = {};
+    stepStatuses = {};
+    stepOutputs  = {};
+    openedSteps  = new Set();
+    saveCanvasState();
+    updateScenarioProgress(0);
+    renderScenarioSteps();
+    setScenarioStatus("대기");
+  });
+
+  sourceSelect.addEventListener("change", event => updateSelectedScenarioSource(event.target.value));
+  document.getElementById("scenarioInstruction")?.addEventListener("input", event => {
+    const item = selectedScenarioItem();
+    if(item){ item.instruction = event.target.value; saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+  });
+
+  syncScenarioEditor();
+  renderScenarioList();
+  renderScenarioSteps();
+}
+
 function runScenarioWorkflow(){
   if(isCompanyArchived()){
     alert("아카이브된 작업은 복원 후 분석할 수 있습니다.");
@@ -5924,6 +6208,11 @@ function render(page="home"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId && !scenarioCompanies.length) loadScenarioCompanies();
     }
+    // 분석 시나리오 워크벤치 탭 — 공통 init
+    if(generalInvestigationState.generalInvTab === "workbench"){
+      scenarioInitialized = false;
+      initGiScenarioWorkbench();
+    }
   }
   if(isSpecialInvestigationPage(page)){
     const drugCtx = drugCaseContext();
@@ -5932,6 +6221,11 @@ function render(page="home"){
     }
     if((drugCtx?.targetType === "person" || specialInvestigationState.drugInvTab === "profile") && !riskPersons.length && !riskPersonsLoading){
       loadRiskPersons();
+    }
+    // 분석 시나리오 워크벤치 탭 — 공통 init
+    if(specialInvestigationState.drugInvTab === "scenario"){
+      scenarioInitialized = false;
+      initDrugScenarioWorkbench();
     }
   }
   if(page === "investigation" || pageTemplate === "customs"){
