@@ -29,7 +29,7 @@
  *   getPermissionLabel  : (status) => string
  * }
  */
-import { escapeHtml, markdownToHtml } from "../core/dom.js";
+import { escapeHtml, markdownToHtml } from "../../core/dom.js";
 
 const TYPE_LABEL = {
   db: "DB 조회", agent: "AI 서비스",
