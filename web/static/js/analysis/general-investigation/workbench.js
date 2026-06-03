@@ -14,7 +14,7 @@ export function renderWorkbenchPanel(deps) {
 
   const typeChip = `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`;
 
-  // 수사유형별 템플릿 옵션 (giScenarioTemplates t1~t7 중 현재 유형 우선 표시)
+  // 수사유형별 템플릿 옵션
   const templateOptionsHtml = deps.giScenarioTemplateOptionsHtml
     ? deps.giScenarioTemplateOptionsHtml(aCase.invTypeId)
     : null;
@@ -47,8 +47,8 @@ export function renderWorkbenchPanel(deps) {
           } : null;
         }
       : null,
-    getPermissionStatus: deps.permissionStatus || null,
-    getPermissionLabel:  deps.permissionLabel  || null,
+    getPermissionStatus: deps.permissionStatus   || null,
+    getPermissionLabel:  deps.permissionLabel    || null,
   });
 }
 

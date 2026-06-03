@@ -14,7 +14,7 @@ export function renderScenarioPanel(deps) {
 
   const typeChip = `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`;
 
-  // 마약수사유형별 템플릿 옵션 (DRUG_SCENARIO_STEPS d1~d5 기반)
+  // 마약수사유형별 템플릿 옵션
   const templateOptionsHtml = deps.drugScenarioTemplateOptionsHtml
     ? deps.drugScenarioTemplateOptionsHtml(aCase.invTypeId)
     : null;
@@ -46,8 +46,8 @@ export function renderScenarioPanel(deps) {
           } : null;
         }
       : null,
-    getPermissionStatus: deps.permissionStatus || null,
-    getPermissionLabel:  deps.permissionLabel  || null,
+    getPermissionStatus: deps.permissionStatus   || null,
+    getPermissionLabel:  deps.permissionLabel    || null,
   });
 }
 
