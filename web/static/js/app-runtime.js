@@ -6086,6 +6086,47 @@ registerSpecialInvestigationEvents({
 });
 
 document.addEventListener("click", (event)=>{
+
+  /* ── AI 서비스 설정: 동작 추가 ── */
+  const agentAddBehavior = event.target.closest("[data-agent-add-behavior]");
+  if(agentAddBehavior && isCurrentUserSuperAdmin()){
+    const serviceId = agentAddBehavior.dataset.agentAddBehavior;
+    const input = document.getElementById(`behaviorInput_${serviceId}`);
+    const val = input?.value.trim();
+    if(!val) return;
+    const current = scenarioBuilderConfig.agentOptionDefaults?.[serviceId] || {};
+    const customs = [...(current.customBehaviors || [])];
+    if(!customs.includes(val)) customs.push(val);
+    scenarioBuilderConfig = {
+      ...scenarioBuilderConfig,
+      agentOptionDefaults: {
+        ...scenarioBuilderConfig.agentOptionDefaults,
+        [serviceId]: { ...current, customBehaviors: customs },
+      },
+    };
+    saveScenarioBuilderState(scenarioBuilderConfig);
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── AI 서비스 설정: 동작 삭제 ── */
+  const agentRemoveBehavior = event.target.closest("[data-agent-remove-behavior]");
+  if(agentRemoveBehavior && isCurrentUserSuperAdmin()){
+    const [serviceId, idxStr] = agentRemoveBehavior.dataset.agentRemoveBehavior.split(":");
+    const idx = parseInt(idxStr, 10);
+    const current = scenarioBuilderConfig.agentOptionDefaults?.[serviceId] || {};
+    const customs = [...(current.customBehaviors || [])];
+    if(!isNaN(idx)) customs.splice(idx, 1);
+    scenarioBuilderConfig = {
+      ...scenarioBuilderConfig,
+      agentOptionDefaults: {
+        ...scenarioBuilderConfig.agentOptionDefaults,
+        [serviceId]: { ...current, customBehaviors: customs },
+      },
+    };
+    saveScenarioBuilderState(scenarioBuilderConfig);
+    render("scenarioBuilder"); return;
+  }
+
   const scenarioBuilderViewButton = event.target.closest("[data-scenario-builder-view]");
   if(scenarioBuilderViewButton){
     if(!isCurrentUserSuperAdmin()) return;
@@ -6271,11 +6312,22 @@ document.addEventListener("click", (event)=>{
       const serviceId = card.dataset.agentDefault;
       const current = draft.agentOptionDefaults?.[serviceId] || { serviceId };
       draft.agentOptionDefaults = draft.agentOptionDefaults || {};
+      // 체크된 behavior 옵션 값 수집
+      const checkedBehaviors = [...card.querySelectorAll(`[data-agent-behavior-opt^="${cssString(serviceId)}:"]`)]
+        .filter(cb => cb.checked)
+        .map(cb => cb.dataset.agentBehaviorOpt.split(":")[1])
+        .filter(Boolean);
       draft.agentOptionDefaults[serviceId] = {
         ...current,
         enabled: card.querySelector(`[data-agent-enabled="${cssString(serviceId)}"]`)?.checked !== false,
-        behavior: card.querySelector(`[data-agent-behavior="${cssString(serviceId)}"]`)?.value.trim() || "",
+        // behavior: 체크된 첫 번째 값, 없으면 직접 입력값
+        behavior: checkedBehaviors[0]
+          || card.querySelector(`[data-agent-behavior="${cssString(serviceId)}"]`)?.value.trim()
+          || "",
+        behaviors: checkedBehaviors.length ? checkedBehaviors : undefined,
         instruction: card.querySelector(`[data-agent-instruction="${cssString(serviceId)}"]`)?.value.trim() || "",
+        // customBehaviors는 동작 추가/삭제 시 즉시 저장되므로 기존 값 유지
+        customBehaviors: current.customBehaviors || [],
       };
     });
     saveScenarioBuilderState(draft);
