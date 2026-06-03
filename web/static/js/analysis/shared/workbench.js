@@ -78,7 +78,10 @@ export function renderSharedWorkbench(deps, ctx) {
 
     return `
       <div class="scenario-chip ${CHIP_CLS[step.type] || "agent"}${isActive ? " active" : ""}${isDone ? " gi-chip-done" : ""}${!isGranted ? " chip-no-perm" : ""}"
-        data-${ns}-step-select="${escapeHtml(step.id)}" tabindex="0" role="button" style="position:relative">
+        data-${ns}-step-select="${escapeHtml(step.id)}"
+        data-${ns}-step-drag-id="${escapeHtml(step.id)}"
+        draggable="true"
+        tabindex="0" role="button" style="position:relative">
         <div class="chip-num"${isDone ? ' style="background:#22c55e"' : ""}>${isDone ? "✓" : i + 1}</div>
         <div class="chip-body">
           <div class="chip-title-row">

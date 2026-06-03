@@ -1045,6 +1045,21 @@ const customsInvestigation = createCustomsInvestigation({
   scenarioTemplatePanel,
   scenarioWorkbenchV2,
   getScenarioCompanies: () => scenarioCompanies,
+  // 공통 워크벤치용 추가 deps
+  activeCanvasCompany,
+  isCompanyArchived,
+  getScenarioItems:       () => scenarioItems,
+  getStepStatuses:        () => stepStatuses,
+  getStepOutputs:         () => stepOutputs,
+  getOpenedSteps:         () => openedSteps,
+  getSelectedScenarioId:  () => selectedScenarioId,
+  getScenarioEventSource: () => scenarioEventSource,
+  scenarioSourceOptionsHtml,
+  behaviorOptionsHtml,
+  scenarioSourceByKey,
+  sourceDefaultInstruction,
+  permissionStatus,
+  permissionLabel,
 });
 
 function isSpecialInvestigationPage(page = currentPage){
@@ -6062,6 +6077,17 @@ registerCustomsEvents({
   saveCanvasState,
   scenarioTemplateById,
   uid,
+  // 공통 워크벤치 ns="canvas" 이벤트용 함수들
+  addScenarioItem,
+  deleteSelectedScenario,
+  applySelectedScenarioTemplate,
+  runScenarioWorkflow,
+  clearScenarioResults,
+  renderScenarioList,
+  renderScenarioSteps,
+  saveCompanyScenario,
+  syncScenarioEditor,
+  requestPermission: (key) => requestPermission(key),
 });
 
 registerGeneralInvestigationEvents({
