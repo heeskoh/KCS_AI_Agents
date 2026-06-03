@@ -819,11 +819,23 @@ function normalizeScenarioItem(item, index = 0){
   const source = scenarioSourceByKey(item.key) || scenarioSourceByKey("db_cdw");
   const key = source?.key || item.key || "db_cdw";
   const targetType = normalizeTargetType(item.target_type || item.targetType || "company");
+
+  // scenarioBuilderConfig.agentOptionDefaults 우선 참조
+  const savedDefaults = scenarioBuilderConfig?.agentOptionDefaults?.[key] || {};
+  const configBehaviors = savedDefaults.behaviors?.length ? savedDefaults.behaviors
+    : savedDefaults.behavior ? [savedDefaults.behavior] : null;
+  const configInstruction = savedDefaults.instruction || null;
+
   const behaviors = Array.isArray(item.behaviors) && item.behaviors.length
     ? item.behaviors
     : item.behavior
       ? [item.behavior]
-      : sourceDefaultBehaviors(key);
+      : configBehaviors || sourceDefaultBehaviors(key);
+
+  const instruction = item.instruction
+    || configInstruction
+    || sourceDefaultInstruction(key, targetType);
+
   return {
     id: item.id || uid(),
     key,
@@ -835,7 +847,7 @@ function normalizeScenarioItem(item, index = 0){
     order: item.order || index + 1,
     targetType,
     target_type: targetType,
-    instruction: item.instruction || sourceDefaultInstruction(key, targetType),
+    instruction,
   };
 }
 
@@ -1151,10 +1163,19 @@ function normalizeGiScenarioStep(step, index = 0){
   const source = giSourceByKey(step.key);
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
   const targetType = normalizeTargetType(step.target_type || step.targetType || activeGenInvCase()?.targetType || "company");
+
+  // scenarioBuilderConfig.agentOptionDefaults 우선 참조
+  const savedDefaults = scenarioBuilderConfig?.agentOptionDefaults?.[sourceKey] || {};
+  const configBehaviors = savedDefaults.behaviors?.length ? savedDefaults.behaviors
+    : savedDefaults.behavior ? [savedDefaults.behavior] : null;
+  const configInstruction = savedDefaults.instruction || null;
+
   const behaviors = Array.isArray(step.behaviors) && step.behaviors.length
     ? step.behaviors
-    : sourceDefaultBehaviors(sourceKey);
-  const instruction = step.instruction ?? step.note ?? sourceDefaultInstruction(sourceKey, targetType);
+    : configBehaviors || sourceDefaultBehaviors(sourceKey);
+  const instruction = step.instruction ?? step.note
+    ?? configInstruction
+    ?? sourceDefaultInstruction(sourceKey, targetType);
   return {
     ...step,
     id: step.id || `gis_${index}_${uid()}`,
@@ -5261,8 +5282,24 @@ function selectedScenarioItem(){
 }
 
 function behaviorOptionsHtml(key, selectedValues = null){
-  const selected = Array.isArray(selectedValues) && selectedValues.length ? selectedValues : sourceDefaultBehaviors(key);
-  return sourceBehaviorOptions(key)
+  // scenarioBuilderConfig.agentOptionDefaults 우선 참조
+  const savedDefaults = scenarioBuilderConfig?.agentOptionDefaults?.[key] || {};
+  const configBehaviors = savedDefaults.behaviors?.length ? savedDefaults.behaviors
+    : savedDefaults.behavior ? [savedDefaults.behavior] : null;
+
+  const selected = Array.isArray(selectedValues) && selectedValues.length
+    ? selectedValues
+    : configBehaviors || sourceDefaultBehaviors(key);
+
+  // built-in + 사용자 추가 동작 통합
+  const customBehaviors = Array.isArray(savedDefaults.customBehaviors) ? savedDefaults.customBehaviors : [];
+  const builtinOptions = sourceBehaviorOptions(key);
+  const customOptions = customBehaviors
+    .filter(v => !builtinOptions.some(o => o.value === v))
+    .map(v => ({ value: v, label: v }));
+  const allOptions = [...builtinOptions, ...customOptions];
+
+  return allOptions
     .map(option => `
       <label class="scenario-behavior-check">
         <input type="checkbox" value="${escapeHtml(option.value)}" ${selected.includes(option.value) ? "checked" : ""}>
