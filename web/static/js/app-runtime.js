@@ -201,6 +201,8 @@ function scenarioBuilderPage(){
   return renderScenarioBuilderPage({
     config: scenarioBuilderConfig,
     isSuperAdmin: isCurrentUserSuperAdmin,
+    activeView: scenarioBuilderViewTab,
+    selectedPage: scenarioBuilderSelectedPage,
   });
 }
 
@@ -1541,6 +1543,8 @@ let hiddenBuiltinIds = new Set();
 let builtinOverrides = {};
 let currentUserId = "u01";
 let scenarioBuilderConfig = loadScenarioBuilderConfig();
+let scenarioBuilderViewTab = "subtabs";
+let scenarioBuilderSelectedPage = ""; // Pool UI에서 현재 선택된 업무분석 페이지
 let latestReport = "보고서가 아직 생성되지 않았습니다.";
 let latestValidation = "검증 결과가 아직 없습니다.";
 const canvasStateKey = "kcs_ai_canvas_state_v1";
@@ -5913,6 +5917,22 @@ document.addEventListener("change", (event) => {
     coachHandleFileSelect(event.target.files);
     event.target.value = "";  // 같은 파일 재선택 가능하게
   }
+
+  /* ── Pool UI: 기본 진입 탭 select 변경 즉시 반영 ── */
+  const sbDefaultTab = event.target.dataset?.sbDefaultTab;
+  if(sbDefaultTab && isCurrentUserSuperAdmin()){
+    const page = sbDefaultTab;
+    const scenario = scenarioBuilderConfig.analysisScenarios?.[page];
+    if(scenario){
+      scenarioBuilderConfig = {
+        ...scenarioBuilderConfig,
+        analysisScenarios: {
+          ...scenarioBuilderConfig.analysisScenarios,
+          [page]: { ...scenario, defaultTab: event.target.value },
+        },
+      };
+    }
+  }
 });
 
 registerCustomsEvents({
@@ -6050,9 +6070,86 @@ registerSpecialInvestigationEvents({
 });
 
 document.addEventListener("click", (event)=>{
+  const scenarioBuilderViewButton = event.target.closest("[data-scenario-builder-view]");
+  if(scenarioBuilderViewButton){
+    if(!isCurrentUserSuperAdmin()) return;
+    scenarioBuilderViewTab = scenarioBuilderViewButton.dataset.scenarioBuilderView === "services" ? "services" : "subtabs";
+    render("scenarioBuilder");
+    return;
+  }
+
+  /* ── Pool UI: 업무분석 선택 ── */
+  const sbSelectPage = event.target.closest("[data-sb-select-page]");
+  if(sbSelectPage){
+    if(!isCurrentUserSuperAdmin()) return;
+    scenarioBuilderSelectedPage = sbSelectPage.dataset.sbSelectPage;
+    render("scenarioBuilder");
+    return;
+  }
+
+  /* ── Pool UI: 서브탭 포함/제외 토글 ── */
+  const sbToggle = event.target.closest("[data-sb-subtab-toggle]");
+  if(sbToggle){
+    if(!isCurrentUserSuperAdmin()) return;
+    const [page, tabId] = sbToggle.dataset.sbSubtabToggle.split(":");
+    const scenario = scenarioBuilderConfig.analysisScenarios?.[page];
+    if(!scenario) return;
+    const enabled = [...(scenario.enabledSubtabs || [])];
+    const idx = enabled.indexOf(tabId);
+    if(idx === -1){ enabled.push(tabId); }
+    else { enabled.splice(idx, 1); }
+    scenarioBuilderConfig = {
+      ...scenarioBuilderConfig,
+      analysisScenarios: {
+        ...scenarioBuilderConfig.analysisScenarios,
+        [page]: { ...scenario, enabledSubtabs: enabled },
+      },
+    };
+    render("scenarioBuilder");
+    return;
+  }
+
+  /* ── Pool UI: 서브탭 순서 이동 ── */
+  const sbMove = event.target.closest("[data-sb-subtab-move]");
+  if(sbMove){
+    if(!isCurrentUserSuperAdmin()) return;
+    const [page, tabId, dir] = sbMove.dataset.sbSubtabMove.split(":");
+    const scenario = scenarioBuilderConfig.analysisScenarios?.[page];
+    if(!scenario) return;
+    const enabled = [...(scenario.enabledSubtabs || [])];
+    const idx = enabled.indexOf(tabId);
+    if(idx === -1) return;
+    if(dir === "up"   && idx > 0)               { [enabled[idx-1], enabled[idx]] = [enabled[idx], enabled[idx-1]]; }
+    if(dir === "down" && idx < enabled.length-1){ [enabled[idx], enabled[idx+1]] = [enabled[idx+1], enabled[idx]]; }
+    scenarioBuilderConfig = {
+      ...scenarioBuilderConfig,
+      analysisScenarios: {
+        ...scenarioBuilderConfig.analysisScenarios,
+        [page]: { ...scenario, enabledSubtabs: enabled },
+      },
+    };
+    render("scenarioBuilder");
+    return;
+  }
+
+  /* ── Pool UI: 기본 진입 탭 변경 (select change는 별도 이벤트 — click fallthrough) ── */
+
   if(event.target.closest("[data-scenario-builder-save]")){
     if(!isCurrentUserSuperAdmin()) return;
-    saveScenarioBuilderState(scenarioBuilderDraftFromDom());
+    // Pool UI는 config를 직접 수정하므로 agentDefaults DOM 변경만 반영
+    const draft = { ...scenarioBuilderConfig };
+    document.querySelectorAll("[data-agent-default]").forEach(card => {
+      const serviceId = card.dataset.agentDefault;
+      const current = draft.agentOptionDefaults?.[serviceId] || { serviceId };
+      draft.agentOptionDefaults = draft.agentOptionDefaults || {};
+      draft.agentOptionDefaults[serviceId] = {
+        ...current,
+        enabled: card.querySelector(`[data-agent-enabled="${cssString(serviceId)}"]`)?.checked !== false,
+        behavior: card.querySelector(`[data-agent-behavior="${cssString(serviceId)}"]`)?.value.trim() || "",
+        instruction: card.querySelector(`[data-agent-instruction="${cssString(serviceId)}"]`)?.value.trim() || "",
+      };
+    });
+    saveScenarioBuilderState(draft);
     alert("업무시나리오 구성이 저장되었습니다.");
     render("scenarioBuilder");
     return;

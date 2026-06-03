@@ -17,7 +17,7 @@ const SUBTABS_BY_TEMPLATE = {
   "special-investigation": SPECIAL_INVESTIGATION_SUBTABS,
 };
 
-export function scenarioBuilderPage({ config, isSuperAdmin }){
+export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "" }){
   if(!isSuperAdmin()){
     return `
       <section class="card" style="text-align:center;padding:56px 20px">
@@ -32,7 +32,7 @@ export function scenarioBuilderPage({ config, isSuperAdmin }){
       <div style="display:flex;align-items:flex-start;gap:16px;justify-content:space-between;margin-bottom:18px">
         <div>
           <h2 style="margin:0 0 6px">업무시나리오 구성</h2>
-          <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 에이전트 기본 옵션을 구성합니다.</p>
+          <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 서비스 기본 옵션을 구성합니다.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           <button class="btn secondary" type="button" data-scenario-builder-reset>기본값 복원</button>
@@ -45,17 +45,35 @@ export function scenarioBuilderPage({ config, isSuperAdmin }){
         <p class="muted" style="margin:6px 0 0">저장된 설정은 다음 단계에서 업무분석 렌더링에 연결됩니다. 현재 기존 화면 동작은 변경되지 않습니다.</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;gap:16px">
-          ${analysisScenarioSection(config)}
+      ${scenarioBuilderViewTabs(activeView)}
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        ${activeView === "services" ? agentDefaultsSection(config) : `
+          ${analysisScenarioPoolSection(config, selectedPage)}
           ${newAnalysisForm()}
-        </div>
-        ${agentDefaultsSection(config)}
+        `}
       </div>
     </section>
   `;
 }
 
+function scenarioBuilderViewTabs(activeView){
+  const views = [
+    ["subtabs", "업무분석별 서브탭 구성"],
+    ["services", "AI 서비스 기본 옵션"],
+  ];
+  return `
+    <div class="gi-tab-nav" style="margin-bottom:16px">
+      ${views.map(([view, label]) => `
+        <button class="gi-tab${activeView === view ? " active" : ""}" type="button" data-scenario-builder-view="${escapeHtml(view)}">
+          ${escapeHtml(label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+/* ── 기존 카드형 (참조용 보존 — 사용 안 함) ──────────────── */
 function analysisScenarioSection(config){
   const scenarios = config.analysisScenarios || {};
   const customPages = (config.customAnalysisScenarios || []).map(scenario => scenario.page);
@@ -63,14 +81,136 @@ function analysisScenarioSection(config){
     .filter((page, index, items) => page && items.indexOf(page) === index);
   return `
     <section class="summary-box">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+      <b>업무분석별 서브탭 구성</b>
+      <p class="muted" style="margin:4px 0 0">기본 진입 서브탭과 사용할 서브탭을 선택합니다.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+        ${pages.map(page => scenarioEditorCard(scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page])).join("")}
+      </div>
+    </section>
+  `;
+}
+
+/* ── Pool 기반 서브탭 구성 UI ────────────────────────────── */
+function analysisScenarioPoolSection(config, selectedPage){
+  const scenarios = config.analysisScenarios || {};
+  const customPages = (config.customAnalysisScenarios || []).map(scenario => scenario.page);
+  const allPages = [...Object.keys(DEFAULT_ANALYSIS_SCENARIOS), ...customPages]
+    .filter((page, index, items) => page && items.indexOf(page) === index);
+
+  // 선택된 페이지 기본값: 첫 번째
+  const activePage = allPages.includes(selectedPage) ? selectedPage : allPages[0] || "";
+  const activeScenario = scenarios[activePage] || DEFAULT_ANALYSIS_SCENARIOS[activePage] || null;
+  const allSubtabs = SUBTABS_BY_TEMPLATE[activeScenario?.template] || [];
+  const enabledIds = activeScenario?.enabledSubtabs || [];
+  const enabledSet = new Set(enabledIds);
+
+  // 포함된 서브탭 (순서 유지)
+  const includedSubtabs = enabledIds
+    .map(id => allSubtabs.find(t => t.id === id))
+    .filter(Boolean);
+  // 미포함 서브탭
+  const excludedSubtabs = allSubtabs.filter(t => !enabledSet.has(t.id));
+
+  return `
+    <section class="summary-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
         <div>
           <b>업무분석별 서브탭 구성</b>
-          <p class="muted" style="margin:4px 0 0">기본 진입 서브탭과 사용할 서브탭을 선택합니다.</p>
+          <p class="muted" style="margin:4px 0 0">업무분석을 선택한 후 서브탭 포함/제외 및 순서를 조정합니다.</p>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:14px">
-        ${pages.map(page => scenarioEditorCard(scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page])).join("")}
+
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:420px">
+
+        <!-- 왼쪽: 업무분석 목록 -->
+        <div style="border-right:1px solid var(--line);background:#f8fbff">
+          <div style="padding:10px 12px;font-size:11px;font-weight:700;color:#6b7f9e;letter-spacing:.04em;background:#f1f5f9;border-bottom:1px solid var(--line)">
+            전문업무분석
+          </div>
+          ${allPages.map(page => {
+            const sc = scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page] || {};
+            const isActive = page === activePage;
+            return `
+              <button type="button" data-sb-select-page="${escapeHtml(page)}"
+                style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;cursor:pointer;
+                       background:${isActive?"#eef4ff":"transparent"};
+                       border-left:3px solid ${isActive?"#1e40af":"transparent"};
+                       font-size:13px;font-weight:${isActive?"700":"400"};
+                       color:${isActive?"#1e40af":"#41506a"};
+                       border-bottom:1px solid var(--line)">
+                ${escapeHtml(sc.title || page)}
+              </button>`;
+          }).join("")}
+        </div>
+
+        <!-- 오른쪽: Pool 편집 -->
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:16px">
+          ${activePage && activeScenario ? `
+
+            <!-- 기본 진입 탭 -->
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:12px;font-weight:600;color:#41506a;white-space:nowrap">기본 진입 탭</span>
+              <select data-sb-default-tab="${escapeHtml(activePage)}" class="gi-reg-select" style="height:32px;min-width:180px">
+                ${includedSubtabs.map(tab =>
+                  option(tab.id, tabLabel(tab, activeScenario), activeScenario.defaultTab)
+                ).join("")}
+              </select>
+              <span class="muted" style="font-size:11px">${escapeHtml(activePage)} · ${escapeHtml(activeScenario.template)}</span>
+            </div>
+
+            <!-- 포함된 서브탭 -->
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:8px">
+                포함된 서브탭 <span style="font-weight:400;color:#6b7f9e">(${includedSubtabs.length}개 · 순서 조정 가능)</span>
+              </div>
+              ${includedSubtabs.length === 0
+                ? `<div class="muted" style="font-size:12px;padding:12px;background:#f8fbff;border-radius:7px;border:1px dashed var(--line)">포함된 서브탭이 없습니다. 아래에서 추가하세요.</div>`
+                : `<div style="display:flex;flex-direction:column;gap:6px">
+                    ${includedSubtabs.map((tab, i) => `
+                      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef4ff;border:1px solid #aac7ff;border-radius:8px">
+                        <span style="width:20px;text-align:center;font-size:11px;font-weight:700;color:#1e40af">${i+1}</span>
+                        <span style="flex:1;font-size:13px;font-weight:600;color:#1e293b">${escapeHtml(tabLabel(tab, activeScenario))}</span>
+                        <span style="font-size:11px;color:#6b7f9e;font-family:monospace">${escapeHtml(tab.id)}</span>
+                        <div style="display:flex;gap:3px">
+                          <button type="button" class="gi-move-btn"
+                            data-sb-subtab-move="${escapeHtml(activePage)}:${escapeHtml(tab.id)}:up"
+                            ${i === 0 ? "disabled" : ""} title="위로">↑</button>
+                          <button type="button" class="gi-move-btn"
+                            data-sb-subtab-move="${escapeHtml(activePage)}:${escapeHtml(tab.id)}:down"
+                            ${i === includedSubtabs.length-1 ? "disabled" : ""} title="아래로">↓</button>
+                        </div>
+                        <button type="button" class="btn-inline-action job-remove-action"
+                          data-sb-subtab-toggle="${escapeHtml(activePage)}:${escapeHtml(tab.id)}"
+                          title="제외">제외</button>
+                      </div>
+                    `).join("")}
+                  </div>`
+              }
+            </div>
+
+            <!-- 미포함 서브탭 -->
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#6b7f9e;margin-bottom:8px">
+                미포함 서브탭 <span style="font-weight:400">(${excludedSubtabs.length}개)</span>
+              </div>
+              ${excludedSubtabs.length === 0
+                ? `<div class="muted" style="font-size:12px;padding:12px;background:#f8fbff;border-radius:7px;border:1px dashed var(--line)">모든 서브탭이 포함되어 있습니다.</div>`
+                : `<div style="display:flex;flex-direction:column;gap:6px">
+                    ${excludedSubtabs.map(tab => `
+                      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fff;border:1px solid var(--line);border-radius:8px;opacity:.75">
+                        <span style="flex:1;font-size:13px;color:#41506a">${escapeHtml(tabLabel(tab, activeScenario))}</span>
+                        <span style="font-size:11px;color:#94a3b8;font-family:monospace">${escapeHtml(tab.id)}</span>
+                        <button type="button" class="btn-inline-action"
+                          data-sb-subtab-toggle="${escapeHtml(activePage)}:${escapeHtml(tab.id)}"
+                          title="포함">+ 추가</button>
+                      </div>
+                    `).join("")}
+                  </div>`
+              }
+            </div>
+
+          ` : `<div class="muted" style="padding:40px;text-align:center">왼쪽에서 업무분석을 선택하세요.</div>`}
+        </div>
       </div>
     </section>
   `;
@@ -118,8 +258,8 @@ function agentDefaultsSection(config){
   return `
     <section class="summary-box" style="max-height:calc(100vh - 190px);overflow:auto">
       <div style="position:sticky;top:0;background:inherit;padding-bottom:10px;z-index:1">
-        <b>AI 에이전트 기본 옵션</b>
-        <p class="muted" style="margin:4px 0 0">서브탭에서 활용 중인 AI 에이전트 기준입니다.</p>
+        <b>AI 서비스 기본 옵션</b>
+        <p class="muted" style="margin:4px 0 0">서브탭에서 활용 중인 AI 서비스 기준입니다.</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         ${services.map(serviceId => agentDefaultCard(serviceId, config.agentOptionDefaults?.[serviceId] || {})).join("")}
@@ -144,12 +284,12 @@ function agentDefaultCard(serviceId, defaults){
         </label>
       </div>
       <label style="display:block;font-size:12px;color:#41506a;margin-bottom:8px">
-        기본 behavior
+        기본 동작
         <input class="form-input" style="width:100%;height:30px;margin-top:4px;box-sizing:border-box" data-agent-behavior="${escapeHtml(serviceId)}" value="${escapeHtml(defaults.behavior || "")}" placeholder="예: risk_signal">
       </label>
       <label style="display:block;font-size:12px;color:#41506a">
         기본 지시문
-        <textarea class="gi-wb2-textarea" rows="3" style="width:100%;box-sizing:border-box;margin-top:4px" data-agent-instruction="${escapeHtml(serviceId)}" placeholder="에이전트 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
+        <textarea class="gi-wb2-textarea" rows="3" style="width:100%;box-sizing:border-box;margin-top:4px" data-agent-instruction="${escapeHtml(serviceId)}" placeholder="서비스 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
       </label>
     </article>
   `;
