@@ -9,7 +9,8 @@ import {
 export function createSpecialInvestigation(deps){
   function isSpecialInvestigationPage(page = deps.getCurrentPage()){
     const scenario = deps.getAnalysisScenarioConfig?.(page);
-    return page === "lawsearch" || page === "fxsearch" || scenario?.template === "special-investigation";
+    // fxsearch는 general-investigation 기반으로 이전됨 — 제외
+    return page === "lawsearch" || scenario?.template === "special-investigation";
   }
 
   function activeSpecialInvestigationPage(){

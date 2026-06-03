@@ -1009,6 +1009,7 @@ const specialInvestigation = createSpecialInvestigation({
   riskPersonById,
   giStepSourceOptionsHtml,
   DRUG_INV_TYPES,
+  GEN_INV_TYPES,
   behaviorOptionsHtml,
   giCommonSourceKey,
   scenarioSourceByKey,

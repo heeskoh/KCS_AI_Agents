@@ -12,12 +12,20 @@ export function createGeneralInvestigation(deps){
     const tab = deps.getGeneralInvTab();
     const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
     const tabContext = { case:aCase, profileLabel };
+
+    // 페이지별 타이틀/부제목 (fxsearch는 외환수사 전용 표현)
+    const isFx = pageKey === "fxsearch";
+    const pageTitle = isFx ? "외환 수사 분석" : "일반수사 분석";
+    const pageDesc  = isFx
+      ? "외환·자금세탁 범죄 수사 대상을 등록하고, 외환 수사 표준 시나리오에 따라 수사를 진행합니다."
+      : "관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.";
+
     return `
       <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
         <div class="gi-page-head">
           <div>
-            <h2>일반수사 분석</h2>
-            <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
+            <h2>${escapeHtml(pageTitle)}</h2>
+            <p class="muted">${escapeHtml(pageDesc)}</p>
           </div>
           ${aCase ? `
             <div class="gi-active-badge">

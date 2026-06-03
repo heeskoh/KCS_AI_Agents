@@ -39,9 +39,10 @@ export const DEFAULT_ANALYSIS_SCENARIOS = {
   fxsearch: {
     page: "fxsearch",
     title: "외환 수사 분석",
-    template: "special-investigation",
-    defaultTab: "dashboard",
-    enabledSubtabs: ["ongoing", "profile", "data", "scenario", "network", "forensic", "report", "slang", "dashboard"],
+    // general-investigation 기반 — 일반수사의 t4(외환·자금세탁) 시나리오 연동
+    template: "general-investigation",
+    defaultTab: "cases",
+    enabledSubtabs: ["cases", "profile", "data", "workbench", "report"],
   },
 };
 
