@@ -1,7 +1,10 @@
 import { escapeHtml } from "../core/dom.js";
 import {
   AGENT_SERVICE_DEFINITIONS,
+  AI_SERVICE_CATALOG,
   collectSubtabAgentRequirements,
+  getServiceBehaviorOptions,
+  getServiceDefaultInstruction,
 } from "../analysis/shared/agent-metadata.js";
 import {
   ANALYSIS_TEMPLATE_OPTIONS,
@@ -54,7 +57,7 @@ export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtab
 function scenarioBuilderViewTabs(activeView){
   const views = [
     ["subtabs", "업무분석별 서브탭 구성"],
-    ["services", "AI 서비스 기본 옵션"],
+    ["services", "AI 서비스 설정"],
   ];
   return `
     <div class="gi-tab-nav" style="margin-bottom:16px">
@@ -448,6 +451,13 @@ function newAnalysisPoolForm(draft){
    - 서비스별 사용처(서브탭) 배지 표시
    - data-agent-* 속성명 유지 → 기존 저장 로직 호환
    ───────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   AI 서비스 설정 탭
+   - 카테고리별 그룹 (DB 조회 / RAG 검색 / AI 서비스)
+   - 서비스 카드: AI 서비스 단계 select + 동작 선택 체크박스
+                  서비스 설명 박스 + 추가 지시 textarea
+   - data-agent-* 속성명 유지 (저장 로직 호환)
+   ═══════════════════════════════════════════════════════════ */
 function agentDefaultsSection(config){
   const allSubtabs = [
     ...CUSTOMS_SUBTABS,
@@ -455,60 +465,64 @@ function agentDefaultsSection(config){
     ...SPECIAL_INVESTIGATION_SUBTABS,
   ];
 
-  // serviceId → 사용하는 서브탭 목록 매핑
+  // serviceId → 사용 서브탭 목록
   const usageMap = buildServiceUsageMap(allSubtabs);
 
-  // 실제 서브탭에서 사용 중인 서비스만, 중복 없이
+  // 실제 사용 중인 서비스 (AI_SERVICE_CATALOG 기준)
   const usedServiceIds = [...new Set(
     allSubtabs.flatMap(st => st.aiServices || [])
-  )].filter(id => AGENT_SERVICE_DEFINITIONS[id]);
+  )].filter(id => AI_SERVICE_CATALOG[id]);
 
-  // 카테고리별 그룹핑 + 라벨 가나다순 정렬
   const CATEGORY_META = {
-    db:    { label:"DB 조회",    color:"#1e40af", bg:"#eef4ff" },
-    rag:   { label:"RAG 검색",   color:"#16a34a", bg:"#f0fdf4" },
-    agent: { label:"AI 서비스",  color:"#7c3aed", bg:"#faf5ff" },
+    db:    { label:"DB 조회",    color:"#1e40af", bg:"#eef4ff", border:"#bfdbfe" },
+    rag:   { label:"RAG 검색",   color:"#16a34a", bg:"#f0fdf4", border:"#86efac" },
+    agent: { label:"AI 서비스",  color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe" },
   };
+
   const groups = {};
   for(const serviceId of usedServiceIds){
-    const def  = AGENT_SERVICE_DEFINITIONS[serviceId] || {};
-    const cat  = def.category || "agent";
+    const cat = AI_SERVICE_CATALOG[serviceId]?.category || "agent";
     if(!groups[cat]) groups[cat] = [];
     groups[cat].push(serviceId);
   }
   Object.values(groups).forEach(arr =>
-    arr.sort((a, b) => agentLabel(a).localeCompare(agentLabel(b), "ko"))
+    arr.sort((a, b) => (AI_SERVICE_CATALOG[a]?.label||a).localeCompare(AI_SERVICE_CATALOG[b]?.label||b, "ko"))
   );
 
   const categoryOrder = ["db", "rag", "agent"];
 
   return `
-    <section class="summary-box" style="max-height:calc(100vh - 190px);overflow:auto">
-      <div style="position:sticky;top:0;background:inherit;padding-bottom:10px;z-index:1;border-bottom:1px solid var(--line);margin-bottom:14px">
-        <b>AI 서비스 기본 옵션</b>
-        <p class="muted" style="margin:4px 0 0">서브탭에서 활용 중인 AI 서비스의 기본 동작과 지시문을 설정합니다.
-          총 <strong>${usedServiceIds.length}</strong>개 서비스</p>
+    <section class="summary-box" style="max-height:calc(100vh - 190px);overflow:auto;padding:0">
+      <div style="position:sticky;top:0;background:#fff;padding:14px 18px 10px;z-index:2;
+                  border-bottom:1px solid var(--line)">
+        <b>AI 서비스 설정</b>
+        <p class="muted" style="margin:4px 0 0;font-size:12px">
+          서브탭에서 활용 중인 AI 서비스의 기본 동작과 지시문을 설정합니다.
+          총 <strong>${usedServiceIds.length}</strong>개 서비스
+        </p>
       </div>
-
-      ${categoryOrder.filter(cat => groups[cat]?.length).map(cat => {
-        const meta = CATEGORY_META[cat];
-        return `
-          <div style="margin-bottom:20px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-              <span style="display:inline-block;padding:3px 10px;border-radius:999px;
-                           font-size:11px;font-weight:700;letter-spacing:.04em;
-                           background:${meta.bg};color:${meta.color}">
-                ${escapeHtml(meta.label)}
-              </span>
-              <span class="muted" style="font-size:12px">${groups[cat].length}개</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px">
-              ${groups[cat].map(serviceId =>
-                serviceCard(serviceId, config.agentOptionDefaults?.[serviceId] || {}, usageMap[serviceId] || [], meta)
-              ).join("")}
-            </div>
-          </div>`;
-      }).join("")}
+      <div style="padding:16px 18px">
+        ${categoryOrder.filter(cat => groups[cat]?.length).map(cat => {
+          const meta = CATEGORY_META[cat];
+          return `
+            <div style="margin-bottom:22px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="display:inline-block;padding:3px 12px;border-radius:999px;
+                             font-size:11px;font-weight:700;
+                             background:${meta.bg};color:${meta.color};
+                             border:1px solid ${meta.border}">
+                  ${escapeHtml(meta.label)}
+                </span>
+                <span class="muted" style="font-size:12px">${groups[cat].length}개</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+                ${groups[cat].map(serviceId =>
+                  serviceCard(serviceId, config.agentOptionDefaults?.[serviceId] || {}, usageMap[serviceId] || [], meta)
+                ).join("")}
+              </div>
+            </div>`;
+        }).join("")}
+      </div>
     </section>
   `;
 }
@@ -519,75 +533,114 @@ function buildServiceUsageMap(allSubtabs){
   for(const subtab of allSubtabs){
     for(const svcId of subtab.aiServices || []){
       if(!map[svcId]) map[svcId] = [];
-      // 서브탭 레이블은 id로 표시 (간결하게)
       if(!map[svcId].includes(subtab.id)) map[svcId].push(subtab.id);
     }
   }
   return map;
 }
 
-/* 서비스 카드 — data-agent-* 속성명은 변경 금지 (저장 로직 호환) */
+/* ── 서비스 카드 (이미지 기준 레이아웃) ────────────────────
+   data-agent-* 속성명 유지 — 저장 로직 호환
+   ─────────────────────────────────────────────────────────── */
 function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
-  const definition = AGENT_SERVICE_DEFINITIONS[serviceId] || {};
-  const agentId    = definition.agentId || serviceId;
+  const def        = AI_SERVICE_CATALOG[serviceId] || {};
+  const agentId    = def.agentId || serviceId;
   const isEnabled  = defaults.enabled !== false;
+  const behaviors  = getServiceBehaviorOptions(serviceId);
+  const instruction= defaults.instruction || getServiceDefaultInstruction(serviceId) || "";
 
-  // 사용처 배지 (최대 4개 + 나머지 수)
-  const visibleSubtabs = usedInSubtabs.slice(0, 4);
-  const extraCount     = usedInSubtabs.length - visibleSubtabs.length;
-  const usageBadges = visibleSubtabs.map(id =>
-    `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">${escapeHtml(id)}</span>`
-  ).join("") + (extraCount > 0
-    ? `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f1f5f9;color:#94a3b8">+${extraCount}</span>`
-    : "");
+  // 저장된 behavior 값 (없으면 첫 번째 기본값)
+  const savedBehavior = defaults.behavior || behaviors[0]?.value || "";
+
+  // AI 서비스 단계 select 옵션: 카테고리 · 서비스명 형식
+  const stageCatLabel = catMeta?.label || def.category || "";
+
+  // 동작 선택 체크박스 (behavior 값 기반)
+  const behaviorCheckboxes = behaviors.map(opt => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;
+                  cursor:pointer;white-space:nowrap">
+      <input type="checkbox"
+        data-agent-behavior-opt="${escapeHtml(serviceId)}:${escapeHtml(opt.value)}"
+        ${savedBehavior === opt.value ? "checked" : ""}>
+      ${escapeHtml(opt.label)}
+    </label>
+  `).join("");
 
   return `
-    <article style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:#fff;
-                    ${!isEnabled ? "opacity:.6" : ""}"
+    <article style="border:1px solid var(--line);border-radius:10px;padding:14px;
+                    background:#fff;display:flex;flex-direction:column;gap:10px"
              data-agent-default="${escapeHtml(serviceId)}">
 
-      <!-- 헤더: 서비스명 + 활성화 토글 -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <strong style="font-size:13px;color:#1e293b">${escapeHtml(definition.label || serviceId)}</strong>
-          </div>
-          <div style="font-size:11px;color:#94a3b8;font-family:monospace">
-            serviceId: ${escapeHtml(serviceId)}
-            <span style="margin:0 4px;color:#cbd5e1">→</span>
-            agentId: ${escapeHtml(agentId)}
-          </div>
+      <!-- ① 헤더: 서비스명 + 완료/사용 배지 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <strong style="font-size:13px;color:#1e293b">${escapeHtml(def.label || serviceId)}</strong>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${isEnabled
+            ? `<span style="font-size:11px;background:#dcfce7;color:#15803d;
+                            border-radius:4px;padding:2px 8px;font-weight:600">완료</span>`
+            : `<span style="font-size:11px;background:#f1f5f9;color:#94a3b8;
+                            border-radius:4px;padding:2px 8px">대기</span>`
+          }
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;
+                        color:#41506a;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}"
+              ${isEnabled ? "checked" : ""}> 사용
+          </label>
         </div>
-        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#41506a;cursor:pointer;white-space:nowrap;flex-shrink:0">
-          <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}" ${isEnabled ? "checked" : ""}>
-          사용
-        </label>
       </div>
 
-      <!-- 사용처 배지 -->
-      ${usedInSubtabs.length ? `
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;align-items:center">
-          <span style="font-size:10px;color:#94a3b8;margin-right:2px">사용처</span>
-          ${usageBadges}
-        </div>` : ""}
+      <!-- ② AI 서비스 단계 select -->
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#41506a;display:block;margin-bottom:4px">
+          AI 서비스 단계
+        </label>
+        <select class="gi-reg-select" style="width:100%;height:32px;font-size:12px"
+          data-agent-behavior="${escapeHtml(serviceId)}">
+          ${behaviors.map(opt => `
+            <option value="${escapeHtml(opt.value)}"
+              ${savedBehavior === opt.value ? "selected" : ""}>
+              ${escapeHtml(stageCatLabel)} · ${escapeHtml(opt.label)}
+            </option>
+          `).join("")}
+        </select>
+      </div>
 
-      <!-- 기본 동작 -->
-      <label style="display:block;font-size:12px;color:#41506a;margin-bottom:8px">
-        기본 동작
-        <input class="form-input" style="width:100%;height:30px;margin-top:4px;box-sizing:border-box"
-          data-agent-behavior="${escapeHtml(serviceId)}"
-          value="${escapeHtml(defaults.behavior || "")}"
-          placeholder="예: risk_signal">
-      </label>
+      <!-- ③ 동작 선택 체크박스 -->
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#41506a;display:block;margin-bottom:6px">
+          동작 선택
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 14px">
+          ${behaviorCheckboxes}
+        </div>
+      </div>
 
-      <!-- 기본 지시문 -->
-      <label style="display:block;font-size:12px;color:#41506a">
-        기본 지시문
-        <textarea class="gi-wb2-textarea" rows="2"
-          style="width:100%;box-sizing:border-box;margin-top:4px;resize:vertical"
+      <!-- ④ 서비스 설명 박스 -->
+      <div style="background:#f8fbff;border:1px solid var(--line);border-radius:7px;padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700;color:#1e293b">${escapeHtml(def.label || serviceId)}</span>
+          <span style="font-size:10px;background:${catMeta?.bg||"#f1f5f9"};
+                       color:${catMeta?.color||"#41506a"};border-radius:3px;padding:1px 6px">
+            ${escapeHtml(stageCatLabel)}
+          </span>
+        </div>
+        <p style="margin:0;font-size:12px;color:#41506a;line-height:1.5">
+          ${escapeHtml(getServiceDefaultInstruction(serviceId))}
+        </p>
+      </div>
+
+      <!-- ⑤ 추가 지시 textarea -->
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#41506a;display:block;margin-bottom:4px">
+          추가 지시
+        </label>
+        <textarea class="gi-wb2-textarea" rows="3"
+          style="width:100%;box-sizing:border-box;font-size:12px;resize:vertical"
           data-agent-instruction="${escapeHtml(serviceId)}"
-          placeholder="이 서비스 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
-      </label>
+          placeholder="${escapeHtml(getServiceDefaultInstruction(serviceId))}"
+        >${escapeHtml(instruction !== getServiceDefaultInstruction(serviceId) ? instruction : "")}</textarea>
+      </div>
+
     </article>
   `;
 }
