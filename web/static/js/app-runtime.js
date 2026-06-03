@@ -5926,13 +5926,7 @@ document.addEventListener("change", (event) => {
     event.target.value = "";  // 같은 파일 재선택 가능하게
   }
 
-  /* ── 신규: 템플릿 select 변경 → 서브탭 초기화 ── */
-  if(event.target.dataset?.sbNewTemplate && isCurrentUserSuperAdmin()){
-    sbNewDraft.template = event.target.value;
-    sbNewDraft.enabledSubtabs = [];
-    sbNewDraft.defaultTab = "";
-    render("scenarioBuilder"); return;
-  }
+  // 신규 업무분석 템플릿 select 제거됨 — 고정값 "special-investigation" 사용
 
   /* ── 신규: 기본 진입 탭 변경 ── */
   if(event.target.dataset?.sbNewDefaultTab && isCurrentUserSuperAdmin()){
@@ -6112,9 +6106,6 @@ document.addEventListener("click", (event)=>{
   }
 
   /* ── 신규: 템플릿 변경 시 서브탭 초기화 ── */
-  const sbNewTemplate = event.target.closest("[data-sb-new-template]");
-  if(sbNewTemplate){ /* handled by change event */ }
-
   /* ── 신규: 서브탭 포함/제외 ── */
   const sbNewToggle = event.target.closest("[data-sb-new-subtab-toggle]");
   if(sbNewToggle){
