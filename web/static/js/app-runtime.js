@@ -1,4 +1,4 @@
-﻿import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
+import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
 import { registerCustomsEvents } from "./analysis/customs/events.js";

@@ -72,22 +72,6 @@ function scenarioBuilderViewTabs(activeView){
   `;
 }
 
-/* ── 기존 카드형 (참조용 보존 — 사용 안 함) ──────────────── */
-function analysisScenarioSection(config){
-  const scenarios = config.analysisScenarios || {};
-  const customPages = (config.customAnalysisScenarios || []).map(scenario => scenario.page);
-  const pages = [...Object.keys(DEFAULT_ANALYSIS_SCENARIOS), ...customPages]
-    .filter((page, index, items) => page && items.indexOf(page) === index);
-  return `
-    <section class="summary-box">
-      <b>업무분석별 서브탭 구성</b>
-      <p class="muted" style="margin:4px 0 0">기본 진입 서브탭과 사용할 서브탭을 선택합니다.</p>
-      <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
-        ${pages.map(page => scenarioEditorCard(scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page])).join("")}
-      </div>
-    </section>
-  `;
-}
 
 /* ── Pool 기반 서브탭 구성 UI ────────────────────────────── */
 function analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft){
@@ -341,34 +325,6 @@ function newAnalysisPoolForm(draft){
   `;
 }
 
-function scenarioEditorCard(scenario){
-  const subtabs = SUBTABS_BY_TEMPLATE[scenario.template] || [];
-  const enabled = new Set(scenario.enabledSubtabs || []);
-  return `
-    <article style="border:1px solid var(--line);border-radius:8px;padding:14px;background:#fff" data-scenario-builder-analysis="${escapeHtml(scenario.page)}">
-      <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px">
-        <div>
-          <strong>${escapeHtml(scenario.title)}</strong>
-          <p class="muted" style="margin:3px 0 0;font-size:12px">${escapeHtml(scenario.page)} · ${escapeHtml(scenario.template)}</p>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#41506a">
-          기본 진입
-          <select class="gi-reg-select" style="height:30px" data-scenario-default-tab="${escapeHtml(scenario.page)}">
-            ${subtabs.map(tab => option(tab.id, tabLabel(tab, scenario), scenario.defaultTab)).join("")}
-          </select>
-        </label>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-        ${subtabs.map(tab => `
-          <label style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#f8fbff;font-size:12px">
-            <input type="checkbox" data-scenario-subtab="${escapeHtml(scenario.page)}:${escapeHtml(tab.id)}" ${enabled.has(tab.id) ? "checked" : ""}>
-            <span>${escapeHtml(tabLabel(tab, scenario))}</span>
-          </label>
-        `).join("")}
-      </div>
-    </article>
-  `;
-}
 
 /* ─────────────────────────────────────────────────────────────
    AI 서비스 기본 옵션 탭
@@ -516,83 +472,6 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
           data-agent-instruction="${escapeHtml(serviceId)}"
           placeholder="이 서비스 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
       </label>
-    </article>
-  `;
-}
-
-function newAnalysisForm(){
-  return `
-    <section class="summary-box">
-      <b>?좉퇋 ?낅Т遺꾩꽍 異붽?</b>
-      <p class="muted" style="margin:4px 0 12px">湲곗〈 ?쒗뵆由우쓣 議고빀?댁꽌 ?꾨Ц?낅Т遺꾩꽍 踰꾪듉怨??붾㈃???앹꽦?⑸땲??</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px">
-        <label style="display:block;font-size:12px;color:#41506a">
-          key
-          <input class="form-input" style="width:100%;box-sizing:border-box;margin-top:4px" data-custom-analysis-key placeholder="ex) auditcase">
-        </label>
-        <label style="display:block;font-size:12px;color:#41506a">
-          title
-          <input class="form-input" style="width:100%;box-sizing:border-box;margin-top:4px" data-custom-analysis-title placeholder="?붾㈃ ?쒕ぉ">
-        </label>
-        <label style="display:block;font-size:12px;color:#41506a">
-          template
-          <select class="gi-reg-select" style="width:100%;height:34px;margin-top:4px" data-custom-analysis-template>
-            ${ANALYSIS_TEMPLATE_OPTIONS.map(item => option(item.id, item.label, "special-investigation")).join("")}
-          </select>
-        </label>
-      </div>
-      <label style="display:block;font-size:12px;color:#41506a;margin-bottom:10px">
-        description
-        <textarea class="gi-wb2-textarea" rows="2" style="width:100%;box-sizing:border-box;margin-top:4px" data-custom-analysis-description placeholder="?낅Т遺꾩꽍 ?ㅻ챸"></textarea>
-      </label>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
-        ${ANALYSIS_TEMPLATE_OPTIONS.map(item => customTemplateSubtabs(item.id)).join("")}
-      </div>
-      <div style="display:flex;justify-content:flex-end">
-        <button class="btn" type="button" data-custom-analysis-add>異붽?</button>
-      </div>
-    </section>
-  `;
-  return `
-    <section class="summary-box">
-      <b>신규 업무분석 추가</b>
-      <p class="muted" style="margin:4px 0 12px">다음 단계에서 설정 기반 registry 확장으로 연결됩니다.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-        <input class="form-input" disabled placeholder="업무분석 key">
-        <input class="form-input" disabled placeholder="화면 제목">
-        <select class="gi-reg-select" disabled>
-          <option>customs 템플릿</option>
-          <option>general-investigation 템플릿</option>
-          <option>special-investigation 템플릿</option>
-        </select>
-        <button class="btn secondary" type="button" disabled>추가 준비중</button>
-      </div>
-    </section>
-  `;
-}
-
-function customTemplateSubtabs(template){
-  const subtabs = SUBTABS_BY_TEMPLATE[template] || [];
-  const fallback = Object.values(DEFAULT_ANALYSIS_SCENARIOS).find(scenario => scenario.template === template);
-  return `
-    <article style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff" data-custom-template-tabs="${escapeHtml(template)}">
-      <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px">
-        <strong style="font-size:13px">${escapeHtml(template)}</strong>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#41506a">
-          湲곕낯 吏꾩엯
-          <select class="gi-reg-select" style="height:30px" data-custom-analysis-default-tab="${escapeHtml(template)}">
-            ${subtabs.map(tab => option(tab.id, tabLabel(tab, fallback || { page:"", template }), fallback?.defaultTab || subtabs[0]?.id)).join("")}
-          </select>
-        </label>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-        ${subtabs.map(tab => `
-          <label style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#f8fbff;font-size:12px">
-            <input type="checkbox" data-custom-analysis-subtab="${escapeHtml(template)}:${escapeHtml(tab.id)}" checked>
-            <span>${escapeHtml(tabLabel(tab, fallback || { page:"", template }))}</span>
-          </label>
-        `).join("")}
-      </div>
     </article>
   `;
 }
