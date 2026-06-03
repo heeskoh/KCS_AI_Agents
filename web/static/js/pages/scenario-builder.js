@@ -370,51 +370,151 @@ function scenarioEditorCard(scenario){
   `;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   AI 서비스 기본 옵션 탭
+   - 카테고리별(DB / AI 서비스 / RAG) 그룹핑
+   - 서비스별 사용처(서브탭) 배지 표시
+   - data-agent-* 속성명 유지 → 기존 저장 로직 호환
+   ───────────────────────────────────────────────────────────── */
 function agentDefaultsSection(config){
-  const requirements = collectSubtabAgentRequirements([
+  const allSubtabs = [
     ...CUSTOMS_SUBTABS,
     ...GENERAL_INVESTIGATION_SUBTABS,
     ...SPECIAL_INVESTIGATION_SUBTABS,
-  ]);
-  const byService = new Map(requirements.map(item => [item.serviceId, item]));
-  const services = Object.keys(AGENT_SERVICE_DEFINITIONS)
-    .filter(serviceId => byService.has(serviceId))
-    .sort((a, b) => agentLabel(a).localeCompare(agentLabel(b), "ko"));
+  ];
+
+  // serviceId → 사용하는 서브탭 목록 매핑
+  const usageMap = buildServiceUsageMap(allSubtabs);
+
+  // 실제 서브탭에서 사용 중인 서비스만, 중복 없이
+  const usedServiceIds = [...new Set(
+    allSubtabs.flatMap(st => st.aiServices || [])
+  )].filter(id => AGENT_SERVICE_DEFINITIONS[id]);
+
+  // 카테고리별 그룹핑 + 라벨 가나다순 정렬
+  const CATEGORY_META = {
+    db:    { label:"DB 조회",    color:"#1e40af", bg:"#eef4ff" },
+    rag:   { label:"RAG 검색",   color:"#16a34a", bg:"#f0fdf4" },
+    agent: { label:"AI 서비스",  color:"#7c3aed", bg:"#faf5ff" },
+  };
+  const groups = {};
+  for(const serviceId of usedServiceIds){
+    const def  = AGENT_SERVICE_DEFINITIONS[serviceId] || {};
+    const cat  = def.category || "agent";
+    if(!groups[cat]) groups[cat] = [];
+    groups[cat].push(serviceId);
+  }
+  Object.values(groups).forEach(arr =>
+    arr.sort((a, b) => agentLabel(a).localeCompare(agentLabel(b), "ko"))
+  );
+
+  const categoryOrder = ["db", "rag", "agent"];
+
   return `
     <section class="summary-box" style="max-height:calc(100vh - 190px);overflow:auto">
-      <div style="position:sticky;top:0;background:inherit;padding-bottom:10px;z-index:1">
+      <div style="position:sticky;top:0;background:inherit;padding-bottom:10px;z-index:1;border-bottom:1px solid var(--line);margin-bottom:14px">
         <b>AI 서비스 기본 옵션</b>
-        <p class="muted" style="margin:4px 0 0">서브탭에서 활용 중인 AI 서비스 기준입니다.</p>
+        <p class="muted" style="margin:4px 0 0">서브탭에서 활용 중인 AI 서비스의 기본 동작과 지시문을 설정합니다.
+          총 <strong>${usedServiceIds.length}</strong>개 서비스</p>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        ${services.map(serviceId => agentDefaultCard(serviceId, config.agentOptionDefaults?.[serviceId] || {})).join("")}
-      </div>
+
+      ${categoryOrder.filter(cat => groups[cat]?.length).map(cat => {
+        const meta = CATEGORY_META[cat];
+        return `
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="display:inline-block;padding:3px 10px;border-radius:999px;
+                           font-size:11px;font-weight:700;letter-spacing:.04em;
+                           background:${meta.bg};color:${meta.color}">
+                ${escapeHtml(meta.label)}
+              </span>
+              <span class="muted" style="font-size:12px">${groups[cat].length}개</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px">
+              ${groups[cat].map(serviceId =>
+                serviceCard(serviceId, config.agentOptionDefaults?.[serviceId] || {}, usageMap[serviceId] || [], meta)
+              ).join("")}
+            </div>
+          </div>`;
+      }).join("")}
     </section>
   `;
 }
 
-function agentDefaultCard(serviceId, defaults){
+/* 서비스 → 사용 서브탭 목록 매핑 빌드 */
+function buildServiceUsageMap(allSubtabs){
+  const map = {};
+  for(const subtab of allSubtabs){
+    for(const svcId of subtab.aiServices || []){
+      if(!map[svcId]) map[svcId] = [];
+      // 서브탭 레이블은 id로 표시 (간결하게)
+      if(!map[svcId].includes(subtab.id)) map[svcId].push(subtab.id);
+    }
+  }
+  return map;
+}
+
+/* 서비스 카드 — data-agent-* 속성명은 변경 금지 (저장 로직 호환) */
+function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
   const definition = AGENT_SERVICE_DEFINITIONS[serviceId] || {};
-  const agentId = defaults.agentId || definition.agentId || serviceId;
+  const agentId    = definition.agentId || serviceId;
+  const isEnabled  = defaults.enabled !== false;
+
+  // 사용처 배지 (최대 4개 + 나머지 수)
+  const visibleSubtabs = usedInSubtabs.slice(0, 4);
+  const extraCount     = usedInSubtabs.length - visibleSubtabs.length;
+  const usageBadges = visibleSubtabs.map(id =>
+    `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">${escapeHtml(id)}</span>`
+  ).join("") + (extraCount > 0
+    ? `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:#f1f5f9;color:#94a3b8">+${extraCount}</span>`
+    : "");
+
   return `
-    <article style="border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff" data-agent-default="${escapeHtml(serviceId)}">
-      <div style="display:flex;align-items:flex-start;gap:8px;justify-content:space-between;margin-bottom:8px">
-        <div>
-          <strong style="font-size:13px">${escapeHtml(definition.label || serviceId)}</strong>
-          <p class="muted" style="margin:3px 0 0;font-size:11px">${escapeHtml(serviceId)} → ${escapeHtml(agentId)}</p>
+    <article style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:#fff;
+                    ${!isEnabled ? "opacity:.6" : ""}"
+             data-agent-default="${escapeHtml(serviceId)}">
+
+      <!-- 헤더: 서비스명 + 활성화 토글 -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <strong style="font-size:13px;color:#1e293b">${escapeHtml(definition.label || serviceId)}</strong>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;font-family:monospace">
+            serviceId: ${escapeHtml(serviceId)}
+            <span style="margin:0 4px;color:#cbd5e1">→</span>
+            agentId: ${escapeHtml(agentId)}
+          </div>
         </div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px">
-          <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}" ${defaults.enabled !== false ? "checked" : ""}>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#41506a;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}" ${isEnabled ? "checked" : ""}>
           사용
         </label>
       </div>
+
+      <!-- 사용처 배지 -->
+      ${usedInSubtabs.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;align-items:center">
+          <span style="font-size:10px;color:#94a3b8;margin-right:2px">사용처</span>
+          ${usageBadges}
+        </div>` : ""}
+
+      <!-- 기본 동작 -->
       <label style="display:block;font-size:12px;color:#41506a;margin-bottom:8px">
         기본 동작
-        <input class="form-input" style="width:100%;height:30px;margin-top:4px;box-sizing:border-box" data-agent-behavior="${escapeHtml(serviceId)}" value="${escapeHtml(defaults.behavior || "")}" placeholder="예: risk_signal">
+        <input class="form-input" style="width:100%;height:30px;margin-top:4px;box-sizing:border-box"
+          data-agent-behavior="${escapeHtml(serviceId)}"
+          value="${escapeHtml(defaults.behavior || "")}"
+          placeholder="예: risk_signal">
       </label>
+
+      <!-- 기본 지시문 -->
       <label style="display:block;font-size:12px;color:#41506a">
         기본 지시문
-        <textarea class="gi-wb2-textarea" rows="3" style="width:100%;box-sizing:border-box;margin-top:4px" data-agent-instruction="${escapeHtml(serviceId)}" placeholder="서비스 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
+        <textarea class="gi-wb2-textarea" rows="2"
+          style="width:100%;box-sizing:border-box;margin-top:4px;resize:vertical"
+          data-agent-instruction="${escapeHtml(serviceId)}"
+          placeholder="이 서비스 실행 시 기본 지시문">${escapeHtml(defaults.instruction || "")}</textarea>
       </label>
     </article>
   `;

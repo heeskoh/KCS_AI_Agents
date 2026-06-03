@@ -19,7 +19,7 @@ export const AGENT_SERVICE_DEFINITIONS = {
   origin_analysis: { agentId: "origin_analysis", label: "원산지 분석", category: "agent" },
   patent: { agentId: "patent", label: "특허정보 조회", category: "agent" },
   proceeds_tracking: { agentId: "proceeds_tracking", label: "범죄수익 추적", category: "agent" },
-  rag_audit: { agentId: "rag_audit", label: "감사정보 RAG", category: "rag" },
+  rag_audit: { agentId: "rag_audit", label: "심사정보 RAG", category: "rag" },
   rag_create: { agentId: "rag_create", label: "RAG 생성", category: "rag" },
   rag_customs: { agentId: "rag_customs", label: "관세법령 RAG", category: "rag" },
   rag_global: { agentId: "rag_global", label: "국제정보 RAG", category: "rag" },
