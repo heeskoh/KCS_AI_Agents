@@ -32,14 +32,10 @@ export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtab
 
   return `
     <section class="card scenario-builder-page">
-      <!-- 페이지 헤더 (기본값 복원만 유지) -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
-        <div>
-          <h2 style="margin:0 0 4px">업무시나리오 구성</h2>
-          <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 서비스 기본 옵션을 구성합니다.</p>
-        </div>
-        <button class="btn secondary" type="button" data-scenario-builder-reset
-          style="white-space:nowrap;flex-shrink:0">기본값 복원</button>
+      <!-- 페이지 헤더 -->
+      <div style="margin-bottom:16px">
+        <h2 style="margin:0 0 4px">업무시나리오 구성</h2>
+        <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 서비스 기본 옵션을 구성합니다.</p>
       </div>
 
       <div class="summary-box" style="margin-bottom:16px">
@@ -571,22 +567,15 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta, isEditing = fa
                       background:#fff;display:flex;flex-direction:column;gap:10px"
                data-agent-default="${escapeHtml(serviceId)}">
 
-        <!-- 헤더: 서비스명 + 사용 체크 + 수정 버튼 -->
+        <!-- 헤더: 서비스명 + 수정 버튼 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;
                     padding-bottom:8px;border-bottom:1px solid var(--line)">
           <strong style="font-size:13px;color:#1e293b">${escapeHtml(def.label || serviceId)}</strong>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;
-                          color:#41506a;cursor:pointer;white-space:nowrap">
-              <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}"
-                ${isEnabled ? "checked" : ""}> 사용
-            </label>
-            <button type="button"
-              style="height:28px;padding:0 12px;background:#f1f5f9;color:#41506a;
-                     border:1px solid var(--line);border-radius:6px;font-size:12px;
-                     cursor:pointer;white-space:nowrap"
-              data-agent-edit="${escapeHtml(serviceId)}">수정</button>
-          </div>
+          <button type="button"
+            style="height:28px;padding:0 12px;background:#f1f5f9;color:#41506a;
+                   border:1px solid var(--line);border-radius:6px;font-size:12px;
+                   cursor:pointer;white-space:nowrap;flex-shrink:0"
+            data-agent-edit="${escapeHtml(serviceId)}">수정</button>
         </div>
 
         <!-- 동작 선택 (읽기: 선택된 항목만 태그로 표시) -->
@@ -637,16 +626,11 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta, isEditing = fa
                     background:#fff;display:flex;flex-direction:column;gap:10px"
              data-agent-default="${escapeHtml(serviceId)}">
 
-      <!-- 헤더: 서비스명 + 사용 체크 + 저장/취소 버튼 -->
+      <!-- 헤더: 서비스명 + 저장/취소 버튼 -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;
                   padding-bottom:8px;border-bottom:1px solid #bfdbfe">
         <strong style="font-size:13px;color:#1e293b">${escapeHtml(def.label || serviceId)}</strong>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;
-                        color:#41506a;cursor:pointer;white-space:nowrap">
-            <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}"
-              ${isEnabled ? "checked" : ""}> 사용
-          </label>
           <button type="button"
             style="height:28px;padding:0 14px;background:#1e40af;color:#fff;border:none;
                    border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600"
