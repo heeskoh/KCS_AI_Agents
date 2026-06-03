@@ -188,6 +188,37 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
+    /* ── 템플릿 적용 (공통 워크벤치 템플릿 select) ── */
+    const giTemplateApply = event.target.closest("[data-gi-template-apply]");
+    if(giTemplateApply){
+      const sel = document.getElementById("giWbTemplateSelect");
+      const tplId = sel?.value;
+      if(!tplId){ alert("템플릿을 선택하세요."); return; }
+      const tpl = ctx.giScenarioTemplates?.find(t => t.id === tplId);
+      const aCase = ctx.activeGenInvCase();
+      if(aCase && tpl){
+        aCase.giSteps = tpl.items.map((item, i) =>
+          ctx.normalizeGiScenarioStep({ ...item, id:`gis_${ctx.uid()}` }, i)
+        );
+        aCase.stepStates  = {};
+        aCase.stepResults = {};
+        aCase.stepExpanded= {};
+        ctx.activeGiStepId = aCase.giSteps[0]?.id || null;
+        ctx.saveCanvasState();
+        ctx.render("generalinv");
+      }
+      return;
+    }
+
+    /* ── 권한 요청 (공통 워크벤치 권한 없음 배너) ── */
+    const giPermReq = event.target.closest("[data-gi-step-request-perm]");
+    if(giPermReq){
+      const key = giPermReq.dataset.giStepRequestPerm;
+      ctx.requestPermission?.(key);
+      ctx.render("generalinv");
+      return;
+    }
+
     const giRunStep = event.target.closest("[data-gi-run-step]");
     if(giRunStep){
       const val = giRunStep.dataset.giRunStep;

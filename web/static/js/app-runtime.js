@@ -1009,6 +1009,20 @@ const specialInvestigation = createSpecialInvestigation({
   riskPersonById,
   giStepSourceOptionsHtml,
   DRUG_INV_TYPES,
+  behaviorOptionsHtml,
+  giCommonSourceKey,
+  scenarioSourceByKey,
+  sourceDefaultInstruction,
+  permissionStatus,
+  permissionLabel,
+  // 마약수사유형별 템플릿 옵션 HTML
+  drugScenarioTemplateOptionsHtml: (currentInvTypeId) => {
+    return DRUG_INV_TYPES.map(t =>
+      `<option value="${escapeHtml(t.id)}"${t.id === currentInvTypeId ? " selected" : ""}>
+        ${escapeHtml(t.num + " " + t.label)}
+      </option>`
+    ).join("");
+  },
 });
 
 const customsInvestigation = createCustomsInvestigation({
@@ -1104,6 +1118,16 @@ const generalInvestigation = createGeneralInvestigation({
   giStepSourceOptionsHtml,
   scenarioSourceByKey,
   sourceDefaultInstruction,
+  permissionStatus,
+  permissionLabel,
+  // 수사유형별 템플릿 옵션 HTML — invTypeId를 현재 유형으로 첫 항목 표시
+  giScenarioTemplateOptionsHtml: (currentInvTypeId) => {
+    return giScenarioTemplates.map(tpl =>
+      `<option value="${escapeHtml(tpl.id)}"${tpl.id === currentInvTypeId ? " selected" : ""}>
+        ${escapeHtml(tpl.name)}
+      </option>`
+    ).join("");
+  },
 });
 
 const GI_SERVICE_ALIASES = {
@@ -6076,6 +6100,10 @@ registerGeneralInvestigationEvents({
   sourceDefaultBehaviors,
   sourceDefaultInstruction,
   uid,
+  giScenarioTemplates,
+  giSourceByKey,
+  giCommonSourceKey,
+  requestPermission: (key) => requestPermission(key),
 });
 
 registerSpecialInvestigationEvents({
@@ -6122,6 +6150,9 @@ registerSpecialInvestigationEvents({
   sourceDefaultBehaviors,
   sourceDefaultInstruction,
   uid,
+  DRUG_SCENARIO_STEPS,
+  giCommonSourceKey,
+  requestPermission: (key) => requestPermission(key),
 });
 
 document.addEventListener("click", (event)=>{

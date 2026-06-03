@@ -53,6 +53,30 @@ export function registerSpecialInvestigationEvents(ctx){
       ctx.saveCanvasState(); ctx.renderSpecialInvestigation(); return;
     }
 
+    /* ── 마약수사 템플릿 적용 ── */
+    const drugTemplateApply = event.target.closest("[data-drug-template-apply]");
+    if(drugTemplateApply){
+      const sel = document.getElementById("drugWbTemplateSelect");
+      const tplId = sel?.value;
+      const aCase = ctx.activeDrugCase();
+      if(aCase && tplId && ctx.DRUG_SCENARIO_STEPS?.[tplId]){
+        const defaults = ctx.DRUG_SCENARIO_STEPS[tplId];
+        aCase.giSteps    = defaults.map((s, i) => ctx.normalizeGiScenarioStep({ ...s, id:`drs_${ctx.uid()}` }, i));
+        aCase.stepStates = {}; aCase.stepResults = {}; aCase.stepExpanded = {};
+        ctx.activeDrugStepId = aCase.giSteps[0]?.id || null;
+        ctx.saveCanvasState(); ctx.renderSpecialInvestigation();
+      }
+      return;
+    }
+
+    /* ── 마약수사 권한 요청 ── */
+    const drugPermReq = event.target.closest("[data-drug-step-request-perm]");
+    if(drugPermReq){
+      ctx.requestPermission?.(drugPermReq.dataset.drugStepRequestPerm);
+      ctx.renderSpecialInvestigation();
+      return;
+    }
+
     const drugStepAdd = event.target.closest("[data-drug-step-add]");
     if(drugStepAdd){
       const aCase = ctx.activeDrugCase(); if(!aCase) return;
