@@ -97,57 +97,65 @@ function analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft
         </button>
       </div>
 
-      <!-- 신규 업무분석 등록 폼 -->
-      ${showNewForm ? `<div style="padding:16px 18px;border-bottom:1px solid var(--line)">${newAnalysisPoolForm(newDraft)}</div>` : ""}
+      <!-- 2열 비율 레이아웃: 70% (왼쪽 영역) | 30% (서브탭 Pool) -->
+      <div style="display:grid;grid-template-columns:7fr 3fr;min-height:480px">
 
-      <!-- 3열 메인 레이아웃 -->
-      <div style="display:grid;grid-template-columns:140px 1fr 220px;min-height:480px">
+        <!-- ① 왼쪽 70%: 신규 폼 또는 (업무분석 목록 + 서브탭 편집) -->
+        <div style="border-right:1px solid var(--line);display:grid;
+                    grid-template-columns:${showNewForm ? "1fr" : "minmax(120px,15%) 1fr"}">
 
-        <!-- ① 왼쪽: 전문업무분석 목록 -->
-        <div style="border-right:1px solid var(--line);background:#f8fbff">
-          <div style="padding:8px 12px;font-size:11px;font-weight:700;color:#6b7f9e;
-                      letter-spacing:.04em;background:#f1f5f9;border-bottom:1px solid var(--line)">
-            전문업무분석
-          </div>
-          ${allPages.map(page => {
-            const sc = scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page] || {};
-            const isActive = page === activePage;
-            const isC = customPages.includes(page);
-            return `
-              <div style="position:relative;border-bottom:1px solid var(--line)">
-                <button type="button" data-sb-select-page="${escapeHtml(page)}"
-                  style="display:block;width:100%;text-align:left;
-                         padding:10px 28px 10px 14px;
-                         border:none;border-left:3px solid ${isActive?"#1e40af":"transparent"};
-                         cursor:pointer;background:${isActive?"#eef4ff":"transparent"};
-                         font-size:13px;font-weight:${isActive?"700":"400"};
-                         color:${isActive?"#1e40af":"#41506a"}">
-                  ${isC ? `<span style="font-size:10px;background:#7c3aed;color:#fff;
-                              border-radius:3px;padding:1px 4px;margin-right:4px">신규</span>` : ""}
-                  ${escapeHtml(sc.title || page)}
-                </button>
-                ${isC ? `
-                  <button type="button" data-sb-delete-page="${escapeHtml(page)}"
-                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);
-                           background:none;border:none;cursor:pointer;
-                           color:#dc2626;font-size:12px;padding:2px 4px"
-                    title="삭제">✕</button>` : ""}
-              </div>`;
-          }).join("")}
+          ${showNewForm ? `
+            <!-- 신규 업무분석 등록 폼 (70% 전체 사용) -->
+            <div style="padding:18px 20px">
+              ${newAnalysisPoolForm(newDraft)}
+            </div>
+          ` : `
+            <!-- 업무분석 목록 (15%) -->
+            <div style="border-right:1px solid var(--line);background:#f8fbff">
+              <div style="padding:8px 12px;font-size:11px;font-weight:700;color:#6b7f9e;
+                          letter-spacing:.04em;background:#f1f5f9;border-bottom:1px solid var(--line)">
+                전문업무분석
+              </div>
+              ${allPages.map(page => {
+                const sc = scenarios[page] || DEFAULT_ANALYSIS_SCENARIOS[page] || {};
+                const isActive = page === activePage;
+                const isC = customPages.includes(page);
+                return `
+                  <div style="position:relative;border-bottom:1px solid var(--line)">
+                    <button type="button" data-sb-select-page="${escapeHtml(page)}"
+                      style="display:block;width:100%;text-align:left;
+                             padding:10px 28px 10px 14px;
+                             border:none;border-left:3px solid ${isActive?"#1e40af":"transparent"};
+                             cursor:pointer;background:${isActive?"#eef4ff":"transparent"};
+                             font-size:13px;font-weight:${isActive?"700":"400"};
+                             color:${isActive?"#1e40af":"#41506a"}">
+                      ${isC ? `<span style="font-size:10px;background:#7c3aed;color:#fff;
+                                  border-radius:3px;padding:1px 4px;margin-right:4px">신규</span>` : ""}
+                      ${escapeHtml(sc.title || page)}
+                    </button>
+                    ${isC ? `
+                      <button type="button" data-sb-delete-page="${escapeHtml(page)}"
+                        style="position:absolute;right:6px;top:50%;transform:translateY(-50%);
+                               background:none;border:none;cursor:pointer;
+                               color:#dc2626;font-size:12px;padding:2px 4px"
+                        title="삭제">✕</button>` : ""}
+                  </div>`;
+              }).join("")}
+            </div>
+
+            <!-- 서브탭 편집 (나머지) -->
+            <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+              ${activePage && activeScenario
+                ? subtabPoolEditor(activePage, activeScenario, isCustom)
+                : `<div class="muted" style="padding:40px;text-align:center">
+                     왼쪽에서 업무분석을 선택하세요.
+                   </div>`
+              }
+            </div>
+          `}
         </div>
 
-        <!-- ② 중앙: 서브탭 편집 패널 -->
-        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;
-                    border-right:1px solid var(--line)">
-          ${activePage && activeScenario
-            ? subtabPoolEditor(activePage, activeScenario, isCustom)
-            : `<div class="muted" style="padding:40px;text-align:center">
-                 왼쪽에서 업무분석을 선택하세요.
-               </div>`
-          }
-        </div>
-
-        <!-- ③ 오른쪽: 활용 가능한 서브탭 선택 -->
+        <!-- ② 오른쪽 30%: 활용 가능한 서브탭 선택 (항상 고정) -->
         <div style="padding:14px 16px;background:#f8fffe">
           ${extraSubtabsPanel(activePage, activeScenario)}
         </div>
@@ -157,13 +165,11 @@ function analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft
   `;
 }
 
-/* ── 서브탭 Pool 편집 패널 ─────────────────────────────── */
+/* ── 서브탭 Pool 편집 패널 (미포함 섹션 없음 — Pool 패널에서 확인) ── */
 function subtabPoolEditor(page, scenario, isCustom){
   const allSubtabs = SUBTABS_BY_TEMPLATE[scenario.template] || [];
   const enabledIds = scenario.enabledSubtabs || [];
-  const enabledSet = new Set(enabledIds);
   const includedSubtabs = enabledIds.map(id => allSubtabs.find(t => t.id === id)).filter(Boolean);
-  const excludedSubtabs = allSubtabs.filter(t => !enabledSet.has(t.id));
 
   return `
     <!-- 기본 진입 탭 -->
@@ -219,33 +225,6 @@ function subtabPoolEditor(page, scenario, isCustom){
                 <button type="button" class="btn-inline-action job-remove-action"
                   style="font-size:11px;flex-shrink:0"
                   data-sb-subtab-toggle="${escapeHtml(page)}:${escapeHtml(tab.id)}">제외</button>
-              </div>
-            `).join("")}
-          </div>`
-      }
-    </div>
-
-    <!-- 미포함 서브탭 -->
-    <div>
-      <div style="font-size:12px;font-weight:700;color:#6b7f9e;margin-bottom:6px">
-        미포함 서브탭
-        <span style="font-weight:400">(${excludedSubtabs.length}개)</span>
-      </div>
-      ${excludedSubtabs.length === 0
-        ? `<div class="muted" style="font-size:12px;padding:10px;background:#f8fbff;
-                border-radius:7px;border:1px dashed var(--line);text-align:center">
-             모든 서브탭이 포함되어 있습니다.
-           </div>`
-        : `<div style="display:flex;flex-direction:column;gap:4px">
-            ${excludedSubtabs.map(tab => `
-              <div style="display:flex;align-items:center;gap:6px;
-                          padding:7px 10px;background:#fff;
-                          border:1px solid var(--line);border-radius:7px">
-                <span style="flex:1;font-size:13px;color:#41506a">${escapeHtml(tabLabel(tab, scenario))}</span>
-                <span style="font-size:10px;color:#94a3b8;font-family:monospace">${escapeHtml(tab.id)}</span>
-                <button type="button" class="btn-inline-action"
-                  style="font-size:11px"
-                  data-sb-subtab-toggle="${escapeHtml(page)}:${escapeHtml(tab.id)}">+ 추가</button>
               </div>
             `).join("")}
           </div>`
@@ -381,23 +360,30 @@ function newAnalysisPoolForm(draft){
           ${includedSubtabs.length === 0
             ? `<div style="font-size:12px;color:#94a3b8;padding:10px 0;text-align:center">오른쪽에서 서브탭을 추가하세요.</div>`
             : `<div style="display:flex;flex-direction:column;gap:4px">
-                ${includedSubtabs.map((tab, i) => `
+                ${includedSubtabs.map((tab, i) => {
+                  const isMandatory = tab.id === "ongoing";
+                  return `
                   <div style="display:flex;align-items:center;gap:6px;padding:7px 10px;
-                               background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px">
-                    <span style="width:16px;font-size:11px;font-weight:700;color:#7c3aed;text-align:center">${i+1}</span>
+                               background:${isMandatory?"#eff6ff":"#f5f3ff"};
+                               border:1px solid ${isMandatory?"#93c5fd":"#ddd6fe"};border-radius:6px">
+                    <span style="width:16px;font-size:11px;font-weight:700;
+                                 color:${isMandatory?"#1d4ed8":"#7c3aed"};text-align:center">${i+1}</span>
                     <span style="flex:1;font-size:13px;color:#1e293b">${escapeHtml(tabLabel(tab, fakeSc))}</span>
-                    <div style="display:flex;gap:2px;flex-shrink:0">
-                      <button type="button" class="gi-move-btn"
-                        data-sb-new-subtab-move="${escapeHtml(tab.id)}:up"
-                        ${i===0?"disabled":""}>↑</button>
-                      <button type="button" class="gi-move-btn"
-                        data-sb-new-subtab-move="${escapeHtml(tab.id)}:down"
-                        ${i===includedSubtabs.length-1?"disabled":""}>↓</button>
-                    </div>
-                    <button type="button" class="btn-inline-action job-remove-action"
-                      data-sb-new-subtab-toggle="${escapeHtml(tab.id)}">제외</button>
-                  </div>
-                `).join("")}
+                    ${isMandatory
+                      ? `<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;
+                                      border-radius:4px;padding:2px 7px;flex-shrink:0">필수</span>`
+                      : `<div style="display:flex;gap:2px;flex-shrink:0">
+                           <button type="button" class="gi-move-btn"
+                             data-sb-new-subtab-move="${escapeHtml(tab.id)}:up"
+                             ${i===0?"disabled":""}>↑</button>
+                           <button type="button" class="gi-move-btn"
+                             data-sb-new-subtab-move="${escapeHtml(tab.id)}:down"
+                             ${i===includedSubtabs.length-1?"disabled":""}>↓</button>
+                         </div>
+                         <button type="button" class="btn-inline-action job-remove-action"
+                           data-sb-new-subtab-toggle="${escapeHtml(tab.id)}">제외</button>`
+                    }
+                  </div>`; }).join("")}
               </div>`
           }
         </div>

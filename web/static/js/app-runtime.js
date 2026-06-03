@@ -6105,7 +6105,8 @@ document.addEventListener("click", (event)=>{
     if(!isCurrentUserSuperAdmin()) return;
     sbShowNewForm = !sbShowNewForm;
     if(sbShowNewForm){
-      sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:[], defaultTab:"" };
+      // 기본값: 템플릿 없음, '진행중인 수사'(ongoing) 1개만 필수 포함
+      sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:["ongoing"], defaultTab:"ongoing" };
     }
     render("scenarioBuilder"); return;
   }
@@ -6119,6 +6120,7 @@ document.addEventListener("click", (event)=>{
   if(sbNewToggle){
     if(!isCurrentUserSuperAdmin()) return;
     const tabId = sbNewToggle.dataset.sbNewSubtabToggle;
+    if(tabId === "ongoing") return; // 필수 서브탭 — 제외 불가
     const idx = sbNewDraft.enabledSubtabs.indexOf(tabId);
     if(idx === -1) sbNewDraft.enabledSubtabs.push(tabId);
     else           sbNewDraft.enabledSubtabs.splice(idx, 1);
@@ -6181,7 +6183,7 @@ document.addEventListener("click", (event)=>{
     };
     saveScenarioBuilderState(next);
     sbShowNewForm = false;
-    sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:[], defaultTab:"" };
+    sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:["ongoing"], defaultTab:"ongoing" };
     scenarioBuilderSelectedPage = newScenario.page;
     alert(`"${newScenario.title}" 업무분석이 추가되었습니다.`);
     render("scenarioBuilder"); return;
