@@ -6088,7 +6088,7 @@ registerCustomsEvents({
   renderScenarioSteps,
   saveCompanyScenario,
   syncScenarioEditor,
-  requestPermission: (key) => requestPermission(key),
+  requestPermission: (key) => requestPermissions([key]),
 });
 
 registerGeneralInvestigationEvents({
@@ -6133,7 +6133,7 @@ registerGeneralInvestigationEvents({
   giScenarioTemplates,
   giSourceByKey,
   giCommonSourceKey,
-  requestPermission: (key) => requestPermission(key),
+  requestPermission: (key) => requestPermissions([key]),
 });
 
 registerSpecialInvestigationEvents({
@@ -6182,7 +6182,7 @@ registerSpecialInvestigationEvents({
   uid,
   DRUG_SCENARIO_STEPS,
   giCommonSourceKey,
-  requestPermission: (key) => requestPermission(key),
+  requestPermission: (key) => requestPermissions([key]),
 });
 
 document.addEventListener("click", (event)=>{
