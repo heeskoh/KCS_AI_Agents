@@ -203,6 +203,8 @@ function scenarioBuilderPage(){
     isSuperAdmin: isCurrentUserSuperAdmin,
     activeView: scenarioBuilderViewTab,
     selectedPage: scenarioBuilderSelectedPage,
+    showNewForm: sbShowNewForm,
+    newDraft: sbNewDraft,
   });
 }
 
@@ -1545,6 +1547,12 @@ let currentUserId = "u01";
 let scenarioBuilderConfig = loadScenarioBuilderConfig();
 let scenarioBuilderViewTab = "subtabs";
 let scenarioBuilderSelectedPage = ""; // Pool UI에서 현재 선택된 업무분석 페이지
+let sbShowNewForm = false;            // 신규 업무분석 폼 열림 여부
+let sbNewDraft = {                    // 신규 업무분석 초안
+  page: "", title: "", description: "",
+  template: "special-investigation",
+  enabledSubtabs: [], defaultTab: "",
+};
 let latestReport = "보고서가 아직 생성되지 않았습니다.";
 let latestValidation = "검증 결과가 아직 없습니다.";
 const canvasStateKey = "kcs_ai_canvas_state_v1";
@@ -5918,6 +5926,20 @@ document.addEventListener("change", (event) => {
     event.target.value = "";  // 같은 파일 재선택 가능하게
   }
 
+  /* ── 신규: 템플릿 select 변경 → 서브탭 초기화 ── */
+  if(event.target.dataset?.sbNewTemplate && isCurrentUserSuperAdmin()){
+    sbNewDraft.template = event.target.value;
+    sbNewDraft.enabledSubtabs = [];
+    sbNewDraft.defaultTab = "";
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 신규: 기본 진입 탭 변경 ── */
+  if(event.target.dataset?.sbNewDefaultTab && isCurrentUserSuperAdmin()){
+    sbNewDraft.defaultTab = event.target.value;
+    return; // 재렌더 불필요
+  }
+
   /* ── Pool UI: 기본 진입 탭 select 변경 즉시 반영 ── */
   const sbDefaultTab = event.target.dataset?.sbDefaultTab;
   if(sbDefaultTab && isCurrentUserSuperAdmin()){
@@ -6076,6 +6098,118 @@ document.addEventListener("click", (event)=>{
     scenarioBuilderViewTab = scenarioBuilderViewButton.dataset.scenarioBuilderView === "services" ? "services" : "subtabs";
     render("scenarioBuilder");
     return;
+  }
+
+  /* ── 신규 업무분석 폼 열기/닫기 ── */
+  if(event.target.closest("[data-sb-new-toggle]")){
+    if(!isCurrentUserSuperAdmin()) return;
+    sbShowNewForm = !sbShowNewForm;
+    if(sbShowNewForm){
+      sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:[], defaultTab:"" };
+    }
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 신규: 템플릿 변경 시 서브탭 초기화 ── */
+  const sbNewTemplate = event.target.closest("[data-sb-new-template]");
+  if(sbNewTemplate){ /* handled by change event */ }
+
+  /* ── 신규: 서브탭 포함/제외 ── */
+  const sbNewToggle = event.target.closest("[data-sb-new-subtab-toggle]");
+  if(sbNewToggle){
+    if(!isCurrentUserSuperAdmin()) return;
+    const tabId = sbNewToggle.dataset.sbNewSubtabToggle;
+    const idx = sbNewDraft.enabledSubtabs.indexOf(tabId);
+    if(idx === -1) sbNewDraft.enabledSubtabs.push(tabId);
+    else           sbNewDraft.enabledSubtabs.splice(idx, 1);
+    // defaultTab 보정
+    if(!sbNewDraft.enabledSubtabs.includes(sbNewDraft.defaultTab)){
+      sbNewDraft.defaultTab = sbNewDraft.enabledSubtabs[0] || "";
+    }
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 신규: 서브탭 순서 이동 ── */
+  const sbNewMove = event.target.closest("[data-sb-new-subtab-move]");
+  if(sbNewMove){
+    if(!isCurrentUserSuperAdmin()) return;
+    const [tabId, dir] = sbNewMove.dataset.sbNewSubtabMove.split(":");
+    const arr = sbNewDraft.enabledSubtabs;
+    const idx = arr.indexOf(tabId);
+    if(idx === -1) return;
+    if(dir === "up"   && idx > 0)          { [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; }
+    if(dir === "down" && idx < arr.length-1){ [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; }
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 신규: 저장 ── */
+  if(event.target.closest("[data-sb-new-save]")){
+    if(!isCurrentUserSuperAdmin()) return;
+    // 폼 필드 값 수집 (DOM에서 읽음)
+    const pageVal = document.querySelector("[data-sb-new-key]")?.value.trim() || "";
+    const titleVal = document.querySelector("[data-sb-new-title]")?.value.trim() || "";
+    const descVal  = document.querySelector("[data-sb-new-desc]")?.value.trim() || "";
+    if(!pageVal || !/^[a-z][a-z0-9_-]*$/i.test(pageVal)){
+      alert("업무분석 key는 영문자로 시작하고 영문/숫자/_/-만 사용할 수 있습니다."); return;
+    }
+    if(pageNames[pageVal] || scenarioBuilderConfig.analysisScenarios?.[pageVal]){
+      alert("이미 사용 중인 업무분석 key입니다."); return;
+    }
+    if(!titleVal){ alert("업무분석 제목을 입력하세요."); return; }
+    if(!sbNewDraft.enabledSubtabs.length){ alert("사용할 서브탭을 하나 이상 선택하세요."); return; }
+
+    const newScenario = {
+      page: pageVal,
+      title: titleVal,
+      description: descVal,
+      template: sbNewDraft.template,
+      className: customAnalysisButtonClass(sbNewDraft.template),
+      defaultTab: sbNewDraft.enabledSubtabs.includes(sbNewDraft.defaultTab)
+        ? sbNewDraft.defaultTab : sbNewDraft.enabledSubtabs[0],
+      enabledSubtabs: [...sbNewDraft.enabledSubtabs],
+    };
+
+    const existing = (scenarioBuilderConfig.customAnalysisScenarios || [])
+      .filter(sc => sc.page !== newScenario.page);
+    const next = {
+      ...scenarioBuilderConfig,
+      customAnalysisScenarios: [...existing, newScenario],
+      analysisScenarios: {
+        ...scenarioBuilderConfig.analysisScenarios,
+        [newScenario.page]: newScenario,
+      },
+    };
+    saveScenarioBuilderState(next);
+    sbShowNewForm = false;
+    sbNewDraft = { page:"", title:"", description:"", template:"special-investigation", enabledSubtabs:[], defaultTab:"" };
+    scenarioBuilderSelectedPage = newScenario.page;
+    alert(`"${newScenario.title}" 업무분석이 추가되었습니다.`);
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 신규: 취소 ── */
+  if(event.target.closest("[data-sb-new-cancel]")){
+    if(!isCurrentUserSuperAdmin()) return;
+    sbShowNewForm = false;
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── 기존 커스텀 업무분석 삭제 ── */
+  const sbDeletePage = event.target.closest("[data-sb-delete-page]");
+  if(sbDeletePage){
+    if(!isCurrentUserSuperAdmin()) return;
+    const page = sbDeletePage.dataset.sbDeletePage;
+    if(!confirm(`"${page}" 업무분석을 삭제하시겠습니까?`)) return;
+    const next = {
+      ...scenarioBuilderConfig,
+      customAnalysisScenarios: (scenarioBuilderConfig.customAnalysisScenarios||[]).filter(sc => sc.page !== page),
+      analysisScenarios: Object.fromEntries(
+        Object.entries(scenarioBuilderConfig.analysisScenarios||{}).filter(([k]) => k !== page)
+      ),
+    };
+    if(scenarioBuilderSelectedPage === page) scenarioBuilderSelectedPage = "";
+    saveScenarioBuilderState(next);
+    render("scenarioBuilder"); return;
   }
 
   /* ── Pool UI: 업무분석 선택 ── */
