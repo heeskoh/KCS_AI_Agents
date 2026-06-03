@@ -1,4 +1,4 @@
-import { escapeHtml } from "../../core/dom.js";
+﻿import { escapeHtml } from "../../core/dom.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
 import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 import {
@@ -9,8 +9,7 @@ import {
 export function createSpecialInvestigation(deps){
   function isSpecialInvestigationPage(page = deps.getCurrentPage()){
     const scenario = deps.getAnalysisScenarioConfig?.(page);
-    // fxsearch는 general-investigation 기반으로 이전됨 — 제외
-    return page === "lawsearch" || scenario?.template === "special-investigation";
+    return page === "lawsearch" || page === "fxsearch" || scenario?.template === "special-investigation";
   }
 
   function activeSpecialInvestigationPage(){

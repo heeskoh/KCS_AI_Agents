@@ -1,4 +1,4 @@
-import { escapeHtml } from "../../core/dom.js";
+﻿import { escapeHtml } from "../../core/dom.js";
 import { specialInvestigationState } from "./state.js";
 
 export function renderOngoingPanel(deps){
@@ -95,45 +95,6 @@ function drugCaseCard(deps, c){
   `;
 }
 
-/* 페이지에 따라 수사 유형 select 생성
- * - fxsearch: GEN_INV_TYPES (t4 외환·자금세탁 기본 선택)
- * - 그 외:    DRUG_INV_TYPES
- */
-function invTypeSelectHtml(deps){
-  const isFx = deps.getCurrentPage?.() === "fxsearch";
-  const label = "수사 유형 선택";
-
-  if(isFx){
-    const types = deps.GEN_INV_TYPES || [];
-    return `
-      <div style="flex:2;min-width:0">
-        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">
-          ${label} <span style="color:var(--red)">*</span>
-        </label>
-        <select id="drugRegType" class="gi-reg-select" style="width:100%;height:36px">
-          ${types.map(t =>
-            `<option value="${escapeHtml(t.id)}"${t.id === "t4" ? " selected" : ""}>
-              ${t.num} ${escapeHtml(t.label)}
-            </option>`
-          ).join("")}
-        </select>
-      </div>`;
-  }
-
-  // 기본: 마약수사 유형
-  return `
-    <div style="flex:2;min-width:0">
-      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">
-        ${label} <span style="color:var(--red)">*</span>
-      </label>
-      <select id="drugRegType" class="gi-reg-select" style="width:100%;height:36px">
-        ${deps.DRUG_INV_TYPES.map(t =>
-          `<option value="${escapeHtml(t.id)}">${t.num} ${escapeHtml(t.label)}</option>`
-        ).join("")}
-      </select>
-    </div>`;
-}
-
 function drugNewCaseForm(deps){
   const isCo = specialInvestigationState.drugRegTargetType === "company";
   if(!isCo && !deps.getRiskPersons().length && !deps.isRiskPersonsLoading()) deps.loadRiskPersons();
@@ -176,8 +137,12 @@ function drugNewCaseForm(deps){
         </div>
 
         <!-- ③ 수사 유형 선택 -->
-        ${invTypeSelectHtml(deps)}
-
+        <div style="flex:2;min-width:0">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사 유형 선택 <span style="color:var(--red)">*</span></label>
+          <select id="drugRegType" class="gi-reg-select" style="width:100%;height:36px">
+            ${deps.DRUG_INV_TYPES.map(t=>`<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`).join("")}
+          </select>
+        </div>
 
         <!-- ④ 등록/취소 -->
         <button class="btn" type="button" data-drug-reg-submit style="height:36px;padding:0 20px;white-space:nowrap;flex:none">등록</button>

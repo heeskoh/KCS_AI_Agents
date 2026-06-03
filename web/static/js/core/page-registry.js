@@ -1,4 +1,4 @@
-import { dataTable } from "./dom.js";
+﻿import { dataTable } from "./dom.js";
 import { homePage } from "../pages/home.js";
 
 export const pageNames = {
@@ -63,8 +63,7 @@ export function createPageRegistry({
     `),
 
     lawsearch: () => drugInvestigationPage(),
-    // fxsearch: general-investigation 기반 — 일반수사 렌더러 사용 (t4 외환 시나리오 연동)
-    fxsearch: () => generalInvPage("fxsearch"),
+    fxsearch: () => drugInvestigationPage("fxsearch"),
 
     document: () => simplePage("문서검증센터", "비정형 문서를 OCR/LLM으로 인식하고 DB 값과 비교합니다.", `${dataTable(["추출항목","문서값","DB값","판정"], [["품명","Power Module","Power Module","일치"],["단가","USD 120","USD 98","불일치"],["Incoterms","CIF","FOB","불일치"],["로열티","존재","미신고","확인필요"]])}`),
     dw: () => riskScreeningPage(),

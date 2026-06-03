@@ -1,4 +1,4 @@
-import { AGENT_SERVICE_DEFINITIONS } from "./agent-metadata.js";
+﻿import { AGENT_SERVICE_DEFINITIONS } from "./agent-metadata.js";
 
 export const SCENARIO_BUILDER_STORAGE_KEY = "kcs_ai_scenario_builder_config_v1";
 export const SCENARIO_BUILDER_CONFIG_VERSION = 1;
@@ -39,10 +39,9 @@ export const DEFAULT_ANALYSIS_SCENARIOS = {
   fxsearch: {
     page: "fxsearch",
     title: "외환 수사 분석",
-    // general-investigation 기반 — 일반수사의 t4(외환·자금세탁) 시나리오 연동
-    template: "general-investigation",
-    defaultTab: "cases",
-    enabledSubtabs: ["cases", "profile", "data", "workbench", "report"],
+    template: "special-investigation",
+    defaultTab: "dashboard",
+    enabledSubtabs: ["ongoing", "profile", "data", "scenario", "network", "forensic", "report", "slang", "dashboard"],
   },
 };
 

@@ -1,4 +1,4 @@
-import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
+﻿import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
 import { registerCustomsEvents } from "./analysis/customs/events.js";
@@ -1009,22 +1009,6 @@ const specialInvestigation = createSpecialInvestigation({
   riskPersonById,
   giStepSourceOptionsHtml,
   DRUG_INV_TYPES,
-  GEN_INV_TYPES,
-  behaviorOptionsHtml,
-  giCommonSourceKey,
-  scenarioSourceByKey,
-  sourceDefaultInstruction,
-  permissionStatus,
-  permissionLabel,
-  getDrugRunEventSource: () => drugRunEventSource,
-  // 마약수사유형별 템플릿 옵션 HTML
-  drugScenarioTemplateOptionsHtml: (currentInvTypeId) => {
-    return DRUG_INV_TYPES.map(t =>
-      `<option value="${escapeHtml(t.id)}"${t.id === currentInvTypeId ? " selected" : ""}>
-        ${escapeHtml(t.num + " " + t.label)}
-      </option>`
-    ).join("");
-  },
 });
 
 const customsInvestigation = createCustomsInvestigation({
@@ -1046,21 +1030,6 @@ const customsInvestigation = createCustomsInvestigation({
   scenarioTemplatePanel,
   scenarioWorkbenchV2,
   getScenarioCompanies: () => scenarioCompanies,
-  // 공통 워크벤치용 추가 deps
-  activeCanvasCompany,
-  isCompanyArchived,
-  getScenarioItems:       () => scenarioItems,
-  getStepStatuses:        () => stepStatuses,
-  getStepOutputs:         () => stepOutputs,
-  getOpenedSteps:         () => openedSteps,
-  getSelectedScenarioId:  () => selectedScenarioId,
-  getScenarioEventSource: () => scenarioEventSource,
-  scenarioSourceOptionsHtml,
-  behaviorOptionsHtml,
-  scenarioSourceByKey,
-  sourceDefaultInstruction,
-  permissionStatus,
-  permissionLabel,
 });
 
 function isSpecialInvestigationPage(page = currentPage){
@@ -1104,8 +1073,7 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
-let giRunEventSource   = null; // 일반수사 분석 실행 SSE 연결
-let drugRunEventSource = null; // 마약수사 분석 실행 SSE 연결 (별도 분리)
+let giRunEventSource = null; // 일반수사 분석 실행 SSE 연결
 
 const generalInvestigation = createGeneralInvestigation({
   getGeneralInvTab: () => generalInvestigationState.generalInvTab,
@@ -1136,16 +1104,6 @@ const generalInvestigation = createGeneralInvestigation({
   giStepSourceOptionsHtml,
   scenarioSourceByKey,
   sourceDefaultInstruction,
-  permissionStatus,
-  permissionLabel,
-  // 수사유형별 템플릿 옵션 HTML — invTypeId를 현재 유형으로 첫 항목 표시
-  giScenarioTemplateOptionsHtml: (currentInvTypeId) => {
-    return giScenarioTemplates.map(tpl =>
-      `<option value="${escapeHtml(tpl.id)}"${tpl.id === currentInvTypeId ? " selected" : ""}>
-        ${escapeHtml(tpl.name)}
-      </option>`
-    ).join("");
-  },
 });
 
 const GI_SERVICE_ALIASES = {
@@ -1368,8 +1326,7 @@ function giStreamSteps(aCase, stepsToRun){
 
 function drugStreamSteps(aCase, stepsToRun){
   if(!aCase || !stepsToRun.length) return;
-  // 마약수사는 별도 EventSource 사용 (일반수사와 충돌 방지)
-  if(drugRunEventSource){ try{ drugRunEventSource.close(); }catch(e){} drugRunEventSource = null; }
+  if(giRunEventSource){ try{ giRunEventSource.close(); }catch(e){} giRunEventSource = null; }
 
   if(!aCase.stepStates)  aCase.stepStates  = {};
   if(!aCase.stepResults) aCase.stepResults = {};
@@ -1397,9 +1354,9 @@ function drugStreamSteps(aCase, stepsToRun){
     target_id: targetType === "person" ? (aCase.personId || "") : (aCase.companyId || ""),
     steps: JSON.stringify(stepsPayload),
   });
-  drugRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
+  giRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
 
-  drugRunEventSource.addEventListener("step", e => {
+  giRunEventSource.addEventListener("step", e => {
     const data = JSON.parse(e.data);
     const step = stepsToRun.find(s => s.id === data.gi_step_id);
     if(!step) return;
@@ -1426,17 +1383,17 @@ function drugStreamSteps(aCase, stepsToRun){
     renderSpecialInvestigation();
   });
 
-  drugRunEventSource.addEventListener("workflow", e => {
+  giRunEventSource.addEventListener("workflow", e => {
     const data = JSON.parse(e.data);
     if(data.status === "completed" || data.status === "failed"){
-      if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
+      if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
       saveCanvasState();
       renderSpecialInvestigation();
     }
   });
 
-  drugRunEventSource.onerror = () => {
-    if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
+  giRunEventSource.onerror = () => {
+    if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
     stepsToRun.forEach(s => {
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });
@@ -6078,17 +6035,6 @@ registerCustomsEvents({
   saveCanvasState,
   scenarioTemplateById,
   uid,
-  // 공통 워크벤치 ns="canvas" 이벤트용 함수들
-  addScenarioItem,
-  deleteSelectedScenario,
-  applySelectedScenarioTemplate,
-  runScenarioWorkflow,
-  clearScenarioResults,
-  renderScenarioList,
-  renderScenarioSteps,
-  saveCompanyScenario,
-  syncScenarioEditor,
-  requestPermission: (key) => requestPermissions([key]),
 });
 
 registerGeneralInvestigationEvents({
@@ -6130,10 +6076,6 @@ registerGeneralInvestigationEvents({
   sourceDefaultBehaviors,
   sourceDefaultInstruction,
   uid,
-  giScenarioTemplates,
-  giSourceByKey,
-  giCommonSourceKey,
-  requestPermission: (key) => requestPermissions([key]),
 });
 
 registerSpecialInvestigationEvents({
@@ -6180,9 +6122,6 @@ registerSpecialInvestigationEvents({
   sourceDefaultBehaviors,
   sourceDefaultInstruction,
   uid,
-  DRUG_SCENARIO_STEPS,
-  giCommonSourceKey,
-  requestPermission: (key) => requestPermissions([key]),
 });
 
 document.addEventListener("click", (event)=>{
