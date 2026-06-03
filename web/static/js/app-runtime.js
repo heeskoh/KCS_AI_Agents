@@ -1015,6 +1015,7 @@ const specialInvestigation = createSpecialInvestigation({
   sourceDefaultInstruction,
   permissionStatus,
   permissionLabel,
+  getDrugRunEventSource: () => drugRunEventSource,
   // 마약수사유형별 템플릿 옵션 HTML
   drugScenarioTemplateOptionsHtml: (currentInvTypeId) => {
     return DRUG_INV_TYPES.map(t =>
@@ -1087,7 +1088,8 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
-let giRunEventSource = null; // 일반수사 분석 실행 SSE 연결
+let giRunEventSource   = null; // 일반수사 분석 실행 SSE 연결
+let drugRunEventSource = null; // 마약수사 분석 실행 SSE 연결 (별도 분리)
 
 const generalInvestigation = createGeneralInvestigation({
   getGeneralInvTab: () => generalInvestigationState.generalInvTab,
@@ -1350,7 +1352,8 @@ function giStreamSteps(aCase, stepsToRun){
 
 function drugStreamSteps(aCase, stepsToRun){
   if(!aCase || !stepsToRun.length) return;
-  if(giRunEventSource){ try{ giRunEventSource.close(); }catch(e){} giRunEventSource = null; }
+  // 마약수사는 별도 EventSource 사용 (일반수사와 충돌 방지)
+  if(drugRunEventSource){ try{ drugRunEventSource.close(); }catch(e){} drugRunEventSource = null; }
 
   if(!aCase.stepStates)  aCase.stepStates  = {};
   if(!aCase.stepResults) aCase.stepResults = {};
@@ -1378,9 +1381,9 @@ function drugStreamSteps(aCase, stepsToRun){
     target_id: targetType === "person" ? (aCase.personId || "") : (aCase.companyId || ""),
     steps: JSON.stringify(stepsPayload),
   });
-  giRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
+  drugRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
 
-  giRunEventSource.addEventListener("step", e => {
+  drugRunEventSource.addEventListener("step", e => {
     const data = JSON.parse(e.data);
     const step = stepsToRun.find(s => s.id === data.gi_step_id);
     if(!step) return;
@@ -1407,17 +1410,17 @@ function drugStreamSteps(aCase, stepsToRun){
     renderSpecialInvestigation();
   });
 
-  giRunEventSource.addEventListener("workflow", e => {
+  drugRunEventSource.addEventListener("workflow", e => {
     const data = JSON.parse(e.data);
     if(data.status === "completed" || data.status === "failed"){
-      if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+      if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
       saveCanvasState();
       renderSpecialInvestigation();
     }
   });
 
-  giRunEventSource.onerror = () => {
-    if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+  drugRunEventSource.onerror = () => {
+    if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
     stepsToRun.forEach(s => {
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });

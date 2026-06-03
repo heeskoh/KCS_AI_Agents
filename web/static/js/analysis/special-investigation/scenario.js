@@ -29,7 +29,7 @@ export function renderScenarioPanel(deps) {
     activeStepId: specialInvestigationState.activeDrugStepId,
     stepResults:  aCase.stepResults  || {},
     stepExpanded: aCase.stepExpanded || {},
-    isRunning:    false,   // Phase 2에서 SSE 연결 예정
+    isRunning:    !!deps.getDrugRunEventSource?.(),
     templateOptionsHtml,
     sourceOptionsHtml:  deps.giStepSourceOptionsHtml ? deps.giStepSourceOptionsHtml() : "",
     getBehaviorHtml:    deps.behaviorOptionsHtml
