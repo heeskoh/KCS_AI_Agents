@@ -6205,26 +6205,7 @@ document.addEventListener("click", (event)=>{
     render("scenarioBuilder"); return;
   }
 
-  /* ── 오른쪽 패널: 추가 서브탭 → 포함 목록에 추가 ── */
-  const sbExtraAdd = event.target.closest("[data-sb-extra-add]");
-  if(sbExtraAdd){
-    if(!isCurrentUserSuperAdmin()) return;
-    const [page, tabId, tabLabel] = sbExtraAdd.dataset.sbExtraAdd.split(":");
-    const scenario = scenarioBuilderConfig.analysisScenarios?.[page];
-    if(!scenario) return;
-    const enabled = [...(scenario.enabledSubtabs || [])];
-    if(!enabled.includes(tabId)){
-      enabled.push(tabId);
-      scenarioBuilderConfig = {
-        ...scenarioBuilderConfig,
-        analysisScenarios: {
-          ...scenarioBuilderConfig.analysisScenarios,
-          [page]: { ...scenario, enabledSubtabs: enabled },
-        },
-      };
-    }
-    render("scenarioBuilder"); return;
-  }
+  // data-sb-extra-add 제거됨 — 오른쪽 Pool은 data-sb-subtab-toggle / data-sb-new-subtab-toggle 사용
 
   /* ── Pool UI: 업무분석 선택 ── */
   const sbSelectPage = event.target.closest("[data-sb-select-page]");

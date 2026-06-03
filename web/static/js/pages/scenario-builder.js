@@ -157,7 +157,7 @@ function analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft
 
         <!-- ② 오른쪽 30%: 활용 가능한 서브탭 선택 (항상 고정) -->
         <div style="padding:14px 16px;background:#f8fffe">
-          ${extraSubtabsPanel(activePage, activeScenario)}
+          ${extraSubtabsPanel(activePage, activeScenario, showNewForm, newDraft)}
         </div>
 
       </div>
@@ -241,54 +241,74 @@ function subtabPoolEditor(page, scenario, isCustom){
 }
 
 /* ── 오른쪽: 활용 가능한 서브탭 선택 패널 ────────────────── */
-/* 현재 템플릿 Pool에 없는 '추가 기능 서브탭' 목록을 표시     */
-const EXTRA_SUBTABS_BY_TEMPLATE = {
-  "customs": [
-    { id:"relationship", label:"우범자/기업 관계망 분석" },
-    { id:"fund_track",   label:"자금추적(계좌, 가상계좌) 분석" },
-    { id:"comms",        label:"통신내역 관계 분석" },
-  ],
-  "general-investigation": [
-    { id:"relationship", label:"우범자/기업 관계망 분석" },
-    { id:"fund_track",   label:"자금추적(계좌, 가상계좌) 분석" },
-    { id:"comms",        label:"통신내역 관계 분석" },
-  ],
-  "special-investigation": [
-    { id:"relationship", label:"우범자/기업 관계망 분석" },
-    { id:"fund_track",   label:"자금추적(계좌, 가상계좌) 분석" },
-    { id:"comms",        label:"통신내역 관계 분석" },
-  ],
-};
+/* ── 오른쪽 30%: 활용 가능한 서브탭 선택 Panel ──────────────
+   - 하드코딩 제거 — SUBTABS_BY_TEMPLATE 에서 실제 구현된 서브탭 읽음
+   - 신규 폼 모드: sbNewDraft.enabledSubtabs 에 없는 것 표시
+                   클릭 → data-sb-new-subtab-toggle
+   - 편집 모드: scenario.enabledSubtabs 에 없는 것 표시
+                클릭 → data-sb-subtab-toggle
+   ─────────────────────────────────────────────────────────── */
+function extraSubtabsPanel(page, scenario, showNewForm, newDraft){
+  let excludedSubtabs = [];
+  let dataAttr = "";          // 클릭 이벤트 속성 키
+  let fakeSc   = {};
 
-function extraSubtabsPanel(page, scenario){
-  if(!scenario) return "";
-  const extras = EXTRA_SUBTABS_BY_TEMPLATE[scenario.template] || [];
+  if(showNewForm && newDraft){
+    // 신규 폼 모드: fixed template pool 에서 미포함 서브탭
+    const FIXED_TEMPLATE = "special-investigation";
+    const allSubtabs = SUBTABS_BY_TEMPLATE[FIXED_TEMPLATE] || [];
+    const enabledSet = new Set(newDraft.enabledSubtabs || []);
+    excludedSubtabs  = allSubtabs.filter(t => !enabledSet.has(t.id));
+    fakeSc = { page: newDraft.page || "", template: FIXED_TEMPLATE };
+    dataAttr = "data-sb-new-subtab-toggle";
+  } else if(scenario){
+    // 편집 모드: 선택된 업무분석 template pool 에서 미포함 서브탭
+    const allSubtabs = SUBTABS_BY_TEMPLATE[scenario.template] || [];
+    const enabledSet = new Set(scenario.enabledSubtabs || []);
+    excludedSubtabs  = allSubtabs.filter(t => !enabledSet.has(t.id));
+    fakeSc = scenario;
+    dataAttr = `data-sb-subtab-toggle-prefix`; // page:tabId 형식 — 아래에서 조합
+  } else {
+    return `<div class="muted" style="font-size:12px;padding:20px 0;text-align:center">
+              업무분석을 선택하면 서브탭 목록이 표시됩니다.
+            </div>`;
+  }
 
   return `
     <div style="font-size:12px;font-weight:700;color:#0f766e;margin-bottom:6px">
       활용 가능한 서브탭 선택
     </div>
-    <p class="muted" style="font-size:11px;margin:0 0 12px;line-height:1.5">
-      활용 가능한 <span style="color:#0f766e;font-weight:600">서브탭</span>을 선택하여
-      전문 업무 분석 기능을 정의합니다.
+    <p class="muted" style="font-size:11px;margin:0 0 10px;line-height:1.5">
+      서브탭을 선택하여 전문 업무 분석 기능을 구성합니다.
     </p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${extras.map(extra => `
-        <div style="display:flex;align-items:center;justify-content:space-between;
-                    gap:8px;padding:11px 14px;background:#f0fdf4;
-                    border:1px solid #86efac;border-radius:8px">
-          <span style="font-size:13px;font-weight:600;color:#14532d">
-            ${escapeHtml(extra.label)}
-          </span>
-          <button type="button"
-            style="padding:4px 12px;background:#16a34a;color:#fff;border:none;
-                   border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
-                   white-space:nowrap;flex-shrink:0"
-            data-sb-extra-add="${escapeHtml(page)}:${escapeHtml(extra.id)}:${escapeHtml(extra.label)}">
-            추가
-          </button>
-        </div>
-      `).join("")}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${excludedSubtabs.length === 0
+        ? `<div style="font-size:12px;color:#94a3b8;padding:10px 0;text-align:center">
+             모든 서브탭이 포함되었습니다.
+           </div>`
+        : excludedSubtabs.map(tab => {
+            const label = escapeHtml(tabLabel(tab, fakeSc));
+            // 신규 폼: data-sb-new-subtab-toggle="tabId"
+            // 편집:   data-sb-subtab-toggle="page:tabId"
+            const btnAttr = showNewForm
+              ? `data-sb-new-subtab-toggle="${escapeHtml(tab.id)}"`
+              : `data-sb-subtab-toggle="${escapeHtml(page)}:${escapeHtml(tab.id)}"`;
+            return `
+              <div style="display:flex;align-items:center;justify-content:space-between;
+                          gap:8px;padding:9px 12px;background:#f0fdf4;
+                          border:1px solid #86efac;border-radius:8px">
+                <span style="font-size:12px;font-weight:600;color:#14532d;
+                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                  ${label}
+                </span>
+                <button type="button"
+                  style="padding:3px 10px;background:#16a34a;color:#fff;border:none;
+                         border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;
+                         white-space:nowrap;flex-shrink:0"
+                  ${btnAttr}>추가</button>
+              </div>`;
+          }).join("")
+      }
     </div>
   `;
 }
@@ -306,7 +326,7 @@ function newAnalysisPoolForm(draft){
   const enabledSet  = new Set(draft.enabledSubtabs || []);
   const enabledIds  = (draft.enabledSubtabs || []).filter(id => allSubtabs.some(t => t.id === id));
   const includedSubtabs = enabledIds.map(id => allSubtabs.find(t => t.id === id)).filter(Boolean);
-  const excludedSubtabs = allSubtabs.filter(t => !enabledSet.has(t.id));
+  // excludedSubtabs는 오른쪽 Pool(extraSubtabsPanel)에서 처리 — 여기서 불필요
   const fakeSc = { page: draft.page || "", template: FIXED_TEMPLATE, defaultTab: draft.defaultTab || "" };
 
   return `
@@ -347,79 +367,52 @@ function newAnalysisPoolForm(draft){
           placeholder="업무분석 설명 (선택)">${escapeHtml(draft.description || "")}</textarea>
       </div>
 
-      <!-- ③ 서브탭 Pool: 포함(왼쪽) / 미포함(오른쪽) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-
-        <!-- 포함된 서브탭 -->
-        <div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;padding:10px">
-          <div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px">
-            포함된 서브탭
-            <span style="font-weight:400;color:#6b7f9e">${includedSubtabs.length}개</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            ${includedSubtabs.length === 0
-              ? `<div style="font-size:12px;color:#94a3b8;padding:8px 0;text-align:center">
-                   오른쪽에서 서브탭을 추가하세요.
-                 </div>`
-              : includedSubtabs.map((tab, i) => {
-                  const isMandatory = tab.id === "ongoing";
-                  return `
-                    <div style="display:flex;align-items:center;gap:5px;padding:6px 8px;
-                                 background:${isMandatory?"#eff6ff":"#f5f3ff"};
-                                 border:1px solid ${isMandatory?"#93c5fd":"#ddd6fe"};border-radius:6px">
-                      <span style="width:16px;font-size:11px;font-weight:700;flex-shrink:0;
-                                   color:${isMandatory?"#1d4ed8":"#7c3aed"};text-align:center">${i+1}</span>
-                      <span style="flex:1;font-size:12px;color:#1e293b;white-space:nowrap;
-                                   overflow:hidden;text-overflow:ellipsis">
-                        ${escapeHtml(tabLabel(tab, fakeSc))}
-                      </span>
-                      ${isMandatory
-                        ? `<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;
-                                        border-radius:4px;padding:1px 6px;
-                                        white-space:nowrap;flex-shrink:0">필수</span>`
-                        : `<div style="display:flex;gap:2px;flex-shrink:0">
-                             <button type="button" class="gi-move-btn"
-                               data-sb-new-subtab-move="${escapeHtml(tab.id)}:up"
-                               ${i===0?"disabled":""}>↑</button>
-                             <button type="button" class="gi-move-btn"
-                               data-sb-new-subtab-move="${escapeHtml(tab.id)}:down"
-                               ${i===includedSubtabs.length-1?"disabled":""}>↓</button>
-                           </div>
-                           <button type="button" class="btn-inline-action job-remove-action"
-                             style="font-size:11px;padding:2px 8px;white-space:nowrap;flex-shrink:0"
-                             data-sb-new-subtab-toggle="${escapeHtml(tab.id)}">제외</button>`
-                      }
-                    </div>`;
-                }).join("")
-            }
-          </div>
+      <!-- ③ 포함된 서브탭 (1열, 미포함은 오른쪽 Pool에서 추가) -->
+      <div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;
+                  padding:10px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px">
+          포함된 서브탭
+          <span style="font-weight:400;color:#6b7f9e">${includedSubtabs.length}개</span>
+          <span style="font-weight:400;color:#94a3b8;font-size:10px;margin-left:6px">
+            (오른쪽 Pool에서 추가)
+          </span>
         </div>
-
-        <!-- 미포함 서브탭 (Pool에서 선택) -->
-        <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px">
-          <div style="font-size:11px;font-weight:700;color:#41506a;margin-bottom:8px">
-            미포함 서브탭
-            <span style="font-weight:400;color:#94a3b8">${excludedSubtabs.length}개</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            ${excludedSubtabs.length === 0
-              ? `<div style="font-size:12px;color:#94a3b8;padding:8px 0;text-align:center">
-                   모든 서브탭이 포함되었습니다.
-                 </div>`
-              : excludedSubtabs.map(tab => `
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${includedSubtabs.length === 0
+            ? `<div style="font-size:12px;color:#94a3b8;padding:8px 0;text-align:center">
+                 오른쪽 서브탭 목록에서 추가하세요.
+               </div>`
+            : includedSubtabs.map((tab, i) => {
+                const isMandatory = tab.id === "ongoing";
+                return `
                   <div style="display:flex;align-items:center;gap:5px;padding:6px 8px;
-                               background:#f8fbff;border:1px solid var(--line);border-radius:6px">
-                    <span style="flex:1;font-size:12px;color:#41506a;white-space:nowrap;
-                                 overflow:hidden;text-overflow:ellipsis">
+                               background:${isMandatory?"#eff6ff":"#f5f3ff"};
+                               border:1px solid ${isMandatory?"#93c5fd":"#ddd6fe"};border-radius:6px">
+                    <span style="width:16px;font-size:11px;font-weight:700;flex-shrink:0;
+                                 color:${isMandatory?"#1d4ed8":"#7c3aed"};text-align:center">${i+1}</span>
+                    <span style="flex:1;font-size:12px;color:#1e293b;min-width:0;
+                                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
                       ${escapeHtml(tabLabel(tab, fakeSc))}
                     </span>
-                    <button type="button" class="btn-inline-action"
-                      style="font-size:11px;padding:2px 8px;white-space:nowrap;flex-shrink:0"
-                      data-sb-new-subtab-toggle="${escapeHtml(tab.id)}">+ 추가</button>
-                  </div>
-                `).join("")
-            }
-          </div>
+                    ${isMandatory
+                      ? `<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;
+                                      border-radius:4px;padding:1px 6px;
+                                      white-space:nowrap;flex-shrink:0">필수</span>`
+                      : `<div style="display:flex;gap:2px;flex-shrink:0">
+                           <button type="button" class="gi-move-btn"
+                             data-sb-new-subtab-move="${escapeHtml(tab.id)}:up"
+                             ${i===0?"disabled":""}>↑</button>
+                           <button type="button" class="gi-move-btn"
+                             data-sb-new-subtab-move="${escapeHtml(tab.id)}:down"
+                             ${i===includedSubtabs.length-1?"disabled":""}>↓</button>
+                         </div>
+                         <button type="button" class="btn-inline-action job-remove-action"
+                           style="font-size:11px;padding:2px 8px;white-space:nowrap;flex-shrink:0"
+                           data-sb-new-subtab-toggle="${escapeHtml(tab.id)}">제외</button>`
+                    }
+                  </div>`;
+              }).join("")
+          }
         </div>
       </div>
 
