@@ -20,7 +20,7 @@ const SUBTABS_BY_TEMPLATE = {
   "special-investigation": SPECIAL_INVESTIGATION_SUBTABS,
 };
 
-export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "", showNewForm = false, newDraft = {} }){
+export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "", showNewForm = false, newDraft = {}, editingServiceId = null }){
   if(!isSuperAdmin()){
     return `
       <section class="card" style="text-align:center;padding:56px 20px">
@@ -32,10 +32,14 @@ export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtab
 
   return `
     <section class="card scenario-builder-page">
-      <!-- 페이지 헤더 (저장 버튼 제거 — 각 탭 하단으로 이동) -->
-      <div style="margin-bottom:16px">
-        <h2 style="margin:0 0 4px">업무시나리오 구성</h2>
-        <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 서비스 기본 옵션을 구성합니다.</p>
+      <!-- 페이지 헤더 (기본값 복원만 유지) -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h2 style="margin:0 0 4px">업무시나리오 구성</h2>
+          <p class="muted" style="margin:0">전문업무분석 버튼, 업무분석별 서브탭, AI 서비스 기본 옵션을 구성합니다.</p>
+        </div>
+        <button class="btn secondary" type="button" data-scenario-builder-reset
+          style="white-space:nowrap;flex-shrink:0">기본값 복원</button>
       </div>
 
       <div class="summary-box" style="margin-bottom:16px">
@@ -46,7 +50,7 @@ export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtab
       ${scenarioBuilderViewTabs(activeView)}
 
       <div>
-        ${activeView === "services" ? agentDefaultsSection(config) :
+        ${activeView === "services" ? agentDefaultsSection(config, editingServiceId) :
           analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft)
         }
       </div>
@@ -458,7 +462,7 @@ function newAnalysisPoolForm(draft){
                   서비스 설명 박스 + 추가 지시 textarea
    - data-agent-* 속성명 유지 (저장 로직 호환)
    ═══════════════════════════════════════════════════════════ */
-function agentDefaultsSection(config){
+function agentDefaultsSection(config, editingServiceId = null){
   const allSubtabs = [
     ...CUSTOMS_SUBTABS,
     ...GENERAL_INVESTIGATION_SUBTABS,
@@ -517,7 +521,7 @@ function agentDefaultsSection(config){
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
                 ${groups[cat].map(serviceId =>
-                  serviceCard(serviceId, config.agentOptionDefaults?.[serviceId] || {}, usageMap[serviceId] || [], meta)
+                  serviceCard(serviceId, config.agentOptionDefaults?.[serviceId] || {}, usageMap[serviceId] || [], meta, serviceId === editingServiceId)
                 ).join("")}
               </div>
             </div>`;
@@ -539,60 +543,123 @@ function buildServiceUsageMap(allSubtabs){
   return map;
 }
 
-/* ── 서비스 카드 (이미지 기준 레이아웃) ────────────────────
-   data-agent-* 속성명 유지 — 저장 로직 호환
+/* ── 서비스 카드 ────────────────────────────────────────────
+   - isEditing=false: 읽기 전용 + [수정] 버튼
+   - isEditing=true:  편집 가능 + [저장][취소] 버튼
+   - data-agent-* 속성명 유지 (저장 로직 호환)
+   - 완료/대기 배지 없음
    ─────────────────────────────────────────────────────────── */
-function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
-  const def        = AI_SERVICE_CATALOG[serviceId] || {};
-  const agentId    = def.agentId || serviceId;
-  const isEnabled  = defaults.enabled !== false;
-  const behaviors  = getServiceBehaviorOptions(serviceId);
-  const instruction= defaults.instruction || getServiceDefaultInstruction(serviceId) || "";
-
-  // 저장된 behavior 값 (없으면 첫 번째 기본값)
+function serviceCard(serviceId, defaults, usedInSubtabs, catMeta, isEditing = false){
+  const def         = AI_SERVICE_CATALOG[serviceId] || {};
+  const isEnabled   = defaults.enabled !== false;
+  const behaviors   = getServiceBehaviorOptions(serviceId);
+  const instruction = defaults.instruction || "";
+  const defaultInst = getServiceDefaultInstruction(serviceId);
   const savedBehavior = defaults.behavior || behaviors[0]?.value || "";
-
-  // AI 서비스 단계 select 옵션: 카테고리 · 서비스명 형식
+  const savedBehaviors = Array.isArray(defaults.behaviors) ? defaults.behaviors : [savedBehavior];
   const stageCatLabel = catMeta?.label || def.category || "";
-
-  // 동작 선택 체크박스 (behavior 값 기반)
-  const behaviorCheckboxes = behaviors.map(opt => `
-    <label style="display:flex;align-items:center;gap:5px;font-size:12px;
-                  cursor:pointer;white-space:nowrap">
-      <input type="checkbox"
-        data-agent-behavior-opt="${escapeHtml(serviceId)}:${escapeHtml(opt.value)}"
-        ${savedBehavior === opt.value ? "checked" : ""}>
-      ${escapeHtml(opt.label)}
-    </label>
-  `).join("");
-
-  // 저장된 추가 동작 목록 (사용자가 직접 입력한 것)
   const customBehaviors = Array.isArray(defaults.customBehaviors) ? defaults.customBehaviors : [];
 
+  /* ── 읽기 모드 ── */
+  if(!isEditing){
+    const activeBehaviorLabels = savedBehaviors
+      .map(v => behaviors.find(b => b.value === v)?.label || v)
+      .concat(customBehaviors)
+      .filter(Boolean);
+    return `
+      <article style="border:1px solid var(--line);border-radius:10px;padding:14px;
+                      background:#fff;display:flex;flex-direction:column;gap:10px"
+               data-agent-default="${escapeHtml(serviceId)}">
+
+        <!-- 헤더: 서비스명 + 사용 체크 + 수정 버튼 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;
+                    padding-bottom:8px;border-bottom:1px solid var(--line)">
+          <strong style="font-size:13px;color:#1e293b">${escapeHtml(def.label || serviceId)}</strong>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;
+                          color:#41506a;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}"
+                ${isEnabled ? "checked" : ""}> 사용
+            </label>
+            <button type="button"
+              style="height:28px;padding:0 12px;background:#f1f5f9;color:#41506a;
+                     border:1px solid var(--line);border-radius:6px;font-size:12px;
+                     cursor:pointer;white-space:nowrap"
+              data-agent-edit="${escapeHtml(serviceId)}">수정</button>
+          </div>
+        </div>
+
+        <!-- 동작 선택 (읽기: 선택된 항목만 태그로 표시) -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#41506a;margin-bottom:6px">동작 선택</div>
+          ${activeBehaviorLabels.length > 0
+            ? `<div style="display:flex;flex-wrap:wrap;gap:4px">
+                ${activeBehaviorLabels.map(lbl => `
+                  <span style="background:#eef4ff;border:1px solid #aac7ff;
+                               border-radius:4px;padding:2px 10px;font-size:12px;color:#1e40af">
+                    ${escapeHtml(lbl)}
+                  </span>`).join("")}
+               </div>`
+            : `<span style="font-size:12px;color:#94a3b8">선택된 동작 없음</span>`
+          }
+        </div>
+
+        <!-- 서비스 설명 박스 -->
+        <div style="background:#f8fbff;border:1px solid var(--line);border-radius:7px;padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:12px;font-weight:700;color:#1e293b">${escapeHtml(def.label || serviceId)}</span>
+            <span style="font-size:10px;background:${catMeta?.bg||"#f1f5f9"};
+                         color:${catMeta?.color||"#41506a"};border-radius:3px;padding:1px 6px">
+              ${escapeHtml(stageCatLabel)}
+            </span>
+          </div>
+          <p style="margin:0;font-size:12px;color:#41506a;line-height:1.5">
+            ${escapeHtml(defaultInst)}
+          </p>
+        </div>
+
+        <!-- 추가 지시 (읽기: 값 있을 때만 표시) -->
+        ${instruction ? `
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#41506a;margin-bottom:4px">추가 지시</div>
+            <p style="margin:0;font-size:12px;color:#41506a;line-height:1.5;
+                      background:#f8fbff;border:1px solid var(--line);border-radius:7px;padding:8px 12px">
+              ${escapeHtml(instruction)}
+            </p>
+          </div>` : ""}
+
+      </article>`;
+  }
+
+  /* ── 편집 모드 ── */
   return `
-    <article style="border:1px solid var(--line);border-radius:10px;padding:14px;
+    <article style="border:2px solid #1e40af;border-radius:10px;padding:14px;
                     background:#fff;display:flex;flex-direction:column;gap:10px"
              data-agent-default="${escapeHtml(serviceId)}">
 
-      <!-- ① 헤더: 서비스명 + 완료/대기 배지 + 사용 체크 -->
+      <!-- 헤더: 서비스명 + 사용 체크 + 저장/취소 버튼 -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;
-                  padding-bottom:8px;border-bottom:1px solid var(--line)">
+                  padding-bottom:8px;border-bottom:1px solid #bfdbfe">
         <strong style="font-size:13px;color:#1e293b">${escapeHtml(def.label || serviceId)}</strong>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <span style="font-size:11px;background:${isEnabled?"#dcfce7":"#f1f5f9"};
-                       color:${isEnabled?"#15803d":"#94a3b8"};
-                       border-radius:4px;padding:2px 8px;font-weight:600">
-            ${isEnabled ? "완료" : "대기"}
-          </span>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;
                         color:#41506a;cursor:pointer;white-space:nowrap">
             <input type="checkbox" data-agent-enabled="${escapeHtml(serviceId)}"
               ${isEnabled ? "checked" : ""}> 사용
           </label>
+          <button type="button"
+            style="height:28px;padding:0 14px;background:#1e40af;color:#fff;border:none;
+                   border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600"
+            data-agent-save="${escapeHtml(serviceId)}">저장</button>
+          <button type="button"
+            style="height:28px;padding:0 10px;background:#f1f5f9;color:#41506a;
+                   border:1px solid var(--line);border-radius:6px;font-size:12px;
+                   cursor:pointer;white-space:nowrap"
+            data-agent-cancel="${escapeHtml(serviceId)}">취소</button>
         </div>
       </div>
 
-      <!-- ② 동작 선택: 기본 제공 체크박스 + 사용자 정의 추가 -->
+      <!-- 동작 선택: 기본 제공 체크박스 + 사용자 정의 추가 -->
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <label style="font-size:12px;font-weight:600;color:#41506a">동작 선택</label>
@@ -606,15 +673,15 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
                           cursor:pointer;white-space:nowrap">
               <input type="checkbox"
                 data-agent-behavior-opt="${escapeHtml(serviceId)}:${escapeHtml(opt.value)}"
-                ${savedBehavior === opt.value ? "checked" : ""}>
+                ${savedBehaviors.includes(opt.value) ? "checked" : ""}>
               ${escapeHtml(opt.label)}
             </label>
           `).join("")}
         </div>
 
-        <!-- 사용자 정의 동작 목록 -->
+        <!-- 사용자 정의 동작 태그 -->
         ${customBehaviors.length > 0 ? `
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
             ${customBehaviors.map((bv, i) => `
               <span style="display:inline-flex;align-items:center;gap:4px;
                            background:#eef4ff;border:1px solid #aac7ff;
@@ -626,10 +693,9 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
                   data-agent-remove-behavior="${escapeHtml(serviceId)}:${i}">✕</button>
               </span>
             `).join("")}
-          </div>
-        ` : ""}
+          </div>` : ""}
 
-        <!-- 동작 추가 입력 행 -->
+        <!-- 동작 직접 입력 + 추가 -->
         <div style="display:flex;gap:6px;align-items:center">
           <input class="form-input"
             id="behaviorInput_${escapeHtml(serviceId)}"
@@ -643,8 +709,8 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
         </div>
       </div>
 
-      <!-- ③ 서비스 설명 박스 -->
-      <div style="background:#f8fbff;border:1px solid var(--line);border-radius:7px;padding:10px 12px">
+      <!-- 서비스 설명 박스 -->
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:10px 12px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <span style="font-size:12px;font-weight:700;color:#1e293b">${escapeHtml(def.label || serviceId)}</span>
           <span style="font-size:10px;background:${catMeta?.bg||"#f1f5f9"};
@@ -652,12 +718,10 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
             ${escapeHtml(stageCatLabel)}
           </span>
         </div>
-        <p style="margin:0;font-size:12px;color:#41506a;line-height:1.5">
-          ${escapeHtml(getServiceDefaultInstruction(serviceId))}
-        </p>
+        <p style="margin:0;font-size:12px;color:#41506a;line-height:1.5">${escapeHtml(defaultInst)}</p>
       </div>
 
-      <!-- ④ 추가 지시 textarea -->
+      <!-- 추가 지시 textarea -->
       <div>
         <label style="font-size:12px;font-weight:600;color:#41506a;display:block;margin-bottom:4px">
           추가 지시
@@ -665,8 +729,8 @@ function serviceCard(serviceId, defaults, usedInSubtabs, catMeta){
         <textarea class="gi-wb2-textarea" rows="3"
           style="width:100%;box-sizing:border-box;font-size:12px;resize:vertical"
           data-agent-instruction="${escapeHtml(serviceId)}"
-          placeholder="${escapeHtml(getServiceDefaultInstruction(serviceId))}"
-        >${escapeHtml(instruction !== getServiceDefaultInstruction(serviceId) ? instruction : "")}</textarea>
+          placeholder="${escapeHtml(defaultInst)}"
+        >${escapeHtml(instruction)}</textarea>
       </div>
 
     </article>

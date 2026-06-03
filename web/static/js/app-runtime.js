@@ -205,6 +205,7 @@ function scenarioBuilderPage(){
     selectedPage: scenarioBuilderSelectedPage,
     showNewForm: sbShowNewForm,
     newDraft: sbNewDraft,
+    editingServiceId: sbEditingServiceId,
   });
 }
 
@@ -1548,6 +1549,7 @@ let scenarioBuilderConfig = loadScenarioBuilderConfig();
 let scenarioBuilderViewTab = "subtabs";
 let scenarioBuilderSelectedPage = ""; // Pool UI에서 현재 선택된 업무분석 페이지
 let sbShowNewForm = false;            // 신규 업무분석 폼 열림 여부
+let sbEditingServiceId = null;        // AI 서비스 설정: 현재 편집 중인 serviceId
 let sbNewDraft = {                    // 신규 업무분석 초안
   page: "", title: "", description: "",
   template: "special-investigation",
@@ -6086,6 +6088,54 @@ registerSpecialInvestigationEvents({
 });
 
 document.addEventListener("click", (event)=>{
+
+  /* ── AI 서비스 설정: 카드 수정 모드 진입 ── */
+  const agentEdit = event.target.closest("[data-agent-edit]");
+  if(agentEdit && isCurrentUserSuperAdmin()){
+    sbEditingServiceId = agentEdit.dataset.agentEdit;
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── AI 서비스 설정: 카드 저장 ── */
+  const agentSave = event.target.closest("[data-agent-save]");
+  if(agentSave && isCurrentUserSuperAdmin()){
+    const serviceId = agentSave.dataset.agentSave;
+    const card = document.querySelector(`[data-agent-default="${cssString(serviceId)}"]`);
+    if(card){
+      const current = scenarioBuilderConfig.agentOptionDefaults?.[serviceId] || { serviceId };
+      const checkedBehaviors = [...card.querySelectorAll(`[data-agent-behavior-opt^="${cssString(serviceId)}:"]`)]
+        .filter(cb => cb.checked)
+        .map(cb => cb.dataset.agentBehaviorOpt.split(":")[1])
+        .filter(Boolean);
+      const behaviorInput = card.querySelector(`[data-agent-behavior="${cssString(serviceId)}"]`);
+      const instructionEl = card.querySelector(`[data-agent-instruction="${cssString(serviceId)}"]`);
+      const enabledEl = card.querySelector(`[data-agent-enabled="${cssString(serviceId)}"]`);
+      scenarioBuilderConfig = {
+        ...scenarioBuilderConfig,
+        agentOptionDefaults: {
+          ...scenarioBuilderConfig.agentOptionDefaults,
+          [serviceId]: {
+            ...current,
+            enabled: enabledEl?.checked !== false,
+            behavior: checkedBehaviors[0] || behaviorInput?.value.trim() || "",
+            behaviors: checkedBehaviors.length ? checkedBehaviors : undefined,
+            instruction: instructionEl?.value.trim() || "",
+            customBehaviors: current.customBehaviors || [],
+          },
+        },
+      };
+    }
+    saveScenarioBuilderState(scenarioBuilderConfig);
+    sbEditingServiceId = null;
+    render("scenarioBuilder"); return;
+  }
+
+  /* ── AI 서비스 설정: 카드 편집 취소 ── */
+  const agentCancel = event.target.closest("[data-agent-cancel]");
+  if(agentCancel && isCurrentUserSuperAdmin()){
+    sbEditingServiceId = null;
+    render("scenarioBuilder"); return;
+  }
 
   /* ── AI 서비스 설정: 동작 추가 ── */
   const agentAddBehavior = event.target.closest("[data-agent-add-behavior]");
