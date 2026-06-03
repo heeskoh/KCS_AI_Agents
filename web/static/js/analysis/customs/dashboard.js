@@ -1,5 +1,5 @@
 export function renderDashboardPanel(deps){
-  return deps.panels.investigationDashboardPanel();
+  return deps.riskDashboardContent();
 }
 
 export const dashboardSubtab = {

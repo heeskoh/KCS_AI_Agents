@@ -1,5 +1,5 @@
 export function renderProfilePanel(deps){
-  return deps.panels.canvasProfilePanel();
+  return deps.canvasProfilePanel();
 }
 
 export const profileSubtab = {

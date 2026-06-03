@@ -1,15 +1,15 @@
 import { escapeHtml } from "../../core/dom.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
+import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 import {
   createSpecialInvestigationTabs,
   SPECIAL_INVESTIGATION_CONFIG,
 } from "./tabs.js";
 
 export function createSpecialInvestigation(deps){
-  const tabs = createSpecialInvestigationTabs(deps);
-
   function isSpecialInvestigationPage(page = deps.getCurrentPage()){
-    return page === "lawsearch" || page === "fxsearch";
+    const scenario = deps.getAnalysisScenarioConfig?.(page);
+    return page === "lawsearch" || page === "fxsearch" || scenario?.template === "special-investigation";
   }
 
   function activeSpecialInvestigationPage(){
@@ -17,7 +17,11 @@ export function createSpecialInvestigation(deps){
   }
 
   function specialInvestigationConfig(page = activeSpecialInvestigationPage()){
-    return SPECIAL_INVESTIGATION_CONFIG[page] || SPECIAL_INVESTIGATION_CONFIG.lawsearch;
+    const scenario = deps.getAnalysisScenarioConfig?.(page);
+    const base = SPECIAL_INVESTIGATION_CONFIG[page] || SPECIAL_INVESTIGATION_CONFIG.lawsearch;
+    return scenario?.template === "special-investigation"
+      ? {...base, title: scenario.title || base.title, description: scenario.description || base.description}
+      : base;
   }
 
   function renderSpecialInvestigation(){
@@ -25,6 +29,7 @@ export function createSpecialInvestigation(deps){
   }
 
   function drugInvestigationPage(pageKey = activeSpecialInvestigationPage()){
+    const tabs = createSpecialInvestigationTabs(deps, pageKey);
     const config = specialInvestigationConfig(pageKey);
     const tab = deps.getDrugInvTab();
     const aCase = deps.activeDrugCase();
@@ -68,6 +73,7 @@ export function createSpecialInvestigation(deps){
   }
 
   function drugInvTabContent(context = {}){
+    const tabs = createSpecialInvestigationTabs(deps, context.pageKey || activeSpecialInvestigationPage());
     const tab = deps.getDrugInvTab();
     if(tab === "company_profile" || tab === "person_profile"){
       deps.setDrugInvTab("profile");
@@ -75,8 +81,17 @@ export function createSpecialInvestigation(deps){
     return renderAnalysisTabContent(tabs, deps.getDrugInvTab(), context, "ongoing");
   }
 
+  function currentTabAgentDefaultOptions(pageKey = activeSpecialInvestigationPage()){
+    return currentSubtabAgentDefaultOptions(
+      createSpecialInvestigationTabs(deps, pageKey),
+      deps.getDrugInvTab(),
+      deps.getScenarioBuilderConfig?.()
+    );
+  }
+
   return {
     activeSpecialInvestigationPage,
+    currentTabAgentDefaultOptions,
     drugInvestigationPage,
     drugInvTabContent,
     isSpecialInvestigationPage,

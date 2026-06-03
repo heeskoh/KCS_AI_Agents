@@ -1,4 +1,5 @@
 import { escapeHtml } from "../core/dom.js";
+import { DEFAULT_ANALYSIS_BUTTONS } from "../analysis/shared/scenario-builder-config.js";
 
 const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 AI 서비스를 선택해 주세요.";
 
@@ -13,13 +14,13 @@ const SPECIAL_ANALYSIS_BUTTONS = [
   { className: "brown", page: "report", label: "Case별 RAG" },
 ];
 
-function specialAnalysisButtons(){
-  return SPECIAL_ANALYSIS_BUTTONS
-    .map(button => `<button class="special-analysis-btn ${button.className}" data-page="${button.page}">${button.label}</button>`)
+function specialAnalysisButtons(buttons = SPECIAL_ANALYSIS_BUTTONS){
+  return buttons
+    .map(button => `<button class="special-analysis-btn ${escapeHtml(button.className)}" data-page="${escapeHtml(button.page)}">${escapeHtml(button.label)}</button>`)
     .join("");
 }
 
-export function homePage({ activeAnalysisJobs, mainCanvasJob }){
+export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () => false, analysisButtons = DEFAULT_ANALYSIS_BUTTONS }){
   return `
     <div class="home-layout">
     <div class="home-focus-grid">
@@ -81,8 +82,9 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob }){
       <aside class="card home-special-card">
         <h3>전문 업무 분석</h3>
         <div class="special-analysis-list">
-          ${specialAnalysisButtons()}
+          ${specialAnalysisButtons(analysisButtons)}
         </div>
+        ${isSuperAdmin() ? `<button class="home-shutdown-btn" data-super-scenario-builder type="button">업무시나리오 구성</button>` : ""}
         <button class="home-shutdown-btn" id="shutdownAllBtn" type="button">모든 서버 종료 하기</button>
       </aside>
     </div>

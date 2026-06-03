@@ -19,10 +19,12 @@ export const pageNames = {
   system:"시스템",
   governance:"거버넌스",
   permission:"권한 승인",
+  scenarioBuilder:"업무시나리오 구성",
 };
 
 export function createPageRegistry({
   activeAnalysisJobs,
+  analysisButtons,
   canvasPage,
   customsInfoPage,
   customsOntologyPage,
@@ -30,14 +32,21 @@ export function createPageRegistry({
   generalInvPage,
   intlInfoPage,
   investigationPage,
+  isSuperAdmin,
   mainCanvasJob,
   permissionApprovePage,
   riskDashboard,
   riskScreeningPage,
+  scenarioBuilderPage,
   simplePage,
 }){
   return {
-    home: () => homePage({ activeAnalysisJobs, mainCanvasJob }),
+    home: () => homePage({
+      activeAnalysisJobs,
+      mainCanvasJob,
+      isSuperAdmin,
+      analysisButtons: typeof analysisButtons === "function" ? analysisButtons() : analysisButtons,
+    }),
 
     canvas: () => canvasPage(),
 
@@ -65,5 +74,6 @@ export function createPageRegistry({
     system: () => simplePage("시스템 관리", "연계시스템, 데이터 파이프라인, 사용자 권한, 보안정책을 관리합니다.", ""),
     governance: () => simplePage("모델·권한·감사 로그", "AI 모델 사용 이력, 프롬프트 로그, 승인 프로세스를 점검합니다.", ""),
     permission: () => permissionApprovePage(),
+    scenarioBuilder: () => scenarioBuilderPage(),
   };
 }

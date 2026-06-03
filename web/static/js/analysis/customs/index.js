@@ -1,10 +1,12 @@
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
 import { createCustomsInvestigationTabs } from "./tabs.js";
+import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 
 export function createCustomsInvestigation(deps){
-  const tabs = createCustomsInvestigationTabs(deps);
+  const tabsForPage = (pageKey = "investigation") => createCustomsInvestigationTabs(deps, pageKey);
 
-  function investigationPage(){
+  function investigationPage(pageKey = "investigation"){
+    const tabs = tabsForPage(pageKey);
     const tab = deps.getInvestigationTab();
     const workTabs = tabs.filter(item => item.group !== "tools");
     const toolTabs = tabs.filter(item => item.group === "tools");
@@ -26,17 +28,23 @@ export function createCustomsInvestigation(deps){
           </div>
         </div>
         <div class="ci-tab-body">
-          ${investigationTabContent()}
+          ${investigationTabContent(pageKey)}
         </div>
       </section>
     `;
   }
 
-  function investigationTabContent(){
+  function investigationTabContent(pageKey = "investigation"){
+    const tabs = tabsForPage(pageKey);
     return renderAnalysisTabContent(tabs, deps.getInvestigationTab(), {}, "dashboard");
   }
 
+  function currentTabAgentDefaultOptions(pageKey = "investigation"){
+    return currentSubtabAgentDefaultOptions(tabsForPage(pageKey), deps.getInvestigationTab(), deps.getScenarioBuilderConfig?.());
+  }
+
   return {
+    currentTabAgentDefaultOptions,
     investigationPage,
     investigationTabContent,
   };

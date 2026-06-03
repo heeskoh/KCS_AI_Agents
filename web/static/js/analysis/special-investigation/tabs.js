@@ -7,6 +7,11 @@ import { profileSubtab } from "./profile.js";
 import { reportSubtab } from "./report.js";
 import { scenarioSubtab } from "./scenario.js";
 import { slangSubtab } from "./slang.js";
+import { withAgentMetadata } from "../shared/agent-metadata.js";
+import {
+  configuredSubtabsForPage,
+  subtabWithAgentDefaultOptions,
+} from "../shared/scenario-builder-config.js";
 
 export const SPECIAL_INVESTIGATION_CONFIG = {
   lawsearch: {
@@ -33,11 +38,12 @@ export const SPECIAL_INVESTIGATION_SUBTABS = [
   reportSubtab,
   slangSubtab,
   dashboardSubtab,
-];
+].map(withAgentMetadata);
 
-export function createSpecialInvestigationTabs(deps){
-  return SPECIAL_INVESTIGATION_SUBTABS.map(subtab => ({
-    ...subtab,
+export function createSpecialInvestigationTabs(deps, page = "lawsearch"){
+  const config = deps.getScenarioBuilderConfig?.();
+  return configuredSubtabsForPage(SPECIAL_INVESTIGATION_SUBTABS, config, page).map(subtab => ({
+    ...subtabWithAgentDefaultOptions(subtab, config),
     render: () => subtab.render(deps),
   }));
 }

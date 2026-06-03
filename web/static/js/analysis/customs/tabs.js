@@ -5,6 +5,11 @@ import { profileSubtab } from "./profile.js";
 import { reportSubtab } from "./report.js";
 import { scenarioSubtab } from "./scenario.js";
 import { templatesSubtab } from "./templates.js";
+import { withAgentMetadata } from "../shared/agent-metadata.js";
+import {
+  configuredSubtabsForPage,
+  subtabWithAgentDefaultOptions,
+} from "../shared/scenario-builder-config.js";
 
 export const CUSTOMS_SUBTABS = [
   ongoingSubtab,
@@ -14,11 +19,12 @@ export const CUSTOMS_SUBTABS = [
   reportSubtab,
   dashboardSubtab,
   templatesSubtab,
-];
+].map(withAgentMetadata);
 
-export function createCustomsInvestigationTabs(deps){
-  return CUSTOMS_SUBTABS.map(subtab => ({
-    ...subtab,
+export function createCustomsInvestigationTabs(deps, page = "investigation"){
+  const config = deps.getScenarioBuilderConfig?.();
+  return configuredSubtabsForPage(CUSTOMS_SUBTABS, config, page).map(subtab => ({
+    ...subtabWithAgentDefaultOptions(subtab, config),
     render: () => subtab.render(deps),
   }));
 }

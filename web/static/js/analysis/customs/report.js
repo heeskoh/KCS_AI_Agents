@@ -1,5 +1,5 @@
 export function renderReportPanel(deps){
-  return deps.panels.canvasReportPanel();
+  return deps.canvasReportPanel();
 }
 
 export const reportSubtab = {

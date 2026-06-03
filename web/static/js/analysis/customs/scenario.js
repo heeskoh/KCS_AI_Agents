@@ -1,5 +1,5 @@
 export function renderScenarioPanel(deps){
-  return deps.panels.scenarioWorkbenchV2();
+  return deps.scenarioWorkbenchV2();
 }
 
 export const scenarioSubtab = {

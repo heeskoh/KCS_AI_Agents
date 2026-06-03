@@ -1,5 +1,5 @@
 export function renderTemplatesPanel(deps){
-  return deps.panels.scenarioTemplatePanel();
+  return deps.scenarioTemplatePanel();
 }
 
 export const templatesSubtab = {

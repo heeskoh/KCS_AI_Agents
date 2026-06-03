@@ -1,11 +1,13 @@
 import { escapeHtml } from "../../core/dom.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
 import { createGeneralInvestigationTabs } from "./tabs.js";
+import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 
 export function createGeneralInvestigation(deps){
-  const tabs = createGeneralInvestigationTabs(deps);
+  const tabsForPage = (pageKey = "generalinv") => createGeneralInvestigationTabs(deps, pageKey);
 
-  function generalInvPage(){
+  function generalInvPage(pageKey = "generalinv"){
+    const tabs = tabsForPage(pageKey);
     const aCase = deps.activeGenInvCase();
     const tab = deps.getGeneralInvTab();
     const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
@@ -29,17 +31,23 @@ export function createGeneralInvestigation(deps){
           ${renderAnalysisTabButtons(tabs, tab, "data-gi-tab", "gi-tab", tabContext)}
         </div>
         <div class="gi-tab-body">
-          ${generalInvTabContent(tabContext)}
+          ${generalInvTabContent(tabContext, pageKey)}
         </div>
       </section>
     `;
   }
 
-  function generalInvTabContent(context = {}){
+  function generalInvTabContent(context = {}, pageKey = "generalinv"){
+    const tabs = tabsForPage(pageKey);
     return renderAnalysisTabContent(tabs, deps.getGeneralInvTab(), context, "cases");
   }
 
+  function currentTabAgentDefaultOptions(pageKey = "generalinv"){
+    return currentSubtabAgentDefaultOptions(tabsForPage(pageKey), deps.getGeneralInvTab(), deps.getScenarioBuilderConfig?.());
+  }
+
   return {
+    currentTabAgentDefaultOptions,
     generalInvPage,
     generalInvTabContent,
   };
