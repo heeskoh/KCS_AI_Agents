@@ -100,7 +100,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("law", "법령정보 조회", agent_law, "law_result", "law_agent"),
     AgentModule("report", "보고서 생성", agent_report, "final_report", "report_agent", ("report_generate",)),
     AgentModule("validation", "보고서 검증", agent_validate, "validation_result", "validate_agent", ("report_validate", "validate")),
-    AgentModule("mail_share", "대외메일 공유", agent_mail_share, "mail_share_result", "mail_share_agent"),
+    AgentModule("mail_share", "분석결과 공유", agent_mail_share, "mail_share_result", "mail_share_agent"),
 )
 
 

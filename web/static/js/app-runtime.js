@@ -457,11 +457,12 @@ const AI_SERVICE_REGISTRY = {
   },
   web_search: {
     label: "웹검색 AI 서비스", type: "web", group: AI_SERVICE_GROUP, permissionGroup: "agents",
-    defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 확인",
+    defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
     behaviorOptions: [
       { value: "company_news", label: "업체 기사" },
       { value: "supply_chain", label: "공급망/가격" },
       { value: "industry_news", label: "동종업종 기사" },
+      { value: "direct_url", label: "URL 직접 등록" },
     ],
   },
   declaration_verify: {
@@ -545,10 +546,10 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   mail_share: {
-    label: "내부메일 공유 AI 서비스", type: "mail_share", group: AI_SERVICE_GROUP, permissionGroup: "agents",
-    defaultInstruction: "분석 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
+    label: "분석결과 공유 AI 서비스", type: "mail_share", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
     behaviorOptions: [
-      { value: "internal_mail", label: "내부메일 공유" },
+      { value: "email_share", label: "이메일 공유" },
       { value: "team_brief", label: "팀 공유 요약" },
     ],
   },
@@ -624,8 +625,8 @@ const AI_SERVICE_TARGET_CONFIG = {
     "여행경로, 경유지, 동행 이력을 분석해 우회 반입 가능성을 탐지"
   ),
   web_search: targetConfig(
-    "업체, 공급망, 가격 변동 관련 기사 확인",
-    "인물, 조직, 사건, 여행 경로 관련 공개 정보를 확인"
+    "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
+    "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인"
   ),
   declaration_verify: targetConfig(
     "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
@@ -668,8 +669,8 @@ const AI_SERVICE_TARGET_CONFIG = {
     "개인 수사보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
   ),
   mail_share: targetConfig(
-    "분석 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
-    "개인 수사 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유"
+    "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
+    "개인 수사 결과보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유"
   ),
 };
 
@@ -819,6 +820,12 @@ function normalizeScenarioItem(item, index = 0){
   const source = scenarioSourceByKey(item.key) || scenarioSourceByKey("db_cdw");
   const key = source?.key || item.key || "db_cdw";
   const targetType = normalizeTargetType(item.target_type || item.targetType || "company");
+  const shareRecipients = key === "mail_share"
+    ? normalizeEmailIds([...(item.shareRecipients || []), ...(item.share_recipients || [])].join(","))
+    : [];
+  const webTargets = key === "web_search"
+    ? normalizeWebTargets([...(item.webTargets || []), ...(item.web_targets || [])])
+    : [];
 
   // scenarioBuilderConfig.agentOptionDefaults 우선 참조
   const savedDefaults = scenarioBuilderConfig?.agentOptionDefaults?.[key] || {};
@@ -848,6 +855,10 @@ function normalizeScenarioItem(item, index = 0){
     targetType,
     target_type: targetType,
     instruction,
+    shareRecipients,
+    share_recipients: shareRecipients,
+    webTargets,
+    web_targets: webTargets,
   };
 }
 
@@ -1166,12 +1177,15 @@ function canonicalGiStepKey(key){
 
 function giSourceByKey(key){
   const canonical = canonicalGiStepKey(key);
-  return GI_STEP_SOURCES.find(source => source.key === canonical) || { key: canonical || key, sourceKey:"summary", label: key || "분석 단계", type:"agent" };
+  const commonSource = scenarioSourceByKey(canonical);
+  return GI_STEP_SOURCES.find(source => source.key === canonical)
+    || (commonSource ? { key: canonical, sourceKey: canonical, label: commonSource.label, type: commonSource.type } : null)
+    || { key: canonical || key, sourceKey:"summary", label: key || "분석 단계", type:"agent" };
 }
 
 function giCommonSourceKey(key){
   const canonical = canonicalGiStepKey(key);
-  return GI_SERVICE_ALIASES[canonical]?.sourceKey || "summary";
+  return GI_SERVICE_ALIASES[canonical]?.sourceKey || (scenarioSourceByKey(canonical) ? canonical : "summary");
 }
 
 function normalizeGiScenarioStep(step, index = 0){
@@ -1191,6 +1205,12 @@ function normalizeGiScenarioStep(step, index = 0){
   const instruction = step.instruction ?? step.note
     ?? configInstruction
     ?? sourceDefaultInstruction(sourceKey, targetType);
+  const shareRecipients = sourceKey === "mail_share"
+    ? normalizeEmailIds([...(step.shareRecipients || []), ...(step.share_recipients || [])].join(","))
+    : [];
+  const webTargets = sourceKey === "web_search"
+    ? normalizeWebTargets([...(step.webTargets || []), ...(step.web_targets || [])])
+    : [];
   return {
     ...step,
     id: step.id || `gis_${index}_${uid()}`,
@@ -1205,6 +1225,10 @@ function normalizeGiScenarioStep(step, index = 0){
     behaviorLabel: sourceBehaviorLabels(sourceKey, behaviors).join(", "),
     instruction,
     note: instruction,
+    shareRecipients,
+    share_recipients: shareRecipients,
+    webTargets,
+    web_targets: webTargets,
   };
 }
 
@@ -1213,7 +1237,9 @@ function giScenarioInstructionPreview(step, targetType = "company"){
   const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
   const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
   const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
-  return `${behaviors.join(", ")} · ${instruction}`;
+  const webTargets = scenarioItemWebTargets({ ...step, key: sourceKey });
+  const suffix = webTargets.length ? ` · URL ${webTargets.length}건` : "";
+  return `${behaviors.join(", ")} · ${instruction}${suffix}`;
 }
 
 function giScenarioRunInstruction(step, targetType = "company"){
@@ -1221,7 +1247,11 @@ function giScenarioRunInstruction(step, targetType = "company"){
   const behaviors = sourceBehaviorLabels(sourceKey, step.behaviors);
   const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
   const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}`;
+  const webTargets = scenarioItemWebTargets({ ...step, key: sourceKey });
+  const webTargetText = webTargets.length
+    ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
+    : "";
+  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${webTargetText}`;
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
@@ -1277,7 +1307,13 @@ function giStreamSteps(aCase, stepsToRun){
     targetType: aCase.targetType || "company",
     behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
     note: giScenarioRunInstruction(s, aCase.targetType),
+    share_recipients: scenarioItemShareRecipients({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
+    web_targets: scenarioItemWebTargets({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
   }));
+  const shareRecipients = normalizeEmailIds(stepsPayload
+    .filter(step => step.sourceKey === "mail_share")
+    .flatMap(step => step.share_recipients || [])
+    .join(","));
   const params = new URLSearchParams({
     case_id:     aCase.caseId,
     target_name: aCase.targetName,
@@ -1285,6 +1321,8 @@ function giStreamSteps(aCase, stepsToRun){
     targetType:  aCase.targetType || "company",
     target_id:   aCase.targetType === "person" ? (aCase.personId || "") : (aCase.companyId || generalInvCompanyId(aCase) || ""),
     steps:       JSON.stringify(stepsPayload),
+    share_recipients: JSON.stringify(shareRecipients),
+    web_targets: JSON.stringify(normalizeWebTargets(stepsPayload.flatMap(step => step.web_targets || []))),
   });
   const url = `/api/gi_run?${params.toString()}`;
   giRunEventSource = new EventSource(url);
@@ -1360,7 +1398,13 @@ function drugStreamSteps(aCase, stepsToRun){
     targetType,
     behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
     note: giScenarioRunInstruction(s, targetType),
+    share_recipients: scenarioItemShareRecipients({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
+    web_targets: scenarioItemWebTargets({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
   }));
+  const shareRecipients = normalizeEmailIds(stepsPayload
+    .filter(step => step.sourceKey === "mail_share")
+    .flatMap(step => step.share_recipients || [])
+    .join(","));
   const params = new URLSearchParams({
     case_id: aCase.caseId,
     target_name: aCase.targetName,
@@ -1368,6 +1412,8 @@ function drugStreamSteps(aCase, stepsToRun){
     targetType,
     target_id: targetType === "person" ? (aCase.personId || "") : (aCase.companyId || ""),
     steps: JSON.stringify(stepsPayload),
+    share_recipients: JSON.stringify(shareRecipients),
+    web_targets: JSON.stringify(normalizeWebTargets(stepsPayload.flatMap(step => step.web_targets || []))),
   });
   drugRunEventSource = new EventSource(`/api/gi_run?${params.toString()}`);
 
@@ -2007,7 +2053,7 @@ const HOME_DEFAULT_AGENTS = [
   { type:"summary",            label:"보고서 요약 AI 서비스",     key:"summary" },
   { type:"report",             label:"보고서 생성 AI 서비스",     key:"report_generate" },
   { type:"validation",         label:"보고서 검증 AI 서비스",     key:"report_validate" },
-  { type:"mail_share",         label:"내부메일 공유 AI 서비스",   key:"mail_share" },
+  { type:"mail_share",         label:"분석결과 공유 AI 서비스",   key:"mail_share" },
 ];
 
 let homeEventSource = null;
@@ -2015,6 +2061,7 @@ let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
 let homeSelectedRagKeys = [];
 let homeSelectedAgentKeys = [];
+let homeShareEmailIds = [];
 
 const HOME_PICKER_RAG_KEYS = ["rag_trade", "rag_audit", "rag_investigation", "rag_global", "rag_consultation", "rag_risk_select"];
 const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
@@ -2032,6 +2079,292 @@ function homeSelectedAnalysisOptions(){
     sources:[...new Set([...sources, ...pickerSources])],
     agents:[...new Set([...agents, ...pickerAgents])],
   };
+}
+
+function homeMailShareSelected(){
+  return homeSelectedAnalysisOptions().agents.includes("mail_share");
+}
+
+function normalizeEmailIds(value){
+  return [...new Set(String(value || "")
+    .split(/[,\s;]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+  )];
+}
+
+function isValidEmailId(value){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function homeRenderShareEmailPanel(){
+  const panel = document.getElementById("homeMailSharePanel");
+  if(panel) panel.style.display = homeMailShareSelected() ? "grid" : "none";
+  const chips = document.getElementById("homeShareEmailChips");
+  if(!chips) return;
+  chips.innerHTML = homeShareEmailIds.length
+    ? homeShareEmailIds.map(email => `
+        <span class="home-share-email-chip">
+          ${escapeHtml(email)}
+          <button type="button" data-home-share-email-remove="${escapeHtml(email)}" aria-label="${escapeHtml(email)} 삭제">×</button>
+        </span>
+      `).join("")
+    : `<span class="home-share-email-empty">등록된 이메일 ID가 없습니다.</span>`;
+}
+
+function homeAddShareEmailIds(rawValue){
+  const emails = normalizeEmailIds(rawValue);
+  if(!emails.length) return false;
+  const invalid = emails.find(email => !isValidEmailId(email));
+  if(invalid){
+    alert(`올바른 이메일 ID를 입력하세요: ${invalid}`);
+    return false;
+  }
+  homeShareEmailIds = [...new Set([...homeShareEmailIds, ...emails])];
+  const input = document.getElementById("homeShareEmailInput");
+  if(input) input.value = "";
+  homeRenderShareEmailPanel();
+  return true;
+}
+
+function scenarioItemShareRecipients(item){
+  if(!item || item.key !== "mail_share") return [];
+  return normalizeEmailIds([...(item.shareRecipients || []), ...(item.share_recipients || [])].join(","));
+}
+
+function setScenarioItemShareRecipients(item, emails){
+  if(!item) return;
+  const recipients = item.key === "mail_share" ? normalizeEmailIds(emails.join(",")) : [];
+  item.shareRecipients = recipients;
+  item.share_recipients = recipients;
+}
+
+function scenarioShareEmailPanelHtml(item, scope){
+  if(!item || item.key !== "mail_share") return "";
+  const recipients = scenarioItemShareRecipients(item);
+  const inputId = scope === "template" ? "templateShareEmailInput" : "scenarioShareEmailInput";
+  const chips = recipients.length
+    ? recipients.map(email => `
+        <span class="scenario-share-email-chip">
+          ${escapeHtml(email)}
+          <button type="button" data-share-email-remove="${scope}" data-email="${escapeHtml(email)}" aria-label="${escapeHtml(email)} 삭제">×</button>
+        </span>
+      `).join("")
+    : `<span class="scenario-share-email-empty">등록된 이메일 ID가 없습니다.</span>`;
+  return `
+    <div class="scenario-share-email-panel">
+      <div class="scenario-share-email-head">
+        <strong>이메일 공유</strong>
+        <span>분석결과 보고서를 공유할 수신 이메일 ID를 1개 이상 등록하세요.</span>
+      </div>
+      <div class="scenario-share-email-form">
+        <input id="${inputId}" type="email" placeholder="example@customs.go.kr" autocomplete="email">
+        <button type="button" class="btn secondary" data-share-email-add="${scope}">등록</button>
+      </div>
+      <div class="scenario-share-email-chips">${chips}</div>
+    </div>
+  `;
+}
+
+function shareEmailScopeItem(scope){
+  return scope === "template"
+    ? templateEditorItems.find(i => i.id === templateEditorSelectedId)
+    : selectedScenarioItem();
+}
+
+function saveScenarioShareEmailState(){
+  if(currentPage === "generalinv"){
+    const aCase = activeGenInvCase();
+    if(aCase){ saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+    return;
+  }
+  if(isSpecialInvestigationPage(currentPage)){
+    const aCase = activeDrugCase();
+    if(aCase){ saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+    return;
+  }
+  saveCompanyScenario();
+}
+
+function renderShareEmailPanel(scope){
+  const panelId = scope === "template" ? "templateShareEmailPanel" : "scenarioShareEmailPanel";
+  const panel = document.getElementById(panelId);
+  if(!panel) return;
+  panel.innerHTML = scenarioShareEmailPanelHtml(shareEmailScopeItem(scope), scope);
+}
+
+function addShareEmailsToScope(scope, rawValue = null){
+  const item = shareEmailScopeItem(scope);
+  if(!item || item.key !== "mail_share") return false;
+  const inputId = scope === "template" ? "templateShareEmailInput" : "scenarioShareEmailInput";
+  const input = document.getElementById(inputId);
+  const emails = normalizeEmailIds(rawValue ?? input?.value);
+  if(!emails.length) return false;
+  const invalid = emails.find(email => !isValidEmailId(email));
+  if(invalid){
+    alert(`올바른 이메일 ID를 입력하세요: ${invalid}`);
+    input?.focus();
+    return false;
+  }
+  setScenarioItemShareRecipients(item, [...scenarioItemShareRecipients(item), ...emails]);
+  if(input) input.value = "";
+  if(scope === "scenario"){
+    saveScenarioShareEmailState();
+  }
+  renderShareEmailPanel(scope);
+  return true;
+}
+
+function removeShareEmailFromScope(scope, email){
+  const item = shareEmailScopeItem(scope);
+  if(!item || item.key !== "mail_share") return;
+  setScenarioItemShareRecipients(item, scenarioItemShareRecipients(item).filter(value => value !== email));
+  if(scope === "scenario"){
+    saveScenarioShareEmailState();
+  }
+  renderShareEmailPanel(scope);
+}
+
+function ensureMailShareRecipients(items){
+  const missing = items.find(item => item.key === "mail_share" && !scenarioItemShareRecipients(item).length);
+  if(!missing) return true;
+  selectedScenarioId = missing.id;
+  renderScenarioList();
+  syncScenarioEditor();
+  alert("분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.");
+  document.getElementById("scenarioShareEmailInput")?.focus();
+  return false;
+}
+
+function normalizeWebTargets(value){
+  const rawItems = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const normalized = [];
+  rawItems.forEach(item => {
+    if(!item) return;
+    const url = String(item.url || item.href || "").trim();
+    const query = String(item.query || item.keyword || item.searchText || item.search_text || "").trim();
+    if(!url) return;
+    const key = `${url}\n${query}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+    normalized.push({ url, query });
+  });
+  return normalized;
+}
+
+function isValidHttpUrl(value){
+  try{
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  }catch(_){
+    return false;
+  }
+}
+
+function scenarioItemWebTargets(item){
+  if(!item || item.key !== "web_search") return [];
+  return normalizeWebTargets([...(item.webTargets || []), ...(item.web_targets || [])]);
+}
+
+function setScenarioItemWebTargets(item, targets){
+  if(!item) return;
+  const nextTargets = item.key === "web_search" ? normalizeWebTargets(targets) : [];
+  item.webTargets = nextTargets;
+  item.web_targets = nextTargets;
+}
+
+function webTargetPanelHtml(item, scope){
+  if(!item || item.key !== "web_search") return "";
+  const targets = scenarioItemWebTargets(item);
+  const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
+  const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
+  const cards = targets.length
+    ? targets.map((target, index) => `
+        <div class="scenario-web-target-chip">
+          <span>
+            <strong>${escapeHtml(target.url)}</strong>
+            <small>${escapeHtml(target.query || "검색 내용 미지정")}</small>
+          </span>
+          <button type="button" data-web-target-remove="${scope}" data-index="${index}" aria-label="URL 삭제">×</button>
+        </div>
+      `).join("")
+    : `<span class="scenario-web-target-empty">등록된 URL이 없습니다.</span>`;
+  return `
+    <div class="scenario-web-target-panel">
+      <div class="scenario-web-target-head">
+        <strong>URL 직접 등록</strong>
+        <span>확인할 URL과 해당 페이지에서 찾을 주요 검색 내용을 등록하세요.</span>
+      </div>
+      <div class="scenario-web-target-form">
+        <input id="${urlId}" type="url" placeholder="https://example.com/news/article">
+        <input id="${queryId}" type="text" placeholder="예: 업체, 공급망, 가격 변동 관련 기사 확인">
+        <button type="button" class="btn secondary" data-web-target-add="${scope}">등록</button>
+      </div>
+      <div class="scenario-web-target-list">${cards}</div>
+    </div>
+  `;
+}
+
+function renderWebTargetPanel(scope){
+  const panelId = scope === "template" ? "templateWebTargetPanel" : "scenarioWebTargetPanel";
+  const panel = document.getElementById(panelId);
+  if(!panel) return;
+  panel.innerHTML = webTargetPanelHtml(shareEmailScopeItem(scope), scope);
+}
+
+function addWebTargetToScope(scope){
+  const item = shareEmailScopeItem(scope);
+  if(!item || item.key !== "web_search") return false;
+  const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
+  const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
+  const urlInput = document.getElementById(urlId);
+  const queryInput = document.getElementById(queryId);
+  const url = String(urlInput?.value || "").trim();
+  const query = String(queryInput?.value || "").trim();
+  if(!url) return false;
+  if(!isValidHttpUrl(url)){
+    alert("http 또는 https URL을 입력하세요.");
+    urlInput?.focus();
+    return false;
+  }
+  setScenarioItemWebTargets(item, [...scenarioItemWebTargets(item), { url, query }]);
+  if(urlInput) urlInput.value = "";
+  if(queryInput) queryInput.value = "";
+  if(scope === "scenario") saveScenarioShareEmailState();
+  renderWebTargetPanel(scope);
+  return true;
+}
+
+function removeWebTargetFromScope(scope, index){
+  const item = shareEmailScopeItem(scope);
+  if(!item || item.key !== "web_search") return;
+  setScenarioItemWebTargets(item, scenarioItemWebTargets(item).filter((_, i) => i !== index));
+  if(scope === "scenario") saveScenarioShareEmailState();
+  renderWebTargetPanel(scope);
+}
+
+function addPendingScenarioWebTarget(){
+  const url = document.getElementById("scenarioWebTargetUrl")?.value || "";
+  const query = document.getElementById("scenarioWebTargetQuery")?.value || "";
+  if(!url.trim() && !query.trim()) return true;
+  return addWebTargetToScope("scenario");
+}
+
+function ensureDirectUrlTargets(items){
+  const missing = items.find(item =>
+    item.key === "web_search"
+    && Array.isArray(item.behaviors)
+    && item.behaviors.includes("direct_url")
+    && !scenarioItemWebTargets(item).length
+  );
+  if(!missing) return true;
+  selectedScenarioId = missing.id;
+  renderScenarioList();
+  syncScenarioEditor();
+  alert("웹검색 AI 서비스에서 URL 직접 등록을 선택한 경우 확인할 URL을 1개 이상 등록하세요.");
+  document.getElementById("scenarioWebTargetUrl")?.focus();
+  return false;
 }
 
 function homeAgentDefForKey(key){
@@ -2075,6 +2408,7 @@ function homeToggleAnalysisOption(button){
     status.classList.toggle("selected", selected);
     status.textContent = selected ? "✓" : "×";
   }
+  if(button.dataset.homeAgent === "mail_share") homeRenderShareEmailPanel();
 }
 
 function homeSyncPickerStatuses(){
@@ -2251,6 +2585,7 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     attached_files_summary: coachAttachedFiles.map(f => ({
       name: f.name, type: f.type, size: f.size, encoding: f.encoding,
     })),
+    share_recipients: homeShareEmailIds,
   };
 
   const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(payload))}`;
@@ -2331,6 +2666,27 @@ async function homeRunAnalysis(prompt, btn){
   const selectedOptions = homeSelectedAnalysisOptions();
   const selectedRunAgents = homeRunAgentsFromSelection(selectedOptions);
   const hasSelectedInternalTool = selectedRunAgents.length > 0;
+  if(selectedOptions.agents.includes("mail_share")){
+    const pendingEmail = document.getElementById("homeShareEmailInput")?.value || "";
+    if(pendingEmail.trim() && !homeAddShareEmailIds(pendingEmail)){
+      setHomeActionLabel(btn, "AI실행");
+      btn.disabled = false;
+      return;
+    }
+  }
+  if(selectedOptions.agents.includes("mail_share") && homeShareEmailIds.length === 0){
+    if(resultBox){
+      resultBox.style.display = "block";
+      resultBox.innerHTML = `
+        <h3>AI 분석 결과</h3>
+        <p class="high">분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.</p>
+      `;
+    }
+    document.getElementById("homeMailSharePanel")?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+    setHomeActionLabel(btn, "AI실행");
+    btn.disabled = false;
+    return;
+  }
 
   // 로딩 상태 표시
   if(resultBox){
@@ -2509,7 +2865,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 
   const agentCount = Object.keys(homeStepStatus).length;
   const hasReport  = Object.keys(homeRunResults).some(label => label.includes("보고서 생성"));
-  const hasShare   = Object.keys(homeRunResults).some(label => label.includes("내부메일 공유"));
+  const hasShare   = Object.keys(homeRunResults).some(label => label.includes("분석결과 공유"));
   const targetSummary = displayCompanyId
     ? `대상 기업 <b>${escapeHtml(displayCompanyId)}</b> · `
     : "";
@@ -2517,7 +2873,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   resultBox.innerHTML = `
     <h3>AI 분석 결과</h3>
     <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
-    ${hasShare ? `<p class="good" style="margin-top:4px">분석 결과보고서가 내부메일 공유 대상으로 준비되었습니다.</p>` : ""}
+    ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
     <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
     ${hasReport || riskHigh || riskMed ? `
     <div class="kpi">
@@ -4746,6 +5102,8 @@ function scenarioTemplatePanel(){
             <div id="templateBehaviorOptions" class="scenario-behavior-options"></div>
           </div>
           <div id="templateSourceHint" class="scenario-source-hint"></div>
+          <div id="templateShareEmailPanel"></div>
+          <div id="templateWebTargetPanel"></div>
           <label class="scenario-field">
             <span>추가 지시</span>
             <textarea id="templateInstruction" placeholder="${hasEditing ? "이 단계에서 중점적으로 확인할 내용을 입력하세요." : "템플릿을 선택하거나 새 템플릿을 만드세요."}" ${!hasEditing ? "disabled" : ""}></textarea>
@@ -4853,6 +5211,8 @@ function syncTemplateEditorFields(){
     `;
   }
   if(hint && !item) hint.innerHTML = "";
+  renderShareEmailPanel("template");
+  renderWebTargetPanel("template");
 }
 
 function initTemplateEditor(){
@@ -4875,6 +5235,8 @@ function initTemplateEditor(){
       id: uid(), key, type: source.type, label: source.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
       instruction: instruction || sourceDefaultInstruction(key) || "",
+      shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("template")) : [],
+      webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("template")) : [],
     }, templateEditorItems.length);
     templateEditorItems.push(newItem);
     templateEditorSelectedId = newItem.id;
@@ -4900,7 +5262,10 @@ function initTemplateEditor(){
       item.key = key;
       item.label = scenarioSourceByKey(key)?.label || key;
       item.type = scenarioSourceByKey(key)?.type || "db";
+      setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
+      setScenarioItemWebTargets(item, key === "web_search" ? scenarioItemWebTargets(item) : []);
       refreshEditingCard();
+      syncTemplateEditorFields();
     }
   });
 
@@ -5012,6 +5377,8 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
               <div id="scenarioBehaviorOptions" class="scenario-behavior-options"></div>
             </div>
             <div id="scenarioSourceHint" class="scenario-source-hint"></div>
+            <div id="scenarioShareEmailPanel"></div>
+            <div id="scenarioWebTargetPanel"></div>
             <label class="scenario-field">
               <span>추가 지시</span>
               <textarea id="scenarioInstruction"
@@ -5376,13 +5743,19 @@ function selectedBehaviorValues(boxId = "scenarioBehaviorOptions"){
 function scenarioRunInstruction(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
   const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}`;
+  const webTargets = scenarioItemWebTargets(item);
+  const webTargetText = webTargets.length
+    ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
+    : "";
+  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${webTargetText}`;
 }
 
 function scenarioInstructionPreview(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
   const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
-  return `${behaviors.join(", ")} · ${instruction}`;
+  const webTargets = scenarioItemWebTargets(item);
+  const suffix = webTargets.length ? ` · URL ${webTargets.length}건` : "";
+  return `${behaviors.join(", ")} · ${instruction}${suffix}`;
 }
 
 function initScenarioWorkbench(){
@@ -5482,6 +5855,8 @@ function syncScenarioEditor(){
     `;
   }
   if(hint && !item) hint.innerHTML = "";
+  renderShareEmailPanel("scenario");
+  renderWebTargetPanel("scenario");
   if(deleteButton) deleteButton.disabled = !item;
 }
 
@@ -5504,7 +5879,11 @@ function addScenarioItem(){
     behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
     order: scenarioItems.length + 1,
     instruction: instruction.value.trim() || sourceDefaultInstruction(key),
+    shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
+    webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
   };
+  item.share_recipients = item.shareRecipients;
+  item.web_targets = item.webTargets;
   item.behavior = item.behaviors[0];
   item.behaviorLabel = sourceBehaviorLabels(key, item.behaviors).join(", ");
   scenarioItems.push(item);
@@ -5596,6 +5975,8 @@ function updateSelectedScenarioSource(key){
   item.behavior = item.behaviors[0];
   item.behaviorLabel = sourceBehaviorLabels(key, item.behaviors).join(", ");
   item.instruction = sourceDefaultInstruction(key);
+  setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
+  setScenarioItemWebTargets(item, key === "web_search" ? scenarioItemWebTargets(item) : []);
   saveCompanyScenario();
   renderScenarioList();
   syncScenarioEditor();
@@ -5717,6 +6098,10 @@ function scenarioPayload(items = scenarioItems){
   const hasRag = items.some(item => item.type.startsWith("rag_"));
   const runItems = items.map(item => ({
     ...item,
+    share_recipients: scenarioItemShareRecipients(item),
+    shareRecipients: scenarioItemShareRecipients(item),
+    web_targets: scenarioItemWebTargets(item),
+    webTargets: scenarioItemWebTargets(item),
     target_type: "company",
     targetType: "company",
     targetSupport: scenarioSourceByKey(item.key)?.supports || { company:true, person:true },
@@ -5725,8 +6110,17 @@ function scenarioPayload(items = scenarioItems){
     behaviorLabel: sourceBehaviorLabels(item.key, item.behaviors).join(", "),
     instruction: scenarioRunInstruction(item),
   }));
+  const shareRecipients = normalizeEmailIds(runItems
+    .filter(item => item.key === "mail_share")
+    .flatMap(item => item.share_recipients || [])
+    .join(","));
+  const webTargets = normalizeWebTargets(runItems
+    .filter(item => item.key === "web_search")
+    .flatMap(item => item.web_targets || []));
   return {
     scenario_items: runItems,
+    share_recipients: shareRecipients,
+    web_targets: webTargets,
     target_type: "company",
     targetType: "company",
     db_query: hasSourceType("db"),
@@ -5856,6 +6250,8 @@ function initGiScenarioWorkbench(){
       id: uid(), key, type: src.type, label: src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
       instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType),
+      shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
+      webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
     }, scenarioItems.length);
     scenarioItems.push(item);
     selectedScenarioId = item.id;
@@ -5912,8 +6308,13 @@ function initGiScenarioWorkbench(){
   });
 
   document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+    if(!addPendingScenarioWebTarget()) return;
+    const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
+    if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
     saveWorkbenchToCaseSteps(aCase);
     const toRun = scenarioItems.filter(s => (aCase.stepStates||{})[s.id] !== "done");
+    if(!ensureMailShareRecipients(toRun)) return;
+    if(!ensureDirectUrlTargets(toRun)) return;
     giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
   });
 
@@ -5962,6 +6363,8 @@ function initDrugScenarioWorkbench(){
       id:uid(), key, type:src.type, label:src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
       instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType || "person"),
+      shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
+      webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
     }, scenarioItems.length);
     scenarioItems.push(item);
     selectedScenarioId = item.id;
@@ -6009,8 +6412,14 @@ function initDrugScenarioWorkbench(){
   });
 
   document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+    if(!addPendingScenarioWebTarget()) return;
+    const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
+    if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
     saveWorkbenchToCaseSteps(aCase);
     const toRun = aCase.giSteps?.filter(s => (aCase.stepStates||{})[s.id] !== "done") || [];
+    const scenarioRunItems = scenarioItems.filter(s => toRun.some(r => r.id === s.id));
+    if(!ensureMailShareRecipients(scenarioRunItems)) return;
+    if(!ensureDirectUrlTargets(scenarioRunItems)) return;
     if(toRun.length) drugStreamSteps(aCase, toRun);
   });
 
@@ -6060,6 +6469,11 @@ function runScenarioWorkflow(){
     alert("실행 가능한 단계가 없습니다.\n첫 번째 단계에 권한이 없어 실행할 수 없습니다.\n권한 요청 후 승인되면 실행할 수 있습니다.");
     return;
   }
+  const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
+  if(!addPendingScenarioWebTarget()) return;
+  if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
+  if(!ensureMailShareRecipients(runnableItems)) return;
+  if(!ensureDirectUrlTargets(runnableItems)) return;
 
   if(scenarioEventSource) scenarioEventSource.close();
   stepOutputs = {};
@@ -6191,6 +6605,7 @@ function render(page="home"){
     scenarioInitialized = false;
     scenarioLoadedForCompany = null;
     coachInitHome();
+    homeRenderShareEmailPanel();
   }
   if(page === "profile"){
     loadScenarioCompanies();
@@ -6385,6 +6800,7 @@ registerGeneralInvestigationEvents({
   loadScenarioCompanies,
   normalizeGiScenarioStep,
   render,
+  requestPermissions,
   riskPersonById,
   saveCanvasState,
   sourceDefaultBehaviors,
@@ -6431,6 +6847,7 @@ registerSpecialInvestigationEvents({
   loadScenarioCompanies,
   normalizeGiScenarioStep,
   renderSpecialInvestigation,
+  requestPermissions,
   resetDrugCaseSubTabs,
   riskPersonById,
   saveCanvasState,
@@ -6447,6 +6864,31 @@ registerSpecialInvestigationEvents({
 });
 
 document.addEventListener("click", (event)=>{
+  const closeDashboardDrawer = () => {
+    document.querySelector(".home-dashboard-drawer")?.classList.remove("open");
+    document.querySelector(".home-dashboard-drawer")?.setAttribute("aria-hidden", "true");
+    const backdrop = document.querySelector(".home-dashboard-backdrop");
+    if(backdrop) backdrop.hidden = true;
+    document.querySelector("[data-dashboard-open]")?.classList.remove("open");
+    document.querySelector("[data-dashboard-open]")?.setAttribute("aria-expanded", "false");
+  };
+
+  if(event.target.closest("[data-dashboard-close]")){
+    closeDashboardDrawer();
+    return;
+  }
+
+  const dashboardTrigger = event.target.closest("[data-dashboard-open]");
+  if(dashboardTrigger){
+    const drawer = document.querySelector(".home-dashboard-drawer");
+    const backdrop = document.querySelector(".home-dashboard-backdrop");
+    drawer?.classList.add("open");
+    drawer?.setAttribute("aria-hidden", "false");
+    if(backdrop) backdrop.hidden = false;
+    dashboardTrigger.classList.add("open");
+    dashboardTrigger.setAttribute("aria-expanded", "true");
+    return;
+  }
 
   /* ── AI 서비스 설정: 카드 수정 모드 진입 ── */
   const agentEdit = event.target.closest("[data-agent-edit]");
@@ -6940,6 +7382,7 @@ document.addEventListener("click", (event)=>{
       ? current.filter(item => item !== key)
       : [...current, key];
     homeSetPickerSelectedKeys(kind, next);
+    if(kind === "agent" && key === "mail_share") homeRenderShareEmailPanel();
     openHomePicker(kind);
     const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
@@ -6970,6 +7413,43 @@ document.addEventListener("click", (event)=>{
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
+    return;
+  }
+
+  const addShareEmailBtn = event.target.closest("[data-home-share-email-add]");
+  if(addShareEmailBtn){
+    homeAddShareEmailIds(document.getElementById("homeShareEmailInput")?.value || "");
+    return;
+  }
+
+  const removeShareEmailBtn = event.target.closest("[data-home-share-email-remove]");
+  if(removeShareEmailBtn){
+    homeShareEmailIds = homeShareEmailIds.filter(email => email !== removeShareEmailBtn.dataset.homeShareEmailRemove);
+    homeRenderShareEmailPanel();
+    return;
+  }
+
+  const addScenarioShareEmailBtn = event.target.closest("[data-share-email-add]");
+  if(addScenarioShareEmailBtn){
+    addShareEmailsToScope(addScenarioShareEmailBtn.dataset.shareEmailAdd);
+    return;
+  }
+
+  const removeScenarioShareEmailBtn = event.target.closest("[data-share-email-remove]");
+  if(removeScenarioShareEmailBtn){
+    removeShareEmailFromScope(removeScenarioShareEmailBtn.dataset.shareEmailRemove, removeScenarioShareEmailBtn.dataset.email || "");
+    return;
+  }
+
+  const addWebTargetBtn = event.target.closest("[data-web-target-add]");
+  if(addWebTargetBtn){
+    addWebTargetToScope(addWebTargetBtn.dataset.webTargetAdd);
+    return;
+  }
+
+  const removeWebTargetBtn = event.target.closest("[data-web-target-remove]");
+  if(removeWebTargetBtn){
+    removeWebTargetFromScope(removeWebTargetBtn.dataset.webTargetRemove, Number(removeWebTargetBtn.dataset.index));
     return;
   }
 
@@ -7279,6 +7759,46 @@ document.addEventListener("change", (event) => {
 
 document.getElementById("promptRun")?.addEventListener("click",()=>render("home"));
 document.getElementById("profileSwitcherBtn")?.addEventListener("click", openUserSelectModal);
+
+document.addEventListener("keydown", (event) => {
+  if(event.key !== "Escape") return;
+  const drawer = document.querySelector(".home-dashboard-drawer.open");
+  if(!drawer) return;
+  drawer.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+  const backdrop = document.querySelector(".home-dashboard-backdrop");
+  if(backdrop) backdrop.hidden = true;
+  document.querySelector("[data-dashboard-open]")?.classList.remove("open");
+  document.querySelector("[data-dashboard-open]")?.setAttribute("aria-expanded", "false");
+});
+
+document.addEventListener("keydown", (event) => {
+  if(event.key !== "Enter") return;
+  if(event.target?.id === "homeShareEmailInput"){
+    event.preventDefault();
+    homeAddShareEmailIds(event.target.value || "");
+    return;
+  }
+  if(event.target?.id === "scenarioShareEmailInput"){
+    event.preventDefault();
+    addShareEmailsToScope("scenario");
+    return;
+  }
+  if(event.target?.id === "templateShareEmailInput"){
+    event.preventDefault();
+    addShareEmailsToScope("template");
+    return;
+  }
+  if(event.target?.id === "scenarioWebTargetUrl" || event.target?.id === "scenarioWebTargetQuery"){
+    event.preventDefault();
+    addWebTargetToScope("scenario");
+    return;
+  }
+  if(event.target?.id === "templateWebTargetUrl" || event.target?.id === "templateWebTargetQuery"){
+    event.preventDefault();
+    addWebTargetToScope("template");
+  }
+});
 
 function shutdownAllServers(){
   const confirmed = confirm("모든 서버를 종료하시겠습니까?\n실행 중인 분석 작업이 중단됩니다.");

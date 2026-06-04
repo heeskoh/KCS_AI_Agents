@@ -214,7 +214,7 @@ export function registerGeneralInvestigationEvents(ctx){
     const giPermReq = event.target.closest("[data-gi-step-request-perm]");
     if(giPermReq){
       const key = giPermReq.dataset.giStepRequestPerm;
-      ctx.requestPermission?.(key);
+      ctx.requestPermissions?.([key]);
       ctx.render("generalinv");
       return;
     }

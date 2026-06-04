@@ -200,15 +200,16 @@ export const AI_SERVICE_CATALOG = {
   },
   web_search: {
     label: "웹검색 AI 서비스", agentId: "web", category: AI_SERVICE_GROUP,
-    defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 확인",
+    defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
     defaultPrompts: {
-      company: "업체, 공급망, 가격 변동 관련 기사 확인",
-      person:  "인물, 조직, 사건, 여행 경로 관련 공개 정보를 확인",
+      company: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
+      person:  "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인",
     },
     behaviorOptions: [
       { value: "company_news",   label: "업체 기사" },
       { value: "supply_chain",   label: "공급망/가격" },
       { value: "industry_news",  label: "동종업종 기사" },
+      { value: "direct_url",     label: "URL 직접 등록" },
     ],
   },
   declaration_verify: {
@@ -320,14 +321,14 @@ export const AI_SERVICE_CATALOG = {
     ],
   },
   mail_share: {
-    label: "내부메일 공유 AI 서비스", agentId: "mail_share", category: AI_SERVICE_GROUP,
-    defaultInstruction: "분석 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
+    label: "분석결과 공유 AI 서비스", agentId: "mail_share", category: AI_SERVICE_GROUP,
+    defaultInstruction: "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
     defaultPrompts: {
-      company: "분석 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
-      person:  "개인 수사 결과보고서를 내부메일 본문과 첨부 요약으로 구성하여 관련 부서에 공유",
+      company: "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
+      person:  "개인 수사 결과보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
     },
     behaviorOptions: [
-      { value: "internal_mail", label: "내부메일 공유" },
+      { value: "email_share",   label: "이메일 공유" },
       { value: "team_brief",    label: "팀 공유 요약" },
     ],
   },

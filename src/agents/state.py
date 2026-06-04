@@ -23,7 +23,7 @@ class CustomsState(TypedDict, total=False):
     web_result: Optional[str]               # 웹 기사                    (agent_web)
     final_report: Optional[str]             # 보고서                     (agent_report)
     validation_result: Optional[str]        # 검증                       (agent_validate)
-    mail_share_result: Optional[str]        # 내부메일 공유              (agent_mail_share)
+    mail_share_result: Optional[str]        # 분석결과 이메일 공유        (agent_mail_share)
 
     # Additional AI service results
     ocr_result: Optional[str]               # OCR/문서인식               (agent_ocr)

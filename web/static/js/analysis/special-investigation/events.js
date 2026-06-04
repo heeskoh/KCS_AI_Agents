@@ -72,7 +72,7 @@ export function registerSpecialInvestigationEvents(ctx){
     /* ── 마약수사 권한 요청 ── */
     const drugPermReq = event.target.closest("[data-drug-step-request-perm]");
     if(drugPermReq){
-      ctx.requestPermission?.(drugPermReq.dataset.drugStepRequestPerm);
+      ctx.requestPermissions?.([drugPermReq.dataset.drugStepRequestPerm]);
       ctx.renderSpecialInvestigation();
       return;
     }

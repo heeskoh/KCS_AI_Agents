@@ -31,17 +31,21 @@ def _mail_recipients(state: CustomsState) -> str:
     scenario = state.get("scenario") or {}
     recipients = scenario.get("share_recipients")
     if isinstance(recipients, list) and recipients:
-        return ", ".join(str(item) for item in recipients)
+        return ", ".join(str(item).strip() for item in recipients if str(item).strip())
     if isinstance(recipients, str) and recipients.strip():
         return recipients.strip()
-    return "관세조사 분석팀, 수사담당관, 정보분석 담당자"
+    return ""
 
 
 def agent_mail_share(state: CustomsState) -> CustomsState:
-    """Prepare an internal mail share package for the latest analysis report."""
-    print("\n[Agent] 내부메일 공유 시작")
+    """Prepare an email share package for the latest analysis report."""
+    print("\n[Agent] 분석결과 공유 시작")
 
     scenario = state.get("scenario") or {}
+    recipients = _mail_recipients(state)
+    if not recipients:
+        raise ValueError("분석결과 공유 AI 서비스는 수신 이메일 ID를 1개 이상 등록해야 합니다.")
+
     company_id = state.get("company_id") or "대상 미지정"
     prompt = scenario.get("user_prompt") or "분석 요청"
     report = _first_text(state, ["final_report", "summary_result"])
@@ -58,15 +62,15 @@ def agent_mail_share(state: CustomsState) -> CustomsState:
     preview = report.strip().splitlines()
     preview_text = "\n".join(line for line in preview if line.strip())[:1800]
 
-    result = f"""# 내부메일 공유 결과
+    result = f"""# 분석결과 공유 결과
 
 - 발송 상태: 공유 준비 완료
 - 발송 시각: {sent_at}
-- 수신: {_mail_recipients(state)}
+- 수신 이메일: {recipients}
 - 제목: {subject}
 - 첨부: AI 분석 결과보고서.md
 
-## 메일 본문
+## 이메일 본문
 안녕하세요.
 
 아래 요청에 대한 AI 분석 결과보고서를 공유드립니다.
@@ -79,5 +83,5 @@ def agent_mail_share(state: CustomsState) -> CustomsState:
 {preview_text}
 """
 
-    print("[Agent] 내부메일 공유 완료")
+    print("[Agent] 분석결과 공유 완료")
     return {**state, "mail_share_result": result}
