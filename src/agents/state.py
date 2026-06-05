@@ -27,6 +27,8 @@ class CustomsState(TypedDict, total=False):
 
     # Additional AI service results
     ocr_result: Optional[str]               # OCR/문서인식               (agent_ocr)
+    document_intelligence_result: Optional[list]
+    ocr_recommended_agents: Optional[list[str]]
     ml_result: Optional[str]                # ML 모델 실행               (agent_ml)
     network_result: Optional[str]           # 관계망 분석                (agent_network)
     declaration_verify_result: Optional[str]# 수입신고검증               (agent_declaration_verify)

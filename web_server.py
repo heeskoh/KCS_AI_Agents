@@ -465,6 +465,24 @@ def _is_attachment_direct_task(prompt: str, attached_files: list[dict]) -> bool:
     return asks_file_work and not asks_internal_work
 
 
+def _looks_like_communication_file(file_info: dict) -> bool:
+    name = str(file_info.get("name") or "").lower()
+    text = str(file_info.get("content") or "")[:3000].lower()
+    suffix = Path(name).suffix.lower()
+    hints = [
+        "통신", "sms", "문자", "sns", "카톡", "카카오", "대화", "메시지",
+        "message", "chat", "sender", "receiver", "from", "to", "발신", "수신",
+    ]
+    if suffix in {".csv", ".tsv", ".xls", ".xlsx"} and any(token in name or token in text for token in hints):
+        return True
+    header = text.splitlines()[0] if text.splitlines() else ""
+    return (
+        ("sender" in header and "receiver" in header)
+        or ("from" in header and "to" in header and "date" in header)
+        or ("발신" in header and "수신" in header)
+    )
+
+
 def _decode_attachment_bytes(file_info: dict) -> bytes:
     content = file_info.get("content") or ""
     encoding = (file_info.get("encoding") or "").lower()
@@ -663,9 +681,12 @@ def analyze_prompt_intent(body: dict) -> dict:
 
     # 파일 첨부 시 ocr/summary 선두 삽입
     if attached_files and result["mode"] == "agents":
-        agents = result["agents"]
+        agents = list(result["agents"])
+        if any(_looks_like_communication_file(file_info) for file_info in attached_files) and "network" not in agents:
+            agents = ["network"] + agents
         if "ocr" not in agents:
-            result["agents"] = ["ocr", "summary"] + agents
+            agents = ["ocr", "summary"] + agents
+        result["agents"] = agents
 
     # 에이전트 메타 정보 추가
     result["agent_defs"] = [
@@ -730,7 +751,7 @@ _DATA_SOURCES = {
 }
 
 _AGENTS = {
-    "ocr":                "OCR/문서인식 — 세금계산서·B/L·계약서 파싱 및 가산요소 자동탐지",
+    "ocr":                "OCR/문서인식 — 파일 유형 판별, OCR·문서·표·그림 인식, 후속 AI 서비스 연결",
     "ml":                 "ML 위험모델 — 동종업종 비교·HS 위험점수·이상치(Z-score) 탐지",
     "network":            "관계망 분석 — 특수관계·우회수입·페이퍼컴퍼니 식별",
     "web":                "웹 검색 — 외부 기사·공급망·가격동향·운임 정보 수집 및 등록 URL 확인",
