@@ -1013,9 +1013,12 @@ const specialInvestigation = createSpecialInvestigation({
   getLatestReport: () => latestReport,
   getLatestValidation: () => latestValidation,
   getRiskPersons: () => riskPersons,
+  getRiskPersonProfile: personId => riskPersonProfiles[personId] || null,
   getScenarioCompanies: () => scenarioCompanies,
   isRiskPersonsLoading: () => riskPersonsLoading,
+  isRiskPersonProfileLoading: personId => Boolean(riskPersonProfileLoading[personId]),
   loadRiskPersons,
+  loadRiskPersonProfile,
   loadScenarioCompanies,
   riskPersonById,
   giStepSourceOptionsHtml,
@@ -1078,6 +1081,8 @@ let ontologyTab          = "graph";    // "graph"|"rules"|"inference"
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
 let riskPersons          = [];
 let riskPersonsLoading   = false;
+let riskPersonProfiles   = {};
+let riskPersonProfileLoading = {};
 
 const GEN_INV_TYPES = [
   { id:"t1", num:"①", label:"관세포탈 수사",              cls:"gi-t1" },
@@ -1110,9 +1115,12 @@ const generalInvestigation = createGeneralInvestigation({
   getActiveCanvasCompanyId: () => activeCanvasCompanyId,
   getGiRunEventSource: () => giRunEventSource,
   getRiskPersons: () => riskPersons,
+  getRiskPersonProfile: personId => riskPersonProfiles[personId] || null,
   getScenarioCompanies: () => scenarioCompanies,
   isRiskPersonsLoading: () => riskPersonsLoading,
+  isRiskPersonProfileLoading: personId => Boolean(riskPersonProfileLoading[personId]),
   loadRiskPersons,
+  loadRiskPersonProfile,
   riskPersonById,
   GEN_INV_TYPES,
   behaviorOptionsHtml,
@@ -1600,7 +1608,7 @@ const defaultGenInvCases = [
   { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company", companyId:"C-1001",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
     investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
-  { caseId:"GI-2026-002", targetName:"김우범 (개인)", invTypeId:"t2", targetType:"person",
+  { caseId:"GI-2026-002", targetName:"샘플우범자001 (개인)", invTypeId:"t2", targetType:"person", personId:"RP-0001",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
     investigator:"권조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
   { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company", companyId:"C-1003",
@@ -4622,6 +4630,32 @@ function loadRiskPersons(){
     })
     .catch(error => {
       riskPersonsLoading = false;
+      console.error(error);
+    });
+}
+
+function loadRiskPersonProfile(personId){
+  if(!personId) return;
+  if(riskPersonProfiles[personId]) return;
+  if(riskPersonProfileLoading[personId]) return;
+  riskPersonProfileLoading[personId] = true;
+  fetch(`/api/risk-person-profile?person_id=${encodeURIComponent(personId)}`)
+    .then(response => {
+      if(!response.ok) throw new Error(`우범자 통합 프로파일 API 오류: ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      riskPersonProfileLoading[personId] = false;
+      if(!data.error) riskPersonProfiles[personId] = data;
+      if(currentPage === "generalinv" && generalInvestigationState.generalInvTab === "profile"){
+        render("generalinv");
+      }
+      if(isSpecialInvestigationPage(currentPage) && specialInvestigationState.drugInvTab === "profile"){
+        renderSpecialInvestigation();
+      }
+    })
+    .catch(error => {
+      riskPersonProfileLoading[personId] = false;
       console.error(error);
     });
 }

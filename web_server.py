@@ -98,6 +98,200 @@ def list_risk_persons() -> list[dict[str, object]]:
         ).df().to_dict("records")
 
 
+def get_risk_person_profile(person_id: str) -> dict[str, object]:
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        exists = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = 'risk_person_profile'
+            """
+        ).fetchone()[0]
+        if not exists:
+            return {"error": "risk_person_profile table not found"}
+
+        profile = conn.execute(
+            "SELECT * FROM risk_person_profile WHERE person_id = ?",
+            [person_id],
+        ).df()
+        if profile.empty:
+            return {"error": "person not found", "person_id": person_id}
+
+        indicators = conn.execute(
+            """
+            SELECT indicator_code, indicator_name, indicator_value, score, weight, reason, calculated_at
+            FROM risk_indicator
+            WHERE entity_type = 'person' AND entity_id = ?
+            ORDER BY score DESC NULLS LAST, weight DESC NULLS LAST
+            """,
+            [person_id],
+        ).df()
+
+        cases = conn.execute(
+            """
+            SELECT
+                c.case_id,
+                c.case_no,
+                c.case_type,
+                c.contraband_category,
+                c.contraband_sub_category,
+                c.case_status,
+                c.detection_date,
+                c.detection_channel,
+                c.origin_country,
+                c.transit_country,
+                c.destination_region,
+                c.modus_operandi,
+                c.concealment_method,
+                c.quantity,
+                c.quantity_unit,
+                c.estimated_value,
+                c.lead_agency,
+                c.summary,
+                pcl.role_in_case,
+                pcl.confidence_score,
+                pcl.evidence_level,
+                pcl.source_id
+            FROM person_case_link pcl
+            JOIN smuggling_case c ON c.case_id = pcl.case_id
+            WHERE pcl.person_id = ?
+            ORDER BY c.detection_date DESC NULLS LAST, c.case_id
+            """,
+            [person_id],
+        ).df()
+
+        roles = conn.execute(
+            """
+            SELECT
+                COALESCE(role_in_case, '역할 미상') AS role,
+                COUNT(*) AS case_count,
+                AVG(confidence_score) AS avg_confidence,
+                MAX(evidence_level) AS top_evidence_level
+            FROM person_case_link
+            WHERE person_id = ?
+            GROUP BY role
+            ORDER BY case_count DESC, avg_confidence DESC NULLS LAST
+            """,
+            [person_id],
+        ).df()
+
+        network = conn.execute(
+            """
+            SELECT
+                edge_id,
+                source_type,
+                source_id,
+                target_type,
+                target_id,
+                relation_type,
+                weight,
+                confidence_score,
+                first_seen_at,
+                last_seen_at,
+                source_id_ref
+            FROM network_edge
+            WHERE source_id = ? OR target_id = ?
+            ORDER BY confidence_score DESC NULLS LAST, weight DESC NULLS LAST
+            LIMIT 80
+            """,
+            [person_id, person_id],
+        ).df()
+
+        org_ids = [
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT CASE
+                    WHEN source_type = 'org' THEN source_id
+                    WHEN target_type = 'org' THEN target_id
+                END AS org_id
+                FROM network_edge
+                WHERE (source_id = ? OR target_id = ?)
+                  AND (source_type = 'org' OR target_type = 'org')
+                  AND org_id IS NOT NULL
+                """,
+                [person_id, person_id],
+            ).fetchall()
+        ]
+        orgs = conn.execute(
+            """
+            SELECT *
+            FROM risk_org_profile
+            WHERE org_id IN (SELECT UNNEST(?))
+            ORDER BY risk_score DESC NULLS LAST
+            """,
+            [org_ids],
+        ).df() if org_ids else conn.execute("SELECT * FROM risk_org_profile WHERE 1=0").df()
+
+        evidence = conn.execute(
+            """
+            SELECT DISTINCT
+                e.source_id,
+                e.source_type,
+                e.source_title,
+                e.source_date,
+                e.source_agency,
+                e.classification_level,
+                e.summary,
+                e.reliability_score
+            FROM evidence_source e
+            LEFT JOIN person_case_link pcl ON pcl.source_id = e.source_id
+            LEFT JOIN network_edge ne ON ne.source_id_ref = e.source_id
+            WHERE pcl.person_id = ? OR ne.source_id = ? OR ne.target_id = ?
+            ORDER BY e.source_date DESC NULLS LAST, e.reliability_score DESC NULLS LAST
+            LIMIT 40
+            """,
+            [person_id, person_id, person_id],
+        ).df()
+
+        analysis = conn.execute(
+            """
+            SELECT analysis_id, analysis_type, model_or_agent, input_summary, output_summary,
+                   risk_score_before, risk_score_after, explanation, review_status, created_at
+            FROM analysis_result
+            WHERE entity_type = 'person' AND entity_id = ?
+            ORDER BY created_at DESC NULLS LAST
+            LIMIT 20
+            """,
+            [person_id],
+        ).df()
+
+    profile_row = profile.to_dict("records")[0]
+    indicator_rows = indicators.to_dict("records")
+    case_rows = cases.to_dict("records")
+    role_rows = roles.to_dict("records")
+    network_rows = network.to_dict("records")
+    org_rows = orgs.to_dict("records")
+    evidence_rows = evidence.to_dict("records")
+    analysis_rows = analysis.to_dict("records")
+    high_risk_relations = [
+        row for row in network_rows
+        if float(row.get("confidence_score") or 0) >= 0.75 or float(row.get("weight") or 0) >= 0.75
+    ]
+    summary = {
+        "case_count": len(case_rows),
+        "indicator_count": len(indicator_rows),
+        "network_edge_count": len(network_rows),
+        "org_count": len(org_rows),
+        "evidence_count": len(evidence_rows),
+        "analysis_count": len(analysis_rows),
+        "high_risk_relation_count": len(high_risk_relations),
+        "top_role": role_rows[0]["role"] if role_rows else profile_row.get("profile_type"),
+        "top_indicator": indicator_rows[0]["indicator_name"] if indicator_rows else "",
+    }
+    return {
+        "profile": profile_row,
+        "summary": summary,
+        "indicators": indicator_rows,
+        "cases": case_rows,
+        "roles": role_rows,
+        "network": network_rows,
+        "orgs": org_rows,
+        "evidence": evidence_rows,
+        "analysis": analysis_rows,
+    }
+
+
 def get_company_profile(company_id: str) -> dict[str, object]:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -1057,6 +1251,13 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/risk-persons":
             self._send_json({"persons": list_risk_persons()})
+            return
+        if parsed.path == "/api/risk-person-profile":
+            person_id = parse_qs(parsed.query).get("person_id", [""])[0].strip()
+            if not person_id:
+                self._send_json({"error": "person_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(get_risk_person_profile(person_id))
             return
         if parsed.path == "/api/company":
             company_id = parse_qs(parsed.query).get("company_id", [""])[0].strip()
