@@ -635,11 +635,13 @@ def analyze_prompt_intent(body: dict) -> dict:
     prompt = (body.get("prompt") or "").strip()
     coach_uses: list[str] = body.get("coach_uses") or []
     attached_files: list[dict] = body.get("attached_files") or []
+    file_links: list[dict] = body.get("file_links") or []
+    attachment_inputs = [*attached_files, *file_links]
 
     if not prompt:
         return {"error": "prompt required", "mode": "llm_direct", "agents": [], "llm_answer": ""}
 
-    if _is_attachment_direct_task(prompt, attached_files):
+    if _is_attachment_direct_task(prompt, attachment_inputs):
         return {
             "mode": "llm_direct",
             "company_id": None,
@@ -680,9 +682,9 @@ def analyze_prompt_intent(body: dict) -> dict:
     }
 
     # 파일 첨부 시 ocr/summary 선두 삽입
-    if attached_files and result["mode"] == "agents":
+    if attachment_inputs and result["mode"] == "agents":
         agents = list(result["agents"])
-        if any(_looks_like_communication_file(file_info) for file_info in attached_files) and "network" not in agents:
+        if any(_looks_like_communication_file(file_info) for file_info in attachment_inputs) and "network" not in agents:
             agents = ["network"] + agents
         if "ocr" not in agents:
             agents = ["ocr", "summary"] + agents

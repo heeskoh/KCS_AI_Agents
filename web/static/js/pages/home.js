@@ -131,6 +131,14 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
           <div class="home-mail-share-chips" id="homeShareEmailChips"></div>
         </div>
         <div class="home-file-chips coach-file-chips" id="coachFileChips"></div>
+        <div class="home-file-link-panel">
+          <div class="home-file-link-fields">
+            <input id="coachFileLinkName" type="text" placeholder="문서명 또는 전자서고 제목">
+            <input id="coachFileLinkUrl" type="url" placeholder="전자서고 파일 링크 또는 URL">
+            <button class="btn secondary" type="button" data-coach-add-file-link>링크 추가</button>
+          </div>
+          <div class="home-file-link-chips" id="coachFileLinkChips"></div>
+        </div>
 
         <div class="coach-sugg-panel" id="coachSuggPanel" style="display:none">
           <div class="coach-sugg-hdr">

@@ -1662,6 +1662,7 @@ let coachOriginalPrompt = "";
 let coachIsRunning = false;
 let coachUploadSessionId = "";        // 백엔드 업로드 세션 ID
 let coachAttachedFiles = [];          // [{ name, type, size, mime, encoding, content }] (content 로컬 캐시)
+let coachFileLinks = [];              // [{ name, url, type, mime, encoding, size }]
 let coachSuggestionsCollapsed = false;
 
 const COACH_TEXT_EXT = /\.(txt|md|csv|json|html|htm|xml|log|tsv|sql|yaml|yml)$/i;
@@ -1789,6 +1790,7 @@ function coachReset(){
   coachBaseScore = 35;
   coachImprovedPrompt = "";
   coachAttachedFiles = [];
+  coachFileLinks = [];
   if(coachUploadSessionId){
     fetch("/api/upload/clear", {
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -1797,6 +1799,7 @@ function coachReset(){
     coachUploadSessionId = "";
   }
   coachRenderFileChips();
+  coachRenderFileLinkChips();
   const cc = coachEl("coachCharCount");
   if(cc && ta) cc.textContent = ta.value.length + "자";
   const improveBtn = coachEl("coachImproveBtn");
@@ -1845,9 +1848,8 @@ async function coachRunAnalyze(){
         prompt,
         selected_sources: selectedOptions.sources,
         selected_agents: selectedOptions.agents,
-        attached_files: coachAttachedFiles.map(f => ({
-          name: f.name, type: f.type, size: f.size, encoding: f.encoding,
-        })),
+        attached_files: coachAttachedFileSummaries(),
+        file_links: coachFileLinkSummaries(),
       }),
     });
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1906,6 +1908,57 @@ function coachRenderFileChips(){
       <button type="button" class="coach-file-remove" data-coach-remove-file="${i}">×</button>
     </span>`;
   }).join("");
+}
+
+function coachRenderFileLinkChips(){
+  const wrap = coachEl("coachFileLinkChips");
+  if(!wrap) return;
+  if(coachFileLinks.length === 0){
+    wrap.innerHTML = "";
+    return;
+  }
+  wrap.innerHTML = coachFileLinks.map((link, i) => `
+    <span class="coach-file-chip coach-link-chip" title="${escapeHtml(link.url)}">
+      <span class="coach-file-type">LINK</span>
+      <span class="coach-file-name">${escapeHtml(link.name || link.url)}</span>
+      <span class="coach-file-size">전자서고</span>
+      <button type="button" class="coach-file-remove" data-coach-remove-file-link="${i}">×</button>
+    </span>
+  `).join("");
+}
+
+function coachAddFileLink(){
+  const nameInput = coachEl("coachFileLinkName");
+  const urlInput = coachEl("coachFileLinkUrl");
+  const rawUrl = (urlInput?.value || "").trim();
+  const rawName = (nameInput?.value || "").trim();
+  if(!rawUrl){
+    alert("전자서고 파일 링크를 입력하세요.");
+    return false;
+  }
+  const normalizedUrl = rawUrl;
+  const duplicate = coachFileLinks.some(link => link.url === normalizedUrl);
+  if(duplicate){
+    alert("이미 추가된 파일 링크입니다.");
+    return false;
+  }
+  coachFileLinks.push({
+    name: rawName || normalizedUrl,
+    url: normalizedUrl,
+    type: "file_link",
+    mime: "",
+    encoding: "link",
+    size: 0,
+  });
+  if(nameInput) nameInput.value = "";
+  if(urlInput) urlInput.value = "";
+  coachRenderFileLinkChips();
+  return true;
+}
+
+function coachRemoveFileLink(idx){
+  coachFileLinks.splice(idx, 1);
+  coachRenderFileLinkChips();
 }
 
 function coachReadFile(file){
@@ -2030,7 +2083,25 @@ function coachInitHome(){
   coachSetScoreMini(null);
   coachRefreshCards();
   coachRenderFileChips();
+  coachRenderFileLinkChips();
   homeSyncPickerStatuses();
+}
+
+function coachAttachedFileSummaries(){
+  return coachAttachedFiles.map(f => ({
+    name: f.name, type: f.type, size: f.size, encoding: f.encoding,
+  }));
+}
+
+function coachFileLinkSummaries(){
+  return coachFileLinks.map(link => ({
+    name: link.name,
+    url: link.url,
+    type: link.type || "file_link",
+    mime: link.mime || "",
+    encoding: "link",
+    size: Number(link.size || 0),
+  }));
 }
 
 /* ── 홈 분석 실행 (실제 워크플로 스트리밍) ── */
@@ -2590,9 +2661,9 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     bigdata_enabled: false,
     user_prompt: prompt,
     upload_session_id: coachUploadSessionId || undefined,
-    attached_files_summary: coachAttachedFiles.map(f => ({
-      name: f.name, type: f.type, size: f.size, encoding: f.encoding,
-    })),
+    uploaded_files: coachAttachedFiles,
+    file_links: coachFileLinkSummaries(),
+    attached_files_summary: coachAttachedFileSummaries(),
     share_recipients: homeShareEmailIds,
   };
 
@@ -2727,9 +2798,8 @@ async function homeRunAnalysis(prompt, btn){
         body: JSON.stringify({
           prompt,
           upload_session_id: coachUploadSessionId || undefined,
-          attached_files: coachAttachedFiles.map(f => ({
-            name: f.name, type: f.type, size: f.size, encoding: f.encoding,
-          })),
+          attached_files: coachAttachedFileSummaries(),
+          file_links: coachFileLinkSummaries(),
         }),
       });
       const d = await r.json();
@@ -2753,9 +2823,8 @@ async function homeRunAnalysis(prompt, btn){
         selected_sources: selectedOptions.sources,
         selected_agents: selectedOptions.agents,
         upload_session_id: coachUploadSessionId || undefined,
-        attached_files: coachAttachedFiles.map(f => ({
-          name: f.name, type: f.type, size: f.size, encoding: f.encoding,
-        })),
+        attached_files: coachAttachedFileSummaries(),
+        file_links: coachFileLinkSummaries(),
       }),
     });
     intent = await res.json();
@@ -2793,9 +2862,8 @@ async function homeRunAnalysis(prompt, btn){
           body: JSON.stringify({
             prompt,
             upload_session_id: coachUploadSessionId || undefined,
-            attached_files: coachAttachedFiles.map(f => ({
-              name: f.name, type: f.type, size: f.size, encoding: f.encoding,
-            })),
+            attached_files: coachAttachedFileSummaries(),
+            file_links: coachFileLinkSummaries(),
           }),
         });
         const d = await r.json();
@@ -7456,6 +7524,18 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  const addFileLinkBtn = event.target.closest("[data-coach-add-file-link]");
+  if(addFileLinkBtn){
+    coachAddFileLink();
+    return;
+  }
+
+  const removeFileLinkBtn = event.target.closest("[data-coach-remove-file-link]");
+  if(removeFileLinkBtn){
+    coachRemoveFileLink(Number(removeFileLinkBtn.dataset.coachRemoveFileLink || 0));
+    return;
+  }
+
   const removeShareEmailBtn = event.target.closest("[data-home-share-email-remove]");
   if(removeShareEmailBtn){
     homeShareEmailIds = homeShareEmailIds.filter(email => email !== removeShareEmailBtn.dataset.homeShareEmailRemove);
@@ -7811,6 +7891,11 @@ document.addEventListener("keydown", (event) => {
   if(event.target?.id === "homeShareEmailInput"){
     event.preventDefault();
     homeAddShareEmailIds(event.target.value || "");
+    return;
+  }
+  if(event.target?.id === "coachFileLinkName" || event.target?.id === "coachFileLinkUrl"){
+    event.preventDefault();
+    coachAddFileLink();
     return;
   }
   if(event.target?.id === "scenarioShareEmailInput"){
