@@ -194,7 +194,7 @@ def agent_db(state: CustomsState) -> CustomsState:
 
     company_id = (state.get("company_id") or "").strip()
     prompt = prompt_text(state)
-    print(f"\n[Agent] DB 조회 시작: {company_id}")
+    print(f"\n[Agent] CDW DB 조회 시작: {company_id}")
 
     if company_id in NO_COMPANY_SENTINELS:
         result = (
@@ -309,5 +309,5 @@ def agent_db(state: CustomsState) -> CustomsState:
     else:
         summary = _fallback_summary(company, declarations, risk)
 
-    print("[Agent] DB 조회 완료")
+    print("[Agent] CDW DB 조회 완료")
     return {**state, "db_result": summary}

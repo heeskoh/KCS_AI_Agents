@@ -9,7 +9,7 @@ export function renderReportPanel(deps){
   const results = aCase.stepResults || {};
   const type    = deps.genInvTypeById(aCase.invTypeId);
 
-  /* 보고서 작성(gi_rep)·보고서 승인(gi_appr) 단계 찾기 */
+  /* 보고서 작성(gi_rep)·보고서 검증(gi_appr) 단계 찾기 */
   const repStep  = steps.find(s => s.key === "gi_rep");
   const apprStep = steps.find(s => s.key === "gi_appr");
   const repDone  = !!(repStep  && states[repStep.id]  === "done");
@@ -55,14 +55,14 @@ export function renderReportPanel(deps){
        <div class="report-required-preview">
          ${markdownToHtml(deps.ensureReportRequiredSections("", "general", { targetName: aCase.targetName }))}
        </div>`;
-  const validationHtml = apprDone ? markdownToHtml(apprText) : placeholder("보고서 승인(gi_appr)", "workbench");
+  const validationHtml = apprDone ? markdownToHtml(apprText) : placeholder("보고서 검증 AI 서비스(gi_appr)", "workbench");
   return deps.commonAnalysisReportPanel({
     selectedLabel: aCase.targetType === "company" ? "수사 대상 기업" : "수사 대상 개인",
     targetText: `${escapeHtml(aCase.targetName)} <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>`,
     badgeHtml: `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`,
     statusHtml: badge,
     reportTitle: "수사 보고서",
-    validationTitle: "보고서 검증 · 승인",
+    validationTitle: "보고서 검증",
     reportHtml,
     validationHtml,
     reportActions: repActions,

@@ -1240,8 +1240,18 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         )
         for key, label, runner, result_key in steps:
             try:
+                step_state = {
+                    **state,
+                    "scenario": {
+                        **(state.get("scenario") or {}),
+                        "current_agent_key": key,
+                        "current_agent_label": label,
+                    },
+                }
+                print(f"\n[Agent] {label} 시작")
                 self._sse("step", {"key": key, "label": label, "status": "running"})
-                state = runner(state)
+                state = runner(step_state)
+                print(f"[Agent] {label} 완료")
                 self._sse(
                     "step",
                     {
@@ -1253,6 +1263,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     },
                 )
             except Exception as exc:
+                print(f"[Agent] {label} 오류: {exc}")
                 self._sse(
                     "step",
                     {"key": key, "label": label, "status": "error", "error": str(exc)},
@@ -1362,14 +1373,24 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
         for agent_key, label, runner, result_key, gi_step_id, note in gi_steps:
             step_prompt = user_prompt + (f"\n중점 확인사항: {note}" if note else "")
-            step_state  = {**state, "scenario": {**scenario, "user_prompt": step_prompt}}
+            step_state  = {
+                **state,
+                "scenario": {
+                    **scenario,
+                    "user_prompt": step_prompt,
+                    "current_agent_key": agent_key,
+                    "current_agent_label": label,
+                },
+            }
             try:
+                print(f"\n[Agent] {label} 시작")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "running",
                 })
                 step_state = runner(step_state)
                 state = {**state, **{k: v for k, v in step_state.items() if k != "scenario"}}
+                print(f"[Agent] {label} 완료")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "done",
@@ -1377,6 +1398,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     "output": step_state.get(result_key) or "",
                 })
             except Exception as exc:
+                print(f"[Agent] {label} 오류: {exc}")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "error",

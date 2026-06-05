@@ -1148,7 +1148,7 @@ const GI_SERVICE_ALIASES = {
   gi_rag_int:  { sourceKey:"rag_global", type:"rag", label:"국제협력 RAG" },
   gi_law:      { sourceKey:"law", type:"rag", label:"법령 검토" },
   gi_rep:      { sourceKey:"report_generate", type:"report", label:"보고서 작성" },
-  gi_appr:     { sourceKey:"report_validate", type:"approve", label:"보고서 승인" },
+  gi_appr:     { sourceKey:"report_validate", type:"approve", label:"보고서 검증 AI 서비스" },
 };
 
 /* GI_STEP_SOURCES_MAP 초기화 (DRUG_SCENARIO_STEPS에서 사용) */
