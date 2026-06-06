@@ -1196,6 +1196,27 @@ function giCommonSourceKey(key){
   return GI_SERVICE_ALIASES[canonical]?.sourceKey || (scenarioSourceByKey(canonical) ? canonical : "summary");
 }
 
+function normalizeReportValidationLabel(label){
+  const legacy = "보고서 " + "승인";
+  return String(label || "").replaceAll(legacy, "보고서 검증");
+}
+
+function normalizeScenarioLabelsInPlace(items){
+  if(!Array.isArray(items)) return items;
+  items.forEach(item => {
+    if(item && typeof item === "object" && "label" in item){
+      item.label = normalizeReportValidationLabel(item.label);
+    }
+  });
+  return items;
+}
+
+function normalizeCaseStepLabelsInPlace(cases){
+  if(!Array.isArray(cases)) return cases;
+  cases.forEach(aCase => normalizeScenarioLabelsInPlace(aCase?.giSteps));
+  return cases;
+}
+
 function normalizeGiScenarioStep(step, index = 0){
   const source = giSourceByKey(step.key);
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
@@ -1224,7 +1245,7 @@ function normalizeGiScenarioStep(step, index = 0){
     id: step.id || `gis_${index}_${uid()}`,
     key: step.key || source.key,
     type: step.type || source.type,
-    label: step.label || source.label,
+    label: normalizeReportValidationLabel(step.label || source.label),
     sourceKey,
     targetType,
     target_type: targetType,
@@ -1263,7 +1284,7 @@ function giScenarioRunInstruction(step, targetType = "company"){
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
-  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"검증"};
   return GI_STEP_SOURCES.map(source =>
     `<option value="${escapeHtml(source.key)}"${source.key === selectedKey ? " selected" : ""}>${escapeHtml(typeLabel[source.type] || source.type)} · ${escapeHtml(source.label)}</option>`
   ).join("");
@@ -2966,12 +2987,15 @@ function loadCanvasState(){
   try{
     const saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
     if(Array.isArray(saved.customCanvasJobs)) customCanvasJobs = saved.customCanvasJobs;
-    if(Array.isArray(saved.customGenInvCases)) generalInvestigationState.customGenInvCases = saved.customGenInvCases;
+    if(Array.isArray(saved.customGenInvCases)) generalInvestigationState.customGenInvCases = normalizeCaseStepLabelsInPlace(saved.customGenInvCases);
     if(saved.activeCanvasCompanyId) activeCanvasCompanyId = saved.activeCanvasCompanyId;
     if(saved.activeScenarioTemplateId) activeScenarioTemplateId = saved.activeScenarioTemplateId;
     if(saved.latestReport) latestReport = saved.latestReport;
     if(saved.latestValidation) latestValidation = saved.latestValidation;
-    if(saved.companyScenarios && typeof saved.companyScenarios === "object") companyScenarios = saved.companyScenarios;
+    if(saved.companyScenarios && typeof saved.companyScenarios === "object"){
+      companyScenarios = saved.companyScenarios;
+      Object.values(companyScenarios).forEach(normalizeScenarioLabelsInPlace);
+    }
     if(saved.userPermissions && typeof saved.userPermissions === "object"){
       userPermissions = {...defaultUserPermissions, ...saved.userPermissions};
     }
@@ -2979,10 +3003,14 @@ function loadCanvasState(){
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
     if(saved.hiddenCanvasJobsByUser && typeof saved.hiddenCanvasJobsByUser === "object") hiddenCanvasJobsByUser = saved.hiddenCanvasJobsByUser;
     if(saved.userWorkspaces && typeof saved.userWorkspaces === "object") userWorkspaces = saved.userWorkspaces;
-    if(Array.isArray(saved.customTemplates)) customTemplates = saved.customTemplates;
+    if(Array.isArray(saved.customTemplates)){
+      customTemplates = saved.customTemplates;
+      customTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
+    }
     if(Array.isArray(saved.hiddenBuiltinIds)) hiddenBuiltinIds = new Set(saved.hiddenBuiltinIds);
     if(saved.builtinOverrides && typeof saved.builtinOverrides === "object") builtinOverrides = saved.builtinOverrides;
     if(saved.currentUserId) currentUserId = saved.currentUserId;
+    normalizeCaseStepLabelsInPlace(defaultGenInvCases);
     migrateLegacyWorkspaceState(saved);
     restoreUserWorkspace(currentUserId);
   }catch(error){
@@ -3100,7 +3128,7 @@ function restoreWorkspaceWorkState(userId){
     ? cloneSavedValue(workspace.customCanvasJobs, [])
     : [];
   generalInvestigationState.customGenInvCases = Array.isArray(workspace.customGenInvCases)
-    ? cloneSavedValue(workspace.customGenInvCases, [])
+    ? normalizeCaseStepLabelsInPlace(cloneSavedValue(workspace.customGenInvCases, []))
     : [];
   defaultGenInvCases.splice(
     0,
@@ -3112,10 +3140,12 @@ function restoreWorkspaceWorkState(userId){
       const idx = defaultGenInvCases.findIndex(item => item.caseId === savedCase.caseId);
       if(idx >= 0) Object.assign(defaultGenInvCases[idx], cloneSavedValue(savedCase, defaultGenInvCases[idx]));
     });
+    normalizeCaseStepLabelsInPlace(defaultGenInvCases);
   }
   companyScenarios = workspace.companyScenarios && typeof workspace.companyScenarios === "object"
     ? cloneSavedValue(workspace.companyScenarios, {})
     : {};
+  Object.values(companyScenarios).forEach(normalizeScenarioLabelsInPlace);
   canvasJobOverrides = workspace.canvasJobOverrides && typeof workspace.canvasJobOverrides === "object"
     ? cloneSavedValue(workspace.canvasJobOverrides, {})
     : {};
@@ -5116,7 +5146,7 @@ function editingCardStepsHtml(){
     <li class="template-editable-step ${item.id === templateEditorSelectedId ? "selected" : ""}" data-teditor-id="${item.id}">
       <b>${i + 1}</b>
       <div class="template-editable-step-body">
-        <strong>${escapeHtml(item.label)}</strong>
+        <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
         <small>${escapeHtml(sourceBehaviorLabels(item.key, item.behaviors).join(", "))}</small>
       </div>
       <div class="step-reorder-btns">
@@ -5139,7 +5169,7 @@ function templateCardHtml(template){
         <li>
           <b>${i + 1}</b>
           <div>
-            <strong>${escapeHtml(item.label)}</strong>
+            <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
             <small>${escapeHtml(sourceBehaviorLabels(item.key, item.behaviors).join(", "))}</small>
           </div>
         </li>`).join("")}
@@ -6096,7 +6126,7 @@ function renderScenarioList(){
       <div class="chip-num">${item.order}</div>
       <div class="chip-body">
         <div class="chip-title-row">
-          <strong>${escapeHtml(item.label)}</strong>
+          <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
           ${locked ? `<em>${permissionLabel(status)}</em>` : ""}
         </div>
         <p>${escapeHtml(scenarioInstructionPreview(item))}</p>
@@ -6157,7 +6187,7 @@ function renderScenarioSteps(){
       <section class="scenario-step ${item.type} ${open ? "open" : ""} ${full ? "result-full" : ""}">
         <div class="scenario-step-head">
           <button type="button" class="scenario-step-toggle" data-step-id="${item.id}">
-            <span>${escapeHtml(item.label)}</span>
+            <span>${escapeHtml(normalizeReportValidationLabel(item.label))}</span>
             <em>${escapeHtml(status)}</em>
             <i>›</i>
           </button>
@@ -6286,14 +6316,14 @@ function clearScenarioResults(){
 /* 케이스 단계를 전역 scenarioItems 형식으로 로드 */
 function loadCaseStepsToWorkbench(aCase){
   if(!aCase) return;
-  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"승인"};
+  const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"검증"};
   scenarioItems = (aCase.giSteps || []).map((step, i) => {
     const sk = step.sourceKey || giCommonSourceKey(step.key);
     return {
       id:           step.id,
       key:          sk,
       type:         step.type,
-      label:        step.label,
+      label:        normalizeReportValidationLabel(step.label),
       behaviors:    step.behaviors || sourceDefaultBehaviors(sk),
       behavior:     step.behavior  || step.behaviors?.[0] || sourceDefaultBehavior(sk),
       behaviorLabel:sourceBehaviorLabels(sk, step.behaviors).join(", "),

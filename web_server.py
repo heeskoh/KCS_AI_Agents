@@ -1214,6 +1214,12 @@ def _normalize_target_type(value: object) -> str:
     return "person" if str(value or "").strip().lower() == "person" else "company"
 
 
+def _normalize_service_label(label: object) -> str:
+    text = str(label or "").strip()
+    legacy = "보고서 " + "승인"
+    return text.replace(legacy, "보고서 검증")
+
+
 def _detect_gi_company_id(target_name: str) -> str:
     """GI 케이스 대상명에서 DuckDB company_id를 추출하려 시도한다."""
     for name, cid in _GI_COMPANY_NAME_MAP.items():
@@ -1463,6 +1469,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             },
         )
         for key, label, runner, result_key in steps:
+            label = _normalize_service_label(label)
             try:
                 step_state = {
                     **state,
@@ -1472,10 +1479,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                         "current_agent_label": label,
                     },
                 }
-                print(f"\n[Agent] {label} 시작")
+                print(f"\n[AI 서비스] {label} 실행 시작")
                 self._sse("step", {"key": key, "label": label, "status": "running"})
                 state = runner(step_state)
-                print(f"[Agent] {label} 완료")
+                print(f"[AI 서비스] {label} 실행 완료")
                 self._sse(
                     "step",
                     {
@@ -1487,7 +1494,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     },
                 )
             except Exception as exc:
-                print(f"[Agent] {label} 오류: {exc}")
+                print(f"[AI 서비스] {label} 실행 오류: {exc}")
                 self._sse(
                     "step",
                     {"key": key, "label": label, "status": "error", "error": str(exc)},
@@ -1596,6 +1603,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         })
 
         for agent_key, label, runner, result_key, gi_step_id, note in gi_steps:
+            label = _normalize_service_label(label)
             step_prompt = user_prompt + (f"\n중점 확인사항: {note}" if note else "")
             step_state  = {
                 **state,
@@ -1607,14 +1615,14 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 },
             }
             try:
-                print(f"\n[Agent] {label} 시작")
+                print(f"\n[AI 서비스] {label} 실행 시작")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "running",
                 })
                 step_state = runner(step_state)
                 state = {**state, **{k: v for k, v in step_state.items() if k != "scenario"}}
-                print(f"[Agent] {label} 완료")
+                print(f"[AI 서비스] {label} 실행 완료")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "done",
@@ -1622,7 +1630,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     "output": step_state.get(result_key) or "",
                 })
             except Exception as exc:
-                print(f"[Agent] {label} 오류: {exc}")
+                print(f"[AI 서비스] {label} 실행 오류: {exc}")
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "error",

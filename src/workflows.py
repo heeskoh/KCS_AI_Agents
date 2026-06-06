@@ -168,6 +168,8 @@ def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
 def run_scenario(company_id: str, scenario: dict[str, Any] | None = None) -> CustomsState:
     state = create_initial_state(company_id, scenario)
     for key, label, runner, _ in build_workflow_steps(scenario):
+        legacy_label = "보고서 " + "승인"
+        label = str(label or "").replace(legacy_label, "보고서 검증")
         step_state = {
             **state,
             "scenario": {
@@ -176,9 +178,9 @@ def run_scenario(company_id: str, scenario: dict[str, Any] | None = None) -> Cus
                 "current_agent_label": label,
             },
         }
-        print(f"\n[Agent] {label} 시작")
+        print(f"\n[AI 서비스] {label} 실행 시작")
         state = runner(step_state)
-        print(f"[Agent] {label} 완료")
+        print(f"[AI 서비스] {label} 실행 완료")
     return state
 
 

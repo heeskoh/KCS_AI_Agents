@@ -33,12 +33,17 @@ import { escapeHtml, markdownToHtml } from "../../core/dom.js";
 
 const TYPE_LABEL = {
   db: "DB 조회", agent: "AI 서비스",
-  rag: "RAG", report: "보고서", approve: "승인",
+  rag: "RAG", report: "보고서", approve: "검증",
 };
 const CHIP_CLS = {
   db: "bigdata", agent: "agent",
   rag: "rag_customs", report: "report", approve: "validation",
 };
+
+function normalizeReportValidationLabel(label) {
+  const legacy = "보고서 " + "승인";
+  return String(label || "").replaceAll(legacy, "보고서 검증");
+}
 
 export function renderSharedWorkbench(deps, ctx) {
   /* ── 케이스 없을 때 ─────────────────────────── */
@@ -85,7 +90,7 @@ export function renderSharedWorkbench(deps, ctx) {
         <div class="chip-num"${isDone ? ' style="background:#22c55e"' : ""}>${isDone ? "✓" : i + 1}</div>
         <div class="chip-body">
           <div class="chip-title-row">
-            <strong>${escapeHtml(step.label)}</strong>${stateTag}${permBadge}
+            <strong>${escapeHtml(normalizeReportValidationLabel(step.label))}</strong>${stateTag}${permBadge}
           </div>
           <p style="margin:0;font-size:12px;color:#64748b">
             ${escapeHtml(TYPE_LABEL[step.type] || step.type)}
@@ -235,7 +240,7 @@ export function renderSharedWorkbench(deps, ctx) {
       <div class="gi-log-item${isExpanded ? " open" : ""}${isDone ? " gi-log-done" : isRun ? " gi-log-run" : isError ? " gi-log-error" : ""}">
         <div class="gi-log-row">
           <div class="gi-log-num">${isDone ? "✓" : isError ? "!" : i + 1}</div>
-          <div class="gi-log-name">${escapeHtml(step.label)}</div>
+          <div class="gi-log-name">${escapeHtml(normalizeReportValidationLabel(step.label))}</div>
           <div class="gi-log-state">${stateCell}</div>
         </div>
         ${resultSection}
