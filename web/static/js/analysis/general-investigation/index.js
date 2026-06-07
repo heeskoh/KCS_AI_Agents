@@ -12,6 +12,9 @@ export function createGeneralInvestigation(deps){
     const tab = deps.getGeneralInvTab();
     const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
     const tabContext = { case:aCase, profileLabel };
+    const targetId = aCase
+      ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.caseId))
+      : "";
     return `
       <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
         <div class="gi-page-head">
@@ -23,6 +26,7 @@ export function createGeneralInvestigation(deps){
             <div class="gi-active-badge">
               <span class="muted">수사 대상</span>
               <strong>${escapeHtml(aCase.targetName)}</strong>
+              <em>${escapeHtml(targetId)}</em>
               <span class="gi-type-chip ${deps.genInvTypeById(aCase.invTypeId).cls}">${deps.genInvTypeById(aCase.invTypeId).num} ${escapeHtml(deps.genInvTypeById(aCase.invTypeId).label)}</span>
             </div>
           ` : ""}

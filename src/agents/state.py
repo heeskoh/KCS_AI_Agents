@@ -13,6 +13,8 @@ class CustomsState(TypedDict, total=False):
     target_name: str
     target_type: str
     scenario: Optional[dict]
+    agent_error: Optional[str]
+    agent_error_result: Optional[str]
 
     # Core agent results
     company_result: Optional[str]           # 기업 기본정보             (agent_company)

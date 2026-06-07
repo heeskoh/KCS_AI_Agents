@@ -510,7 +510,7 @@ def agent_ml(state: CustomsState) -> CustomsState:
     ).strip() or "전체 모델 실행"
 
     selected = _select_models(instruction)
-    print(f"\n[Agent] ML 모델 실행 시작: {[MODEL_REGISTRY[m] for m in selected]}")
+    print(f"[Agent] ML 모델 실행 시작: {[MODEL_REGISTRY[m] for m in selected]}")
 
     sections = [
         "[ML 모델 실행 결과]",

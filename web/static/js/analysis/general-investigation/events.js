@@ -198,7 +198,12 @@ export function registerGeneralInvestigationEvents(ctx){
       const aCase = ctx.activeGenInvCase();
       if(aCase && tpl){
         aCase.giSteps = tpl.items.map((item, i) =>
-          ctx.normalizeGiScenarioStep({ ...item, id:`gis_${ctx.uid()}` }, i)
+          ctx.normalizeGiScenarioStep({
+            ...item,
+            id:`gis_${ctx.uid()}`,
+            targetType: aCase.targetType || "company",
+            target_type: aCase.targetType || "company",
+          }, i)
         );
         aCase.stepStates  = {};
         aCase.stepResults = {};

@@ -52,7 +52,7 @@ def _infer_doc_type(filename: str) -> str:
 
 def agent_rag_create(state: CustomsState) -> CustomsState:
     """파일 목록을 기반으로 RAG를 생성하고 LLM으로 문서 내용을 요약한다."""
-    print("\n[Agent] RAG생성 시작")
+    print("[Agent] RAG생성 시작")
 
     company_id = scoped_company_id(state) or "미지정"
     scenario = state.get("scenario") or {}

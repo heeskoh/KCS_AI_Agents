@@ -33,7 +33,7 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
         return {**state, "customs_value_result": no_company_result("과세가격평가")}
 
     company_id = state["company_id"]
-    print(f"\n[Agent] 과세가격평가 시작: {company_id}")
+    print(f"[Agent] 과세가격평가 시작: {company_id}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         my_decl = conn.execute(

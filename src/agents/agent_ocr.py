@@ -249,7 +249,7 @@ def _render_result(analyses: list[dict[str, Any]], recommended_agents: list[str]
 
 def agent_ocr(state: CustomsState) -> CustomsState:
     """파일을 인식하고 후속 AI 서비스 연결 정보를 생성한다."""
-    print("\n[Agent] OCR/문서인식 시작")
+    print("[Agent] OCR/문서인식 시작")
 
     scenario = state.get("scenario") or {}
     files = _collect_file_inputs(scenario)

@@ -112,7 +112,7 @@ def _search_docs(source_key: str, query: str, k: int = 3) -> list:
 
 
 def _run_rag(state: CustomsState, source_label: str, source_key: str) -> CustomsState:
-    print(f"\n[RAG] {source_label} RAG 검색 시작")
+    print(f"[RAG] {source_label} RAG 검색 시작")
 
     scenario = state.get("scenario") or {}
     instructions = [

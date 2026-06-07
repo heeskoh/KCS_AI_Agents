@@ -37,6 +37,9 @@ export function createSpecialInvestigation(deps){
     const workTabs = tabs.filter(item => item.group !== "tools");
     const toolTabs = tabs.filter(item => item.group === "tools");
     const isFullHeight = tab === "scenario" || tab === "report";
+    const targetId = aCase
+      ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.drugOrgId || aCase.caseId))
+      : "";
     return `
       <section class="card gi-hub${isFullHeight ? " gi-hub-full" : ""}">
         <div class="gi-page-head">
@@ -48,6 +51,7 @@ export function createSpecialInvestigation(deps){
             <div class="gi-active-badge">
               <span class="muted">수사 대상</span>
               <strong>${escapeHtml(aCase.targetName)}</strong>
+              <em>${escapeHtml(targetId)}</em>
               <span class="gi-type-chip ${deps.drugInvTypeById(aCase.invTypeId).cls}">
                 ${deps.drugInvTypeById(aCase.invTypeId).num} ${escapeHtml(deps.drugInvTypeById(aCase.invTypeId).label)}
               </span>

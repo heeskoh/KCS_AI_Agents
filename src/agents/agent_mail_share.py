@@ -39,7 +39,7 @@ def _mail_recipients(state: CustomsState) -> str:
 
 def agent_mail_share(state: CustomsState) -> CustomsState:
     """Prepare an email share package for the latest analysis report."""
-    print("\n[Agent] 분석결과 공유 시작")
+    print("[Agent] 분석결과 공유 시작")
 
     scenario = state.get("scenario") or {}
     recipients = _mail_recipients(state)

@@ -127,7 +127,7 @@ function activeDrugCaseSteps(){
   const aCase = activeDrugCase();
   if(!aCase) return [];
   if(!aCase.giSteps){
-    const defaults = DRUG_SCENARIO_STEPS[aCase.invTypeId] || DRUG_SCENARIO_STEPS.d1;
+    const defaults = DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)];
     aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({
       ...s, id:`drs_${i}_${uid()}`, targetType:aCase.targetType || "person", target_type:aCase.targetType || "person",
       label: s.label || GI_STEP_SOURCES_MAP[s.key]?.label || s.key,
@@ -136,7 +136,11 @@ function activeDrugCaseSteps(){
     aCase.stepResults = {};
     aCase.stepExpanded= {};
   }
-  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep(step, index));
+  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep({
+    ...step,
+    targetType: step.targetType || step.target_type || aCase.targetType || "person",
+    target_type: step.target_type || step.targetType || aCase.targetType || "person",
+  }, index));
   if(!aCase.stepResults)  aCase.stepResults  = {};
   if(!aCase.stepExpanded) aCase.stepExpanded = {};
   return aCase.giSteps;
@@ -1027,7 +1031,7 @@ const specialInvestigation = createSpecialInvestigation({
   sharedScenarioWorkbenchHtml,
   drugScenarioTemplateOptionsHtml: (currentInvTypeId) =>
     DRUG_INV_TYPES.map(t =>
-      `<option value="${escapeHtml(t.id)}"${t.id === currentInvTypeId ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
+      `<option value="${escapeHtml(t.id)}"${t.id === drugDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
     ).join(""),
 });
 
@@ -1135,7 +1139,7 @@ const generalInvestigation = createGeneralInvestigation({
   permissionLabel,
   giScenarioTemplateOptionsHtml: (currentInvTypeId) =>
     giScenarioTemplates.map(tpl =>
-      `<option value="${escapeHtml(tpl.id)}"${tpl.id === currentInvTypeId ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
+      `<option value="${escapeHtml(tpl.id)}"${tpl.id === giDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
     ).join(""),
   sharedScenarioWorkbenchHtml,
 });
@@ -1220,7 +1224,7 @@ function normalizeCaseStepLabelsInPlace(cases){
 function normalizeGiScenarioStep(step, index = 0){
   const source = giSourceByKey(step.key);
   const sourceKey = step.sourceKey || giCommonSourceKey(step.key);
-  const targetType = normalizeTargetType(step.target_type || step.targetType || activeGenInvCase()?.targetType || "company");
+  const targetType = normalizeTargetType(step.target_type || step.targetType || "company");
 
   // scenarioBuilderConfig.agentOptionDefaults 우선 참조
   const savedDefaults = scenarioBuilderConfig?.agentOptionDefaults?.[sourceKey] || {};
@@ -1294,14 +1298,23 @@ function activeGiCaseSteps(){
   const aCase = activeGenInvCase();
   if(!aCase) return [];
   if(!aCase.giSteps){
-    const defaults = GI_SCENARIO_STEPS[aCase.invTypeId] || GI_SCENARIO_STEPS.t7;
-    aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({...s, id:`gis_${i}_${uid()}`}, i));
+    const defaults = GI_SCENARIO_STEPS[giDefaultTemplateId(aCase.invTypeId)];
+    aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({
+      ...s,
+      id:`gis_${i}_${uid()}`,
+      targetType: aCase.targetType || "company",
+      target_type: aCase.targetType || "company",
+    }, i));
     aCase.stepStates  = {};
     aCase.stepResults = {};   // 단계별 실행 결과 텍스트
     aCase.stepExpanded= {};   // 결과 펼침 상태
     aCase.stepsDone   = 0;
   }
-  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep(step, index));
+  aCase.giSteps = aCase.giSteps.map((step, index) => normalizeGiScenarioStep({
+    ...step,
+    targetType: step.targetType || step.target_type || aCase.targetType || "company",
+    target_type: step.target_type || step.targetType || aCase.targetType || "company",
+  }, index));
   if(!aCase.stepResults)  aCase.stepResults  = {};
   if(!aCase.stepExpanded) aCase.stepExpanded = {};
   return aCase.giSteps;
@@ -1510,6 +1523,14 @@ function giTemplateStep(key, instruction = "", behaviors = null){
 
 function giTemplateItems(items){
   return items.map((item, index) => ({ ...item, order:index + 1 }));
+}
+
+function giDefaultTemplateId(invTypeId){
+  return giScenarioTemplates.some(template => template.id === invTypeId) ? invTypeId : "t7";
+}
+
+function drugDefaultTemplateId(invTypeId){
+  return DRUG_SCENARIO_STEPS[invTypeId] ? invTypeId : "d1";
 }
 
 /* ── 일반수사 분석 시나리오 템플릿 ──────────────────────── */
@@ -2397,8 +2418,8 @@ function webTargetPanelHtml(item, scope){
         <span>확인할 URL과 해당 페이지에서 찾을 주요 검색 내용을 등록하세요.</span>
       </div>
       <div class="scenario-web-target-form">
-        <input id="${urlId}" type="url" placeholder="https://example.com/news/article">
-        <input id="${queryId}" type="text" placeholder="예: 업체, 공급망, 가격 변동 관련 기사 확인">
+        <input id="${urlId}" class="scenario-web-target-url" type="url" placeholder="https://">
+        <input id="${queryId}" class="scenario-web-target-query" type="text" placeholder="주요 검색내용">
         <button type="button" class="btn secondary" data-web-target-add="${scope}">등록</button>
       </div>
       <div class="scenario-web-target-list">${cards}</div>
@@ -5551,7 +5572,7 @@ function scenarioWorkbenchV2(){
   const archived = isCompanyArchived(company.company_id);
   return sharedScenarioWorkbenchHtml({
     archived,
-    titleHtml:    `${escapeHtml(company.company_name)} 분석 시나리오 설정 및 실행`,
+    titleHtml:    "분석 시나리오 설정 및 실행",
     subtitleHtml: `템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다."}</em>`,
     templateOptionsHtml: scenarioTemplateOptionsHtml(),
   });
@@ -5964,10 +5985,11 @@ function syncScenarioEditor(){
   const instruction = document.getElementById("scenarioInstruction");
   const hint = document.getElementById("scenarioSourceHint");
   const deleteButton = document.getElementById("scenarioDeleteButton");
+  const targetType = item?.target_type || item?.targetType || "company";
   if(sourceSelect && item) sourceSelect.value = item.key;
   if(item) syncBehaviorOptions(item.key, item.behaviors || sourceDefaultBehaviors(item.key));
   if(!item) syncBehaviorOptions("db_cdw", []);
-  if(instruction) instruction.value = item?.instruction || sourceDefaultInstruction(item?.key) || "";
+  if(instruction) instruction.value = item?.instruction || sourceDefaultInstruction(item?.key, targetType) || "";
   if(hint && item){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
     const status = permissionStatus(item.key);
@@ -5983,7 +6005,7 @@ function syncScenarioEditor(){
           <span>${status === "requested" ? "권한 요청이 접수되었습니다. 승인 대기 중입니다." : "이 단계를 실행하려면 추가 권한이 필요합니다."}</span>
           ${status === "locked" ? `<button type="button" class="btn-perm-request" data-permission-request="${escapeHtml(item.key)}">권한 요청</button>` : ""}
         </div>
-      ` : `<p>${escapeHtml(sourceDefaultInstruction(item.key) || "이 단계의 추가 지시를 입력하세요.")}</p>`}
+      ` : `<p>${escapeHtml(sourceDefaultInstruction(item.key, targetType) || "이 단계의 추가 지시를 입력하세요.")}</p>`}
     `;
   }
   if(hint && !item) hint.innerHTML = "";
@@ -6003,6 +6025,7 @@ function addScenarioItem(){
   const source = scenarioSourceByKey(key);
   if(!source) return;
   const behaviors = selectedBehaviorValues();
+  const targetType = "company";
   const item = {
     id: uid(),
     key,
@@ -6010,7 +6033,9 @@ function addScenarioItem(){
     label: source.label,
     behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
     order: scenarioItems.length + 1,
-    instruction: instruction.value.trim() || sourceDefaultInstruction(key),
+    targetType,
+    target_type: targetType,
+    instruction: instruction.value.trim() || sourceDefaultInstruction(key, targetType),
     shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
     webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
   };
@@ -6021,7 +6046,7 @@ function addScenarioItem(){
   scenarioItems.push(item);
   selectedScenarioId = item.id;
   openedSteps.add(item.id);
-  instruction.value = sourceDefaultInstruction(key);
+  instruction.value = sourceDefaultInstruction(key, targetType);
   saveCompanyScenario();
   renderScenarioList();
   renderScenarioSteps();
@@ -6100,13 +6125,14 @@ function updateSelectedScenarioSource(key){
   const item = selectedScenarioItem();
   const source = scenarioSourceByKey(key);
   if(!item || !source) return;
+  const targetType = item.target_type || item.targetType || "company";
   item.key = key;
   item.type = source.type;
   item.label = source.label;
   item.behaviors = sourceDefaultBehaviors(key);
   item.behavior = item.behaviors[0];
   item.behaviorLabel = sourceBehaviorLabels(key, item.behaviors).join(", ");
-  item.instruction = sourceDefaultInstruction(key);
+  item.instruction = sourceDefaultInstruction(key, targetType);
   setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
   setScenarioItemWebTargets(item, key === "web_search" ? scenarioItemWebTargets(item) : []);
   saveCompanyScenario();
@@ -6183,6 +6209,7 @@ function renderScenarioSteps(){
     const hasOutput = Boolean(stepOutputs[item.id]);
     const status = stepStatuses[item.id] || "대기";
     const output = stepOutputs[item.id] || "아직 실행 결과가 없습니다.";
+    const canRerunFromStep = status === "오류";
     return `
       <section class="scenario-step ${item.type} ${open ? "open" : ""} ${full ? "result-full" : ""}">
         <div class="scenario-step-head">
@@ -6191,6 +6218,7 @@ function renderScenarioSteps(){
             <em>${escapeHtml(status)}</em>
             <i>›</i>
           </button>
+          ${canRerunFromStep ? `<button type="button" class="scenario-step-rerun" data-rerun-from-step-id="${item.id}">이 단계부터 재실행</button>` : ""}
           <button type="button" class="scenario-step-full" data-full-step-id="${item.id}" ${hasOutput ? "" : "disabled"}>
             ${full ? "전체결과 닫기" : "전체결과보기"}
           </button>
@@ -6206,6 +6234,13 @@ function renderScenarioSteps(){
       if(openedSteps.has(id)) openedSteps.delete(id);
       else openedSteps.add(id);
       renderScenarioSteps();
+    });
+  });
+  target.querySelectorAll(".scenario-step-rerun").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const index = scenarioItems.findIndex(item => item.id === button.dataset.rerunFromStepId);
+      if(index >= 0) runScenarioWorkflow(index);
     });
   });
   target.querySelectorAll(".scenario-step-full").forEach(button => {
@@ -6251,6 +6286,13 @@ function scenarioPayload(items = scenarioItems){
     .flatMap(item => item.web_targets || []));
   return {
     scenario_items: runItems,
+    previous_step_outputs: scenarioItems
+      .map((item, index) => ({
+        ...item,
+        order: index + 1,
+        output: stepOutputs[item.id],
+      }))
+      .filter(item => item.output),
     share_recipients: shareRecipients,
     web_targets: webTargets,
     target_type: "company",
@@ -6316,9 +6358,26 @@ function clearScenarioResults(){
 /* 케이스 단계를 전역 scenarioItems 형식으로 로드 */
 function loadCaseStepsToWorkbench(aCase){
   if(!aCase) return;
+  const isDrugCase = String(aCase.caseId || "").startsWith("DRUG-");
+  const defaultSteps = isDrugCase
+    ? (DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)] || [])
+    : (GI_SCENARIO_STEPS[giDefaultTemplateId(aCase.invTypeId)] || []);
+  if(!Array.isArray(aCase.giSteps) || !aCase.giSteps.length){
+    const prefix = isDrugCase ? "drs" : "gis";
+    aCase.giSteps = defaultSteps.map((step, index) => normalizeGiScenarioStep({
+      ...step,
+      id: `${prefix}_${index}_${uid()}`,
+      targetType: aCase.targetType || (isDrugCase ? "person" : "company"),
+      target_type: aCase.targetType || (isDrugCase ? "person" : "company"),
+    }, index));
+    aCase.stepStates = {};
+    aCase.stepResults = {};
+    aCase.stepExpanded = {};
+  }
   const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"검증"};
   scenarioItems = (aCase.giSteps || []).map((step, i) => {
     const sk = step.sourceKey || giCommonSourceKey(step.key);
+    const caseTargetType = aCase.targetType || (isDrugCase ? "person" : "company");
     return {
       id:           step.id,
       key:          sk,
@@ -6328,7 +6387,9 @@ function loadCaseStepsToWorkbench(aCase){
       behavior:     step.behavior  || step.behaviors?.[0] || sourceDefaultBehavior(sk),
       behaviorLabel:sourceBehaviorLabels(sk, step.behaviors).join(", "),
       order:        i + 1,
-      instruction:  step.instruction || step.note || sourceDefaultInstruction(sk, aCase.targetType || "person"),
+      targetType:    caseTargetType,
+      target_type:   caseTargetType,
+      instruction:  step.instruction || step.note || sourceDefaultInstruction(sk, caseTargetType),
     };
   });
   selectedScenarioId = scenarioItems[0]?.id || null;
@@ -6346,13 +6407,16 @@ function loadCaseStepsToWorkbench(aCase){
 function saveWorkbenchToCaseSteps(aCase){
   if(!aCase) return;
   const labelToState = { 완료:"done", 실행중:"run", 오류:"error", 대기:"wait" };
+  const isDrugCase = String(aCase.caseId || "").startsWith("DRUG-");
+  const caseTargetType = aCase.targetType || (isDrugCase ? "person" : "company");
   aCase.giSteps = scenarioItems.map((item, i) => normalizeGiScenarioStep({
     ...item,
     id:         item.id,
     key:        canonicalGiStepKey(item.key) || item.key,
     sourceKey:  item.key,
     note:       item.instruction,
-    targetType: aCase.targetType || "person",
+    targetType: caseTargetType,
+    target_type: caseTargetType,
   }, i));
   aCase.stepStates  = {};
   aCase.stepResults = {};
@@ -6381,6 +6445,8 @@ function initGiScenarioWorkbench(){
     const item = normalizeScenarioItem({
       id: uid(), key, type: src.type, label: src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
+      targetType: aCase.targetType || "company",
+      target_type: aCase.targetType || "company",
       instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType),
       shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
       webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
@@ -6412,7 +6478,12 @@ function initGiScenarioWorkbench(){
     if(!tplId) return;
     const tpl = giScenarioTemplates.find(t => t.id === tplId);
     if(!tpl) return;
-    scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({...item, id:uid()}, i));
+    scenarioItems = tpl.items.map((item, i) => normalizeScenarioItem({
+      ...item,
+      id:uid(),
+      targetType: aCase.targetType || "company",
+      target_type: aCase.targetType || "company",
+    }, i));
     selectedScenarioId = scenarioItems[0]?.id || null;
     stepStatuses = {};
     stepOutputs  = {};
@@ -6494,6 +6565,8 @@ function initDrugScenarioWorkbench(){
     const item = normalizeScenarioItem({
       id:uid(), key, type:src.type, label:src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
+      targetType: aCase.targetType || "person",
+      target_type: aCase.targetType || "person",
       instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType || "person"),
       shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
       webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
@@ -6524,7 +6597,12 @@ function initDrugScenarioWorkbench(){
     const tplId = document.getElementById("scenarioTemplateSelect")?.value;
     if(!tplId || !DRUG_SCENARIO_STEPS[tplId]) return;
     const defaults = DRUG_SCENARIO_STEPS[tplId];
-    scenarioItems = defaults.map((s, i) => normalizeScenarioItem({...s, id:uid()}, i));
+    scenarioItems = defaults.map((s, i) => normalizeScenarioItem({
+      ...s,
+      id:uid(),
+      targetType: aCase.targetType || "person",
+      target_type: aCase.targetType || "person",
+    }, i));
     selectedScenarioId = scenarioItems[0]?.id || null;
     stepStatuses = {};
     stepOutputs  = {};
@@ -6578,7 +6656,7 @@ function initDrugScenarioWorkbench(){
   renderScenarioSteps();
 }
 
-function runScenarioWorkflow(){
+function runScenarioWorkflow(startIndex = 0){
   if(isCompanyArchived()){
     alert("아카이브된 작업은 복원 후 분석할 수 있습니다.");
     return;
@@ -6592,10 +6670,12 @@ function runScenarioWorkflow(){
     alert("분석 대상 기업을 선택하세요.");
     return;
   }
+  const runStartIndex = Math.max(0, Math.min(Number(startIndex) || 0, scenarioItems.length - 1));
+  const candidateItems = scenarioItems.slice(runStartIndex);
   // 첫 번째 권한 없는 단계 찾기 → 그 이전 단계까지만 실행
-  const firstLockedIndex = scenarioItems.findIndex(item => !hasPermission(item.key));
-  const runnableItems = firstLockedIndex >= 0 ? scenarioItems.slice(0, firstLockedIndex) : scenarioItems;
-  const skippedItems  = firstLockedIndex >= 0 ? scenarioItems.slice(firstLockedIndex) : [];
+  const firstLockedIndex = candidateItems.findIndex(item => !hasPermission(item.key));
+  const runnableItems = firstLockedIndex >= 0 ? candidateItems.slice(0, firstLockedIndex) : candidateItems;
+  const skippedItems  = firstLockedIndex >= 0 ? candidateItems.slice(firstLockedIndex) : [];
 
   if(!runnableItems.length){
     alert("실행 가능한 단계가 없습니다.\n첫 번째 단계에 권한이 없어 실행할 수 없습니다.\n권한 요청 후 승인되면 실행할 수 있습니다.");
@@ -6608,9 +6688,17 @@ function runScenarioWorkflow(){
   if(!ensureDirectUrlTargets(runnableItems)) return;
 
   if(scenarioEventSource) scenarioEventSource.close();
-  stepOutputs = {};
-  stepStatuses = {};
-  openedSteps = new Set();
+  if(runStartIndex === 0){
+    stepOutputs = {};
+    stepStatuses = {};
+    openedSteps = new Set();
+  }else{
+    scenarioItems.slice(runStartIndex).forEach(item => {
+      delete stepOutputs[item.id];
+      delete stepStatuses[item.id];
+      openedSteps.delete(item.id);
+    });
+  }
   expandedResultStepId = null;
 
   // 권한 없는 단계는 미리 "건너뜀"으로 표시
@@ -6619,16 +6707,19 @@ function runScenarioWorkflow(){
     stepOutputs[item.id] = `권한이 없어 실행되지 않았습니다. (${permissionLabel(permissionStatus(item.key))})`;
   });
 
-  let completed = 0;
+  const priorCompleted = scenarioItems.slice(0, runStartIndex).filter(item => stepStatuses[item.id] === "완료").length;
+  let completed = priorCompleted;
   const runButton = document.getElementById("scenarioRunButton");
   runButton.disabled = true;
   setScenarioStatus("실행 중");
-  updateCanvasJobStatus(companyId, { label:"실행 중", done:0, total:runnableItems.length, pct:0, tone:"running" });
-  updateScenarioProgress(0);
-  setMarkdown(document.getElementById("scenarioReportOutput"), "보고서 생성 대기 중입니다.");
-  setMarkdown(document.getElementById("scenarioValidationOutput"), "검증 대기 중입니다.");
-  latestReport = "보고서 생성 대기 중입니다.";
-  latestValidation = "검증 대기 중입니다.";
+  updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
+  updateScenarioProgress(completed);
+  if(runStartIndex === 0){
+    setMarkdown(document.getElementById("scenarioReportOutput"), "보고서 생성 대기 중입니다.");
+    setMarkdown(document.getElementById("scenarioValidationOutput"), "검증 대기 중입니다.");
+    latestReport = "보고서 생성 대기 중입니다.";
+    latestValidation = "검증 대기 중입니다.";
+  }
   renderScenarioSteps();
 
   const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(scenarioPayload(runnableItems)))}`;
@@ -6639,13 +6730,13 @@ function runScenarioWorkflow(){
     if(data.status === "completed"){
       setScenarioStatus("완료");
       saveRunArchive(companyId);
-      updateCanvasJobStatus(companyId, { label:"완료", done:runnableItems.length, total:runnableItems.length, pct:100, tone:"done" });
+      updateCanvasJobStatus(companyId, { label:"완료", done:scenarioItems.length - skippedItems.length, total:scenarioItems.length, pct:skippedItems.length ? Math.round(((scenarioItems.length - skippedItems.length) / scenarioItems.length) * 100) : 100, tone:"done" });
       runButton.disabled = false;
       scenarioEventSource.close();
     }
     if(data.status === "failed"){
       setScenarioStatus("실패");
-      updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:runnableItems.length, pct:runnableItems.length ? Math.round((completed / runnableItems.length) * 100) : 0, tone:"review" });
+      updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
       runButton.disabled = false;
       scenarioEventSource.close();
     }
@@ -6653,8 +6744,9 @@ function runScenarioWorkflow(){
 
   scenarioEventSource.addEventListener("step", event => {
     const data = JSON.parse(event.data);
-    const index = scenarioItems.findIndex((item, itemIndex) => data.key === `${item.type}_agent_${itemIndex + 1}` || data.label === item.label);
-    const item = scenarioItems[Math.max(0,index)];
+    const runIndex = runnableItems.findIndex((item, itemIndex) => data.key === `${item.type}_agent_${itemIndex + 1}` || data.label === item.label);
+    const index = runIndex >= 0 ? scenarioItems.findIndex(item => item.id === runnableItems[runIndex].id) : scenarioItems.findIndex(item => data.label === item.label);
+    const item = index >= 0 ? scenarioItems[index] : null;
     if(!item) return;
     if(data.status === "running"){
       stepStatuses[item.id] = "실행 중";
@@ -6666,7 +6758,7 @@ function runScenarioWorkflow(){
       stepOutputs[item.id] = data.output || "결과 없음";
       openedSteps.add(item.id);
       updateScenarioProgress(completed);
-      updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:runnableItems.length, pct:runnableItems.length ? Math.round((completed / runnableItems.length) * 100) : 0, tone:"running" });
+      updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
       if(data.result_key === "final_report"){
         latestReport = data.output || "보고서 없음";
         const company = activeCanvasCompany();
@@ -6688,6 +6780,7 @@ function runScenarioWorkflow(){
       updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
       runButton.disabled = false;
       scenarioEventSource.close();
+      saveIntermediateResults(companyId);
     }
     renderScenarioSteps();
   });
@@ -6991,7 +7084,7 @@ registerSpecialInvestigationEvents({
   getDrugRunEventSource: () => drugRunEventSource,
   drugScenarioTemplateOptionsHtml: (currentInvTypeId) =>
     DRUG_INV_TYPES.map(t =>
-      `<option value="${escapeHtml(t.id)}"${t.id === currentInvTypeId ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
+      `<option value="${escapeHtml(t.id)}"${t.id === drugDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
     ).join(""),
 });
 

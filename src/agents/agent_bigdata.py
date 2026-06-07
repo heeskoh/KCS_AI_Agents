@@ -56,7 +56,7 @@ def agent_bigdata(state: CustomsState) -> CustomsState:
 
     company_id = state["company_id"]
     scenario = state.get("scenario") or {}
-    print(f"\n[Agent] 빅데이터 통계 분석 시작: {company_id}")
+    print(f"[Agent] 빅데이터 통계 분석 시작: {company_id}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company_stats = conn.execute(

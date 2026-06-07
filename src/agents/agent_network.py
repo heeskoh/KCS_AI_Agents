@@ -449,7 +449,7 @@ def agent_network(state: CustomsState) -> CustomsState:
         return {**state, "network_result": no_company_result("관계망분석")}
 
     company_id = state["company_id"]
-    print(f"\n[Agent] 관계망 분석 시작: {company_id}")
+    print(f"[Agent] 관계망 분석 시작: {company_id}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         net = _build_network(conn, company_id)

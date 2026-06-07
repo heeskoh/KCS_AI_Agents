@@ -60,7 +60,7 @@ def agent_declaration_verify(state: CustomsState) -> CustomsState:
         return {**state, "declaration_verify_result": no_company_result("수입신고검증")}
 
     company_id = state["company_id"]
-    print(f"\n[Agent] 수입신고검증 시작: {company_id}")
+    print(f"[Agent] 수입신고검증 시작: {company_id}")
 
     ocr_items = _parse_ocr_items(state.get("ocr_result"))
     if not ocr_items:

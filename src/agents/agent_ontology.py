@@ -106,7 +106,7 @@ def _collect_context(state: CustomsState) -> str:
 
 def agent_ontology(state: CustomsState) -> CustomsState:
     """Generate a customs ontology example for semantic knowledge-graph analysis."""
-    print("\n[Agent] 관세온톨로지 생성 시작")
+    print("[Agent] 관세온톨로지 생성 시작")
     scenario = state.get("scenario") or {}
     prompt = scenario.get("user_prompt") or state.get("company_id") or ""
     context = _collect_context(state)

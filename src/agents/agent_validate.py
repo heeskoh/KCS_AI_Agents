@@ -107,7 +107,7 @@ def _collect_agent_results(state: CustomsState) -> str:
 
 def agent_validate(state: CustomsState) -> CustomsState:
     """생성된 보고서를 모든 에이전트 결과와 대조하여 검증한다."""
-    print("\n[Agent] 보고서 검증 에이전트 처리 시작")
+    print("[Agent] 보고서 검증 에이전트 처리 시작")
 
     final_report = state.get("final_report") or "보고서 없음"
     agent_results = _collect_agent_results(state)

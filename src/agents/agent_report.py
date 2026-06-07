@@ -180,7 +180,7 @@ def _fallback_report(state: CustomsState, company_result: str, preceding: list[d
 
 def agent_report(state: CustomsState) -> CustomsState:
     """Aggregate all preceding agent results into a structured investigation report."""
-    print("\n[Agent] 보고서 작성 에이전트 처리 시작")
+    print("[Agent] 보고서 작성 에이전트 처리 시작")
 
     company_result = (
         state.get("company_result")

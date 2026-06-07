@@ -63,7 +63,7 @@ def agent_audit_search(state: CustomsState) -> CustomsState:
     query = _resolve_query(state)
     if not query:
         return {**state, "audit_search_result": "[조사보고서 RAG 검색 결과]\n- 검색할 프롬프트나 대상 정보가 없습니다.\n- 연관정보 없음: 임의 키워드로 검색하지 않습니다."}
-    print(f"\n[Agent] 조사보고서 검색 시작: {query[:60]}…")
+    print(f"[Agent] 조사보고서 검색 시작: {query[:60]}…")
 
     if _vectorstore is None:
         if _init_error:

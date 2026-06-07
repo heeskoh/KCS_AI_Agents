@@ -41,7 +41,7 @@ def agent_company(state: CustomsState) -> CustomsState:
             return {**state, "company_result": no_target_result(state, "우범자 프로파일 조회")}
 
         person_id = target_id(state)
-        print(f"\n[Agent] 우범자 프로파일 조회 시작: {person_id}")
+        print(f"[Agent] 우범자 프로파일 조회 시작: {person_id}")
         with duckdb.connect(str(DB_PATH), read_only=True) as conn:
             exists = conn.execute(
                 """
@@ -96,7 +96,7 @@ def agent_company(state: CustomsState) -> CustomsState:
         return {**state, "company_result": no_company_result("기업 프로파일 조회")}
 
     company_id = state["company_id"]
-    print(f"\n[Agent] 기업 프로파일 조회 시작: {company_id}")
+    print(f"[Agent] 기업 프로파일 조회 시작: {company_id}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         df = conn.execute(

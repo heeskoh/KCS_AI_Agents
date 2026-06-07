@@ -61,7 +61,12 @@ export function registerSpecialInvestigationEvents(ctx){
       const aCase = ctx.activeDrugCase();
       if(aCase && tplId && ctx.DRUG_SCENARIO_STEPS?.[tplId]){
         const defaults = ctx.DRUG_SCENARIO_STEPS[tplId];
-        aCase.giSteps    = defaults.map((s, i) => ctx.normalizeGiScenarioStep({ ...s, id:`drs_${ctx.uid()}` }, i));
+        aCase.giSteps    = defaults.map((s, i) => ctx.normalizeGiScenarioStep({
+          ...s,
+          id:`drs_${ctx.uid()}`,
+          targetType: aCase.targetType || "person",
+          target_type: aCase.targetType || "person",
+        }, i));
         aCase.stepStates = {}; aCase.stepResults = {}; aCase.stepExpanded = {};
         ctx.activeDrugStepId = aCase.giSteps[0]?.id || null;
         ctx.saveCanvasState(); ctx.renderSpecialInvestigation();
@@ -87,6 +92,8 @@ export function registerSpecialInvestigationEvents(ctx){
       aCase.giSteps.push(ctx.normalizeGiScenarioStep({
         ...src, id:`drs_${ctx.uid()}`,
         sourceKey: src.sourceKey,
+        targetType: aCase.targetType || "person",
+        target_type: aCase.targetType || "person",
         behaviors: ctx.sourceDefaultBehaviors(src.sourceKey),
         instruction: ctx.sourceDefaultInstruction(src.sourceKey, aCase.targetType||"person"),
       }, aCase.giSteps.length));

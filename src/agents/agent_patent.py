@@ -237,7 +237,7 @@ def _patent_info_to_text(no: str, info: dict) -> list[str]:
 
 def agent_patent(state: CustomsState) -> CustomsState:
     """첨부문서에서 특허번호를 추출하고 KIPRIS API·LLM으로 로열티 과세 영향을 분석한다."""
-    print("\n[Agent] 특허정보조회 시작")
+    print("[Agent] 특허정보조회 시작")
 
     source_text = (state.get("ocr_result") or "") + (state.get("summary_result") or "")
     company_id  = scoped_company_id(state) or "미지정"

@@ -404,7 +404,7 @@ def agent_hs_verify(state: CustomsState) -> CustomsState:
         return {**state, "hs_verify_result": no_company_result("품목분류검증")}
 
     company_id = state["company_id"]
-    print(f"\n[Agent] 품목분류검증 시작: {company_id}")
+    print(f"[Agent] 품목분류검증 시작: {company_id}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         # ── 기업 수입신고 ─────────────────────────────────────────────────────

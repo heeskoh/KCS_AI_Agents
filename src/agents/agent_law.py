@@ -270,7 +270,7 @@ def _local_search(query: str) -> tuple[list[dict], list[dict]]:
 
 def agent_law(state: CustomsState) -> CustomsState:
     """관세 조사 맥락에서 법령·판례를 조회하고 조사 전략을 도출한다."""
-    print("\n[Agent] 법령판례 조회 시작")
+    print("[Agent] 법령판례 조회 시작")
 
     # ── 조회 쿼리 구성 ────────────────────────────────────────────────────────
     scenario = state.get("scenario") or {}

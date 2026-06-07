@@ -55,7 +55,7 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         or scenario.get("gi_target_name")
         or ""
     ).strip()
-    return {
+    state: CustomsState = {
         "company_id": scoped_company_id,
         "person_id": person_id,
         "target_id": target_id,
@@ -83,6 +83,18 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         "proceeds_tracking_result": None,
         "route_analysis_result": None,
     }
+    previous_outputs = scenario.get("previous_step_outputs") or []
+    if isinstance(previous_outputs, list):
+        for index, item in enumerate(previous_outputs, start=1):
+            if not isinstance(item, dict):
+                continue
+            output = item.get("output")
+            if not output:
+                continue
+            step = _step_from_item(item, index)
+            if step:
+                state[step[3]] = output
+    return state
 
 
 def _step_from_item(item: dict[str, Any], index: int) -> Step | None:
@@ -178,9 +190,12 @@ def run_scenario(company_id: str, scenario: dict[str, Any] | None = None) -> Cus
                 "current_agent_label": label,
             },
         }
-        print(f"\n[AI 서비스] {label} 실행 시작")
+        print(f"\n[AI서비스] {label} 실행 시작")
         state = runner(step_state)
-        print(f"[AI 서비스] {label} 실행 완료")
+        agent_error = str(state.get("agent_error") or "").strip()
+        if agent_error:
+            raise RuntimeError(f"{label} 오류 발생: {agent_error}")
+        print(f"[AI서비스] {label} 실행 완료")
     return state
 
 

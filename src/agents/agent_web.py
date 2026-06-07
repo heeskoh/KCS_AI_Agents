@@ -325,7 +325,7 @@ def _format_results(results: list[dict[str, str]]) -> str:
 
 def agent_web(state: CustomsState) -> CustomsState:
     """Analyze web news as a company outlook analyst."""
-    print("\n[Agent] 웹 검색 시작")
+    print("[Agent] 웹 검색 시작")
 
     scenario = state.get("scenario") or {}
     direct_targets = _scenario_web_targets(scenario)
