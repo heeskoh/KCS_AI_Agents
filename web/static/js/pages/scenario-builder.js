@@ -464,20 +464,23 @@ function agentDefaultsSection(config, editingServiceId = null){
   // serviceId → 사용 서브탭 목록
   const usageMap = buildServiceUsageMap(allSubtabs);
 
-  // 실제 사용 중인 서비스 (AI_SERVICE_CATALOG 기준)
-  const usedServiceIds = [...new Set(
-    allSubtabs.flatMap(st => st.aiServices || [])
-  )].filter(id => AI_SERVICE_CATALOG[id]);
+  // 관리자 설정 화면은 현재 시나리오에서 쓰는 서비스만이 아니라,
+  // 등록 가능한 전체 AI 서비스 레지스트리를 기준으로 보여준다.
+  const usedServiceIds = Object.keys(AGENT_SERVICE_DEFINITIONS)
+    .filter(id => AI_SERVICE_CATALOG[id]?.adminVisible !== false);
 
   const CATEGORY_META = {
-    db:    { label:"DB 조회",    color:"#1e40af", bg:"#eef4ff", border:"#bfdbfe" },
-    rag:   { label:"RAG 검색",   color:"#16a34a", bg:"#f0fdf4", border:"#86efac" },
-    agent: { label:"AI 서비스",  color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe" },
+    db:       { label:"DB 검색", color:"#ea580c", bg:"#fff7ed", border:"#fed7aa" },
+    rag:      { label:"RAG 검색", color:"#16a34a", bg:"#f0fdf4", border:"#86efac" },
+    analysis: { label:"업무분석 AI서비스", color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe" },
+    llm:      { label:"파일·요약·번역 LLM 기능 서비스", color:"#ca8a04", bg:"#fefce8", border:"#fde68a" },
+    external: { label:"외부연계 AI서비스", color:"#0f766e", bg:"#f0fdfa", border:"#99f6e4" },
+    report:   { label:"보고서 생성 및 검증", color:"#2563eb", bg:"#eff6ff", border:"#bfdbfe" },
   };
 
   const groups = {};
   for(const serviceId of usedServiceIds){
-    const cat = AI_SERVICE_CATALOG[serviceId]?.category || "agent";
+    const cat = AI_SERVICE_CATALOG[serviceId]?.category || "analysis";
     if(!groups[cat]) groups[cat] = [];
     groups[cat].push(serviceId);
   }
@@ -485,7 +488,7 @@ function agentDefaultsSection(config, editingServiceId = null){
     arr.sort((a, b) => (AI_SERVICE_CATALOG[a]?.label||a).localeCompare(AI_SERVICE_CATALOG[b]?.label||b, "ko"))
   );
 
-  const categoryOrder = ["db", "rag", "agent"];
+  const categoryOrder = ["db", "rag", "analysis", "llm", "external", "report"];
 
   return `
     <section class="summary-box" style="max-height:calc(100vh - 190px);overflow:auto;padding:0">

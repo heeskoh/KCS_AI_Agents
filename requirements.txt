@@ -21,6 +21,7 @@ PyYAML>=6.0,<7.0
 
 # --- 데이터베이스 (DuckDB 단일 파일) ---
 duckdb>=1.0,<2.0
+neo4j>=5.26,<6.0
 pandas>=2.0,<3.0          # DuckDB .df() 반환값 처리에 필요
 
 # --- HTTP 클라이언트 (agent_web 에서 사용) ---

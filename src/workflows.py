@@ -26,11 +26,11 @@ AgentRunner = Callable[[CustomsState], CustomsState]
 Step = tuple[str, str, AgentRunner, str]
 
 RAG_TYPES = {
-    "rag_customs": ("rag_customs_agent", "관세e음 RAG"),
-    "rag_trade": ("rag_trade_agent", "통관정보 RAG"),
+    "rag_customs": ("rag_customs_agent", "관세정보 RAG"),
+    "rag_trade": ("rag_trade_agent", "무역정보 RAG"),
     "rag_audit": ("rag_audit_agent", "심사정보 RAG"),
     "rag_investigation": ("rag_investigation_agent", "조사정보 RAG"),
-    "rag_global": ("rag_global_agent", "국제정보 RAG"),
+    "rag_global": ("rag_global_agent", "국제협력 RAG"),
 }
 
 
@@ -150,14 +150,15 @@ def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
         add_default_step("db", "CDW 조회")
 
     rag_flags = {
-        "rag_customs_public": ("rag_customs", "관세e음 RAG"),
-        "rag_trade": ("rag_trade", "통관정보 RAG"),
+        "rag_customs_public": ("rag_customs", "관세정보 RAG"),
+        "rag_trade": ("rag_trade", "무역정보 RAG"),
         "rag_audit": ("rag_audit", "심사정보 RAG"),
         "rag_investigation": ("rag_investigation", "조사정보 RAG"),
-        "rag_global": ("rag_global", "국제정보 RAG"),
+        "rag_global": ("rag_global", "국제협력 RAG"),
     }
     for flag, (source_type, label) in rag_flags.items():
-        if scenario.get(flag, scenario.get("rag_enabled", True)):
+        default_enabled = False if flag == "rag_trade" else scenario.get("rag_enabled", True)
+        if scenario.get(flag, default_enabled):
             add_default_step(source_type, label)
 
     if scenario.get("audit_search_enabled", False):

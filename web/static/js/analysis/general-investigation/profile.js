@@ -158,7 +158,7 @@ function renderPersonFullProfile(aCase, person, detail, type){
         </section>
         <section class="person-profile-panel">
           <h4>AI 분석 이력</h4>
-          ${smallTable(["유형", "Agent", "변경전", "변경후", "검토"], analysis.slice(0, 8).map(row => [
+          ${smallTable(["유형", "AI 서비스", "변경전", "변경후", "검토"], analysis.slice(0, 8).map(row => [
             row.analysis_type,
             row.model_or_agent,
             row.risk_score_before,

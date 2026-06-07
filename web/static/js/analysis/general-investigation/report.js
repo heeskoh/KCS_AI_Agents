@@ -21,7 +21,7 @@ export function renderReportPanel(deps){
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;text-align:center;padding:24px">
       <span style="font-size:36px;opacity:.25">📄</span>
       <p style="margin:0;font-size:13px;font-weight:600">${escapeHtml(label)} 미실행</p>
-      <p style="margin:0;font-size:12px">'분석 시나리오 설정 및 수행' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
+      <p style="margin:0;font-size:12px">'AI서비스 분석 작업' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
       <button class="btn secondary" style="height:30px;padding:0 14px;font-size:12px" data-gi-tab="workbench">워크벤치로 이동</button>
     </div>`;
 

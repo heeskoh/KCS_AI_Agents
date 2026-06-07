@@ -221,7 +221,8 @@ function permissionApprovePage(){
       <p class="muted">권한 승인 관리는 정보기획담당관, 데이터담당관, 운영·지원 담당자만 사용할 수 있습니다.</p>
     </section>`;
   }
-  const allKeys = Object.keys(defaultUserPermissions);
+  const allKeys = Object.keys(defaultUserPermissions)
+    .filter(key => AI_SERVICE_REGISTRY[key]?.adminVisible !== false);
   const requested = allKeys.filter(key => permissionStatus(key) === "requested");
   const granted   = allKeys.filter(key => permissionStatus(key) === "granted");
   const locked    = allKeys.filter(key => permissionStatus(key) === "locked");
@@ -326,12 +327,18 @@ function permissionApprovePage(){
   `;
 }
 
-const AI_SERVICE_GROUP = "사용 가능 AI 서비스";
-const DATA_SOURCE_GROUP = "분석 데이터 소스";
+const DB_SEARCH_GROUP = "DB 검색";
+const RAG_SEARCH_GROUP = "RAG 검색";
+const ANALYSIS_AI_GROUP = "업무분석 AI서비스";
+const LLM_SERVICE_GROUP = "파일·요약·번역 LLM 기능 서비스";
+const EXTERNAL_AI_GROUP = "외부연계 AI서비스";
+const REPORT_AI_GROUP = "보고서 생성 및 검증";
+const AI_SERVICE_GROUP = ANALYSIS_AI_GROUP;
+const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 
 const AI_SERVICE_REGISTRY = {
   db_cdw: {
-    label: "CDW 조회", type: "db", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
+    label: "CDW 조회", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
     defaultInstruction: "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
     behaviorOptions: [
       { value: "profile_summary", label: "기업/신고 요약" },
@@ -339,16 +346,25 @@ const AI_SERVICE_REGISTRY = {
       { value: "declaration_focus", label: "신고내역 중심" },
     ],
   },
-  rag_customs: {
-    label: "관세e음 RAG", type: "rag_customs", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "과세가격, 원산지, 품목분류 관련 규정 근거 확인",
+  company_profile: {
+    label: "기업 프로파일 조회", type: "company", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회",
+    supports: { company:true, person:false },
     behaviorOptions: [
-      { value: "regulation_basis", label: "규정 근거 확인" },
+      { value: "profile_lookup", label: "기업 프로파일 조회" },
+      { value: "risk_summary", label: "위험정보 요약" },
+    ],
+  },
+  rag_customs: {
+    label: "관세정보 RAG", type: "rag_customs", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "관세 업무 정보에서 과세가격, 원산지, 품목분류 관련 근거 확인",
+    behaviorOptions: [
+      { value: "regulation_basis", label: "관세정보 근거 확인" },
       { value: "case_comparison", label: "유사사례 비교" },
     ],
   },
   rag_trade: {
-    label: "통관정보 RAG", type: "rag_trade", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
+    label: "무역정보 RAG", type: "rag_trade", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
     defaultInstruction: "통관/무역 정보에서 이상 징후와 참고 근거 확인",
     behaviorOptions: [
       { value: "trade_signal", label: "무역 징후 확인" },
@@ -356,15 +372,15 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_audit: {
-    label: "심사정보 RAG", type: "rag_audit", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "감사 정보와 추징 가능성 관점의 조사 포인트 정리",
+    label: "심사정보 RAG", type: "rag_audit", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "심사정보와 추징 가능성 관점의 조사 포인트 정리",
     behaviorOptions: [
-      { value: "audit_case", label: "감사사례 비교" },
+      { value: "audit_case", label: "심사사례 비교" },
       { value: "recovery_point", label: "추징 포인트" },
     ],
   },
   rag_investigation: {
-    label: "조사정보 RAG", type: "rag_investigation", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
+    label: "조사정보 RAG", type: "rag_investigation", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
     defaultInstruction: "조사 정보 기반으로 조사 순서와 확인 자료 정리",
     behaviorOptions: [
       { value: "investigation_plan", label: "조사계획 수립" },
@@ -372,15 +388,15 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_global: {
-    label: "국제정보 RAG", type: "rag_global", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "국제 정보 기반으로 해외 거래구조와 위험 신호 확인",
+    label: "국제협력 RAG", type: "rag_global", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
     behaviorOptions: [
-      { value: "global_signal", label: "국제 위험신호" },
+      { value: "global_signal", label: "국제협력 위험신호" },
       { value: "counterparty", label: "해외거래처 확인" },
     ],
   },
   rag_consultation: {
-    label: "상담내역 RAG", type: "rag_consultation", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
+    label: "상담내역 RAG", type: "rag_consultation", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
     defaultInstruction: "상담내역과 민원 질의 응답에서 유사 사례와 처리 흐름 확인",
     behaviorOptions: [
       { value: "consultation_case", label: "상담사례 확인" },
@@ -388,7 +404,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_risk_select: {
-    label: "위험선별 RAG", type: "rag_risk_select", group: DATA_SOURCE_GROUP, permissionGroup: "dataSources",
+    label: "위험선별 RAG", type: "rag_risk_select", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
     defaultInstruction: "위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
     behaviorOptions: [
       { value: "selection_rule", label: "선별기준 확인" },
@@ -396,7 +412,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   ml: {
-    label: "ML 모델 실행 AI 서비스", type: "ml", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "ML 모델 실행 AI 서비스", type: "ml", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "전체 모델을 실행해 위험 패턴을 비교",
     behaviorOptions: [
       { value: "all_models", label: "전체 모델 실행" },
@@ -407,7 +423,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   network: {
-    label: "관계망 분석 AI 서비스", type: "network", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "관계망 분석 AI 서비스", type: "network", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
     behaviorOptions: [
       { value: "relationship", label: "관계망 분석" },
@@ -415,7 +431,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   ontology: {
-    label: "관세온톨로지 AI 서비스", type: "ontology", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "관세온톨로지 AI 서비스", type: "ontology", group: ANALYSIS_AI_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
     defaultInstruction: "우범여행자 중심 관세 온톨로지와 지식그래프 관계를 구성",
     behaviorOptions: [
       { value: "traveler_ontology", label: "우범여행자 온톨로지" },
@@ -424,7 +440,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   origin_analysis: {
-    label: "원산지 분석 AI 서비스", type: "origin_analysis", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "원산지 검증 AI 서비스", type: "origin_analysis", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
     behaviorOptions: [
       { value: "origin_certificate", label: "원산지증명 검토" },
@@ -433,7 +449,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   abnormal_trade: {
-    label: "이상거래 검증 AI 서비스", type: "abnormal_trade", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "이상거래 검증 AI 서비스", type: "abnormal_trade", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "가격·거래상대방·신고패턴의 이상거래 징후를 검증",
     behaviorOptions: [
       { value: "price_pattern", label: "가격 패턴" },
@@ -442,7 +458,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   proceeds_tracking: {
-    label: "범죄수익 추적 AI 서비스", type: "proceeds_tracking", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "범죄수익 추적 AI 서비스", type: "proceeds_tracking", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름" },
@@ -451,7 +467,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   route_analysis: {
-    label: "운송경로 분석 AI 서비스", type: "route_analysis", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "운송경로 분석 AI 서비스", type: "route_analysis", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
     behaviorOptions: [
       { value: "route_check", label: "운송경로" },
@@ -460,7 +476,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   web_search: {
-    label: "웹검색 AI 서비스", type: "web", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "웹검색 AI 서비스", type: "web", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
     behaviorOptions: [
       { value: "company_news", label: "업체 기사" },
@@ -470,7 +486,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   declaration_verify: {
-    label: "수입신고검증 AI 서비스", type: "declaration_verify", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "수입신고검증 AI 서비스", type: "declaration_verify", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
     behaviorOptions: [
       { value: "declaration_consistency", label: "신고 정합성" },
@@ -478,7 +494,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   hs_verify: {
-    label: "품목분류검증 AI 서비스", type: "hs_verify", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "품목분류검증 AI 서비스", type: "hs_verify", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
     behaviorOptions: [
       { value: "classification_check", label: "분류 적정성" },
@@ -486,7 +502,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   customs_value: {
-    label: "과세가격평가 AI 서비스", type: "customs_value", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "과세가격평가 AI 서비스", type: "customs_value", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "과세가격 결정 요소와 저가신고 가능성 검토",
     behaviorOptions: [
       { value: "valuation_basis", label: "과세가격 근거" },
@@ -494,7 +510,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   patent: {
-    label: "특허정보 조회 AI 서비스", type: "patent", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "특허정보 조회 AI 서비스", type: "patent", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "특허/로열티 관련 거래와 과세가격 반영 여부 확인",
     behaviorOptions: [
       { value: "royalty_check", label: "로열티 확인" },
@@ -502,7 +518,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   law: {
-    label: "법령정보 조회 AI 서비스", type: "law", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "법령 검토 AI 서비스", type: "law", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "관련 법령, 고시, 판례, 유권해석 근거 검색",
     behaviorOptions: [
       { value: "law_basis", label: "법령 근거" },
@@ -510,7 +526,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   ocr: {
-    label: "OCR/문서인식 AI 서비스", type: "ocr", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "OCR/문서인식 AI 서비스", type: "ocr", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "첨부 문서에서 주요 항목을 추출하고 신고자료와 대조할 수 있도록 구조화",
     behaviorOptions: [
       { value: "document_extract", label: "문서 항목 추출" },
@@ -518,7 +534,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_create: {
-    label: "RAG 생성 AI 서비스", type: "rag_create", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "RAG 생성", type: "rag_create", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     behaviorOptions: [
       { value: "knowledge_build", label: "지식 생성" },
@@ -526,7 +542,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   summary: {
-    label: "보고서 요약 AI 서비스", type: "summary", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "보고서 요약 AI 서비스", type: "summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
     defaultInstruction: "선행 단계 결과를 조사관용 핵심 요약으로 정리",
     behaviorOptions: [
       { value: "brief", label: "핵심 요약" },
@@ -534,7 +550,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   report_generate: {
-    label: "보고서 생성 AI 서비스", type: "report", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "보고서 생성 AI 서비스", type: "report", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "이전 단계 결과를 공식 조사보고서 초안으로 통합",
     behaviorOptions: [
       { value: "full_report", label: "전체 보고서" },
@@ -542,7 +558,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   report_validate: {
-    label: "보고서 검증 AI 서비스", type: "validation", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "보고서 검증 AI 서비스", type: "validation", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
     behaviorOptions: [
       { value: "evidence_validation", label: "근거 검증" },
@@ -550,7 +566,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   mail_share: {
-    label: "분석결과 공유 AI 서비스", type: "mail_share", group: AI_SERVICE_GROUP, permissionGroup: "agents",
+    label: "분석결과 공유 AI 서비스", type: "mail_share", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
     behaviorOptions: [
       { value: "email_share", label: "이메일 공유" },
@@ -572,8 +588,13 @@ const AI_SERVICE_TARGET_CONFIG = {
     "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
     "우범자 프로파일, 여행·반입 이력, 위험지표를 종합 요약"
   ),
+  company_profile: targetConfig(
+    "기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회",
+    "기업 프로파일 조회는 개인 대상에서 사용하지 않습니다.",
+    { company:true, person:false }
+  ),
   rag_customs: targetConfig(
-    "과세가격, 원산지, 품목분류 관련 규정 근거 확인",
+    "관세 업무 정보에서 과세가격, 원산지, 품목분류 관련 근거 확인",
     "휴대품, 여행자 통관, 조사 절차 관련 규정 근거 확인"
   ),
   rag_trade: targetConfig(
@@ -581,7 +602,7 @@ const AI_SERVICE_TARGET_CONFIG = {
     "개인 반입·운송·거래 정보에서 이상 징후와 참고 근거 확인"
   ),
   rag_audit: targetConfig(
-    "감사 정보와 추징 가능성 관점의 조사 포인트 정리",
+    "심사정보와 추징 가능성 관점의 조사 포인트 정리",
     "개인 사건 검토 이력과 추징 가능성 관점의 조사 포인트 정리"
   ),
   rag_investigation: targetConfig(
@@ -589,7 +610,7 @@ const AI_SERVICE_TARGET_CONFIG = {
     "개인 수사 정보 기반으로 수사 순서와 확인 자료 정리"
   ),
   rag_global: targetConfig(
-    "국제 정보 기반으로 해외 거래구조와 위험 신호 확인",
+    "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
     "국제 여행·체류·공조 정보 기반으로 개인 위험 신호 확인"
   ),
   rag_consultation: targetConfig(
@@ -680,7 +701,7 @@ const AI_SERVICE_TARGET_CONFIG = {
 
 const registryKeysByPermissionGroup = (groupName) =>
   Object.entries(AI_SERVICE_REGISTRY)
-    .filter(([, source]) => source.permissionGroup === groupName)
+    .filter(([, source]) => source.permissionGroup === groupName && source.adminVisible !== false)
     .map(([key]) => key);
 
 const sidebarPermissionGroups = {
@@ -696,14 +717,14 @@ const userGroups = [
   {id:"g01",org:"정보국",team:"정보기획담당관", isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS},
   {id:"g02",org:"정보국",team:"인공지능혁신팀", isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","ml","network","declaration_verify","hs_verify","law","report_generate","report_validate"]},
   {id:"g03",org:"정보국",team:"시스템운영팀",   isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"]},
-  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","rag_customs","rag_trade"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"]},
+  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","rag_customs","rag_audit"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"]},
   {id:"g05",org:"정보국",team:"데이터담당관",   isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS},
   // ── 본청 업무분야 ────────────────────────────────────────────────────────
   {id:"g06",org:"본청",team:"통관 분야", isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_trade"],
-    agents:["ocr","declaration_verify","hs_verify","summary","law","report_generate","report_validate"]},
+    rag:["db_cdw","rag_customs","rag_audit"],
+    agents:["ocr","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"]},
   {id:"g07",org:"본청",team:"감시분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_trade"],
+    rag:["db_cdw","rag_customs","rag_audit"],
     agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"]},
   {id:"g08",org:"본청",team:"심사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
@@ -713,17 +734,17 @@ const userGroups = [
     agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
   {id:"g10",org:"본청",team:"국제협력",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_global"],
-    agents:["ocr","web_search","summary","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"]},
   {id:"g11",org:"본청",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
     agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"]},
   {id:"g12",org:"본청",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS},
   // ── 세관 업무분야 ────────────────────────────────────────────────────────
   {id:"g13",org:"세관",team:"통관 분야", isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_trade"],
-    agents:["ocr","declaration_verify","hs_verify","summary","law","report_generate","report_validate"]},
+    rag:["db_cdw","rag_customs","rag_audit"],
+    agents:["ocr","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"]},
   {id:"g14",org:"세관",team:"감시분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_trade"],
+    rag:["db_cdw","rag_customs","rag_audit"],
     agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"]},
   {id:"g15",org:"세관",team:"심사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
@@ -733,7 +754,7 @@ const userGroups = [
     agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
   {id:"g17",org:"세관",team:"국제협력",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_global"],
-    agents:["ocr","web_search","summary","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"]},
   {id:"g18",org:"세관",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
     agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"]},
@@ -767,11 +788,13 @@ const defaultUserPermissions = Object.fromEntries(
 );
 
 function scenarioSourceEntries(){
-  return Object.entries(AI_SERVICE_REGISTRY).map(([key, source]) => ({
-    key,
-    ...source,
-    ...(AI_SERVICE_TARGET_CONFIG[key] || {}),
-  }));
+  return Object.entries(AI_SERVICE_REGISTRY)
+    .filter(([, source]) => source.selectable !== false)
+    .map(([key, source]) => ({
+      key,
+      ...source,
+      ...(AI_SERVICE_TARGET_CONFIG[key] || {}),
+    }));
 }
 
 function scenarioSourceByKey(key){
@@ -870,11 +893,11 @@ const scenarioTemplates = [
   {
     id: "customs-basic",
     name: "관세조사 기본 템플릿",
-    description: "신고내역, 관세 규정, 통관정보, ML 모델을 순차 실행하는 기본 조사 흐름",
+    description: "신고내역, 관세정보, 심사정보, ML 모델을 순차 실행하는 기본 조사 흐름",
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["profile_summary"], order:1, instruction:"신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약" },
-      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:2, instruction:"규정 근거 확인 · 과세가격, 원산지, 품목분류 관련 규정 근거 확인" },
-      { key:"rag_trade", type:"rag_trade", label:"통관정보 RAG", behaviors:["trade_signal"], order:3, instruction:"무역 징후 확인 · 통관 이상 징후와 참고 근거 확인" },
+      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis"], order:2, instruction:"관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인" },
+      { key:"rag_audit", type:"rag_audit", label:"심사정보 RAG", behaviors:["audit_case"], order:3, instruction:"심사정보와 추징 가능성 관점의 조사 포인트 정리" },
       { key:"ml", type:"ml", label:"ML 모델 실행 AI 서비스", behaviors:["industry_stats","hs_risk"], order:4, instruction:"동종업종 통계와 HS 위험점수를 함께 비교" },
       { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:5, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
     ],
@@ -886,7 +909,7 @@ const scenarioTemplates = [
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["risk_focus","declaration_focus"], order:1, instruction:"위험지표와 신고내역을 함께 상세 확인" },
       { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:2, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
-      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis","case_comparison"], order:3, instruction:"관련 규정과 유사사례를 함께 확인" },
+      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis","case_comparison"], order:3, instruction:"관련 관세정보와 유사사례를 함께 확인" },
       { key:"ml", type:"ml", label:"ML 모델 실행 AI 서비스", behaviors:["anomaly","hs_risk"], order:4, instruction:"신고가격 이상치와 HS 위험점수 확인" },
       { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["issue_report"], order:5, instruction:"저가신고 쟁점 중심 보고서 초안 작성" },
     ],
@@ -898,8 +921,8 @@ const scenarioTemplates = [
     items: [
       { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["declaration_focus"], order:1, instruction:"품목, 원산지, 신고가격 중심으로 최근 신고내역 확인" },
       { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:2, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
-      { key:"rag_customs", type:"rag_customs", label:"관세e음 RAG", behaviors:["regulation_basis"], order:3, instruction:"품목분류와 원산지 관련 규정 확인" },
-      { key:"law", type:"law", label:"법령정보 조회 AI 서비스", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
+      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis"], order:3, instruction:"품목분류와 원산지 관련 관세정보 확인" },
+      { key:"law", type:"law", label:"법령 검토 AI 서비스", behaviors:["law_basis","precedent"], order:4, instruction:"관련 법령, 고시, 유권해석 근거 검색" },
       { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:5, instruction:"근거 충실성과 누락 증빙 검증" },
     ],
   },
@@ -1155,10 +1178,10 @@ const GI_SERVICE_ALIASES = {
   gi_origin:   { sourceKey:"origin_analysis", type:"agent", label:"원산지 검증 AI 서비스" },
   gi_anomaly:  { sourceKey:"abnormal_trade", type:"agent" },
   gi_patent:   { sourceKey:"patent", type:"agent" },
-  gi_rag_rev:  { sourceKey:"rag_audit", type:"rag", label:"심사결과 RAG" },
-  gi_rag_inv:  { sourceKey:"rag_investigation", type:"rag", label:"조사결과 RAG" },
+  gi_rag_rev:  { sourceKey:"rag_audit", type:"rag", label:"심사정보 RAG" },
+  gi_rag_inv:  { sourceKey:"rag_investigation", type:"rag", label:"조사정보 RAG" },
   gi_rag_int:  { sourceKey:"rag_global", type:"rag", label:"국제협력 RAG" },
-  gi_law:      { sourceKey:"law", type:"rag", label:"법령 검토" },
+  gi_law:      { sourceKey:"law", type:"agent", label:"법령 검토 AI 서비스" },
   gi_rep:      { sourceKey:"report_generate", type:"report", label:"보고서 작성" },
   gi_appr:     { sourceKey:"report_validate", type:"approve", label:"보고서 검증 AI 서비스" },
 };
@@ -1324,6 +1347,45 @@ function activeGiStep(){
   return activeGiCaseSteps().find(s => s.id === generalInvestigationState.activeGiStepId) || null;
 }
 
+function refreshScenarioWorkbenchFromCase(aCase, fallbackRender){
+  if(!aCase) return;
+  const isDrugCase = String(aCase.caseId || "").startsWith("DRUG-");
+  const isActiveGeneralWorkbench =
+    !isDrugCase &&
+    currentPage === "generalinv" &&
+    generalInvestigationState.generalInvTab === "workbench" &&
+    activeGenInvCase()?.caseId === aCase.caseId;
+  const isActiveDrugWorkbench =
+    isDrugCase &&
+    isSpecialInvestigationPage(currentPage) &&
+    specialInvestigationState.drugInvTab === "workbench" &&
+    activeDrugCase()?.caseId === aCase.caseId;
+
+  if((isActiveGeneralWorkbench || isActiveDrugWorkbench) && document.getElementById("scenarioList")){
+    const stateToLabel = { done:"완료", run:"실행중", error:"오류", wait:"대기" };
+    stepStatuses = {};
+    stepOutputs = {};
+    Object.entries(aCase.stepStates || {}).forEach(([id, state]) => {
+      stepStatuses[id] = stateToLabel[state] || "대기";
+    });
+    Object.entries(aCase.stepResults || {}).forEach(([id, result]) => {
+      stepOutputs[id] = result;
+    });
+    const states = Object.values(aCase.stepStates || {});
+    const doneCnt = states.filter(state => state === "done").length;
+    updateScenarioProgress(doneCnt);
+    if(states.includes("run")) setScenarioStatus("실행 중");
+    else if(states.includes("error")) setScenarioStatus("오류");
+    else if(scenarioItems.length && doneCnt === scenarioItems.length) setScenarioStatus("완료");
+    else setScenarioStatus("대기");
+    renderScenarioList();
+    renderScenarioSteps();
+    return;
+  }
+
+  if(typeof fallbackRender === "function") fallbackRender();
+}
+
 /* ── 일반수사 분석 SSE 실행 ──────────────────────────────── */
 function giStreamSteps(aCase, stepsToRun){
   if(!aCase || !stepsToRun.length) return;
@@ -1331,12 +1393,14 @@ function giStreamSteps(aCase, stepsToRun){
   /* 기존 연결 종료 */
   if(giRunEventSource){ try{ giRunEventSource.close(); }catch(e){} giRunEventSource = null; }
 
-  /* 실행 대상 단계를 "실행중" 상태로 즉시 표시 */
+  /* 실행 상태는 서버가 해당 단계를 호출했다는 running 이벤트를 보낼 때만 반영한다. */
   if(!aCase.stepStates)  aCase.stepStates  = {};
   if(!aCase.stepResults) aCase.stepResults = {};
-  stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
+  stepsToRun.forEach(s => {
+    if(aCase.stepStates[s.id] === "run") delete aCase.stepStates[s.id];
+  });
   saveCanvasState();
-  render("generalinv");
+  refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
 
   /* URL 파라미터 구성 */
   const stepsPayload = stepsToRun.map(s => ({
@@ -1357,6 +1421,7 @@ function giStreamSteps(aCase, stepsToRun){
     .flatMap(step => step.share_recipients || [])
     .join(","));
   const params = new URLSearchParams({
+    execution_mode: "sequential",
     case_id:     aCase.caseId,
     target_name: aCase.targetName,
     target_type: aCase.targetType || "company",
@@ -1397,7 +1462,7 @@ function giStreamSteps(aCase, stepsToRun){
       aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
     }
     saveCanvasState();
-    render("generalinv");
+    refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
   });
 
   giRunEventSource.addEventListener("workflow", e => {
@@ -1405,7 +1470,7 @@ function giStreamSteps(aCase, stepsToRun){
     if(data.status === "completed" || data.status === "failed"){
       if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
       saveCanvasState();
-      render("generalinv");
+      refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
     }
   });
 
@@ -1415,7 +1480,7 @@ function giStreamSteps(aCase, stepsToRun){
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });
     saveCanvasState();
-    render("generalinv");
+    refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
   };
 }
 
@@ -1425,9 +1490,11 @@ function drugStreamSteps(aCase, stepsToRun){
 
   if(!aCase.stepStates)  aCase.stepStates  = {};
   if(!aCase.stepResults) aCase.stepResults = {};
-  stepsToRun.forEach(s => { aCase.stepStates[s.id] = "run"; });
+  stepsToRun.forEach(s => {
+    if(aCase.stepStates[s.id] === "run") delete aCase.stepStates[s.id];
+  });
   saveCanvasState();
-  renderSpecialInvestigation();
+  refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
 
   const targetType = aCase.targetType || "person";
   const stepsPayload = stepsToRun.map(s => ({
@@ -1448,6 +1515,7 @@ function drugStreamSteps(aCase, stepsToRun){
     .flatMap(step => step.share_recipients || [])
     .join(","));
   const params = new URLSearchParams({
+    execution_mode: "sequential",
     case_id: aCase.caseId,
     target_name: aCase.targetName,
     target_type: targetType,
@@ -1483,7 +1551,7 @@ function drugStreamSteps(aCase, stepsToRun){
       aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
     }
     saveCanvasState();
-    renderSpecialInvestigation();
+    refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
   });
 
   drugRunEventSource.addEventListener("workflow", e => {
@@ -1491,7 +1559,7 @@ function drugStreamSteps(aCase, stepsToRun){
     if(data.status === "completed" || data.status === "failed"){
       if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
       saveCanvasState();
-      renderSpecialInvestigation();
+      refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
     }
   });
 
@@ -1501,7 +1569,7 @@ function drugStreamSteps(aCase, stepsToRun){
       if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
     });
     saveCanvasState();
-    renderSpecialInvestigation();
+    refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
   };
 }
 
@@ -1729,8 +1797,8 @@ function coachSetScoreMini(n){
 }
 
 const COACH_SOURCE_LABELS = {
-  db_cdw:"CDW", rag_customs:"관세e음 RAG", rag_trade:"통관정보 RAG",
-  rag_audit:"심사정보 RAG", rag_investigation:"조사정보 RAG", rag_global:"국제정보 RAG",
+  db_cdw:"CDW", company_profile:"기업 프로파일", rag_customs:"관세정보 RAG", rag_trade:"무역정보 RAG",
+  rag_audit:"심사정보 RAG", rag_investigation:"조사정보 RAG", rag_global:"국제협력 RAG",
   rag_consultation:"상담내역 RAG", rag_risk_select:"위험선별 RAG",
 };
 const COACH_AGENT_LABELS = {
@@ -2149,13 +2217,11 @@ function coachFileLinkSummaries(){
 /* ── 홈 분석 실행 (실제 워크플로 스트리밍) ── */
 const HOME_DEFAULT_AGENTS = [
   { type:"db",                 label:"CDW 조회",              key:"db_cdw" },
-  { type:"rag_customs",        label:"관세e음 RAG",           key:"rag_customs" },
-  { type:"rag_trade",          label:"통관정보 RAG",          key:"rag_trade" },
+  { type:"company",            label:"기업 프로파일 조회",      key:"company_profile" },
+  { type:"rag_customs",        label:"관세정보 RAG",           key:"rag_customs" },
   { type:"rag_audit",          label:"심사정보 RAG",          key:"rag_audit" },
   { type:"rag_investigation",  label:"조사정보 RAG",          key:"rag_investigation" },
-  { type:"rag_global",         label:"국제정보 RAG",          key:"rag_global" },
-  { type:"rag_consultation",   label:"상담내역 RAG",          key:"rag_consultation" },
-  { type:"rag_risk_select",    label:"위험선별 RAG",          key:"rag_risk_select" },
+  { type:"rag_global",         label:"국제협력 RAG",          key:"rag_global" },
   { type:"web",                label:"웹검색 AI 서비스",          key:"web_search" },
   { type:"declaration_verify", label:"수입신고검증 AI 서비스",    key:"declaration_verify" },
   { type:"hs_verify",          label:"품목분류검증 AI 서비스",    key:"hs_verify" },
@@ -2163,15 +2229,14 @@ const HOME_DEFAULT_AGENTS = [
   { type:"ml",                 label:"ML 모델 실행 AI 서비스",    key:"ml" },
   { type:"network",            label:"관계망분석 AI 서비스",      key:"network" },
   { type:"ontology",           label:"관세온톨로지 AI 서비스",    key:"ontology" },
-  { type:"origin_analysis",    label:"원산지 분석 AI 서비스",     key:"origin_analysis" },
+  { type:"origin_analysis",    label:"원산지 검증 AI 서비스",     key:"origin_analysis" },
   { type:"abnormal_trade",     label:"이상거래 검증 AI 서비스",   key:"abnormal_trade" },
   { type:"proceeds_tracking",  label:"범죄수익 추적 AI 서비스",   key:"proceeds_tracking" },
   { type:"route_analysis",     label:"운송경로 분석 AI 서비스",   key:"route_analysis" },
   { type:"patent",             label:"특허정보 조회 AI 서비스",   key:"patent" },
-  { type:"law",                label:"법령정보 조회 AI 서비스",   key:"law" },
+  { type:"law",                label:"법령 검토 AI 서비스",       key:"law" },
   { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
-  { type:"rag_create",         label:"RAG 생성 AI 서비스",        key:"rag_create" },
-  { type:"summary",            label:"보고서 요약 AI 서비스",     key:"summary" },
+  { type:"rag_create",         label:"RAG 생성",                 key:"rag_create" },
   { type:"report",             label:"보고서 생성 AI 서비스",     key:"report_generate" },
   { type:"validation",         label:"보고서 검증 AI 서비스",     key:"report_validate" },
   { type:"mail_share",         label:"분석결과 공유 AI 서비스",   key:"mail_share" },
@@ -2184,7 +2249,7 @@ let homeSelectedRagKeys = [];
 let homeSelectedAgentKeys = [];
 let homeShareEmailIds = [];
 
-const HOME_PICKER_RAG_KEYS = ["rag_trade", "rag_audit", "rag_investigation", "rag_global", "rag_consultation", "rag_risk_select"];
+const HOME_PICKER_RAG_KEYS = ["rag_customs", "rag_audit", "rag_investigation", "rag_global"];
 const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
 
 function homeSelectedAnalysisOptions(){
@@ -3710,7 +3775,7 @@ function commonAnalysisReportPanel({
 
 
 
-/* ── [분석 시나리오 설정 및 수행] 패널 ────────────────────── */
+/* ── [AI서비스 분석 작업] 패널 ────────────────────── */
 
 function investigationPage(pageKey = "investigation"){
   return customsInvestigation.investigationPage(pageKey);
@@ -4295,7 +4360,7 @@ function canvasJobs(){
       owner:"조사국 조사1과",
       updated:"방금",
       status,
-      next:"분석 시나리오 설정 및 수행",
+      next:"AI서비스 분석 작업",
       tab:"scenario",
       assignees:["u01","u08"],
     },
@@ -5475,54 +5540,55 @@ function initTemplateEditor(){
    ═══════════════════════════════════════════════════════════════ */
 function sharedScenarioWorkbenchHtml(ctx = {}){
   const archived          = ctx.archived          || false;
-  const titleHtml         = ctx.titleHtml         || "분석 시나리오 설정 및 실행";
+  const titleHtml         = ctx.titleHtml         || "조사 및 수사 분석 단계";
   const subtitleHtml      = ctx.subtitleHtml       || "";
   const templateOptionsHtml = ctx.templateOptionsHtml || scenarioTemplateOptionsHtml();
 
   return `
     <section class="card scenario-workbench scenario-workbench-v2">
-      <div class="scenario-title-row">
-        <div>
-          <h3>${titleHtml}</h3>
-          <p class="muted">${subtitleHtml}</p>
+      <div class="scenario-work-header">
+        <div class="scenario-title-row">
+          <div>
+            <h3>${titleHtml}</h3>
+            <p class="muted">${subtitleHtml}</p>
+          </div>
         </div>
-        <div class="scenario-status">
-          <span id="scenarioRunStatus">대기</span>
-          <strong id="scenarioDoneCount">0/0</strong>
+
+        <div class="scenario-template-zone">
+          <strong>분석 템플릿</strong>
+          <select id="scenarioTemplateSelect" class="scenario-template-select">
+            ${templateOptionsHtml}
+          </select>
+          <button id="scenarioTemplateApplyButton" type="button"
+            class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
+            템플릿적용하기
+          </button>
+          <button id="scenarioSaveButton" type="button"
+            class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
         </div>
       </div>
-      <div class="scenario-layout scenario-execution-layout">
-        <section class="scenario-board">
-          <div class="scenario-board-head">
-            <h3>시나리오 단계</h3>
-          </div>
-          <ol id="scenarioList" class="scenario-list scenario-list-vertical"></ol>
-          <div class="scenario-progress">
-            <i id="scenarioProgressFill"></i>
-          </div>
-        </section>
 
+      <section class="scenario-board">
+        <ol id="scenarioList" class="scenario-list scenario-list-horizontal"></ol>
+      </section>
+
+      <div class="scenario-layout scenario-execution-layout">
         <aside class="scenario-config">
           <div class="scenario-config-title">
-            <strong>분석 시나리오 설정</strong>
-          </div>
-
-          <div class="scenario-template-zone">
-            <div class="scenario-template-zone-head">
-              <span>분석 시나리오 템플릿</span>
-              <button id="scenarioTemplateApplyButton" type="button"
-                class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
-                템플릿 적용하기
-              </button>
-            </div>
-            <select id="scenarioTemplateSelect" class="scenario-template-select">
-              ${templateOptionsHtml}
-            </select>
+            <h3>조사 및 수사 분석 상세</h3>
           </div>
 
           <div class="scenario-agent-zone">
+            <div class="scenario-agent-head">
+              <strong>AI 서비스 단계</strong>
+              <div class="scenario-actions">
+                <button id="scenarioAddButton" type="button" class="btn"
+                  ${archived ? "disabled" : ""}>단계 추가</button>
+                <button id="scenarioDeleteButton" type="button" class="btn secondary"
+                  disabled>선택 삭제</button>
+              </div>
+            </div>
             <label class="scenario-field">
-              <span>AI 서비스 단계</span>
               <select id="scenarioSourceSelect"></select>
             </label>
             <div class="scenario-field">
@@ -5538,15 +5604,6 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
                 placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."></textarea>
             </label>
           </div>
-
-          <div class="scenario-actions">
-            <button id="scenarioAddButton" type="button" class="btn"
-              ${archived ? "disabled" : ""}>단계 추가</button>
-            <button id="scenarioDeleteButton" type="button" class="btn secondary"
-              disabled>선택 삭제</button>
-          </div>
-          <button id="scenarioSaveButton" type="button"
-            class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
         </aside>
 
         <section class="scenario-log">
@@ -5554,7 +5611,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             <h3>분석 실행 로그</h3>
             <div class="scenario-log-actions">
               <button id="scenarioRunButton" type="button" class="btn"
-                ${archived ? "disabled" : ""}>분석 실행</button>
+                ${archived ? "disabled" : ""}>단계별 자동실행</button>
               <button id="scenarioClearButton" type="button" class="btn secondary"
                 ${archived ? "disabled" : ""}>결과 지우기</button>
             </div>
@@ -5572,8 +5629,8 @@ function scenarioWorkbenchV2(){
   const archived = isCompanyArchived(company.company_id);
   return sharedScenarioWorkbenchHtml({
     archived,
-    titleHtml:    "분석 시나리오 설정 및 실행",
-    subtitleHtml: `템플릿을 불러온 뒤 기업별 조사 목적에 맞게 단계, 동작, 추가 지시를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "아카이브 전에는 언제든지 시나리오를 수정하고 재실행할 수 있습니다."}</em>`,
+    titleHtml:    "조사 및 수사 분석 단계",
+    subtitleHtml: `수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "단계를 추가·삭제·순서 변경하여 맞춤형 시나리오를 구성할 수 있습니다."}</em>`,
     templateOptionsHtml: scenarioTemplateOptionsHtml(),
   });
 }
@@ -6140,6 +6197,18 @@ function updateSelectedScenarioSource(key){
   syncScenarioEditor();
 }
 
+function scenarioServiceKindClass(item){
+  const key = item?.key || item?.sourceKey || "";
+  const sourceKey = item?.sourceKey || giCommonSourceKey(key);
+  const type = item?.type || "";
+  if(key === "db_cdw" || sourceKey === "db_cdw" || key === "gi_cdw" || key === "company_profile" || sourceKey === "company_profile") return "scenario-kind-db";
+  if(type === "rag" || key.startsWith("rag_") || sourceKey.startsWith("rag_") || key.startsWith("gi_rag")) return "scenario-kind-rag";
+  if(type === "report" || type === "validation" || key === "report_generate" || key === "report_validate" || key === "gi_rep" || key === "gi_appr") return "scenario-kind-report";
+  if(key === "web_search" || key === "law" || key === "gi_law" || sourceKey === "law") return "scenario-kind-external";
+  if(key === "ocr" || key === "file_summary" || key === "translate" || key === "summary" || sourceKey === "ocr") return "scenario-kind-llm";
+  return "scenario-kind-analysis";
+}
+
 function renderScenarioList(){
   const target = document.getElementById("scenarioList");
   if(!target) return;
@@ -6147,8 +6216,19 @@ function renderScenarioList(){
   target.innerHTML = scenarioItems.map(item => {
     const status = permissionStatus(item.key);
     const locked = status !== "granted";
+    const runStatus = stepStatuses[item.id] || "대기";
+    const stateClass = {
+      "대기": "scenario-state-wait",
+      "실행 중": "scenario-state-running",
+      "실행중": "scenario-state-running",
+      "완료": "scenario-state-done",
+      "오류": "scenario-state-error",
+      "건너뜀": "scenario-state-skipped",
+    }[runStatus] || "scenario-state-wait";
+    const kindClass = scenarioServiceKindClass(item);
+    const hasResultClass = stepOutputs[item.id] ? "scenario-state-has-result" : "";
     return `
-    <li class="scenario-chip ${item.type} ${item.id === selectedScenarioId ? "active" : ""} ${locked ? `needs-permission ${status}` : ""}" data-scenario-id="${item.id}" draggable="true">
+    <li class="scenario-chip ${item.type} ${kindClass} ${stateClass} ${hasResultClass} ${item.id === selectedScenarioId ? "active" : ""} ${locked ? `needs-permission ${status}` : ""}" data-scenario-id="${item.id}" draggable="true">
       <div class="chip-num">${item.order}</div>
       <div class="chip-body">
         <div class="chip-title-row">
@@ -6285,6 +6365,7 @@ function scenarioPayload(items = scenarioItems){
     .filter(item => item.key === "web_search")
     .flatMap(item => item.web_targets || []));
   return {
+    execution_mode: "sequential",
     scenario_items: runItems,
     previous_step_outputs: scenarioItems
       .map((item, index) => ({
@@ -6345,6 +6426,7 @@ function clearScenarioResults(){
   setMarkdown(document.getElementById("scenarioValidationOutput"), "검증 결과가 아직 없습니다.");
   setScenarioStatus("대기");
   updateScenarioProgress(0);
+  renderScenarioList();
   renderScenarioSteps();
   saveIntermediateResults(activeCanvasCompanyId);
 }
@@ -6529,6 +6611,7 @@ function initGiScenarioWorkbench(){
     openedSteps  = new Set();
     saveCanvasState();
     updateScenarioProgress(0);
+    renderScenarioList();
     renderScenarioSteps();
     setScenarioStatus("대기");
   });
@@ -6641,6 +6724,7 @@ function initDrugScenarioWorkbench(){
     openedSteps  = new Set();
     saveCanvasState();
     updateScenarioProgress(0);
+    renderScenarioList();
     renderScenarioSteps();
     setScenarioStatus("대기");
   });
@@ -6720,6 +6804,7 @@ function runScenarioWorkflow(startIndex = 0){
     latestReport = "보고서 생성 대기 중입니다.";
     latestValidation = "검증 대기 중입니다.";
   }
+  renderScenarioList();
   renderScenarioSteps();
 
   const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(scenarioPayload(runnableItems)))}`;
@@ -6751,6 +6836,7 @@ function runScenarioWorkflow(startIndex = 0){
     if(data.status === "running"){
       stepStatuses[item.id] = "실행 중";
       openedSteps.add(item.id);
+      renderScenarioList();
     }
     if(data.status === "done"){
       completed += 1;
@@ -6759,6 +6845,7 @@ function runScenarioWorkflow(startIndex = 0){
       openedSteps.add(item.id);
       updateScenarioProgress(completed);
       updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
+      renderScenarioList();
       if(data.result_key === "final_report"){
         latestReport = data.output || "보고서 없음";
         const company = activeCanvasCompany();
@@ -6781,14 +6868,23 @@ function runScenarioWorkflow(startIndex = 0){
       runButton.disabled = false;
       scenarioEventSource.close();
       saveIntermediateResults(companyId);
+      renderScenarioList();
     }
     renderScenarioSteps();
   });
 
   scenarioEventSource.onerror = () => {
     setScenarioStatus("연결 종료");
+    Object.entries(stepStatuses).forEach(([id, status]) => {
+      if(status === "실행 중" || status === "실행중"){
+        stepStatuses[id] = "오류";
+        if(!stepOutputs[id]) stepOutputs[id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
+      }
+    });
     runButton.disabled = false;
     if(scenarioEventSource) scenarioEventSource.close();
+    renderScenarioList();
+    renderScenarioSteps();
   };
 }
 

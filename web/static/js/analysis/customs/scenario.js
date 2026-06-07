@@ -4,8 +4,8 @@
 
 export const scenarioSubtab = {
   id: "scenario",
-  label: "분석 시나리오 설정 및 수행",
+  label: "AI서비스 분석 작업",
   group: "work",
-  aiServices: ["db_cdw", "rag_customs", "rag_trade", "ml", "declaration_verify", "hs_verify", "customs_value", "law", "report_generate", "report_validate"],
+  aiServices: ["db_cdw", "company_profile", "rag_customs", "rag_audit", "ml", "declaration_verify", "hs_verify", "customs_value", "law", "report_generate", "report_validate"],
   render: renderScenarioPanel,
 };

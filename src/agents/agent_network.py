@@ -29,9 +29,17 @@ from typing import Optional
 import duckdb
 
 from src.agents.state import CustomsState
-from src.agents.scope import has_company_scope, no_company_result
+from src.agents.scope import (
+    has_company_scope,
+    has_person_scope,
+    no_company_result,
+    no_target_result,
+    target_id,
+    target_type,
+)
 from src.config import CFG
 from src.llm import llm
+from src.neo4j_graph import Neo4jGraphError, build_company_network_report, build_person_network_report
 from src.paths import DB_PATH
 
 # ── 참조 데이터 ────────────────────────────────────────────────────────────────
@@ -444,12 +452,40 @@ def _build_network(conn: duckdb.DuckDBPyConnection, company_id: str) -> dict:
 # ── 에이전트 진입점 ────────────────────────────────────────────────────────────
 
 def agent_network(state: CustomsState) -> CustomsState:
+    if target_type(state) == "person":
+        if not has_person_scope(state):
+            return {**state, "network_result": no_target_result(state, "관계망분석")}
+
+        person_id = target_id(state)
+        print(f"[Agent] Neo4j 우범자 관계망 분석 시작: {person_id}")
+        try:
+            neo4j_result = build_person_network_report(person_id)
+            if neo4j_result:
+                print("[Agent] Neo4j 우범자 관계망 분석 완료")
+                return {**state, "network_result": neo4j_result}
+        except Neo4jGraphError as exc:
+            print(f"[Agent] Neo4j 우범자 관계망 조회 실패: {exc}")
+
+        result = "\n".join([
+            "[관계망분석 결과]",
+            f"- 우범자 `{person_id}`에 대한 Neo4j 관계망을 조회하지 못했습니다.",
+            "- 우범자 관계망은 Neo4j 그래프 적재 후 조회 가능합니다.",
+        ])
+        return {**state, "network_result": result}
     """DB 기반으로 기업 관계망을 동적 생성하고 위험 징후를 분석한다."""
     if not has_company_scope(state):
         return {**state, "network_result": no_company_result("관계망분석")}
 
     company_id = state["company_id"]
     print(f"[Agent] 관계망 분석 시작: {company_id}")
+
+    try:
+        neo4j_result = build_company_network_report(company_id)
+        if neo4j_result:
+            print("[Agent] Neo4j 기업 관계망 분석 완료")
+            return {**state, "network_result": neo4j_result}
+    except Neo4jGraphError as exc:
+        print(f"[Agent] Neo4j 기업 관계망 조회 실패, DuckDB fallback 사용: {exc}")
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         net = _build_network(conn, company_id)
