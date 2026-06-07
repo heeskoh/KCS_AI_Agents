@@ -66,61 +66,91 @@ const DRUG_INV_TYPES = [
 ];
 function drugInvTypeById(id){ return DRUG_INV_TYPES.find(t=>t.id===id) || DRUG_INV_TYPES[0]; }
 
-/* ── 마약수사 유형별 초기 시나리오 단계 ─────────────────────
+/* ── 마약수사 유형별 default 시나리오 템플릿 ─────────────────
+   giScenarioTemplates와 동일한 {id,name,description,items} 형식으로 표준화.
    GI_SERVICE_ALIASES 키 재사용 (gi_cdw, gi_imp, gi_route, gi_net,
    gi_profit, gi_law, gi_rep, gi_appr) + 마약전용 키 추가          */
-const DRUG_SCENARIO_STEPS = {
-  d1: [ // 마약 밀수입 수사
-    { key:"gi_cdw" },
-    { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
-    { key:"gi_route",  label:"운송경로 분석 AI 서비스" },
-    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-    { key:"gi_profit", label:"범죄수익 추적 AI 서비스" },
-    { key:"gi_rag_inv",label:"조사결과 RAG" },
-    { key:"gi_rag_int",label:"국제공조 RAG" },
-    { key:"gi_law" },
-    { key:"gi_rep" },
-    { key:"gi_appr" },
-  ],
-  d2: [ // 마약 우범여행자 수사
-    { key:"gi_cdw" },
-    { key:"gi_route",  label:"여행경로 분석 AI 서비스" },
-    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-    { key:"gi_rag_inv",label:"조사결과 RAG" },
-    { key:"gi_law" },
-    { key:"gi_rep" },
-    { key:"gi_appr" },
-  ],
-  d3: [ // 마약 자금세탁 수사
-    { key:"gi_cdw" },
-    { key:"gi_profit", label:"자금세탁 추적 AI 서비스" },
-    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-    { key:"gi_rag_inv",label:"조사결과 RAG" },
-    { key:"gi_rag_int",label:"국제공조 RAG" },
-    { key:"gi_law" },
-    { key:"gi_rep" },
-    { key:"gi_appr" },
-  ],
-  d4: [ // 신종마약 유통 수사
-    { key:"gi_cdw" },
-    { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
-    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-    { key:"gi_rag_inv",label:"조사결과 RAG" },
-    { key:"gi_rag_int",label:"국제공조 RAG" },
-    { key:"gi_law" },
-    { key:"gi_rep" },
-    { key:"gi_appr" },
-  ],
-  d5: [ // 국제공조 수사
-    { key:"gi_cdw" },
-    { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-    { key:"gi_rag_int",label:"국제공조 RAG" },
-    { key:"gi_rag_inv",label:"조사결과 RAG" },
-    { key:"gi_law" },
-    { key:"gi_rep" },
-    { key:"gi_appr" },
-  ],
-};
+const drugScenarioTemplates = [
+  {
+    id: "d1",
+    name: "마약 밀수입 수사 템플릿",
+    description: "신고검증, 운송경로, 관계망, 범죄수익, 조사·국제 RAG를 연결하는 수사 흐름",
+    items: giTemplateItems([
+      { key:"gi_cdw" },
+      { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
+      { key:"gi_route",  label:"운송경로 분석 AI 서비스" },
+      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+      { key:"gi_profit", label:"범죄수익 추적 AI 서비스" },
+      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_law" },
+      { key:"gi_rep" },
+      { key:"gi_appr" },
+    ]),
+  },
+  {
+    id: "d2",
+    name: "마약 우범여행자 수사 템플릿",
+    description: "신고검증, 여행경로, 관계망, 조사 RAG, 법령 검토를 연결하는 수사 흐름",
+    items: giTemplateItems([
+      { key:"gi_cdw" },
+      { key:"gi_route",  label:"여행경로 분석 AI 서비스" },
+      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_law" },
+      { key:"gi_rep" },
+      { key:"gi_appr" },
+    ]),
+  },
+  {
+    id: "d3",
+    name: "마약 자금세탁 수사 템플릿",
+    description: "신고검증, 자금세탁 추적, 관계망, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+    items: giTemplateItems([
+      { key:"gi_cdw" },
+      { key:"gi_profit", label:"자금세탁 추적 AI 서비스" },
+      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_law" },
+      { key:"gi_rep" },
+      { key:"gi_appr" },
+    ]),
+  },
+  {
+    id: "d4",
+    name: "신종마약 유통 수사 템플릿",
+    description: "신고검증, 관계망, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+    items: giTemplateItems([
+      { key:"gi_cdw" },
+      { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
+      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_law" },
+      { key:"gi_rep" },
+      { key:"gi_appr" },
+    ]),
+  },
+  {
+    id: "d5",
+    name: "국제공조 수사 템플릿",
+    description: "신고검증, 관계망, 국제·조사 RAG, 법령 검토를 연결하는 수사 흐름",
+    items: giTemplateItems([
+      { key:"gi_cdw" },
+      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
+      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_law" },
+      { key:"gi_rep" },
+      { key:"gi_appr" },
+    ]),
+  },
+];
+
+const DRUG_SCENARIO_STEPS = Object.fromEntries(
+  drugScenarioTemplates.map(template => [template.id, template.items])
+);
 
 /* ── 마약수사 케이스 스텝 초기화/조회 헬퍼 ─────────────────── */
 function activeDrugCaseSteps(){
@@ -882,11 +912,31 @@ function normalizeScenarioItem(item, index = 0){
     targetType,
     target_type: targetType,
     instruction,
+    extraPrompts: normalizeExtraPrompts(item.extraPrompts),
     shareRecipients,
     share_recipients: shareRecipients,
     webTargets,
     web_targets: webTargets,
   };
+}
+
+/* AI 서비스 기본 지시 외 추가로 등록한 프롬프트 목록 (체크 시 함께 실행됨) */
+function normalizeExtraPrompts(list){
+  if(!Array.isArray(list)) return [];
+  return list
+    .map(entry => ({
+      id: entry?.id || uid(),
+      text: String(entry?.text ?? "").trim(),
+      enabled: entry?.enabled !== false,
+    }))
+    .filter(entry => entry.text);
+}
+
+function extraPromptsRunText(extraPrompts){
+  const enabled = (extraPrompts || []).filter(p => p.enabled && p.text);
+  return enabled.length
+    ? `\n\n[추가 등록 프롬프트]\n${enabled.map(p => `- ${p.text}`).join("\n")}`
+    : "";
 }
 
 const scenarioTemplates = [
@@ -1008,6 +1058,7 @@ let scenarioCompanies = [];
 let scenarioItems = [];
 let selectedScenarioId = null;
 let scenarioEventSource = null;
+let scenarioSingleEventSource = null; // "이 AI서비스만 실행" 전용 SSE 연결 (단계별 자동실행과 분리)
 let stepOutputs = {};
 let stepStatuses = {};
 let openedSteps = new Set();
@@ -1281,6 +1332,7 @@ function normalizeGiScenarioStep(step, index = 0){
     behaviorLabel: sourceBehaviorLabels(sourceKey, behaviors).join(", "),
     instruction,
     note: instruction,
+    extraPrompts: normalizeExtraPrompts(step.extraPrompts),
     shareRecipients,
     share_recipients: shareRecipients,
     webTargets,
@@ -1307,7 +1359,7 @@ function giScenarioRunInstruction(step, targetType = "company"){
   const webTargetText = webTargets.length
     ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
     : "";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${webTargetText}`;
+  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(step.extraPrompts)}${webTargetText}`;
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
@@ -1598,7 +1650,7 @@ function giDefaultTemplateId(invTypeId){
 }
 
 function drugDefaultTemplateId(invTypeId){
-  return DRUG_SCENARIO_STEPS[invTypeId] ? invTypeId : "d1";
+  return drugScenarioTemplates.some(template => template.id === invTypeId) ? invTypeId : "d1";
 }
 
 /* ── 일반수사 분석 시나리오 템플릿 ──────────────────────── */
@@ -5603,6 +5655,11 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
               <textarea id="scenarioInstruction"
                 placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."></textarea>
             </label>
+            <div id="scenarioExtraPromptPanel"></div>
+            <div class="scenario-actions" style="margin-top:4px">
+              <button id="scenarioRunSelectedButton" type="button" class="btn primary"
+                ${archived ? "disabled" : ""}>▶ 이 AI서비스만 실행</button>
+            </div>
           </div>
         </aside>
 
@@ -5957,7 +6014,7 @@ function scenarioRunInstruction(item){
   const webTargetText = webTargets.length
     ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
     : "";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${webTargetText}`;
+  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(item.extraPrompts)}${webTargetText}`;
 }
 
 function scenarioInstructionPreview(item){
@@ -6036,6 +6093,57 @@ function initScenarioWorkbench(){
   renderScenarioSteps();
 }
 
+/* AI 채팅 스레드 형태로 "기본 지시 + 추가 등록 프롬프트" 목록을 보여주고
+   체크박스로 실행 포함 여부를 선택할 수 있게 한다. */
+function renderScenarioExtraPromptPanel(){
+  const panel = document.getElementById("scenarioExtraPromptPanel");
+  if(!panel) return;
+  const item = selectedScenarioItem();
+  if(!item){ panel.innerHTML = ""; return; }
+
+  const baseInstruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
+  const extraPrompts = item.extraPrompts || [];
+
+  panel.innerHTML = `
+    <div class="scenario-field scenario-prompt-thread-field">
+      <span>등록된 프롬프트 <small class="muted">(기본 지시 외에 함께 실행할 프롬프트를 추가로 등록할 수 있습니다)</small></span>
+      <div class="prompt-thread">
+        <div class="prompt-bubble base active">
+          <label class="prompt-bubble-toggle">
+            <input type="checkbox" checked disabled>
+            <span><strong>기본 지시</strong> · ${escapeHtml(baseInstruction)}</span>
+          </label>
+        </div>
+        ${extraPrompts.map(p => `
+          <div class="prompt-bubble${p.enabled ? " active" : ""}" data-scenario-prompt-id="${escapeHtml(p.id)}">
+            <label class="prompt-bubble-toggle">
+              <input type="checkbox" data-scenario-prompt-toggle="${escapeHtml(p.id)}" ${p.enabled ? "checked" : ""}>
+              <span>${escapeHtml(p.text)}</span>
+            </label>
+            <button type="button" class="prompt-bubble-remove" data-scenario-prompt-remove="${escapeHtml(p.id)}" title="삭제">✕</button>
+          </div>`).join("")}
+      </div>
+      <div class="prompt-thread-input">
+        <input type="text" id="scenarioExtraPromptInput" placeholder="추가로 실행할 프롬프트를 입력하고 Enter">
+        <button type="button" class="btn secondary" id="scenarioExtraPromptAddButton">+ 프롬프트 추가</button>
+      </div>
+    </div>`;
+}
+
+function addScenarioExtraPrompt(){
+  const input = document.getElementById("scenarioExtraPromptInput");
+  const text = (input?.value || "").trim();
+  if(!text) return;
+  const item = selectedScenarioItem();
+  if(!item) return;
+  if(!Array.isArray(item.extraPrompts)) item.extraPrompts = [];
+  item.extraPrompts.push({ id: uid(), text, enabled: true });
+  if(input) input.value = "";
+  saveCanvasState();
+  renderScenarioExtraPromptPanel();
+  renderScenarioSteps();
+}
+
 function syncScenarioEditor(){
   const item = selectedScenarioItem();
   const sourceSelect = document.getElementById("scenarioSourceSelect");
@@ -6068,7 +6176,10 @@ function syncScenarioEditor(){
   if(hint && !item) hint.innerHTML = "";
   renderShareEmailPanel("scenario");
   renderWebTargetPanel("scenario");
+  renderScenarioExtraPromptPanel();
   if(deleteButton) deleteButton.disabled = !item;
+  const runSelectedButton = document.getElementById("scenarioRunSelectedButton");
+  if(runSelectedButton) runSelectedButton.disabled = !item;
 }
 
 function addScenarioItem(){
@@ -6883,6 +6994,82 @@ function runScenarioWorkflow(startIndex = 0){
     });
     runButton.disabled = false;
     if(scenarioEventSource) scenarioEventSource.close();
+    renderScenarioList();
+    renderScenarioSteps();
+  };
+}
+
+/* 선택한 AI 서비스 한 단계만 별도로 실행 (단계별 자동실행과는 별도의 SSE 연결 사용) */
+function runSingleScenarioItem(item){
+  if(!item) return;
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 분석할 수 있습니다.");
+    return;
+  }
+  const companyId = activeCanvasCompanyId;
+  if(!companyId){
+    alert("분석 대상 기업을 선택하세요.");
+    return;
+  }
+  if(!hasPermission(item.key)){
+    alert(`이 AI 서비스를 실행할 권한이 없습니다. (${permissionLabel(permissionStatus(item.key))})`);
+    return;
+  }
+  if(!ensureMailShareRecipients([item])) return;
+  if(!ensureDirectUrlTargets([item])) return;
+
+  if(scenarioSingleEventSource){ try{ scenarioSingleEventSource.close(); }catch(e){} scenarioSingleEventSource = null; }
+
+  const runButton = document.getElementById("scenarioRunSelectedButton");
+  if(runButton) runButton.disabled = true;
+  stepStatuses[item.id] = "실행 중";
+  openedSteps.add(item.id);
+  renderScenarioList();
+  renderScenarioSteps();
+
+  const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(scenarioPayload([item])))}`;
+  scenarioSingleEventSource = new EventSource(url);
+
+  const finish = () => {
+    if(scenarioSingleEventSource){ scenarioSingleEventSource.close(); scenarioSingleEventSource = null; }
+    if(runButton) runButton.disabled = !selectedScenarioItem();
+  };
+
+  scenarioSingleEventSource.addEventListener("step", event => {
+    const data = JSON.parse(event.data);
+    if(data.status === "running"){
+      stepStatuses[item.id] = "실행 중";
+      renderScenarioList();
+    }
+    if(data.status === "done"){
+      stepStatuses[item.id] = "완료";
+      stepOutputs[item.id] = data.output || "결과 없음";
+      openedSteps.add(item.id);
+      saveIntermediateResults(companyId);
+      renderScenarioList();
+      renderScenarioSteps();
+    }
+    if(data.status === "error"){
+      stepStatuses[item.id] = "오류";
+      stepOutputs[item.id] = data.error || "오류가 발생했습니다.";
+      openedSteps.add(item.id);
+      saveIntermediateResults(companyId);
+      renderScenarioList();
+      renderScenarioSteps();
+    }
+  });
+
+  scenarioSingleEventSource.addEventListener("workflow", event => {
+    const data = JSON.parse(event.data);
+    if(data.status === "completed" || data.status === "failed") finish();
+  });
+
+  scenarioSingleEventSource.onerror = () => {
+    if(stepStatuses[item.id] === "실행 중"){
+      stepStatuses[item.id] = "오류";
+      if(!stepOutputs[item.id]) stepOutputs[item.id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
+    }
+    finish();
     renderScenarioList();
     renderScenarioSteps();
   };
@@ -7990,6 +8177,56 @@ document.addEventListener("click", (event)=>{
     const nav = document.querySelector(".admin-nav");
     nav.classList.toggle("closed");
     adminToggle.querySelector("span").textContent = nav.classList.contains("closed") ? "▶" : "▼";
+  }
+});
+
+/* ── AI 서비스 단계: 단독 실행 + 추가 등록 프롬프트 (관세조사/일반수사/마약수사 공통) ── */
+document.addEventListener("click", (event) => {
+  const runSelected = event.target.closest("#scenarioRunSelectedButton");
+  if(runSelected){
+    runSingleScenarioItem(selectedScenarioItem());
+    return;
+  }
+
+  const addPromptButton = event.target.closest("#scenarioExtraPromptAddButton");
+  if(addPromptButton){
+    addScenarioExtraPrompt();
+    return;
+  }
+
+  const removePrompt = event.target.closest("[data-scenario-prompt-remove]");
+  if(removePrompt){
+    const id = removePrompt.dataset.scenarioPromptRemove;
+    const item = selectedScenarioItem();
+    if(item && Array.isArray(item.extraPrompts)){
+      item.extraPrompts = item.extraPrompts.filter(p => p.id !== id);
+      saveCanvasState();
+      renderScenarioExtraPromptPanel();
+      renderScenarioSteps();
+    }
+    return;
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const togglePrompt = event.target.closest("[data-scenario-prompt-toggle]");
+  if(togglePrompt){
+    const id = togglePrompt.dataset.scenarioPromptToggle;
+    const item = selectedScenarioItem();
+    const entry = item?.extraPrompts?.find(p => p.id === id);
+    if(entry){
+      entry.enabled = togglePrompt.checked;
+      saveCanvasState();
+      renderScenarioExtraPromptPanel();
+      renderScenarioSteps();
+    }
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if(event.key === "Enter" && event.target?.id === "scenarioExtraPromptInput"){
+    event.preventDefault();
+    addScenarioExtraPrompt();
   }
 });
 

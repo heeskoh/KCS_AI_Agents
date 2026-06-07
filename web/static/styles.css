@@ -1084,6 +1084,20 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .hint-permission-callout span{font-size:12px;color:#b91c1c;font-weight:700;line-height:1.4}
 .btn-perm-request{flex-shrink:0;padding:5px 12px;font-size:12px;font-weight:800;border-radius:8px;border:1px solid #dc2626;background:#dc2626;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s}
 .btn-perm-request:hover{background:#b91c1c}
+
+.scenario-prompt-thread-field span small{display:block;margin-top:2px;font-weight:600;color:var(--muted)}
+.prompt-thread{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.prompt-bubble{display:flex;align-items:flex-start;gap:8px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#f8fafc;color:#53617b;transition:border-color .15s,background .15s}
+.prompt-bubble.active{border-color:#bfdbfe;background:#f0f7ff;color:#123c85}
+.prompt-bubble.base{background:#eef4ff;border-color:#cfe0fb;color:#123c85}
+.prompt-bubble-toggle{display:flex;align-items:flex-start;gap:8px;flex:1;font-size:12px;font-weight:700;line-height:1.5;cursor:pointer}
+.prompt-bubble-toggle input{margin-top:3px;accent-color:var(--blue);flex-shrink:0}
+.prompt-bubble-toggle span strong{color:#174ea6;margin-right:4px}
+.prompt-bubble-remove{flex-shrink:0;border:none;background:transparent;color:#94a3b8;font-size:13px;line-height:1;cursor:pointer;padding:2px 4px;border-radius:6px}
+.prompt-bubble-remove:hover{color:#dc2626;background:#fee2e2}
+.prompt-thread-input{display:flex;gap:8px;margin-top:6px}
+.prompt-thread-input input{flex:1;border:1px solid var(--line);border-radius:9px;padding:0 10px;height:36px;font:inherit;font-size:12px;background:#fff;color:var(--text)}
+.prompt-thread-input .btn{height:36px;padding:0 12px;font-size:12px}
 .scenario-actions{display:flex;gap:6px;align-items:center;margin-left:auto}
 .scenario-actions .btn{padding:5px 9px;font-size:12px;line-height:1.2;white-space:nowrap}
 .scenario-save-bottom{font-size:12px;padding:7px 10px;white-space:nowrap}
