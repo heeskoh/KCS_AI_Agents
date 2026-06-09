@@ -1,0 +1,107 @@
+import duckdb
+
+from src.agents.state import CustomsState
+from src.paths import DB_PATH
+
+
+def agent_bigdata(state: CustomsState) -> CustomsState:
+    """Simulate linked big-data platform signals from aggregate import stats."""
+    company_id = state["company_id"]
+    scenario = state.get("scenario") or {}
+    print(f"\n[Agent] 빅데이터 통계 분석 시작: {company_id}")
+
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        company_stats = conn.execute(
+            """
+            SELECT
+                c.company_name,
+                c.industry_code,
+                c.risk_level,
+                c.risk_score,
+                c.annual_import_amount,
+                AVG(d.declared_value) AS avg_declared_value,
+                COUNT(d.id) AS declaration_count
+            FROM company_profiles c
+            LEFT JOIN import_declarations d ON c.company_id = d.company_id
+            WHERE c.company_id = ?
+            GROUP BY
+                c.company_name,
+                c.industry_code,
+                c.risk_level,
+                c.risk_score,
+                c.annual_import_amount
+            """,
+            [company_id],
+        ).df()
+
+        industry_stats = conn.execute(
+            """
+            SELECT
+                c.industry_code,
+                COUNT(DISTINCT c.company_id) AS company_count,
+                COUNT(d.id) AS declaration_count,
+                AVG(d.declared_value) AS avg_declared_value,
+                SUM(d.declared_value) AS total_declared_value,
+                AVG(c.risk_score) AS avg_risk_score
+            FROM company_profiles c
+            LEFT JOIN import_declarations d ON c.company_id = d.company_id
+            GROUP BY c.industry_code
+            ORDER BY avg_risk_score DESC
+            """
+        ).df()
+
+        hs_stats = conn.execute(
+            """
+            SELECT
+                hs_code,
+                item_name,
+                COUNT(*) AS declaration_count,
+                AVG(declared_value) AS avg_declared_value,
+                SUM(declared_value) AS total_declared_value
+            FROM import_declarations
+            GROUP BY hs_code, item_name
+            ORDER BY total_declared_value DESC
+            """
+        ).df()
+
+        origin_stats = conn.execute(
+            """
+            SELECT
+                origin_country,
+                COUNT(*) AS declaration_count,
+                SUM(declared_value) AS total_declared_value
+            FROM import_declarations
+            GROUP BY origin_country
+            ORDER BY total_declared_value DESC
+            """
+        ).df()
+
+    enabled_sources = []
+    if scenario.get("bigdata_trade_stats", True):
+        enabled_sources.append("동종 업종 수입 통계")
+    if scenario.get("bigdata_hs_stats", True):
+        enabled_sources.append("HS 코드별 수입 통계")
+
+    result = f"""
+[빅데이터 통계 분석 결과]
+활성 데이터: {", ".join(enabled_sources) if enabled_sources else "선택 없음"}
+
+[대상 업체 통계]
+{company_stats.to_string(index=False) if not company_stats.empty else "정보 없음"}
+
+[업종별 수입 및 위험 통계]
+{industry_stats.to_string(index=False)}
+
+[HS 코드별 수입 통계]
+{hs_stats.to_string(index=False)}
+
+[원산지별 수입 통계]
+{origin_stats.to_string(index=False)}
+
+분석 메모:
+- 대상 업체의 신고금액, 품목, 원산지 집중도를 동종 업종 평균과 비교하는 데 사용할 수 있습니다.
+- 현재 결과는 DuckDB 샘플 데이터 기반의 모의 통계이며, 실제 CDW/빅데이터 플랫폼 연결 전 화면 검증용입니다.
+"""
+
+    print("[Agent] 빅데이터 통계 분석 완료")
+    return {**state, "bigdata_result": result.strip()}

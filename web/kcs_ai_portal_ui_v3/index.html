@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 관세행정 통합포털</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/app.js"></script>
+  <!-- paths resolved by web_server.py STATIC_DIR → web/kcs_ai_portal_ui_v3 -->
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">K</div>
+        <div>
+          <strong>관세청<span class="brand-prototype">[Prototype]</span></strong>
+          <span>AI Customs Administration Portal</span>
+        </div>
+      </div>
+
+      <button class="my-analysis active" data-page="home">⌂ My AI 분석</button>
+
+      <button type="button" class="menu-label collapsible-label" data-collapse-target="dataSources">분석 데이터 소스 <span>▼</span></button>
+      <div class="select-panel" id="dataSources">
+        <label class="toggle-row"><span>CDW 조회</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>관세정보 공통 RAG</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>통관정보 RAG</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>심사정보 RAG</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>조사정보 RAG</span><input type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>국제협력 RAG</span><input type="checkbox"><i></i></label>
+      </div>
+
+      <button type="button" class="menu-label collapsible-label" data-collapse-target="agents">사용 가능 Agent <span>▼</span></button>
+      <div class="select-panel collapsed" id="agents">
+        <label class="toggle-row"><span>OCR/문서인식 Agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>ML 모델 실행 Agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>관계망 분석 Agent</span><input type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>웹검색 Agent</span><input type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>수입신고검증 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>품목분류검증 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>과세가격평가 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>문서 요약 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>특허정보조회 agent</span><input type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>RAG생성 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>법령판례 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>보고서 생성 agent</span><input checked type="checkbox"><i></i></label>
+        <label class="toggle-row"><span>보고서 검증 agent</span><input checked type="checkbox"><i></i></label>
+      </div>
+
+      <div class="menu-label">빠른 실행</div>
+      <nav class="nav quick-nav">
+        <button class="nav-item" data-page="profile">▨ 기업 위험도 대시보드</button>
+        <button class="nav-item" data-page="classification">▣ 품목분류 추천</button>
+        <button class="nav-item" data-page="lawsearch">⚖ 법령·판례 검색</button>
+        <button class="nav-item" data-page="document">▤ 문서검증센터</button>
+        <button class="nav-item" data-page="dw">◎ 데이터 분석실(DW)</button>
+        <button class="nav-item" data-page="model">◌ AI 모델센터</button>
+        <button class="nav-item" data-page="rag">▥ RAG 지식센터</button>
+        <button class="nav-item" data-page="case">▦ 사건 작업공간</button>
+        <button class="nav-item" data-page="report">▧ 보고서 생성센터</button>
+      </nav>
+
+      <div class="menu-label admin-title admin-toggle">관리자 메뉴 <span>▶</span></div>
+      <nav class="nav admin-nav closed">
+        <button class="nav-item" data-page="system">⚙ 시스템 관리</button>
+        <button class="nav-item" data-page="governance">☷ 모델·권한·감사 로그</button>
+        <button class="nav-item permission-approve-nav" data-page="permission">🔑 권한 승인</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="btn-shutdown" id="shutdownAllBtn">⏻ 모든 서버 종료</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="top-title">
+          <h1>AI 관세행정 통합포털</h1>
+          <p>LLM · ML모델 · DW · RAG · 업무시스템 통합 Workbench</p>
+        </div>
+        <div class="prototype-notice" role="note">
+          <strong>
+            <span class="prototype-notice-primary">이 화면은 AI와 협업하여 일하는 방식을 이해하기 위한 Prototype입니다.</span>
+            <span class="prototype-notice-alert"> !!!   실재 동작이 아니라 생성형AI를 활용하여 시뮬레이션한 결과물 입니다.    !!! </span>
+          </strong>
+        </div>
+        <button class="profile profile-switcher" id="profileSwitcherBtn" title="사용자 변경">
+          <span>🔔</span><span>✉</span>
+          <div class="avatar" id="profileAvatar">김</div>
+          <div><strong id="profileName">김기획</strong><small id="profileTeam">정보국 정보기획담당관</small></div>
+          <span class="profile-switch-hint">▾</span>
+        </button>
+      </header>
+
+      <div class="work-tabs" id="workTabs">
+        <button class="work-tab active" data-page="home">My AI 분석</button>
+      </div>
+
+      <section id="content" class="content"></section>
+    </main>
+  </div>
+</body>
+</html>
