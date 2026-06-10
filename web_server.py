@@ -704,6 +704,24 @@ def analyze_prompt_intent(body: dict) -> dict:
     return result
 
 
+def run_db_query_api(body: dict) -> dict:
+    """자연어 → SQL/Cypher 변환 후 DuckDB 또는 Neo4j 조회 API."""
+    from src.agents.agent_nl_to_sql import run_nl_db_query
+
+    prompt = (body.get("prompt") or "").strip()
+    service = (body.get("service") or "db_cdw").strip()
+    use_neo4j = bool(body.get("use_neo4j", False))
+
+    if not prompt:
+        return {"error": "prompt is required"}
+
+    try:
+        result = run_nl_db_query(prompt, service=service, use_neo4j=use_neo4j)
+        return result
+    except Exception as exc:
+        return {"error": str(exc), "service": service}
+
+
 def llm_direct_query(body: dict) -> dict:
     """에이전트 없이 LLM에 직접 질의한다."""
     prompt = (body.get("prompt") or "").strip()
@@ -1423,6 +1441,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             self._send_json(llm_direct_query(body))
             return
 
+        if parsed.path == "/api/db_query":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(run_db_query_api(body))
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -1441,6 +1469,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             ".css": "text/css; charset=utf-8",
             ".js": "text/javascript; charset=utf-8",
             ".html": "text/html; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
         }
         path = (STATIC_DIR / name).resolve()
         if not str(path).startswith(str(STATIC_DIR.resolve())):

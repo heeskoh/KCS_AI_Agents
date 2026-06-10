@@ -1,0 +1,29 @@
+{
+  "serviceId": "hs_verify",
+  "label": "품목분류검증 AI 서비스",
+  "agentId": "hs_verify",
+  "category": "analysis",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "수입신고 품목과 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
+    "person": "개인 반입 물품의 품목분류와 규제 대상 여부를 검증"
+  },
+  "behaviorOptions": [
+    { "value": "classification_check", "label": "분류 적정성" },
+    { "value": "alternative_hs",       "label": "대체 HS 후보" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "수입신고 품목의 HS코드 적정성과 전략물자 해당 여부를 검증하십시오.",
+      "classification_check": "대상 품목의 HS코드 분류 적정성을 검증하십시오. 신고 품목 설명과 HS코드 일치 여부, WCO 결정례 및 관세청 품목분류 사전심사 기준 부합 여부, 전략물자·이중용도 품목 해당 가능성을 확인하십시오. 분류 오류 시 세율 차이와 추징 가능 세액을 산출하십시오.",
+      "alternative_hs": "신고 HS코드에 대한 대체 분류 후보를 제시하십시오. 품목 특성(재질, 용도, 기능, 가공 상태)을 분석하여 분류 가능한 대체 HS코드(2~3개)와 각각의 세율, 규제 여부, 전략물자 해당 가능성을 비교하십시오.",
+      "classification_check+alternative_hs": "품목분류 적정성 검증과 대체 HS 후보를 종합하십시오. ① 현재 신고 HS코드의 오류 가능성 평가, ② 대체 HS 후보별 세율 차이와 추징 예상 세액, ③ 분류 기준과 근거를 함께 제시하여 품목분류 쟁점을 정리하십시오."
+    },
+    "person": {
+      "default": "반입 물품의 품목분류 적정성과 규제 대상 여부를 검증하십시오.",
+      "classification_check": "반입 물품의 HS코드 적정성을 검증하십시오. 규제 품목·수입 금지 품목 해당 여부, 세율 차이를 확인하십시오.",
+      "alternative_hs": "반입 물품의 대체 HS코드 후보를 제시하고 각 코드의 규제 여부와 세율을 비교하십시오.",
+      "classification_check+alternative_hs": "품목분류 적정성 검증과 대체 분류 비교를 종합하여 규제 위반 가능성과 추징 세액을 평가하십시오."
+    }
+  }
+}

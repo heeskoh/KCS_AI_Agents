@@ -1,0 +1,29 @@
+{
+  "serviceId": "declaration_verify",
+  "label": "수입신고검증 AI 서비스",
+  "agentId": "declaration_verify",
+  "category": "analysis",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
+    "person": "개인 휴대품 신고, 반입 물품, 첨부 증빙을 비교해 불일치와 은닉 가능성 확인"
+  },
+  "behaviorOptions": [
+    { "value": "declaration_consistency", "label": "신고 정합성" },
+    { "value": "missing_evidence",        "label": "누락 증빙" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "첨부문서와 수입신고 DB를 비교하여 불일치 항목과 화물 이상 패턴을 확인하십시오.",
+      "declaration_consistency": "첨부문서(세금계산서, 적하목록, 인보이스, 포장명세서) 추출 데이터와 수입신고 DB 값을 비교하십시오. 품명, 중량, 수량, 단가, 총액, HS코드 항목에서 불일치 건을 식별하고, 불일치 규모와 빈도를 정량 제시하십시오.",
+      "missing_evidence": "수입신고에서 누락된 증빙 자료를 확인하십시오. 필수 첨부 서류(원산지증명서, 수입승인서, 검사증명서 등) 미첨부 건, 첨부는 되었으나 내용 부실한 서류를 식별하고 보완 요청 목록을 작성하십시오.",
+      "declaration_consistency+missing_evidence": "신고 정합성 검토와 누락 증빙 확인을 종합하십시오. ① 서류·신고 불일치 항목과 규모, ② 누락·불완전 증빙 목록을 연계하여 신고 신뢰도 평가와 추가 자료 요청 목록을 제시하십시오."
+    },
+    "person": {
+      "default": "휴대품 신고 내역과 첨부 증빙을 비교하여 불일치와 은닉 가능성을 확인하십시오.",
+      "declaration_consistency": "대상자의 휴대품 신고 내용과 실제 반입 물품, 첨부 영수증을 비교하십시오. 품목·수량·가액의 불일치를 식별하십시오.",
+      "missing_evidence": "대상자의 휴대품 신고에서 누락된 증빙(구매 영수증, 사용 여부 증명 등)을 확인하십시오.",
+      "declaration_consistency+missing_evidence": "신고 정합성과 누락 증빙을 종합하여 허위 신고 또는 은닉 가능성을 평가하십시오."
+    }
+  }
+}

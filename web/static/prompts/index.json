@@ -1,0 +1,27 @@
+{
+  "_comment": "KCS AI Agents - 에이전트별 표준 프롬프트 인덱스. 각 파일은 agents/{serviceId}.json 에 위치합니다.",
+  "version": "1.0.0",
+  "agents": [
+    { "serviceId": "db_cdw",           "label": "CDW 조회",               "category": "db",       "file": "agents/db_cdw.json" },
+    { "serviceId": "rag_customs",      "label": "관세정보 RAG",            "category": "rag",      "file": "agents/rag_customs.json" },
+    { "serviceId": "rag_audit",        "label": "심사정보 RAG",            "category": "rag",      "file": "agents/rag_audit.json" },
+    { "serviceId": "rag_investigation","label": "조사정보 RAG",            "category": "rag",      "file": "agents/rag_investigation.json" },
+    { "serviceId": "rag_global",       "label": "국제협력 RAG",            "category": "rag",      "file": "agents/rag_global.json" },
+    { "serviceId": "ml",               "label": "ML 모델 실행 AI 서비스", "category": "analysis", "file": "agents/ml.json" },
+    { "serviceId": "network",          "label": "관계망 분석 AI 서비스",  "category": "analysis", "file": "agents/network.json" },
+    { "serviceId": "proceeds_tracking","label": "범죄수익 추적 AI 서비스","category": "analysis", "file": "agents/proceeds_tracking.json" },
+    { "serviceId": "declaration_verify","label": "수입신고검증 AI 서비스","category": "analysis", "file": "agents/declaration_verify.json" },
+    { "serviceId": "route_analysis",   "label": "운송경로 분석 AI 서비스","category": "analysis", "file": "agents/route_analysis.json" },
+    { "serviceId": "origin_analysis",  "label": "원산지 검증 AI 서비스",  "category": "analysis", "file": "agents/origin_analysis.json" },
+    { "serviceId": "abnormal_trade",   "label": "이상거래 검증 AI 서비스","category": "analysis", "file": "agents/abnormal_trade.json" },
+    { "serviceId": "hs_verify",        "label": "품목분류검증 AI 서비스", "category": "analysis", "file": "agents/hs_verify.json" },
+    { "serviceId": "customs_value",    "label": "과세가격평가 AI 서비스", "category": "analysis", "file": "agents/customs_value.json" },
+    { "serviceId": "ocr",              "label": "OCR/문서인식 AI 서비스", "category": "llm",      "file": "agents/ocr.json" },
+    { "serviceId": "law",              "label": "법령 검토 AI 서비스",    "category": "external", "file": "agents/law.json" },
+    { "serviceId": "web_search",       "label": "웹검색 AI 서비스",       "category": "external", "file": "agents/web_search.json" },
+    { "serviceId": "patent",           "label": "특허정보 조회 AI 서비스","category": "external", "file": "agents/patent.json" },
+    { "serviceId": "mail_share",       "label": "분석결과 공유 AI 서비스","category": "external", "file": "agents/mail_share.json" },
+    { "serviceId": "report_generate",  "label": "보고서 생성 AI 서비스",  "category": "report",   "file": "agents/report_generate.json" },
+    { "serviceId": "report_validate",  "label": "보고서 검증 AI 서비스",  "category": "report",   "file": "agents/report_validate.json" }
+  ]
+}

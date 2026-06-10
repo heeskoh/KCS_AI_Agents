@@ -1,0 +1,29 @@
+{
+  "serviceId": "ocr",
+  "label": "OCR/문서인식 AI 서비스",
+  "agentId": "ocr",
+  "category": "llm",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "첨부 문서에서 주요 항목을 추출하고 신고자료와 대조할 수 있도록 구조화",
+    "person": "개인 신분·여행·반입 관련 첨부 문서에서 주요 항목을 추출하고 구조화"
+  },
+  "behaviorOptions": [
+    { "value": "document_extract", "label": "문서 항목 추출" },
+    { "value": "evidence_parse",   "label": "증빙 구조화" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "첨부 문서에서 주요 항목을 추출하고 신고 자료와 대조할 수 있도록 구조화하십시오.",
+      "document_extract": "첨부 문서(인보이스, 세금계산서, 적하목록, 포장명세서)에서 주요 항목을 추출하십시오. 공급자명, 수취인, 품목명, HS코드, 수량, 단가, 총액, 원산지, 선적일, 신고번호를 추출하여 구조화된 표 형식으로 정리하십시오.",
+      "evidence_parse": "추출된 항목을 수입신고 DB 데이터와 대조할 수 있도록 구조화하십시오. 문서별 추출값을 신고값과 비교하는 대조표를 작성하고, 불일치 항목을 표시하십시오.",
+      "document_extract+evidence_parse": "문서에서 항목을 추출하고 즉시 신고 자료와 대조하십시오. 추출 결과와 신고 DB 대조표를 함께 제공하고, 불일치 항목의 차이 규모를 정량 제시하십시오."
+    },
+    "person": {
+      "default": "첨부 문서에서 주요 항목을 추출하고 구조화하십시오.",
+      "document_extract": "여권, 영수증, 입국신고서 등 첨부 문서에서 주요 항목(성명, 국적, 품목, 구매가액, 날짜)을 추출하십시오.",
+      "evidence_parse": "추출 항목을 반입 신고 내용과 대조할 수 있도록 구조화하십시오.",
+      "document_extract+evidence_parse": "첨부 문서 항목 추출과 신고 내용 대조를 동시에 수행하십시오."
+    }
+  }
+}

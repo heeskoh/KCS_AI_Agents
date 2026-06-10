@@ -32,21 +32,35 @@ function shortcutButton(button){
   `;
 }
 
+const NAV_ICONS = {
+  investigation: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  generalinv:    `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  lawsearch:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 0 0 6.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 0 0 6.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>`,
+  fxsearch:      `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  case:          `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  model:         `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  system:        `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>`,
+};
+
 function bottomShortcutBar({ isSuperAdmin = () => false } = {}){
   const adminButton = isSuperAdmin()
-    ? `<button class="home-image-shortcut home-admin-shortcut" data-super-scenario-builder type="button" title="관리자">${imageTag("Admin.png", "관리자")}<span>관리자</span></button>`
-    : `<button class="home-image-shortcut home-admin-shortcut" data-page="system" type="button" title="관리자">${imageTag("Admin.png", "관리자")}<span>관리자</span></button>`;
+    ? `<button class="bn-item" data-super-scenario-builder type="button">${NAV_ICONS.system}<span>관리자</span></button>`
+    : `<button class="bn-item" data-page="system" type="button">${NAV_ICONS.system}<span>관리자</span></button>`;
   return `
-    <nav class="home-bottom-shortcuts" aria-label="업무 분석 바로가기">
-      <strong>업무 분석 바로가기</strong>
-      <div class="home-bottom-shortcut-list">
-        ${WORK_SHORTCUTS.map(shortcutButton).join("")}
+    <nav class="home-bottom-nav" aria-label="업무 분석 바로가기">
+      <span class="bn-label">업무 바로가기</span>
+      <div class="bn-items">
+        ${WORK_SHORTCUTS.map(s => `
+          <button class="bn-item" data-page="${escapeHtml(s.page)}" type="button">
+            ${NAV_ICONS[s.page] || ""}
+            <span>${escapeHtml(s.label)}</span>
+          </button>`).join("")}
         ${adminButton}
-        <button class="home-image-shortcut home-exit-shortcut" id="shutdownAllBtn" type="button" title="종료">
-          ${imageTag("Shutdown.png", "종료")}
-          <span>종료</span>
-        </button>
       </div>
+      <button class="bn-exit" id="shutdownAllBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        종료
+      </button>
     </nav>
   `;
 }
@@ -90,56 +104,24 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
   return `
     <div class="home-layout">
     <div class="home-focus-grid">
-      <section class="card home-analysis-card home-col-card">
-        <h3>My AI 분석</h3>
+      <section class="home-analysis-card home-col-card">
 
-        <div class="coach-editor-wrap">
-          <div class="coach-editor-hdr">
-            <span>프롬프트 편집기</span>
-            <span class="coach-char-count" id="coachCharCount">0자</span>
-          </div>
-          <textarea id="coachPrompt" class="coach-textarea" rows="4" placeholder="${escapeHtml(COACH_PROMPT_PLACEHOLDER)}"></textarea>
+        <!-- 결과 영역 (평소엔 숨김, 분석 후 표시) -->
+        <div class="home-result-area" id="homeResultArea">
+          <div class="summary-box markdown-output" id="homeResultBox" style="display:none"></div>
+          <div class="home-analysis-detail" id="homeAnalysisDetail" style="display:none"></div>
         </div>
 
-        <div class="home-command-bar">
-          <label class="home-tool-btn file-tool">
-            <img class="home-tool-icon" src="/static/img/fileupload.png" alt="">
-            <span>파일첨부</span>
-            <input type="file" id="coachFileInput" multiple accept=".txt,.md,.csv,.json,.html,.xml,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none">
-          </label>
-          <button class="home-tool-btn" type="button" data-home-source="db_cdw"><span class="home-check off"></span>CDW조회</button>
-          <button class="home-tool-btn" type="button" data-home-source="rag_customs"><span class="home-check off"></span>관세e음 RAG</button>
-          <button class="home-tool-btn" type="button" data-home-agent="mail_share"><span class="home-check off"></span>분석결과공유</button>
-          <button class="home-tool-btn home-picker-trigger" type="button" data-home-source="rag_audit">업무별 RAG 선택 <span class="home-select-status">×</span></button>
-          <button class="home-tool-btn home-picker-trigger" type="button" data-home-agent="hs_verify">AI 서비스 선택 <span class="home-select-status">×</span></button>
-          <div class="home-command-actions">
-            <button class="home-action-btn coach" id="coachAnalyzeBtn" type="button"><img class="home-action-icon" src="/static/img/AICoaching.png" alt=""><b>AI코칭</b></button>
-            <button class="home-action-btn improve coach-btn-improve" id="coachImproveBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/implement.png" alt=""><b>개선 적용됨</b></button>
-            <button class="home-action-btn reset coach-btn-reset" id="coachResetBtn" type="button" style="display:none"><img class="home-action-icon" src="/static/img/reset.png" alt=""><b>초기화</b></button>
-            <button class="home-action-btn run home-run-btn" type="button"><img class="home-action-icon" src="/static/img/enter.png" alt=""><b>AI실행</b></button>
+        <!-- 인사말 (결과 없을 때 표시) -->
+        <div class="home-greeting" id="homeGreeting">
+          <div class="home-greeting-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
-        </div>
-        <div class="home-mail-share-panel" id="homeMailSharePanel" style="display:none">
-          <div class="home-mail-share-copy">
-            <strong>분석결과 공유 AI 서비스</strong>
-            <span>분석결과 보고서를 이메일로 공유합니다. 수신 이메일 ID를 1개 이상 등록하세요.</span>
-          </div>
-          <div class="home-mail-share-form">
-            <input id="homeShareEmailInput" type="email" placeholder="예: officer@customs.go.kr">
-            <button class="btn secondary" type="button" data-home-share-email-add>등록</button>
-          </div>
-          <div class="home-mail-share-chips" id="homeShareEmailChips"></div>
-        </div>
-        <div class="home-file-chips coach-file-chips" id="coachFileChips"></div>
-        <div class="home-file-link-panel">
-          <div class="home-file-link-fields">
-            <input id="coachFileLinkName" type="text" placeholder="문서명 또는 전자서고 제목">
-            <input id="coachFileLinkUrl" type="url" placeholder="전자서고 파일 링크 또는 URL">
-            <button class="btn secondary" type="button" data-coach-add-file-link>링크 추가</button>
-          </div>
-          <div class="home-file-link-chips" id="coachFileLinkChips"></div>
+          <h1 id="homeGreetingText">안녕하세요</h1>
+          <p>원하는 분석 업무를 자연어로 설명해보세요.<br>내부자료를 검색하거나 AI 분석서비스를 활용하려면 아래 버튼에서 선택하세요.</p>
         </div>
 
+        <!-- 코칭 제안 패널 -->
         <div class="coach-sugg-panel" id="coachSuggPanel" style="display:none">
           <div class="coach-sugg-hdr">
             <span>실시간 제안</span>
@@ -151,8 +133,64 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
           <div class="coach-sugg-body" id="coachSuggBody"></div>
         </div>
 
-        <div class="summary-box markdown-output" id="homeResultBox" style="display:none"></div>
-        <div class="home-analysis-detail" id="homeAnalysisDetail" style="display:none"></div>
+        <!-- 첨부 파일 칩 -->
+        <div class="home-file-chips coach-file-chips" id="coachFileChips"></div>
+
+        <!-- 이메일 공유 패널 (숨김) -->
+        <div class="home-mail-share-panel" id="homeMailSharePanel" style="display:none">
+          <div class="home-mail-share-copy">
+            <strong>분석결과 공유 AI 서비스</strong>
+            <span>분석결과 보고서를 이메일로 공유합니다. 수신 이메일 ID를 1개 이상 등록하세요.</span>
+          </div>
+          <div class="home-mail-share-form">
+            <input id="homeShareEmailInput" type="email" placeholder="예: officer@customs.go.kr">
+            <button class="btn secondary" type="button" data-home-share-email-add>등록</button>
+          </div>
+          <div class="home-mail-share-chips" id="homeShareEmailChips"></div>
+        </div>
+
+        <!-- 컴포저 (프롬프트 입력 + 버튼) -->
+        <div class="home-composer">
+          <textarea id="coachPrompt" class="home-composer-ta" rows="3"
+            placeholder="${escapeHtml(COACH_PROMPT_PLACEHOLDER)}"></textarea>
+          <div class="home-composer-bar">
+            <label class="btn-ghost home-tool-btn file-tool" title="파일 첨부">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>파일첨부</span>
+              <input type="file" id="coachFileInput" multiple accept=".txt,.md,.csv,.json,.html,.xml,.pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none">
+            </label>
+            <button class="btn-soft home-tool-btn home-picker-trigger" type="button" data-home-source="rag_audit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              업무지식베이스
+              <span class="home-select-badge" id="homeRagBadge" style="display:none"></span>
+              <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="btn-soft home-tool-btn home-picker-trigger" type="button" data-home-agent="hs_verify">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              AI 분석 서비스
+              <span class="home-select-badge" id="homeAgentBadge" style="display:none"></span>
+              <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="home-composer-actions">
+              <button class="btn-ghost home-action-btn coach" id="coachAnalyzeBtn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                AI코칭
+              </button>
+              <button class="btn-ghost home-action-btn improve coach-btn-improve" id="coachImproveBtn" type="button" style="display:none">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                개선 적용됨
+              </button>
+              <button class="btn-ghost home-action-btn reset coach-btn-reset" id="coachResetBtn" type="button" style="display:none">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.71"/></svg>
+                초기화
+              </button>
+              <button class="btn-primary home-action-btn run home-run-btn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                실행
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="card home-canvas-card home-col-card">

@@ -1,4 +1,5 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
+import { composePrompt } from "./analysis/shared/prompt-composer.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
 import { registerCustomsEvents } from "./analysis/customs/events.js";
@@ -2265,6 +2266,12 @@ function coachInitHome(){
   coachRenderFileChips();
   coachRenderFileLinkChips();
   homeSyncPickerStatuses();
+  // 인사말 이름 설정
+  const nameEl = document.getElementById("homeGreetingText");
+  if(nameEl){
+    const name = document.getElementById("profileName")?.textContent?.trim() || "";
+    nameEl.textContent = name ? `안녕하세요, ${name}님` : "안녕하세요";
+  }
 }
 
 function coachAttachedFileSummaries(){
@@ -2685,8 +2692,26 @@ function homeSyncPickerStatuses(){
   });
 }
 
-function homePickerKeys(kind){
-  return kind === "rag" ? HOME_PICKER_RAG_KEYS : HOME_PICKER_AGENT_KEYS;
+// ── 홈 피커: 레지스트리 기반 그룹 정의 ──────────────────────────────────────
+const HOME_PICKER_GROUPS = {
+  rag: [
+    { groupKey: DB_SEARCH_GROUP,  label: "DB 조회",   icon: "🗄" },
+    { groupKey: RAG_SEARCH_GROUP, label: "RAG 검색",  icon: "📚" },
+  ],
+  agent: [
+    { groupKey: ANALYSIS_AI_GROUP,  label: "업무분석 AI서비스",           icon: "🔍" },
+    { groupKey: LLM_SERVICE_GROUP,  label: "파일·요약·번역 LLM 서비스",  icon: "📄" },
+    { groupKey: EXTERNAL_AI_GROUP,  label: "외부연계 AI서비스",           icon: "🌐" },
+    { groupKey: REPORT_AI_GROUP,    label: "보고서 생성 및 검증",         icon: "📋" },
+  ],
+};
+
+function homePickerRegistryKeys(kind){
+  const groups = HOME_PICKER_GROUPS[kind] || [];
+  const targetGroups = new Set(groups.map(g => g.groupKey));
+  return Object.entries(AI_SERVICE_REGISTRY)
+    .filter(([, v]) => targetGroups.has(v.group) && v.selectable !== false && v.adminVisible !== false)
+    .map(([k]) => k);
 }
 
 function homePickerSelectedKeys(kind){
@@ -2701,53 +2726,80 @@ function homeSetPickerSelectedKeys(kind, keys){
 }
 
 function homePickerTitle(kind){
-  return kind === "rag" ? "업무별 RAG 선택" : "AI 서비스 선택";
+  return kind === "rag" ? "업무지식베이스" : "AI 분석 서비스";
 }
 
 function homePickerDescription(kind){
   return kind === "rag"
-    ? "질의 시 데이터 원천으로 사용할 RAG 시스템을 선택하세요."
-    : "질의 시 활용할 AI 서비스를 선택하고, 자동화된 업무를 수행하세요.";
+    ? "질의 시 검색할 데이터 원천(DB 조회 / RAG 검색)을 선택하세요."
+    : "질의 시 활용할 AI 서비스를 선택하세요. 복수 선택 가능합니다.";
 }
 
-function homePickerRowHtml(kind, key){
-  const source = scenarioSourceByKey(key);
-  if(!source) return "";
+function homePickerCardHtml(kind, key){
+  const svc = AI_SERVICE_REGISTRY[key];
+  if(!svc) return "";
   const selected = homePickerSelectedKeys(kind).includes(key);
   const status = permissionStatus(key);
   const isGranted = status === "granted";
-  const statusText = selected ? "사용" : "미사용";
-  const subText = isGranted ? sourceDefaultInstruction(key) : permissionLabel(status);
-  const control = isGranted
-    ? `<button class="home-use-toggle ${selected ? "active" : ""}" type="button" data-home-picker-toggle="${escapeHtml(key)}"><i></i>${statusText}</button>`
-    : `<button class="home-permission-request" type="button" data-home-picker-request="${escapeHtml(key)}">${status === "requested" ? "요청중" : "권한 요청"}</button>`;
+  const desc = isGranted ? (svc.defaultInstruction || "") : permissionLabel(status);
+  const lockedClass = isGranted ? "" : " locked";
+  const selectedClass = selected ? " selected" : "";
   return `
-    <div class="home-permission-row ${status}">
-      <div>
-        <strong>${escapeHtml(source.label)}</strong>
-        <span>${escapeHtml(subText || "")}</span>
+    <button class="hpk-card${selectedClass}${lockedClass}" type="button"
+      data-home-picker-toggle="${escapeHtml(key)}" data-granted="${isGranted}"
+      ${isGranted ? "" : "disabled"} title="${escapeHtml(svc.label)}">
+      <span class="hpk-card-label">${escapeHtml(svc.label)}</span>
+      <span class="hpk-card-desc">${escapeHtml(desc)}</span>
+      ${selected ? `<span class="hpk-check">✓</span>` : ""}
+      ${!isGranted ? `<span class="hpk-lock">🔒</span>` : ""}
+    </button>
+  `;
+}
+
+function homePickerGroupSection(kind, groupMeta){
+  const allKeys = Object.entries(AI_SERVICE_REGISTRY)
+    .filter(([, v]) => v.group === groupMeta.groupKey && v.selectable !== false && v.adminVisible !== false)
+    .map(([k]) => k);
+  if(!allKeys.length) return "";
+  return `
+    <div class="hpk-section">
+      <div class="hpk-section-hdr">
+        <span class="hpk-section-icon">${groupMeta.icon}</span>
+        <span class="hpk-section-title">${escapeHtml(groupMeta.label)}</span>
+        <span class="hpk-section-count">${allKeys.length}개</span>
       </div>
-      ${control}
+      <div class="hpk-cards">
+        ${allKeys.map(key => homePickerCardHtml(kind, key)).join("")}
+      </div>
     </div>
   `;
 }
 
 function openHomePicker(kind){
   document.getElementById("homePickerOverlay")?.remove();
+  const groups = HOME_PICKER_GROUPS[kind] || [];
+  const sectionsHtml = groups.map(g => homePickerGroupSection(kind, g)).join("");
+  const selectedCount = homePickerSelectedKeys(kind).length;
   const html = `
     <div class="home-permission-overlay" id="homePickerOverlay" data-home-picker-kind="${escapeHtml(kind)}">
-      <div class="home-permission-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(homePickerTitle(kind))}">
-        <div class="home-permission-head">
+      <div class="hpk-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(homePickerTitle(kind))}">
+        <div class="hpk-head">
           <div>
             <h2>${escapeHtml(homePickerTitle(kind))}</h2>
             <p>${escapeHtml(homePickerDescription(kind))}</p>
           </div>
-          <button class="home-permission-close" type="button" data-home-picker-close aria-label="닫기">×</button>
+          <div class="hpk-head-right">
+            ${selectedCount > 0 ? `<span class="hpk-sel-count">${selectedCount}개 선택됨</span>` : ""}
+            <button class="home-permission-close" type="button" data-home-picker-close aria-label="닫기">×</button>
+          </div>
         </div>
-        <div class="home-permission-body">
-          ${homePickerKeys(kind).map(key => homePickerRowHtml(kind, key)).join("")}
+        <div class="hpk-body">
+          ${sectionsHtml}
         </div>
-        <p class="home-permission-note">※ 질의 시 권한이 없는 데이터 원천이나 AI 서비스가 필요한 경우 조회 권한을 요청하십시오.</p>
+        <div class="hpk-footer">
+          <span>※ 권한이 없는 서비스는 비활성화됩니다. 필요 시 권한을 요청하세요.</span>
+          <button class="btn-primary hpk-confirm" type="button" data-home-picker-close>확인</button>
+        </div>
       </div>
     </div>
   `;
@@ -2906,9 +2958,95 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
       </p>
       <div class="markdown-output">${markdownToHtml(answer || "결과 없음")}</div>
     `;
+    resultBox.style.display = "block";
+    homeToggleGreeting(false);
   }
   setHomeActionLabel(btn, "AI실행");
   btn.disabled = false;
+}
+
+function homeToggleGreeting(show){
+  const g = document.getElementById("homeGreeting");
+  if(g) g.style.display = show ? "" : "none";
+}
+
+// ── DB조회: NL→SQL 실행 후 결과 표시 ─────────────────────────────────────────
+async function homeRunDbQuery(prompt, services, btn, resultBox, isOnly){
+  const SERVICE_META = {
+    db_cdw:          { label: "CDW 조회",        useNeo4j: false },
+    company_profile: { label: "기업 프로파일 조회", useNeo4j: false },
+  };
+
+  for(const svc of services){
+    const meta = SERVICE_META[svc] || { label: svc, useNeo4j: false };
+
+    // 로딩 표시 업데이트
+    if(resultBox){
+      const existing = resultBox.querySelector(".home-db-results") || (() => {
+        const el = document.createElement("div");
+        el.className = "home-db-results";
+        resultBox.appendChild(el);
+        return el;
+      })();
+      existing.insertAdjacentHTML("beforeend", `
+        <div class="home-db-section" id="dbSection_${svc}">
+          <div class="home-db-section-hdr">
+            <span class="home-db-icon">🗄</span>
+            <strong>${escapeHtml(meta.label)}</strong>
+            <span class="home-db-status running">조회 중…</span>
+          </div>
+          <div class="home-db-body" id="dbBody_${svc}">
+            <span class="home-running-dot"></span> SQL 생성 후 실행 중...
+          </div>
+        </div>
+      `);
+    }
+
+    try {
+      const r = await fetch("/api/db_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, service: svc, use_neo4j: meta.useNeo4j }),
+      });
+      const d = await r.json();
+      const bodyEl = document.getElementById(`dbBody_${svc}`);
+      const statusEl = document.querySelector(`#dbSection_${svc} .home-db-status`);
+
+      if(d.error){
+        if(bodyEl) bodyEl.innerHTML = `<p class="high">오류: ${escapeHtml(d.error)}</p>`;
+        if(statusEl){ statusEl.textContent = "오류"; statusEl.className = "home-db-status error"; }
+      } else {
+        const queryInfo = d.query
+          ? `<details class="home-db-query-detail">
+               <summary>생성된 SQL 보기</summary>
+               <pre><code>${escapeHtml(d.query)}</code></pre>
+               ${d.explanation ? `<p class="muted">${escapeHtml(d.explanation)}</p>` : ""}
+             </details>`
+          : "";
+        const summaryHtml = d.summary
+          ? `<div class="home-db-summary markdown-output">${markdownToHtml(d.summary)}</div>`
+          : "";
+        const tableHtml = d.table_md
+          ? `<div class="home-db-table markdown-output">${markdownToHtml(d.table_md)}</div>`
+          : `<p class="muted">조회 결과가 없습니다.</p>`;
+
+        if(bodyEl) bodyEl.innerHTML = summaryHtml + tableHtml + queryInfo;
+        if(statusEl){
+          const cnt = (d.rows || []).length;
+          statusEl.textContent = `${cnt}건`;
+          statusEl.className = "home-db-status done";
+        }
+      }
+    } catch(e) {
+      const bodyEl = document.getElementById(`dbBody_${svc}`);
+      if(bodyEl) bodyEl.innerHTML = `<p class="high">서버 연결 실패</p>`;
+    }
+  }
+
+  if(isOnly){
+    setHomeActionLabel(btn, "AI실행");
+    btn.disabled = false;
+  }
 }
 
 // ── 홈 분석 진입점 — 프롬프트 의도 분석 후 분기 ──────────────────────────────
@@ -2933,6 +3071,7 @@ async function homeRunAnalysis(prompt, btn){
   if(selectedOptions.agents.includes("mail_share") && homeShareEmailIds.length === 0){
     if(resultBox){
       resultBox.style.display = "block";
+      homeToggleGreeting(false);
       resultBox.innerHTML = `
         <h3>AI 분석 결과</h3>
         <p class="high">분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.</p>
@@ -2947,6 +3086,7 @@ async function homeRunAnalysis(prompt, btn){
   // 로딩 상태 표시
   if(resultBox){
     resultBox.style.display = "block";
+    homeToggleGreeting(false);
     resultBox.innerHTML = `
       <h3>AI 분석 결과</h3>
       <div class="home-running-line">
@@ -2986,6 +3126,19 @@ async function homeRunAnalysis(prompt, btn){
     }
     homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변", btn);
     return;
+  }
+
+  // DB조회 서비스 선택 시 NL→SQL 실행 분기
+  const DB_QUERY_SERVICES = ["db_cdw", "company_profile"];
+  const selectedDbServices = homeSelectedRagKeys.filter(k => DB_QUERY_SERVICES.includes(k));
+  const onlyDbSelected = selectedDbServices.length > 0 &&
+    homeSelectedRagKeys.every(k => DB_QUERY_SERVICES.includes(k)) &&
+    homeSelectedAgentKeys.length === 0;
+
+  if(selectedDbServices.length > 0){
+    await homeRunDbQuery(prompt, selectedDbServices, btn, resultBox, onlyDbSelected);
+    if(onlyDbSelected) return;
+    // DB + 다른 AI서비스 함께 선택된 경우 계속 진행
   }
 
   // 1단계: LLM으로 프롬프트 의도 분석
@@ -6127,7 +6280,21 @@ function syncScenarioEditor(){
   if(quickSourceSelect && item) quickSourceSelect.value = item.key;
   if(item) syncBehaviorOptions(item.key, item.behaviors || sourceDefaultBehaviors(item.key));
   if(!item) syncBehaviorOptions("db_cdw", []);
-  if(instruction) instruction.value = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
+  // 즉시 폴백값 설정 후 JSON 기반 최적 프롬프트로 교체
+  const _fallback = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
+  if(instruction) instruction.value = _fallback;
+  if(item?.key){
+    composePrompt(item.key, item.behaviors || sourceDefaultBehaviors(item.key), targetType).then(composed => {
+      if(composed && document.getElementById("scenarioInstruction") === instruction){
+        // 사용자가 직접 수정하지 않은 경우(=자동 생성값과 동일할 때)에만 교체
+        const current = instruction.value;
+        if(!current || current === _fallback){
+          instruction.value = composed;
+          if(item) item.instruction = composed;
+        }
+      }
+    });
+  }
   if(hint && item){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
     const status = permissionStatus(item.key);
@@ -6172,7 +6339,11 @@ function applyScenarioSourceSelection(key){
   const behaviors = sourceDefaultBehaviors(key);
   if(quickSourceSelect) quickSourceSelect.value = key;
   syncBehaviorOptions(key, behaviors);
-  if(instruction) instruction.value = scenarioSuggestedInstruction(key, targetType, behaviors);
+  const _initPrompt = scenarioSuggestedInstruction(key, targetType, behaviors);
+  if(instruction) instruction.value = _initPrompt;
+  composePrompt(key, behaviors, targetType).then(composed => {
+    if(composed && instruction) instruction.value = composed;
+  });
   const validation = document.getElementById("scenarioPromptValidation");
   if(validation) validation.innerHTML = "";
 }
@@ -6319,10 +6490,19 @@ function updateSelectedScenarioBehaviors(){
   item.behaviorLabel = sourceBehaviorLabels(item.key, values).join(", ");
   const targetType = item.target_type || item.targetType || "company";
   if(isAutoScenarioInstruction(previousInstruction, item.key, targetType, previousBehaviors)){
-    item.instruction = scenarioSuggestedInstruction(item.key, targetType, values);
+    // JSON 기반 최적 프롬프트 우선 적용
+    composePrompt(item.key, values, targetType).then(composed => {
+      const prompt = composed || scenarioSuggestedInstruction(item.key, targetType, values);
+      item.instruction = prompt;
+      const el = document.getElementById("scenarioInstruction");
+      if(el) el.value = prompt;
+      saveCompanyScenario();
+      renderScenarioList();
+    });
+  } else {
+    saveCompanyScenario();
+    renderScenarioList();
   }
-  saveCompanyScenario();
-  renderScenarioList();
   syncScenarioEditor();
 }
 
@@ -6339,7 +6519,15 @@ function updateSelectedScenarioSource(key){
   item.behaviors = nextBehaviors;
   item.behavior = item.behaviors[0];
   item.behaviorLabel = sourceBehaviorLabels(key, item.behaviors).join(", ");
+  // JSON 기반 최적 프롬프트 우선 적용 (비동기), 즉시 폴백값 설정
   item.instruction = scenarioSuggestedInstruction(key, targetType, nextBehaviors);
+  composePrompt(key, nextBehaviors, targetType).then(composed => {
+    if(composed){
+      item.instruction = composed;
+      const el = document.getElementById("scenarioInstruction");
+      if(el) el.value = composed;
+    }
+  });
   setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
   setScenarioItemWebTargets(item, key === "web_search" ? scenarioItemWebTargets(item) : []);
   saveCompanyScenario();
@@ -8317,6 +8505,15 @@ document.addEventListener("change", (event) => {
       step.behaviors = sourceDefaultBehaviors(step.sourceKey);
       step.behavior = step.behaviors[0];
       step.behaviorLabel = sourceBehaviorLabels(step.sourceKey, step.behaviors).join(", ");
+      // 서비스 선택 시 최적 프롬프트 우선, 없으면 기본 instruction 사용
+      const _targetType = aCase.targetType || "company";
+      composePrompt(step.sourceKey, step.behaviors, _targetType).then(composed => {
+        const inst = composed || sourceDefaultInstruction(step.sourceKey, _targetType);
+        step.instruction = inst;
+        step.note = inst;
+        const noteEl = document.getElementById("giWbStepNote");
+        if(noteEl && noteEl.dataset.giStepId === step.id) noteEl.value = inst;
+      });
       step.instruction = sourceDefaultInstruction(step.sourceKey, aCase.targetType);
       step.note = step.instruction;
     }
@@ -8330,13 +8527,24 @@ document.addEventListener("change", (event) => {
     const step  = aCase?.giSteps?.find(s => s.id === giBehaviorBox.dataset.giStepId);
     if(step){
       const values = selectedBehaviorValues("giWbBehaviorOptions");
+      const sk = step.sourceKey || giCommonSourceKey(step.key);
       if(!values.length){
-        step.behaviors = sourceDefaultBehaviors(step.sourceKey || giCommonSourceKey(step.key));
+        step.behaviors = sourceDefaultBehaviors(sk);
       }else{
         step.behaviors = values;
       }
       step.behavior = step.behaviors[0];
-      step.behaviorLabel = sourceBehaviorLabels(step.sourceKey || giCommonSourceKey(step.key), step.behaviors).join(", ");
+      step.behaviorLabel = sourceBehaviorLabels(sk, step.behaviors).join(", ");
+      // 선택 조건 기반 최적 프롬프트 자동 생성
+      const targetType = aCase.targetType || "company";
+      composePrompt(sk, step.behaviors, targetType).then(prompt => {
+        if(prompt){
+          step.instruction = prompt;
+          step.note = prompt;
+          const noteEl = document.getElementById("giWbStepNote");
+          if(noteEl && noteEl.dataset.giStepId === step.id) noteEl.value = prompt;
+        }
+      });
     }
     saveCanvasState();
     render("generalinv");

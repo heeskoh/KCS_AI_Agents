@@ -1,0 +1,29 @@
+{
+  "serviceId": "report_validate",
+  "label": "보고서 검증 AI 서비스",
+  "agentId": "validation",
+  "category": "report",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+    "person": "개인 수사보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
+  },
+  "behaviorOptions": [
+    { "value": "evidence_validation", "label": "근거 검증" },
+    { "value": "risk_review",         "label": "리스크 리뷰" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "보고서의 근거 충실성과 논리적 적정성을 검증하십시오.",
+      "evidence_validation": "보고서의 각 주장에 대한 근거 충실성을 검증하십시오. 근거 없이 단정한 표현, 출처 미명시 데이터, 인용 출처 접근 불가 URL을 식별하고 보완 필요 항목 목록을 작성하십시오. 추징 세액 산출 근거의 계산식과 법령 조항 명시 여부도 확인하십시오.",
+      "risk_review": "보고서의 법적·절차적 리스크를 검토하십시오. 과도한 추론(사실 아닌 추정을 사실처럼 기술), 피조사자 권리 침해 표현, 처분 근거 법령 오류, 이의제기 시 취약한 쟁점을 식별하고 수정 권고사항을 제시하십시오.",
+      "evidence_validation+risk_review": "근거 충실성 검증과 리스크 리뷰를 종합하십시오. ① 근거 미비·출처 오류 항목, ② 법적·절차적 취약 쟁점을 통합하여 보고서 수정 우선순위와 보완 방안을 제시하십시오."
+    },
+    "person": {
+      "default": "수사보고서의 근거 충실성과 법적 리스크를 검증하십시오.",
+      "evidence_validation": "수사보고서의 각 주장에 대한 근거 충실성을 검증하십시오. 출처 미명시, 근거 없는 단정, 계산 오류를 식별하십시오.",
+      "risk_review": "수사보고서의 법적 리스크를 검토하십시오. 과도한 추론, 인권 침해 표현, 처분 근거 오류를 식별하고 수정 권고사항을 제시하십시오.",
+      "evidence_validation+risk_review": "근거 검증과 리스크 리뷰를 종합하여 수사보고서의 수정 우선순위와 보완 방안을 제시하십시오."
+    }
+  }
+}

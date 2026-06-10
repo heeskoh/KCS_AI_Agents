@@ -12,19 +12,37 @@
   <div class="app-shell">
     <main class="main">
       <header class="topbar">
-        <div class="top-title">
-          <h1>AI 관세행정 통합포털</h1>
-          <p>LLM · ML모델 · DW · RAG · 업무시스템 통합 Workbench</p>
+        <div class="tb-brand">
+          <div class="tb-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="tb-brand-text">
+            <strong>AI 관세행정 통합포털</strong>
+            <span>LLM · ML모델 · DW · RAG · 업무시스템 통합 Workbench</span>
+          </div>
         </div>
-        <div class="work-tabs" id="workTabs">
-          <button class="work-tab active" data-page="home">My AI 분석</button>
+
+        <div class="tb-tabs" id="workTabs">
+          <button class="tb-tab work-tab active" data-page="home">My AI 분석</button>
         </div>
-        <button class="profile profile-switcher" id="profileSwitcherBtn" title="사용자 변경">
-          <span>🔔</span><span>✉</span>
-          <div class="avatar" id="profileAvatar">김</div>
-          <div><strong id="profileName">김기획</strong><small id="profileTeam">정보국 정보기획담당관</small></div>
-          <span class="profile-switch-hint">▾</span>
-        </button>
+
+        <div class="tb-right">
+          <button class="tb-ic" title="알림">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="tb-badge" id="tbAlertBadge" style="display:none"></span>
+          </button>
+          <button class="tb-ic" title="메시지">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </button>
+          <button class="tb-profile profile-switcher" id="profileSwitcherBtn" title="사용자 변경">
+            <div class="tb-avatar" id="profileAvatar">김</div>
+            <div class="tb-profile-info">
+              <strong id="profileName">김기획</strong>
+              <small id="profileTeam">정보국 정보기획담당관</small>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
       </header>
 
       <section id="content" class="content"></section>

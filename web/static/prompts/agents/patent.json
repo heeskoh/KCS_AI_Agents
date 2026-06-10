@@ -1,0 +1,29 @@
+{
+  "serviceId": "patent",
+  "label": "특허정보 조회 AI 서비스",
+  "agentId": "patent",
+  "category": "external",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "특허/로열티 관련 거래와 과세가격 반영 여부 확인",
+    "person": "개인 반입 물품의 상표권·지식재산권 침해 가능성 확인"
+  },
+  "behaviorOptions": [
+    { "value": "royalty_check",   "label": "로열티 확인" },
+    { "value": "patent_lookup",   "label": "특허 정보 조회" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "대상 품목의 특허·로열티 관련 정보와 과세가격 반영 여부를 확인하십시오.",
+      "royalty_check": "대상 품목 거래에 로열티·권리사용료가 포함되는지 확인하십시오. 수입자와 특허권자 간 계약 관계, 로열티 금액, 과세가격 가산 여부(관세법 제30조 제1항 제4호), 누락 시 추징 가능 세액을 산출하십시오.",
+      "patent_lookup": "대상 품목과 관련된 특허 정보를 조회하십시오. 국내외 등록 특허 현황, 특허권자와 거래 상대방의 연계 관계, 라이선스 계약 유무를 확인하십시오.",
+      "royalty_check+patent_lookup": "로열티 확인과 특허 정보 조회를 종합하십시오. 특허 관계를 기반으로 로열티 과세가격 가산 여부와 추징 가능 세액을 정리하십시오."
+    },
+    "person": {
+      "default": "반입 물품의 상표권·지식재산권 침해 가능성을 확인하십시오.",
+      "royalty_check": "반입 물품의 상표 라이선스 여부와 정품 여부를 확인하십시오.",
+      "patent_lookup": "반입 물품의 관련 특허·상표 등록 현황을 조회하고 위조 가능성을 평가하십시오.",
+      "royalty_check+patent_lookup": "상표권·특허 정보와 라이선스 여부를 종합하여 지식재산권 침해 가능성을 평가하십시오."
+    }
+  }
+}

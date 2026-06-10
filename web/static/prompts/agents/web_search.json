@@ -1,0 +1,38 @@
+{
+  "serviceId": "web_search",
+  "label": "웹검색 AI 서비스",
+  "agentId": "web",
+  "category": "external",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
+    "person": "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인"
+  },
+  "behaviorOptions": [
+    { "value": "company_news",   "label": "업체 기사" },
+    { "value": "supply_chain",   "label": "공급망/가격" },
+    { "value": "industry_news",  "label": "동종업종 기사" },
+    { "value": "direct_url",     "label": "URL 직접 등록" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "업체 및 공급망 관련 공개 정보를 웹에서 검색하십시오.",
+      "company_news": "대상 업체명으로 웹 검색을 수행하십시오. 최근 1~2년 내 관련 기사(세관 적발, 법적 분쟁, 경영 이상, 대표자 관련 사건)를 검색하고 관련 기사 제목·출처·날짜·요약을 정리하십시오.",
+      "supply_chain": "대상 품목의 공급망 및 시장 가격 정보를 웹에서 검색하십시오. 주요 생산국, 수출 가격 동향, 공급망 변화(부품 수급, 생산국 이동), 국제 시장 기준가를 수집하십시오.",
+      "industry_news": "대상 업체와 동종 업종의 최근 동향을 웹에서 검색하십시오. 업종 내 세관 적발 사례, 가격 담합·관세 회피 동향, 주요 수출입 이슈를 수집하십시오.",
+      "direct_url": "제공된 URL에서 지정된 정보를 추출하십시오. 페이지 내 업체명, 품목, 가격, 거래 상대방, 위반 사항 관련 내용을 구조화하여 정리하십시오.",
+      "company_news+supply_chain": "업체 기사와 공급망·가격 정보를 함께 검색하십시오. 업체 관련 언론 이슈와 해당 품목의 시장가를 연계하여 신고가 이상 여부를 외부 데이터로 보강하십시오.",
+      "company_news+industry_news": "업체 기사와 동종 업종 동향을 함께 검색하십시오. 업체 개별 이슈와 업종 전체 이슈의 상관관계를 분석하십시오.",
+      "company_news+supply_chain+industry_news": "업체 기사, 공급망·가격, 동종 업종 동향을 종합 검색하십시오. 외부 공개 정보를 기반으로 대상 업체의 거래 이상 여부를 다각도로 보강하십시오.",
+      "company_news+supply_chain+industry_news+direct_url": "제공 URL과 웹 검색(업체·공급망·업종)을 종합하십시오. 수집된 외부 정보를 출처·날짜와 함께 정리하고 조사 근거로 활용 가능한 핵심 내용을 요약하십시오."
+    },
+    "person": {
+      "default": "대상자 관련 공개 정보를 웹에서 검색하십시오.",
+      "company_news": "대상자 성명 또는 관련 조직명으로 웹 검색을 수행하십시오. 관련 뉴스·사건·SNS 공개 정보를 수집하십시오.",
+      "supply_chain": "대상자의 거래 관련 공개 가격 정보와 공급 경로를 검색하십시오.",
+      "industry_news": "대상자와 연관된 업종·조직의 최근 동향을 검색하십시오.",
+      "direct_url": "제공된 URL에서 대상자 관련 정보를 추출하고 구조화하십시오.",
+      "company_news+supply_chain+industry_news+direct_url": "URL과 웹 검색을 통해 대상자 관련 외부 공개 정보를 종합 수집하고 조사 근거로 정리하십시오."
+    }
+  }
+}

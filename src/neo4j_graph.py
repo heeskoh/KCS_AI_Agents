@@ -30,6 +30,12 @@ def _settings() -> tuple[str, str, str, str]:
     )
 
 
+def get_driver():
+    """Neo4j driver 싱글톤 반환 (NL→Cypher 에이전트에서 사용)."""
+    uri, user, password, _ = _settings()
+    return GraphDatabase.driver(uri, auth=(user, password))
+
+
 def _read(query: str, **params: Any) -> list[dict[str, Any]]:
     uri, user, password, database = _settings()
     driver = GraphDatabase.driver(uri, auth=(user, password))

@@ -1,0 +1,35 @@
+{
+  "serviceId": "abnormal_trade",
+  "label": "이상거래 검증 AI 서비스",
+  "agentId": "abnormal_trade",
+  "category": "analysis",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "가격·거래상대방·신고패턴의 이상거래 징후를 검증",
+    "person": "반입·송금·연락·이동 패턴의 이상 징후를 검증"
+  },
+  "behaviorOptions": [
+    { "value": "price_pattern",        "label": "가격 패턴" },
+    { "value": "counterparty_pattern", "label": "거래상대방" },
+    { "value": "declaration_pattern",  "label": "신고패턴" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "대상 기업의 가격·거래상대방·신고패턴에서 이상거래 징후를 검증하십시오.",
+      "price_pattern": "대상 기업의 수입 신고가격 패턴을 분석하십시오. 동종 품목 시장가 대비 신고가 이탈 비율, 신고가 급격 변동 구간, 동일 거래상대방 신고가 불일치, 저가신고·고가신고 패턴을 통계적으로 식별하십시오.",
+      "counterparty_pattern": "대상 기업의 거래 상대방 패턴을 분석하십시오. 거래 상대방 집중도(편중도), 신규 거래처 갑자기 증가 구간, 고위험 국가 거래처 비중, 거래처 변경과 신고가 연동 여부를 확인하십시오.",
+      "declaration_pattern": "대상 기업의 수입신고 패턴을 분석하십시오. 신고 빈도 변동(분할신고, 한도 이하 신고 집중), 연속 신고 구간, 특정 시점 신고 급증, 신고 취하·정정 빈도를 통계적으로 분석하십시오.",
+      "price_pattern+counterparty_pattern": "가격 패턴과 거래 상대방 패턴을 연계 분석하십시오. 특정 거래처 구간에서 신고가 이상이 집중되는지 확인하십시오.",
+      "price_pattern+declaration_pattern": "가격 패턴과 신고 패턴을 연계 분석하십시오. 저가신고 시점과 신고 분할·집중 구간의 상관관계를 분석하십시오.",
+      "counterparty_pattern+declaration_pattern": "거래 상대방과 신고 패턴을 연계 분석하십시오. 특정 거래처 등장 시점과 신고 패턴 변화의 상관관계를 분석하십시오.",
+      "price_pattern+counterparty_pattern+declaration_pattern": "가격·거래상대방·신고패턴을 통합 분석하십시오. 세 가지 이상 신호가 동시에 발생한 구간을 고위험 구간으로 식별하고, 이상거래 징후의 유형·규모·지속 기간을 종합 정리하십시오."
+    },
+    "person": {
+      "default": "대상자의 반입·송금·연락·이동 패턴에서 이상 징후를 검증하십시오.",
+      "price_pattern": "대상자의 반입 물품 가액 패턴을 분석하십시오. 반복 반입 가액의 이상 변동, 면세 한도 직전 분할 반입 패턴을 식별하십시오.",
+      "counterparty_pattern": "대상자의 반입·송금 상대방 패턴을 분석하십시오. 반복 접촉 인물, 고위험 국가 송금 상대방을 확인하십시오.",
+      "declaration_pattern": "대상자의 신고 패턴 이상을 분석하십시오. 면세 한도 직전 신고 집중, 허위 신고 후 정정 이력을 식별하십시오.",
+      "price_pattern+counterparty_pattern+declaration_pattern": "가격·거래 상대방·신고 패턴 이상 징후를 통합 분석하십시오. 복합 이상 신호 구간을 중심으로 조사 포인트를 정리하십시오."
+    }
+  }
+}

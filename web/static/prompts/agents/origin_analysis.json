@@ -1,0 +1,35 @@
+{
+  "serviceId": "origin_analysis",
+  "label": "원산지 검증 AI 서비스",
+  "agentId": "origin_analysis",
+  "category": "analysis",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
+    "person": "개인 반입 물품의 원산지 증빙과 우회 반입 가능성을 분석"
+  },
+  "behaviorOptions": [
+    { "value": "origin_certificate", "label": "원산지증명 검토" },
+    { "value": "fta_risk",           "label": "FTA 리스크" },
+    { "value": "circumvention",      "label": "우회수입 확인" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "원산지 증빙과 FTA 적용, 우회수입 가능성을 분석하십시오.",
+      "origin_certificate": "대상 수입 품목의 원산지증명서를 검토하십시오. 발행 기관 신뢰성, 기재 내용(원산지, 제조자, 품목 설명) 일치 여부, 유효기간, 위·변조 가능성을 확인하십시오.",
+      "fta_risk": "대상 품목의 FTA 협정세율 적용 리스크를 평가하십시오. 적용 협정, 원산지 기준(세번변경 기준·부가가치 기준·가공공정 기준) 충족 여부, 누적 기준 활용 가능성, FTA 세율 환수 가능 세액을 산출하십시오.",
+      "circumvention": "우회수입 가능성을 시뮬레이션 분석하십시오. 제3국 가공·환적을 통한 원산지 세탁 가능성, 반덤핑·세이프가드 회피 목적 우회 구조를 분석하십시오.",
+      "origin_certificate+fta_risk": "원산지증명 검토와 FTA 리스크를 연계하십시오. 증명서 신뢰도와 FTA 원산지 기준 충족 여부를 함께 평가하여 협정세율 적용 유효성을 판단하십시오.",
+      "origin_certificate+circumvention": "원산지증명과 우회수입 가능성을 연계하십시오. 증명서 내용의 신뢰성 문제와 운송 경로 불일치를 연계하여 원산지 세탁 개연성을 평가하십시오.",
+      "fta_risk+circumvention": "FTA 리스크와 우회수입을 종합 분석하십시오. FTA 세율 적용의 부당함과 우회 구조를 연계하여 추징 가능 세액을 산출하십시오.",
+      "origin_certificate+fta_risk+circumvention": "원산지증명 검토, FTA 리스크, 우회수입 가능성을 통합 분석하십시오. ① 원산지증명서 유효성, ② FTA 원산지 기준 충족 여부 및 환수 세액, ③ 우회수입 구조 개연성을 종합하여 원산지 위반 판단 근거를 제시하십시오."
+    },
+    "person": {
+      "default": "대상자 반입 물품의 원산지 증빙과 우회 반입 가능성을 분석하십시오.",
+      "origin_certificate": "반입 물품의 원산지 증빙 서류를 검토하십시오. 구매 영수증·제조국 표시와 신고 원산지 일치 여부를 확인하십시오.",
+      "fta_risk": "개인 반입 물품에 대한 FTA 세율 적용 적정성을 확인하십시오.",
+      "circumvention": "제3국 경유를 통한 원산지 세탁 반입 가능성을 평가하십시오.",
+      "origin_certificate+fta_risk+circumvention": "원산지 증빙, FTA 적용, 우회 반입 가능성을 통합 분석하여 원산지 위반 판단 근거를 제시하십시오."
+    }
+  }
+}
