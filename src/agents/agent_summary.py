@@ -62,7 +62,7 @@ def _collect_document_content(state: CustomsState) -> str:
 
 def agent_summary(state: CustomsState) -> CustomsState:
     """제공된 문서를 요약하고 관세 조사 착안사항을 도출한다."""
-    print("\n[Agent] 문서 요약 시작")
+    print("[Agent] 문서 요약 시작")
 
     content = _collect_document_content(state)
 

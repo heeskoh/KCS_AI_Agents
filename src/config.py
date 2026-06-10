@@ -167,10 +167,10 @@ def _load_yaml(path: Path) -> dict:
         with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except FileNotFoundError:
-        print(f"[Config] {path} 없음 — 기본값 사용")
+        print(f"[Config] {path} 없음 - 기본값 사용")
         return {}
     except Exception as exc:
-        print(f"[Config] YAML 로드 실패: {exc} — 기본값 사용")
+        print(f"[Config] YAML 로드 실패: {exc} - 기본값 사용")
         return {}
 
 

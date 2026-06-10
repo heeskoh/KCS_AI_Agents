@@ -23,6 +23,11 @@ _TYPE_TO_KEY: dict[str, str] = {
     "patent":               "patent_result",
     "rag_create":           "rag_create_result",
     "law":                  "law_result",
+    "ontology":             "ontology_result",
+    "origin_analysis":       "origin_analysis_result",
+    "abnormal_trade":        "abnormal_trade_result",
+    "proceeds_tracking":     "proceeds_tracking_result",
+    "route_analysis":        "route_analysis_result",
 }
 
 VALIDATION_PROMPT = """당신은 관세 조사보고서 검증 전문 Agent입니다.
@@ -91,6 +96,7 @@ def _collect_agent_results(state: CustomsState) -> str:
         ("web_result", "웹검색"),
         ("patent_result", "특허정보조회"),
         ("law_result", "법령판례"),
+        ("ontology_result", "관세온톨로지"),
     ]
     for key, label in extra_keys:
         if key not in seen_keys and state.get(key):
@@ -101,7 +107,7 @@ def _collect_agent_results(state: CustomsState) -> str:
 
 def agent_validate(state: CustomsState) -> CustomsState:
     """생성된 보고서를 모든 에이전트 결과와 대조하여 검증한다."""
-    print("\n[Agent] 보고서 검증 시작")
+    print("[Agent] 보고서 검증 에이전트 처리 시작")
 
     final_report = state.get("final_report") or "보고서 없음"
     agent_results = _collect_agent_results(state)
@@ -129,5 +135,5 @@ def agent_validate(state: CustomsState) -> CustomsState:
     header = f"[보고서 검증 결과]\n검증 대상 보고서: {'있음' if final_report != '보고서 없음' else '없음'}\n참조 에이전트 결과: {agent_count}개\n\n"
     validation_result = header + result
 
-    print("[Agent] 보고서 검증 완료")
+    print("[Agent] 보고서 검증 에이전트 처리 완료")
     return {**state, "validation_result": validation_result}

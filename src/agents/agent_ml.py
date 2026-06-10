@@ -17,6 +17,7 @@ import duckdb
 import pandas as pd
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -201,6 +202,8 @@ def _ensure_analysis_data(conn: duckdb.DuckDBPyConnection, company_id: str) -> t
 
     if company_decls.empty:
         return False, ""
+
+    return False, "샘플 데이터 자동 생성 비활성화: DuckDB에 존재하는 실제 데이터만 사용합니다."
 
     peer_companies = companies_df[companies_df["industry_code"] == industry]
     hs_decl_counts = {
@@ -494,6 +497,9 @@ def agent_ml(state: CustomsState) -> CustomsState:
 
     데이터가 부족하면 기업 프로파일 기반 샘플 데이터를 자동 생성하여 분석한다.
     """
+    if not has_company_scope(state):
+        return {**state, "ml_result": no_company_result("ML 모델 실행")}
+
     company_id = state["company_id"]
     scenario   = state.get("scenario") or {}
 
@@ -504,7 +510,7 @@ def agent_ml(state: CustomsState) -> CustomsState:
     ).strip() or "전체 모델 실행"
 
     selected = _select_models(instruction)
-    print(f"\n[Agent] ML 모델 실행 시작: {[MODEL_REGISTRY[m] for m in selected]}")
+    print(f"[Agent] ML 모델 실행 시작: {[MODEL_REGISTRY[m] for m in selected]}")
 
     sections = [
         "[ML 모델 실행 결과]",

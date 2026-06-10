@@ -1,40 +1,13 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-
-# 가상환경
 venv/
-.venv/
-env/
-
-# 환경변수 (비밀키 포함)
-.env
-
-# 데이터 / DB
-data/*.db
-data/*.duckdb
-
-# ChromaDB 벡터 인덱스
-chroma_db/
-
-# 업로드 임시 파일
-files/uploads/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# 캐시
+__pycache__/
 *.pyc
-.cache/
+*.log
+
+.chroma/
+chroma_db/
+*.duckdb
+*.duckdb-wal
+
+node_modules/
+dist/
+.env

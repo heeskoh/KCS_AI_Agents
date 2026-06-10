@@ -1,0 +1,13 @@
+.git
+.env
+venv
+__pycache__
+*.pyc
+*.log
+.chroma
+chroma_db
+data/chroma_db
+data/*.duckdb
+data/*.duckdb-wal
+node_modules
+dist

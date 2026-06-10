@@ -9,6 +9,11 @@ from src.agents.agent_rag import agent_rag, agent_rag_source
 from src.agents.agent_audit_search import agent_audit_search
 from src.agents.agent_bigdata import agent_bigdata
 from src.agents.agent_web import agent_web
+from src.agents.agent_ontology import agent_ontology
+from src.agents.agent_origin_analysis import agent_origin_analysis
+from src.agents.agent_abnormal_trade import agent_abnormal_trade
+from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
+from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_report import agent_report
 from src.agents.agent_validate import agent_validate
 from src.agents.state import CustomsState
@@ -22,6 +27,11 @@ __all__ = [
     "agent_audit_search",
     "agent_bigdata",
     "agent_web",
+    "agent_ontology",
+    "agent_origin_analysis",
+    "agent_abnormal_trade",
+    "agent_proceeds_tracking",
+    "agent_route_analysis",
     "agent_report",
     "agent_validate",
 ]

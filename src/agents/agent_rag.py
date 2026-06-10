@@ -16,6 +16,7 @@ except ImportError:
     Chroma = None
 
 from src.agents.state import CustomsState
+from src.agents.scope import prompt_text, target_query_terms
 from src.config import CFG
 from src.embeddings import get_embeddings, get_init_error
 from src.llm import llm
@@ -111,7 +112,7 @@ def _search_docs(source_key: str, query: str, k: int = 3) -> list:
 
 
 def _run_rag(state: CustomsState, source_label: str, source_key: str) -> CustomsState:
-    print(f"\n[RAG Agent] {source_label} 검색 시작")
+    print(f"[RAG] {source_label} RAG 검색 시작")
 
     scenario = state.get("scenario") or {}
     instructions = [
@@ -119,14 +120,35 @@ def _run_rag(state: CustomsState, source_label: str, source_key: str) -> Customs
         for item in scenario.get("scenario_items", [])
         if item.get("key") == source_key and item.get("instruction")
     ]
-    query_parts = [state.get("db_result") or "", state.get("company_id") or "", " ".join(instructions)]
-    query = "\n".join(p for p in query_parts if p).strip() or state["company_id"]
+    query_parts = [prompt_text(state), " ".join(instructions)]
+    query_parts.extend(target_query_terms(state))
+    db_result = state.get("db_result") or ""
+    if db_result and "연관정보 없음" not in db_result:
+        query_parts.append(db_result)
+    query = "\n".join(p for p in query_parts if p).strip()
+
+    if not query:
+        rag_result = (
+            f"[{source_label}]\n"
+            "- 검색할 프롬프트나 대상 정보가 없습니다.\n"
+            "- 연관정보 없음: 임의 키워드로 RAG를 검색하지 않습니다."
+        )
+        print(f"[RAG] {source_label} RAG 검색 완료")
+        return _append_rag_result(state, source_label, rag_result)
 
     docs = []
     if _vectorstores:
         docs = _search_docs(source_key, query, k=CFG.rag.top_k)
 
     if not docs:
+        if not (_init_error or get_init_error()):
+            rag_result = (
+                f"[{source_label}]\n"
+                f"- `{source_key}` 컬렉션에서 현재 프롬프트와 직접 연결되는 문서를 찾지 못했습니다.\n"
+                "- 연관정보 없음: 선택된 RAG 범위를 벗어난 근거를 생성하지 않습니다."
+            )
+            print(f"[RAG] {source_label} RAG 검색 완료")
+            return _append_rag_result(state, source_label, rag_result)
         guide  = RAG_SOURCE_GUIDES.get(source_key, "선택한 자료 관점에서 조사 참고사항을 정리합니다.")
         reason = (
             f"RAG 엔진 초기화 실패 ({_init_error or get_init_error()})"
@@ -155,12 +177,12 @@ def _run_rag(state: CustomsState, source_label: str, source_key: str) -> Customs
                 )
                 rag_result = response.content
             except Exception as llm_exc:
-                print(f"[RAG Agent] LLM 호출 실패, RAG 문서만 반환: {llm_exc}")
+                print(f"[RAG] LLM 호출 실패, RAG 문서만 반환: {llm_exc}")
                 rag_result = f"{guide}\n\n{cases}"
         else:
             rag_result = f"{guide}\n\n{cases}"
 
-    print(f"[RAG Agent] {source_label} 완료")
+    print(f"[RAG] {source_label} RAG 검색 완료")
     return _append_rag_result(state, source_label, rag_result)
 
 

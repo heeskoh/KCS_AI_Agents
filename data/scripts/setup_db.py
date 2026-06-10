@@ -362,6 +362,80 @@ def _generate_peer_declarations(
     return rows
 
 
+def _risk_level_from_score(score: float) -> str:
+    if score >= 70:
+        return "HIGH"
+    if score >= 45:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _clamp_rate(value: float) -> float:
+    return round(max(3.0, min(96.0, value)), 1)
+
+
+def _generate_risk_detail_rates(company: dict) -> tuple[float, float, float, float, float, float]:
+    """Generate deterministic AI risk indicator values for a company profile."""
+    company_id = str(company["company_id"])
+    rng = random.Random(_company_seed(company_id) + 77_031)
+    score = float(company.get("risk_score") or 50.0)
+    import_amount = float(company.get("annual_import_amount") or 0.0)
+    refund = float(company.get("recent_customs_refund") or 0.0)
+    fta_rate = float(company.get("fta_reduction_rate") or 0.0)
+    related = str(company.get("related_companies") or "")
+    industry = str(company.get("industry_code") or "")
+
+    refund_ratio = (refund / import_amount * 100.0) if import_amount else 0.0
+    related_boost = 12.0 if related and related.strip().lower() not in {"none", "nan"} else 0.0
+    trade_boost = 8.0 if industry.startswith("G") else 0.0
+    manufacturing_boost = 5.0 if industry.startswith("C") else 0.0
+
+    undervaluation = _clamp_rate(score * 0.72 + trade_boost + rng.uniform(-12, 12))
+    related_party = _clamp_rate(score * 0.58 + related_boost + rng.uniform(-10, 14))
+    fta_misuse = _clamp_rate(score * 0.35 + fta_rate * 0.65 + rng.uniform(-9, 13))
+    refund_anomaly = _clamp_rate(score * 0.42 + refund_ratio * 3.2 + rng.uniform(-8, 15))
+    hs_error = _clamp_rate(score * 0.45 + manufacturing_boost + rng.uniform(-10, 12))
+    offshore = _clamp_rate(score * 0.55 + related_boost * 0.9 + rng.uniform(-12, 16))
+    return undervaluation, related_party, fta_misuse, refund_anomaly, hs_error, offshore
+
+
+def seed_missing_synthetic_risk_scores(conn: duckdb.DuckDBPyConnection) -> int:
+    """Create AI risk indicator rows for SYN-* companies missing import_risk_scores."""
+    rows = conn.execute(
+        """
+        SELECT c.*
+        FROM company_profiles c
+        LEFT JOIN import_risk_scores r ON c.company_id = r.company_id
+        WHERE c.company_id LIKE 'SYN-%'
+          AND r.company_id IS NULL
+        ORDER BY c.company_id
+        """
+    ).df().to_dict("records")
+    if not rows:
+        return 0
+
+    max_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM import_risk_scores").fetchone()[0]
+    risk_rows = []
+    for offset, company in enumerate(rows, 1):
+        risk_score = round(float(company.get("risk_score") or 50.0), 1)
+        risk_rows.append((
+            max_id + offset,
+            company["company_id"],
+            company.get("risk_level") or _risk_level_from_score(risk_score),
+            risk_score,
+            *_generate_risk_detail_rates(company),
+            "2026-08-05 10:30:00",
+        ))
+
+    conn.executemany(
+        """
+        INSERT INTO import_risk_scores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        risk_rows,
+    )
+    return len(risk_rows)
+
+
 def seed_ml_samples(conn: duckdb.DuckDBPyConnection) -> None:
     """모든 기본 기업에 대해 ML 통계 분석용 샘플 데이터를 삽입한다."""
     import pandas as pd
@@ -485,6 +559,9 @@ def main() -> None:
 
         print("\n[4/4] ML 통계 샘플 데이터 보강")
         seed_ml_samples(conn)
+        added_syn_risks = seed_missing_synthetic_risk_scores(conn)
+        if added_syn_risks:
+            print(f"  SYN AI risk indicators: +{added_syn_risks} rows")
 
         # 최종 현황
         c_total = conn.execute("SELECT COUNT(*) FROM company_profiles").fetchone()[0]

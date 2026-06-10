@@ -1,5 +1,7 @@
 import os
+import re
 from typing import Any
+from html import unescape
 
 import duckdb
 
@@ -9,6 +11,7 @@ except ModuleNotFoundError:
     httpx = None
 
 from src.agents.state import CustomsState
+from src.agents.scope import has_company_scope, no_company_result
 from src.config import CFG
 from src.llm import llm
 from src.paths import DB_PATH
@@ -28,6 +31,87 @@ INDUSTRY_LABELS = {
 
 def _clean_text(value: str | None) -> str:
     return " ".join((value or "").split())
+
+
+def _normalize_web_targets(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    targets: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        url = _clean_text(str(item.get("url") or item.get("href") or ""))
+        query = _clean_text(str(item.get("query") or item.get("keyword") or item.get("search_text") or ""))
+        if not url or not (url.startswith("http://") or url.startswith("https://")):
+            continue
+        key = (url, query)
+        if key in seen:
+            continue
+        seen.add(key)
+        targets.append({"url": url, "query": query})
+    return targets
+
+
+def _scenario_web_targets(scenario: dict[str, Any]) -> list[dict[str, str]]:
+    targets = _normalize_web_targets(scenario.get("web_targets"))
+    for item in scenario.get("scenario_items") or []:
+        if isinstance(item, dict):
+            targets.extend(_normalize_web_targets(item.get("web_targets") or item.get("webTargets")))
+    return _normalize_web_targets(targets)
+
+
+def _html_to_text(html: str) -> str:
+    html = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", html)
+    html = re.sub(r"(?s)<[^>]+>", " ", html)
+    return _clean_text(unescape(html))
+
+
+def _keyword_excerpt(text: str, query: str, limit: int = 1400) -> str:
+    if not text:
+        return ""
+    words = [word for word in re.split(r"[\s,;/|]+", query or "") if len(word) >= 2]
+    lowered = text.lower()
+    indexes = [lowered.find(word.lower()) for word in words if lowered.find(word.lower()) >= 0]
+    start = max(0, min(indexes) - 240) if indexes else 0
+    return text[start:start + limit]
+
+
+def _fetch_direct_url(target: dict[str, str]) -> dict[str, str]:
+    url = target.get("url", "")
+    query = target.get("query", "")
+    if httpx is None:
+        return {
+            "topic": "URL 직접 등록",
+            "title": "URL 확인 불가",
+            "url": url,
+            "snippet": "httpx 모듈이 없어 등록 URL을 직접 확인하지 못했습니다.",
+        }
+    try:
+        with httpx.Client(timeout=CFG.api.web_timeout, follow_redirects=True) as client:
+            response = client.get(url, headers={"User-Agent": "KCS-AI-Agents/1.0"})
+            response.raise_for_status()
+            title_match = re.search(r"(?is)<title[^>]*>(.*?)</title>", response.text)
+            title = _clean_text(_html_to_text(title_match.group(1))) if title_match else url
+            text = _html_to_text(response.text)
+            excerpt = _keyword_excerpt(text, query)
+            if query:
+                snippet = f"검색 내용: {query}\n본문 발췌: {excerpt or '관련 내용을 찾지 못했습니다.'}"
+            else:
+                snippet = f"본문 발췌: {excerpt or '본문 텍스트를 추출하지 못했습니다.'}"
+            return {
+                "topic": "URL 직접 등록",
+                "title": title or url,
+                "url": url,
+                "snippet": snippet,
+            }
+    except Exception as exc:
+        return {
+            "topic": "URL 직접 등록",
+            "title": "URL 확인 실패",
+            "url": url,
+            "snippet": f"{query} - {exc}" if query else str(exc),
+        }
 
 
 def _normalize_result(item: dict[str, Any], provider: str, topic: str) -> dict[str, str]:
@@ -241,14 +325,32 @@ def _format_results(results: list[dict[str, str]]) -> str:
 
 def agent_web(state: CustomsState) -> CustomsState:
     """Analyze web news as a company outlook analyst."""
-    print("\n[Agent] 웹 검색 시작")
+    print("[Agent] 웹 검색 시작")
 
-    context = _company_context(state["company_id"])
-    queries = _build_queries(context)
+    scenario = state.get("scenario") or {}
+    direct_targets = _scenario_web_targets(scenario)
+
+    if not has_company_scope(state) and not direct_targets:
+        return {**state, "web_result": no_company_result("웹검색 Agent", "기업 기반 웹검색은 조회 대상 기업이 필요합니다.")}
+
+    context = (
+        _company_context(state["company_id"])
+        if has_company_scope(state)
+        else {
+            "target_name": state.get("target_name") or state.get("person_id") or "대상 미지정",
+            "target_type": state.get("target_type") or "person",
+            "recent_imports": [],
+        }
+    )
+    if has_company_scope(state) and not context.get("business_registration_no") and context.get("company_name") == context.get("company_id") and not direct_targets:
+        return {**state, "web_result": "[웹검색 Agent 결과]\n- 조회 대상 기업 프로파일이 DuckDB에 없습니다.\n- 연관정보 없음: 기업명 없는 웹검색을 수행하지 않습니다."}
+    queries = _build_queries(context) if has_company_scope(state) and context.get("business_registration_no") else []
 
     collected: list[dict[str, str]] = []
     for topic, query in queries:
         collected.extend(_search_topic(query, topic))
+    for target in direct_targets:
+        collected.append(_fetch_direct_url(target))
 
     raw_results = _format_results(_dedupe_results(collected))
 
@@ -260,17 +362,18 @@ def agent_web(state: CustomsState) -> CustomsState:
         summary = llm.invoke(
             """
 당신은 기업 전망 분석가입니다.
-아래 웹 기사 후보를 검토하여 회사 운영, 가격, 운송비, 공급망, 수입관세 평가와 연결 가능한 기사만 추출하세요.
+아래 웹 기사 후보와 직접 등록 URL 발췌문을 검토하여 회사 운영, 가격, 운송비, 공급망, 수입관세 평가와 연결 가능한 정보만 추출하세요.
 
 검색 목적:
 1. 선택 회사와 관련된 기사
 2. 최근 수입 상대방 및 수입 물품 관련 기사, 3개 미만
 3. 선택 회사와 같은 업종 관련 기사, 3개 미만
 4. 수입 물품 관련 기사, 3개 미만
+5. [URL 직접 등록] 항목은 사용자가 지정한 URL에서 찾은 발췌문이므로, 검색 내용과의 관련성을 우선 판단
 
 출력 형식:
 - 외부 정보 참고
-- 기사별 제목, 분류, URL, 관련 가격/운송비/공급망 시사점, 조사 참고 필요성을 간결하게 작성
+- 기사 또는 URL별 제목, 분류, URL, 관련 가격/운송비/공급망 시사점, 조사 참고 필요성을 간결하게 작성
 - 관련성이 낮은 기사는 제외
 - 실제 상대방 또는 회사명이 없으면 관계법인, 원산지, 수입품 기준으로 검색했다는 점을 명시
 

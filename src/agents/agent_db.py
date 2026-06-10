@@ -1,8 +1,168 @@
 import duckdb
 
 from src.agents.state import CustomsState
+from src.agents.scope import (
+    NO_COMPANY_SENTINELS,
+    has_person_scope,
+    no_target_result,
+    prompt_text,
+    target_id,
+    target_type,
+)
 from src.llm import llm
 from src.paths import DB_PATH
+
+_DRUG_KEYWORDS = (
+    "마약", "마약류", "필로폰", "메트암페타민", "대마", "코카인", "헤로인",
+    "MDMA", "엑스터시", "향정", "narcotic", "drug", "methamphetamine",
+    "cocaine", "heroin", "cannabis",
+)
+
+
+def _is_drug_investigation(prompt: str) -> bool:
+    lowered = (prompt or "").lower()
+    return any(keyword.lower() in lowered for keyword in _DRUG_KEYWORDS)
+
+
+def _has_drug_related_db_text(raw_data: str) -> bool:
+    lowered = (raw_data or "").lower()
+    return any(keyword.lower() in lowered for keyword in _DRUG_KEYWORDS)
+
+
+def _error_state(state: CustomsState, result_key: str, message: str, detail: str | None = None) -> CustomsState:
+    result = detail or f"[오류 발생]\n- {message}"
+    return {
+        **state,
+        result_key: result,
+        "agent_error": message,
+        "agent_error_result": result,
+    }
+
+
+def _table_exists(conn: duckdb.DuckDBPyConnection, table_name: str) -> bool:
+    return bool(conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_name = ?
+        """,
+        [table_name],
+    ).fetchone()[0])
+
+
+def _agent_person_db(state: CustomsState) -> CustomsState:
+    person_id = target_id(state)
+    print(f"[Agent] 개인 CDW 조회 시작: {person_id}")
+
+    if not has_person_scope(state):
+        detail = no_target_result(state, "개인 CDW 조회")
+        return _error_state(state, "db_result", "개인 CDW 조회 대상이 지정되지 않았습니다.", detail)
+
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        if not _table_exists(conn, "risk_person_profile"):
+            result = (
+                "[개인 CDW 조회 결과]\n"
+                "- risk_person_profile 테이블이 없습니다.\n"
+                "- 기업 프로파일 테이블로 대체 조회하지 않았습니다."
+            )
+            return _error_state(state, "db_result", "개인 CDW 프로파일 테이블이 없습니다.", result)
+
+        person = conn.execute(
+            """
+            SELECT *
+            FROM risk_person_profile
+            WHERE person_id = ?
+            """,
+            [person_id],
+        ).df()
+
+        cases = conn.execute(
+            """
+            SELECT
+                l.role_in_case,
+                l.confidence_score,
+                l.evidence_level,
+                c.case_no,
+                c.case_type,
+                c.contraband_category,
+                c.contraband_sub_category,
+                c.case_status,
+                c.detection_date,
+                c.origin_country,
+                c.transit_country,
+                c.destination_region,
+                c.modus_operandi,
+                c.concealment_method,
+                c.quantity,
+                c.quantity_unit,
+                c.estimated_value,
+                c.summary
+            FROM person_case_link l
+            JOIN smuggling_case c ON l.case_id = c.case_id
+            WHERE l.person_id = ?
+            ORDER BY c.detection_date DESC
+            """,
+            [person_id],
+        ).df() if _table_exists(conn, "person_case_link") and _table_exists(conn, "smuggling_case") else conn.execute("SELECT NULL WHERE FALSE").df()
+
+        indicators = conn.execute(
+            """
+            SELECT indicator_code, indicator_name, indicator_value, score, weight, reason, calculated_at
+            FROM risk_indicator
+            WHERE entity_type = 'person' AND entity_id = ?
+            ORDER BY score DESC NULLS LAST, calculated_at DESC
+            """,
+            [person_id],
+        ).df() if _table_exists(conn, "risk_indicator") else conn.execute("SELECT NULL WHERE FALSE").df()
+
+        analyses = conn.execute(
+            """
+            SELECT analysis_type, model_or_agent, output_summary, risk_score_before,
+                   risk_score_after, explanation, review_status, created_at
+            FROM analysis_result
+            WHERE entity_type = 'person' AND entity_id = ?
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            [person_id],
+        ).df() if _table_exists(conn, "analysis_result") else conn.execute("SELECT NULL WHERE FALSE").df()
+
+    if person.empty:
+        result = (
+            "[개인 CDW 조회 결과]\n"
+            f"- 조회 대상 `{person_id}`에 해당하는 우범자 프로파일이 DuckDB CDW에 없습니다.\n"
+            "- 기업 프로파일 파일이나 이전 선택 기업으로 대체 조회하지 않았습니다."
+        )
+        return _error_state(state, "db_result", f"CDW 개인 프로파일이 없습니다: {person_id}", result)
+
+    raw_data = f"""
+[우범자 프로파일]
+{person.to_string(index=False)}
+
+[관련 밀수/마약/우범 사건]
+{cases.to_string(index=False) if not cases.empty else "관련 사건 없음"}
+
+[개인 위험 지표]
+{indicators.to_string(index=False) if not indicators.empty else "위험 지표 없음"}
+
+[개인 분석 이력]
+{analyses.to_string(index=False) if not analyses.empty else "분석 이력 없음"}
+"""
+
+    if llm:
+        try:
+            summary = llm.invoke(
+                "다음 DuckDB CDW 개인 우범자 프로파일 조회 결과만 근거로 한국어로 요약하세요. "
+                "기업 프로파일, 수입신고 기업 ID, 이전 선택 기업 정보는 절대 추정하거나 사용하지 마세요.\n\n"
+                f"{raw_data}"
+            ).content
+        except Exception:
+            summary = raw_data
+    else:
+        summary = raw_data
+
+    print("[Agent] 개인 CDW 조회 완료")
+    return {**state, "db_result": summary}
 
 def _fallback_summary(company, declarations, risk) -> str:
     if company.empty:
@@ -36,8 +196,20 @@ def _fallback_summary(company, declarations, risk) -> str:
 
 def agent_db(state: CustomsState) -> CustomsState:
     """Read company, declaration, and risk-score data from DuckDB."""
-    company_id = state["company_id"]
-    print(f"\n[Agent] DB 조회 시작: {company_id}")
+    if target_type(state) == "person":
+        return _agent_person_db(state)
+
+    company_id = (state.get("company_id") or "").strip()
+    prompt = prompt_text(state)
+    print(f"[Agent] CDW DB 조회 시작: {company_id}")
+
+    if company_id in NO_COMPANY_SENTINELS:
+        result = (
+            "[CDW 조회 결과]\n"
+            "- 프롬프트에서 CDW 조회 대상이 되는 기업명, 회사ID 또는 신고번호가 확인되지 않았습니다.\n"
+            "- CDW에 연관정보 없음: 임의 기업의 일반 위험정보를 대신 조회하지 않습니다."
+        )
+        return _error_state(state, "db_result", "CDW 조회 대상 기업이 확인되지 않았습니다.", result)
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -110,8 +282,33 @@ def agent_db(state: CustomsState) -> CustomsState:
 [위험 지표]
 {risk.to_string(index=False) if not risk.empty else "지표 없음"}
 """
+
+    if company.empty:
+        result = (
+            "[CDW 조회 결과]\n"
+            f"- 조회 대상 `{company_id}`에 해당하는 기업 프로파일이 DuckDB CDW에 없습니다.\n"
+            "- CDW에 연관정보 없음."
+        )
+        return _error_state(state, "db_result", f"CDW 기업 프로파일이 없습니다: {company_id}", result)
+
+    if _is_drug_investigation(prompt) and not _has_drug_related_db_text(raw_data):
+        result = (
+            "[CDW 조회 결과]\n"
+            "- 요청 주제: 마약수사\n"
+            "- DuckDB CDW 조회 결과에서 마약류 수사와 직접 연결되는 기업, 신고, 품목, 위험정보를 찾지 못했습니다.\n"
+            "- CDW에 연관정보 없음: 일반 수입신고 위험지표를 마약 관련 근거로 확대 해석하지 않습니다."
+        )
+        return {**state, "db_result": result}
+
+    db_only_instruction = (
+        "이 답변은 DuckDB CDW 조회 결과 안에 있는 정보만 근거로 작성하세요. "
+        "조회 결과에 없는 회사, 신고, 위험정보는 추정하거나 외부 지식으로 보완하지 말고 "
+        "'DB 조회 결과 없음' 또는 'DB에 근거 없음'이라고 명확히 표시하세요.\n\n"
+    )
+
     if llm:
         summary = llm.invoke(
+            db_only_instruction +
             "아래 업체 프로파일, 수입신고, 위험지표를 관세 조사 담당자에게 보고하듯 "
             "핵심 위험 신호와 확인 필요 사항 중심으로 한국어로 요약하세요.\n"
             f"{raw_data}"
@@ -119,5 +316,5 @@ def agent_db(state: CustomsState) -> CustomsState:
     else:
         summary = _fallback_summary(company, declarations, risk)
 
-    print("[Agent] DB 조회 완료")
+    print("[Agent] CDW DB 조회 완료")
     return {**state, "db_result": summary}
