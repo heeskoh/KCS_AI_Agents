@@ -12,6 +12,7 @@ API 연동 순서
 LAW_API_KEY : 법제처 Open API OC 파라미터 (발급: https://open.law.go.kr)
 """
 import os
+import re
 import xml.etree.ElementTree as ET
 from typing import Optional
 
@@ -251,6 +252,108 @@ def _xt(element, tag: str) -> str:
     return (node.text or "").strip() if node is not None else ""
 
 
+# ── 위반사례별 적용 법령 매칭 (과세가격평가 선행 시) ─────────────────────────────
+
+_VIOLATION_LAW_PROMPT = """당신은 한국 관세청 법령 검토 전문가입니다.
+아래 과세가격평가에서 식별된 위반(의심) 사항 1건에 대해, 적용 가능한 관세 법령을 찾아
+위반내역과 법령을 매칭하여 제시하세요.
+실제 법제처 연계 결과가 아닌 OpenAI 기반 시뮬레이션임을 전제로, 실무적으로 타당한 조문을 제시하세요.
+
+[위반(의심) 사항]
+{issue}
+
+[참고: 선행 분석 결과]
+{context}
+
+다음 형식으로만 작성하고, 그 외 설명은 추가하지 마세요.
+
+### 2.1. 적용 법령
+
+1.  **[법령명 조항 (조문 제목)]**
+    > 조문 내용 요약 (실제 조문에 가깝게 2~3문장)
+2.  **[법령명 조항 (조문 제목)]**  (필요 시 추가, 없으면 생략)
+    > 조문 내용 요약
+
+### 2.2. 판단 결과
+
+위 위반(의심) 사항에 법령을 적용한 판단 결과를 2~4문장으로 서술하세요.
+
+*   **근거:** 적용 법령의 어느 부분이 어떻게 적용되는지 인용하여 설명하세요.
+"""
+
+
+def _extract_violation_issues(value_text: str) -> list[str]:
+    """과세가격평가 결과에서 위반(의심) 사례를 블록 단위로 추출한다."""
+    issues: list[str] = []
+
+    blocks = re.split(r"\n(?=■ )", value_text)
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        header = block.splitlines()[0]
+
+        if header.startswith("■ HS"):
+            verdict_line = next((l for l in block.splitlines() if "판정:" in l), "")
+            if "🔴" in verdict_line or "🟡" in verdict_line:
+                issues.append(block)
+        elif header.startswith("■ 가산요소 점검"):
+            for line in block.splitlines()[1:]:
+                line = line.strip()
+                if "⚠️" in line:
+                    issues.append(line)
+
+    summary_match = re.search(r"\[종합\] 저가·고가 신고 의심 품목\n((?:\s*⚠️.*\n?)+)", value_text)
+    if summary_match:
+        for line in summary_match.group(1).splitlines():
+            line = line.strip()
+            if line:
+                issues.append(line)
+
+    # 중복 제거 (순서 유지)
+    seen: set[str] = set()
+    unique_issues: list[str] = []
+    for issue in issues:
+        if issue not in seen:
+            seen.add(issue)
+            unique_issues.append(issue)
+    return unique_issues
+
+
+def _violation_law_review(state: CustomsState, customs_value_result: str) -> str:
+    """과세가격평가에서 식별된 위반사례별로 적용 법령을 매칭하여 제시한다."""
+    issues = _extract_violation_issues(customs_value_result)
+
+    if not issues:
+        return (
+            "[법령 검토 결과]\n"
+            "- 선행 과세가격평가 결과에서 위반(의심) 사례가 식별되지 않았습니다.\n"
+            "- 별도 위반사례가 발견되면 해당 사례별 적용 법령을 매칭하여 제시합니다."
+        )
+
+    context = (
+        f"[과세가격평가 결과]\n{customs_value_result[:2000]}\n\n"
+        f"[관계망 분석 결과]\n{(state.get('network_result') or '')[:500]}\n\n"
+        f"[OCR/증빙 결과]\n{(state.get('ocr_result') or '')[:500]}"
+    )
+
+    sections: list[str] = []
+    for issue in issues:
+        if llm:
+            try:
+                section = llm.invoke(
+                    _VIOLATION_LAW_PROMPT.format(issue=issue[:600], context=context[:3000])
+                ).content.strip()
+            except Exception as exc:
+                section = f"[LLM 법령 매칭 오류]\n{exc}"
+        else:
+            section = "[LLM 미설정] 위반사례별 적용 법령을 시뮬레이션할 수 없습니다."
+
+        sections.append(f"**[위반(의심) 사항]**\n{issue}\n\n{section}")
+
+    return "\n\n------------------------------------\n\n".join(sections)
+
+
 # ── 로컬 검색 (키워드 매칭) ──────────────────────────────────────────────────────
 
 def _local_search(query: str) -> tuple[list[dict], list[dict]]:
@@ -269,8 +372,19 @@ def _local_search(query: str) -> tuple[list[dict], list[dict]]:
 # ── 에이전트 ───────────────────────────────────────────────────────────────────
 
 def agent_law(state: CustomsState) -> CustomsState:
-    """관세 조사 맥락에서 법령·판례를 조회하고 조사 전략을 도출한다."""
+    """관세 조사 맥락에서 법령·판례를 조회하고 조사 전략을 도출한다.
+
+    선행 단계로 과세가격평가(customs_value)가 수행된 경우, 해당 결과에서 식별된
+    위반(의심) 사례별로 적용 법령을 매칭하여 제시한다.
+    """
     print("[Agent] 법령판례 조회 시작")
+
+    customs_value_result = state.get("customs_value_result") or ""
+    if customs_value_result.strip():
+        print("[Agent] 과세가격평가 선행 결과 감지 — 위반사례별 적용 법령 매칭")
+        law_result = _violation_law_review(state, customs_value_result)
+        print("[Agent] 법령판례 조회 완료 (위반사례 매칭)")
+        return {**state, "law_result": law_result}
 
     # ── 조회 쿼리 구성 ────────────────────────────────────────────────────────
     scenario = state.get("scenario") or {}

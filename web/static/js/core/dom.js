@@ -81,6 +81,13 @@ export function markdownToHtml(value){
       continue;
     }
 
+    const quote = trimmed.match(/^>\s?(.*)$/);
+    if(quote){
+      closeList();
+      html.push(`<blockquote>${inlineMarkdown(quote[1])}</blockquote>`);
+      continue;
+    }
+
     const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
     if(heading){
       closeList();

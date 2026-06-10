@@ -1476,6 +1476,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .markdown-output p{margin:8px 0}
 .markdown-output ul,.markdown-output ol{margin:8px 0 12px;padding-left:22px}
 .markdown-output li{margin:5px 0}
+.markdown-output blockquote{margin:8px 0;padding:8px 14px;border-left:3px solid #2463eb;background:#f1f6ff;color:#3a4a63;border-radius:0 6px 6px 0}
 .scenario-step-body.markdown-output,.scenario-step-body .markdown-output,.scenario-step-body p,.scenario-step-body li,.scenario-step-body h1,.scenario-step-body h2,.scenario-step-body h3,.scenario-step-body h4,.scenario-step-body strong,.scenario-step-body em{color:#f8fbff}
 .scenario-step-body code,.markdown-output code{padding:2px 5px;border-radius:5px;background:rgba(36,99,235,.15);font-family:Consolas,'Noto Sans KR',monospace}
 .profile-loading{padding:32px;text-align:center;color:var(--muted);font-weight:700}
