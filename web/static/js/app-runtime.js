@@ -873,6 +873,24 @@ function sourceBehaviorLabels(key, behaviors){
   return values.map(value => sourceBehaviorLabel(key, value));
 }
 
+function scenarioSuggestedInstruction(key, targetType = "company", behaviors = null){
+  const base = sourceDefaultInstruction(key, targetType);
+  const labels = sourceBehaviorLabels(key, behaviors);
+  const focus = labels.length ? `\n\n중점 확인: ${labels.join(", ")}` : "";
+  return `${base || "선택한 AI 서비스 기준으로 분석을 수행합니다."}${focus}`;
+}
+
+function isAutoScenarioInstruction(value, key, targetType = "company", behaviors = null){
+  const text = String(value || "").trim();
+  if(!text) return true;
+  const base = sourceDefaultInstruction(key, targetType);
+  if(text === base) return true;
+  if(text === scenarioSuggestedInstruction(key, targetType, behaviors)) return true;
+  return sourceBehaviorOptions(key).some(option =>
+    text === scenarioSuggestedInstruction(key, targetType, [option.value])
+  );
+}
+
 function normalizeScenarioItem(item, index = 0){
   const source = scenarioSourceByKey(item.key) || scenarioSourceByKey("db_cdw");
   const key = source?.key || item.key || "db_cdw";
@@ -3382,7 +3400,7 @@ function requestPermissions(keys){
   });
   saveCanvasState();
   renderSidebarPermissions();
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const sourceSelect = document.getElementById("scenarioQuickSourceSelect");
   if(sourceSelect){
     const selected = sourceSelect.value;
     sourceSelect.innerHTML = scenarioSourceOptionsHtml();
@@ -5606,6 +5624,15 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
           </div>
         </div>
 
+        <div class="scenario-service-zone">
+          <strong>AI 서비스</strong>
+          <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
+          <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add
+            ${archived ? "disabled" : ""}>단계 추가</button>
+          <button type="button" class="btn secondary scenario-template-apply-btn" data-scenario-quick-delete
+            ${archived ? "disabled" : ""}>선택 삭제</button>
+        </div>
+
         <div class="scenario-template-zone">
           <strong>분석 템플릿</strong>
           <select id="scenarioTemplateSelect" class="scenario-template-select">
@@ -5632,17 +5659,8 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
 
           <div class="scenario-agent-zone">
             <div class="scenario-agent-head">
-              <strong>AI 서비스 단계</strong>
-              <div class="scenario-actions">
-                <button id="scenarioAddButton" type="button" class="btn"
-                  ${archived ? "disabled" : ""}>단계 추가</button>
-                <button id="scenarioDeleteButton" type="button" class="btn secondary"
-                  disabled>선택 삭제</button>
-              </div>
+              <strong>선택 단계 조건</strong>
             </div>
-            <label class="scenario-field">
-              <select id="scenarioSourceSelect"></select>
-            </label>
             <div class="scenario-field">
               <span>동작 선택</span>
               <div id="scenarioBehaviorOptions" class="scenario-behavior-options"></div>
@@ -5651,15 +5669,20 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             <div id="scenarioShareEmailPanel"></div>
             <div id="scenarioWebTargetPanel"></div>
             <label class="scenario-field">
-              <span>추가 지시</span>
+              <span>자동 생성 프롬프트</span>
               <textarea id="scenarioInstruction"
-                placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."></textarea>
+                class="scenario-prompt-editor"
+                placeholder="선택한 AI 서비스와 동작 조건에 맞춰 최적 프롬프트가 자동 생성됩니다. 필요하면 직접 수정하세요."></textarea>
             </label>
-            <div id="scenarioExtraPromptPanel"></div>
-            <div class="scenario-actions" style="margin-top:4px">
-              <button id="scenarioRunSelectedButton" type="button" class="btn primary"
-                ${archived ? "disabled" : ""}>▶ 이 AI서비스만 실행</button>
-            </div>
+          </div>
+          <div id="scenarioPromptValidation" class="scenario-prompt-validation"></div>
+          <div class="scenario-prompt-actions">
+            <button id="scenarioApplyPromptButton" type="button" class="btn secondary"
+              ${archived ? "disabled" : ""}>프롬프트 변경 적용</button>
+            <button id="scenarioValidatePromptButton" type="button" class="btn secondary"
+              ${archived ? "disabled" : ""}>프롬프트 검증</button>
+            <button id="scenarioRunSelectedButton" type="button" class="btn primary"
+              ${archived ? "disabled" : ""}>▶ 이 AI서비스만 실행</button>
           </div>
         </aside>
 
@@ -6026,12 +6049,12 @@ function scenarioInstructionPreview(item){
 }
 
 function initScenarioWorkbench(){
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const quickSourceSelect = document.getElementById("scenarioQuickSourceSelect");
   const instruction = document.getElementById("scenarioInstruction");
   const templateSelect = document.getElementById("scenarioTemplateSelect");
-  if(!sourceSelect) return;
+  if(!quickSourceSelect) return;
 
-  sourceSelect.innerHTML = scenarioSourceOptionsHtml();
+  quickSourceSelect.innerHTML = scenarioSourceOptionsHtml();
 
   // Only reload scenario data when company changes; preserve stepOutputs/stepStatuses otherwise
   if(scenarioLoadedForCompany !== activeCanvasCompanyId){
@@ -6055,8 +6078,6 @@ function initScenarioWorkbench(){
   if(scenarioInitialized) return;
   scenarioInitialized = true;
 
-  document.getElementById("scenarioAddButton").addEventListener("click", addScenarioItem);
-  document.getElementById("scenarioDeleteButton").addEventListener("click", deleteSelectedScenario);
   document.getElementById("scenarioRunButton").addEventListener("click", runScenarioWorkflow);
   document.getElementById("scenarioClearButton").addEventListener("click", clearScenarioResults);
   document.getElementById("scenarioTemplateApplyButton")?.addEventListener("click", applySelectedScenarioTemplate);
@@ -6084,8 +6105,11 @@ function initScenarioWorkbench(){
     }
     setScenarioStatus("템플릿 저장됨");
   });
-  sourceSelect.addEventListener("change", event => updateSelectedScenarioSource(event.target.value));
-  instruction.addEventListener("input", event => updateSelectedScenarioInstruction(event.target.value));
+  document.querySelector("[data-scenario-quick-add]")?.addEventListener("click", addScenarioItem);
+  document.querySelector("[data-scenario-quick-delete]")?.addEventListener("click", deleteSelectedScenario);
+  quickSourceSelect.addEventListener("change", event => applyScenarioSourceSelection(event.target.value));
+  document.getElementById("scenarioApplyPromptButton")?.addEventListener("click", applySelectedScenarioPrompt);
+  document.getElementById("scenarioValidatePromptButton")?.addEventListener("click", validateSelectedScenarioPrompt);
   if(templateSelect) templateSelect.value = activeScenarioTemplateId;
 
   syncScenarioEditor();
@@ -6093,68 +6117,17 @@ function initScenarioWorkbench(){
   renderScenarioSteps();
 }
 
-/* AI 채팅 스레드 형태로 "기본 지시 + 추가 등록 프롬프트" 목록을 보여주고
-   체크박스로 실행 포함 여부를 선택할 수 있게 한다. */
-function renderScenarioExtraPromptPanel(){
-  const panel = document.getElementById("scenarioExtraPromptPanel");
-  if(!panel) return;
-  const item = selectedScenarioItem();
-  if(!item){ panel.innerHTML = ""; return; }
-
-  const baseInstruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
-  const extraPrompts = item.extraPrompts || [];
-
-  panel.innerHTML = `
-    <div class="scenario-field scenario-prompt-thread-field">
-      <span>등록된 프롬프트 <small class="muted">(기본 지시 외에 함께 실행할 프롬프트를 추가로 등록할 수 있습니다)</small></span>
-      <div class="prompt-thread">
-        <div class="prompt-bubble base active">
-          <label class="prompt-bubble-toggle">
-            <input type="checkbox" checked disabled>
-            <span><strong>기본 지시</strong> · ${escapeHtml(baseInstruction)}</span>
-          </label>
-        </div>
-        ${extraPrompts.map(p => `
-          <div class="prompt-bubble${p.enabled ? " active" : ""}" data-scenario-prompt-id="${escapeHtml(p.id)}">
-            <label class="prompt-bubble-toggle">
-              <input type="checkbox" data-scenario-prompt-toggle="${escapeHtml(p.id)}" ${p.enabled ? "checked" : ""}>
-              <span>${escapeHtml(p.text)}</span>
-            </label>
-            <button type="button" class="prompt-bubble-remove" data-scenario-prompt-remove="${escapeHtml(p.id)}" title="삭제">✕</button>
-          </div>`).join("")}
-      </div>
-      <div class="prompt-thread-input">
-        <input type="text" id="scenarioExtraPromptInput" placeholder="추가로 실행할 프롬프트를 입력하고 Enter">
-        <button type="button" class="btn secondary" id="scenarioExtraPromptAddButton">+ 프롬프트 추가</button>
-      </div>
-    </div>`;
-}
-
-function addScenarioExtraPrompt(){
-  const input = document.getElementById("scenarioExtraPromptInput");
-  const text = (input?.value || "").trim();
-  if(!text) return;
-  const item = selectedScenarioItem();
-  if(!item) return;
-  if(!Array.isArray(item.extraPrompts)) item.extraPrompts = [];
-  item.extraPrompts.push({ id: uid(), text, enabled: true });
-  if(input) input.value = "";
-  saveCanvasState();
-  renderScenarioExtraPromptPanel();
-  renderScenarioSteps();
-}
-
 function syncScenarioEditor(){
   const item = selectedScenarioItem();
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const quickSourceSelect = document.getElementById("scenarioQuickSourceSelect");
   const instruction = document.getElementById("scenarioInstruction");
   const hint = document.getElementById("scenarioSourceHint");
-  const deleteButton = document.getElementById("scenarioDeleteButton");
+  const validation = document.getElementById("scenarioPromptValidation");
   const targetType = item?.target_type || item?.targetType || "company";
-  if(sourceSelect && item) sourceSelect.value = item.key;
+  if(quickSourceSelect && item) quickSourceSelect.value = item.key;
   if(item) syncBehaviorOptions(item.key, item.behaviors || sourceDefaultBehaviors(item.key));
   if(!item) syncBehaviorOptions("db_cdw", []);
-  if(instruction) instruction.value = item?.instruction || sourceDefaultInstruction(item?.key, targetType) || "";
+  if(instruction) instruction.value = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
   if(hint && item){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
     const status = permissionStatus(item.key);
@@ -6170,16 +6143,38 @@ function syncScenarioEditor(){
           <span>${status === "requested" ? "권한 요청이 접수되었습니다. 승인 대기 중입니다." : "이 단계를 실행하려면 추가 권한이 필요합니다."}</span>
           ${status === "locked" ? `<button type="button" class="btn-perm-request" data-permission-request="${escapeHtml(item.key)}">권한 요청</button>` : ""}
         </div>
-      ` : `<p>${escapeHtml(sourceDefaultInstruction(item.key, targetType) || "이 단계의 추가 지시를 입력하세요.")}</p>`}
+      ` : `<p>${escapeHtml(scenarioSuggestedInstruction(item.key, targetType, item.behaviors) || "선택 조건에 맞는 프롬프트를 입력하세요.")}</p>`}
     `;
   }
   if(hint && !item) hint.innerHTML = "";
+  if(validation) validation.innerHTML = "";
   renderShareEmailPanel("scenario");
   renderWebTargetPanel("scenario");
-  renderScenarioExtraPromptPanel();
-  if(deleteButton) deleteButton.disabled = !item;
+  const quickDeleteButton = document.querySelector("[data-scenario-quick-delete]");
+  if(quickDeleteButton) quickDeleteButton.disabled = !item || isCompanyArchived();
+  const applyPromptButton = document.getElementById("scenarioApplyPromptButton");
+  if(applyPromptButton) applyPromptButton.disabled = !item || isCompanyArchived();
+  const validatePromptButton = document.getElementById("scenarioValidatePromptButton");
+  if(validatePromptButton) validatePromptButton.disabled = !item || isCompanyArchived();
   const runSelectedButton = document.getElementById("scenarioRunSelectedButton");
   if(runSelectedButton) runSelectedButton.disabled = !item;
+}
+
+function applyScenarioSourceSelection(key){
+  const item = selectedScenarioItem();
+  if(item){
+    updateSelectedScenarioSource(key);
+    return;
+  }
+  const quickSourceSelect = document.getElementById("scenarioQuickSourceSelect");
+  const instruction = document.getElementById("scenarioInstruction");
+  const targetType = "company";
+  const behaviors = sourceDefaultBehaviors(key);
+  if(quickSourceSelect) quickSourceSelect.value = key;
+  syncBehaviorOptions(key, behaviors);
+  if(instruction) instruction.value = scenarioSuggestedInstruction(key, targetType, behaviors);
+  const validation = document.getElementById("scenarioPromptValidation");
+  if(validation) validation.innerHTML = "";
 }
 
 function addScenarioItem(){
@@ -6187,13 +6182,14 @@ function addScenarioItem(){
     alert("아카이브된 작업은 복원 후 수정할 수 있습니다.");
     return;
   }
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const sourceSelect = document.getElementById("scenarioQuickSourceSelect");
   const instruction = document.getElementById("scenarioInstruction");
-  const key = sourceSelect.value;
+  const key = sourceSelect?.value;
   const source = scenarioSourceByKey(key);
   if(!source) return;
   const behaviors = selectedBehaviorValues();
   const targetType = "company";
+  const suggestedInstruction = scenarioSuggestedInstruction(key, targetType, behaviors.length ? behaviors : sourceDefaultBehaviors(key));
   const item = {
     id: uid(),
     key,
@@ -6203,7 +6199,7 @@ function addScenarioItem(){
     order: scenarioItems.length + 1,
     targetType,
     target_type: targetType,
-    instruction: instruction.value.trim() || sourceDefaultInstruction(key, targetType),
+    instruction: instruction.value.trim() || suggestedInstruction,
     shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
     webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
   };
@@ -6214,7 +6210,7 @@ function addScenarioItem(){
   scenarioItems.push(item);
   selectedScenarioId = item.id;
   openedSteps.add(item.id);
-  instruction.value = sourceDefaultInstruction(key, targetType);
+  instruction.value = scenarioSuggestedInstruction(key, targetType, item.behaviors);
   saveCompanyScenario();
   renderScenarioList();
   renderScenarioSteps();
@@ -6270,10 +6266,48 @@ function updateSelectedScenarioInstruction(value){
   renderScenarioList();
 }
 
+function applySelectedScenarioPrompt(){
+  if(isCompanyArchived()) return;
+  const item = selectedScenarioItem();
+  const instruction = document.getElementById("scenarioInstruction");
+  const validation = document.getElementById("scenarioPromptValidation");
+  if(!item || !instruction) return;
+  const value = instruction.value.trim();
+  if(!value){
+    if(validation) validation.innerHTML = `<div class="prompt-validation-msg warn">프롬프트를 입력한 뒤 적용하세요.</div>`;
+    instruction.focus();
+    return;
+  }
+  item.instruction = value;
+  saveCompanyScenario();
+  renderScenarioList();
+  renderScenarioSteps();
+  if(validation) validation.innerHTML = `<div class="prompt-validation-msg good">변경된 프롬프트가 단계별 자동실행에 적용되었습니다.</div>`;
+}
+
+function validateSelectedScenarioPrompt(){
+  const item = selectedScenarioItem();
+  const instruction = document.getElementById("scenarioInstruction");
+  const validation = document.getElementById("scenarioPromptValidation");
+  if(!item || !instruction || !validation) return;
+  const value = instruction.value.trim();
+  const behaviorLabels = sourceBehaviorLabels(item.key, selectedBehaviorValues().length ? selectedBehaviorValues() : item.behaviors);
+  const missing = behaviorLabels.filter(label => label && !value.includes(label));
+  const messages = [];
+  if(!value) messages.push("프롬프트가 비어 있습니다.");
+  if(value.length < 20) messages.push("프롬프트가 너무 짧아 분석 범위가 불명확할 수 있습니다.");
+  if(missing.length) messages.push(`선택 동작 키워드 보강 권장: ${missing.join(", ")}`);
+  validation.innerHTML = messages.length
+    ? `<div class="prompt-validation-msg warn">${escapeHtml(messages.join(" "))}</div>`
+    : `<div class="prompt-validation-msg good">선택된 AI 서비스와 동작 조건에 맞는 프롬프트입니다.</div>`;
+}
+
 function updateSelectedScenarioBehaviors(){
   if(isCompanyArchived()) return;
   const item = selectedScenarioItem();
   if(!item) return;
+  const previousBehaviors = item.behaviors || sourceDefaultBehaviors(item.key);
+  const previousInstruction = item.instruction;
   const values = selectedBehaviorValues();
   if(!values.length){
     syncBehaviorOptions(item.key, item.behaviors || sourceDefaultBehaviors(item.key));
@@ -6283,6 +6317,10 @@ function updateSelectedScenarioBehaviors(){
   item.behaviors = values;
   item.behavior = values[0];
   item.behaviorLabel = sourceBehaviorLabels(item.key, values).join(", ");
+  const targetType = item.target_type || item.targetType || "company";
+  if(isAutoScenarioInstruction(previousInstruction, item.key, targetType, previousBehaviors)){
+    item.instruction = scenarioSuggestedInstruction(item.key, targetType, values);
+  }
   saveCompanyScenario();
   renderScenarioList();
   syncScenarioEditor();
@@ -6294,13 +6332,14 @@ function updateSelectedScenarioSource(key){
   const source = scenarioSourceByKey(key);
   if(!item || !source) return;
   const targetType = item.target_type || item.targetType || "company";
+  const nextBehaviors = sourceDefaultBehaviors(key);
   item.key = key;
   item.type = source.type;
   item.label = source.label;
-  item.behaviors = sourceDefaultBehaviors(key);
+  item.behaviors = nextBehaviors;
   item.behavior = item.behaviors[0];
   item.behaviorLabel = sourceBehaviorLabels(key, item.behaviors).join(", ");
-  item.instruction = sourceDefaultInstruction(key, targetType);
+  item.instruction = scenarioSuggestedInstruction(key, targetType, nextBehaviors);
   setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
   setScenarioItemWebTargets(item, key === "web_search" ? scenarioItemWebTargets(item) : []);
   saveCompanyScenario();
@@ -6623,24 +6662,25 @@ function initGiScenarioWorkbench(){
   if(!aCase) return;
   loadCaseStepsToWorkbench(aCase);
 
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const sourceSelect = document.getElementById("scenarioQuickSourceSelect");
   if(!sourceSelect) return;
   sourceSelect.innerHTML = scenarioSourceOptionsHtml();
 
   if(scenarioInitialized) return;
   scenarioInitialized = true;
 
-  document.getElementById("scenarioAddButton")?.addEventListener("click", () => {
+  document.querySelector("[data-scenario-quick-add]")?.addEventListener("click", () => {
     const key = sourceSelect.value;
     const src = scenarioSourceByKey(key);
     if(!src) return;
     const behaviors = selectedBehaviorValues();
+    const targetType = aCase.targetType || "company";
     const item = normalizeScenarioItem({
       id: uid(), key, type: src.type, label: src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
-      targetType: aCase.targetType || "company",
-      target_type: aCase.targetType || "company",
-      instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType),
+      targetType,
+      target_type: targetType,
+      instruction: document.getElementById("scenarioInstruction")?.value.trim() || scenarioSuggestedInstruction(key, targetType, behaviors.length ? behaviors : sourceDefaultBehaviors(key)),
       shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
       webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
     }, scenarioItems.length);
@@ -6653,7 +6693,7 @@ function initGiScenarioWorkbench(){
     syncScenarioEditor();
   });
 
-  document.getElementById("scenarioDeleteButton")?.addEventListener("click", () => {
+  document.querySelector("[data-scenario-quick-delete]")?.addEventListener("click", () => {
     if(!selectedScenarioId) return;
     scenarioItems = scenarioItems.filter(i => i.id !== selectedScenarioId);
     delete stepStatuses[selectedScenarioId];
@@ -6727,10 +6767,18 @@ function initGiScenarioWorkbench(){
     setScenarioStatus("대기");
   });
 
-  sourceSelect.addEventListener("change", event => updateSelectedScenarioSource(event.target.value));
-  document.getElementById("scenarioInstruction")?.addEventListener("input", event => {
-    const item = selectedScenarioItem();
-    if(item){ item.instruction = event.target.value; saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+  sourceSelect.addEventListener("change", event => {
+    updateSelectedScenarioSource(event.target.value);
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+  });
+  document.getElementById("scenarioApplyPromptButton")?.addEventListener("click", () => {
+    applySelectedScenarioPrompt();
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+  });
+  document.getElementById("scenarioValidatePromptButton")?.addEventListener("click", () => {
+    validateSelectedScenarioPrompt();
   });
 
   syncScenarioEditor();
@@ -6744,24 +6792,25 @@ function initDrugScenarioWorkbench(){
   if(!aCase) return;
   loadCaseStepsToWorkbench(aCase);
 
-  const sourceSelect = document.getElementById("scenarioSourceSelect");
+  const sourceSelect = document.getElementById("scenarioQuickSourceSelect");
   if(!sourceSelect) return;
   sourceSelect.innerHTML = scenarioSourceOptionsHtml();
 
   if(scenarioInitialized) return;
   scenarioInitialized = true;
 
-  document.getElementById("scenarioAddButton")?.addEventListener("click", () => {
+  document.querySelector("[data-scenario-quick-add]")?.addEventListener("click", () => {
     const key = sourceSelect.value;
     const src = scenarioSourceByKey(key);
     if(!src) return;
     const behaviors = selectedBehaviorValues();
+    const targetType = aCase.targetType || "person";
     const item = normalizeScenarioItem({
       id:uid(), key, type:src.type, label:src.label,
       behaviors: behaviors.length ? behaviors : sourceDefaultBehaviors(key),
-      targetType: aCase.targetType || "person",
-      target_type: aCase.targetType || "person",
-      instruction: document.getElementById("scenarioInstruction")?.value.trim() || sourceDefaultInstruction(key, aCase.targetType || "person"),
+      targetType,
+      target_type: targetType,
+      instruction: document.getElementById("scenarioInstruction")?.value.trim() || scenarioSuggestedInstruction(key, targetType, behaviors.length ? behaviors : sourceDefaultBehaviors(key)),
       shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
       webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
     }, scenarioItems.length);
@@ -6774,7 +6823,7 @@ function initDrugScenarioWorkbench(){
     syncScenarioEditor();
   });
 
-  document.getElementById("scenarioDeleteButton")?.addEventListener("click", () => {
+  document.querySelector("[data-scenario-quick-delete]")?.addEventListener("click", () => {
     if(!selectedScenarioId) return;
     scenarioItems = scenarioItems.filter(i => i.id !== selectedScenarioId);
     delete stepStatuses[selectedScenarioId];
@@ -6840,10 +6889,18 @@ function initDrugScenarioWorkbench(){
     setScenarioStatus("대기");
   });
 
-  sourceSelect.addEventListener("change", event => updateSelectedScenarioSource(event.target.value));
-  document.getElementById("scenarioInstruction")?.addEventListener("input", event => {
-    const item = selectedScenarioItem();
-    if(item){ item.instruction = event.target.value; saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+  sourceSelect.addEventListener("change", event => {
+    updateSelectedScenarioSource(event.target.value);
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+  });
+  document.getElementById("scenarioApplyPromptButton")?.addEventListener("click", () => {
+    applySelectedScenarioPrompt();
+    saveWorkbenchToCaseSteps(aCase);
+    saveCanvasState();
+  });
+  document.getElementById("scenarioValidatePromptButton")?.addEventListener("click", () => {
+    validateSelectedScenarioPrompt();
   });
 
   syncScenarioEditor();
@@ -8180,53 +8237,13 @@ document.addEventListener("click", (event)=>{
   }
 });
 
-/* ── AI 서비스 단계: 단독 실행 + 추가 등록 프롬프트 (관세조사/일반수사/마약수사 공통) ── */
+/* ── AI 서비스 단독 실행 (관세조사/일반수사/마약수사 공통) ── */
 document.addEventListener("click", (event) => {
   const runSelected = event.target.closest("#scenarioRunSelectedButton");
   if(runSelected){
+    applySelectedScenarioPrompt();
     runSingleScenarioItem(selectedScenarioItem());
     return;
-  }
-
-  const addPromptButton = event.target.closest("#scenarioExtraPromptAddButton");
-  if(addPromptButton){
-    addScenarioExtraPrompt();
-    return;
-  }
-
-  const removePrompt = event.target.closest("[data-scenario-prompt-remove]");
-  if(removePrompt){
-    const id = removePrompt.dataset.scenarioPromptRemove;
-    const item = selectedScenarioItem();
-    if(item && Array.isArray(item.extraPrompts)){
-      item.extraPrompts = item.extraPrompts.filter(p => p.id !== id);
-      saveCanvasState();
-      renderScenarioExtraPromptPanel();
-      renderScenarioSteps();
-    }
-    return;
-  }
-});
-
-document.addEventListener("change", (event) => {
-  const togglePrompt = event.target.closest("[data-scenario-prompt-toggle]");
-  if(togglePrompt){
-    const id = togglePrompt.dataset.scenarioPromptToggle;
-    const item = selectedScenarioItem();
-    const entry = item?.extraPrompts?.find(p => p.id === id);
-    if(entry){
-      entry.enabled = togglePrompt.checked;
-      saveCanvasState();
-      renderScenarioExtraPromptPanel();
-      renderScenarioSteps();
-    }
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if(event.key === "Enter" && event.target?.id === "scenarioExtraPromptInput"){
-    event.preventDefault();
-    addScenarioExtraPrompt();
   }
 });
 

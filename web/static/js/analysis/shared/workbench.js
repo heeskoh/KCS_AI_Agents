@@ -1,28 +1,26 @@
-/**
+﻿/**
  * analysis/shared/workbench.js
  *
- * 공통 "AI서비스 분석 작업" 워크벤치 컴포넌트
+ * 怨듯넻 "AI?쒕퉬??遺꾩꽍 ?묒뾽" ?뚰겕踰ㅼ튂 而댄룷?뚰듃
  *
- * 관세조사(scenarioWorkbenchV2) 수준의 기능을
- * 일반수사 / 마약수사 / 외환수사에서 동일하게 사용할 수 있도록 추출.
+ * 愿?몄“??scenarioWorkbenchV2) ?섏???湲곕뒫?? * ?쇰컲?섏궗 / 留덉빟?섏궗 / ?명솚?섏궗?먯꽌 ?숈씪?섍쾶 ?ъ슜?????덈룄濡?異붿텧.
  *
- * 호출 측은 renderSharedWorkbench(deps, ctx) 를 import해 사용한다.
+ * ?몄텧 痢≪? renderSharedWorkbench(deps, ctx) 瑜?import???ъ슜?쒕떎.
  *
- * ctx 인터페이스:
+ * ctx ?명꽣?섏씠??
  * {
- *   ns            : string   — 네임스페이스 ("gi" | "drug")
- *                             → data-{ns}-step-select / data-{ns}-run-step 등에 사용
- *   aCase         : object   — 활성 케이스 (null이면 가이드 메시지)
- *   typeChip      : string   — 케이스 타입 배지 HTML (e.g. gi-type-chip span)
- *   subtitle      : string   — 워크벤치 부제목 문자열
- *   steps         : object[] — 현재 시나리오 단계 배열
- *   states        : object   — { [stepId]: "wait"|"run"|"done"|"error" }
- *   activeStepId  : string   — 현재 선택된 단계 id
- *   stepResults   : object   — { [stepId]: string }
- *   stepExpanded  : object   — { [stepId]: boolean }
- *   isRunning     : boolean  — SSE 실행 중 여부
- *   templateOptionsHtml : string — <option> 목록 HTML (없으면 null)
- *   sourceOptionsHtml   : string — AI 서비스 단계 <option> 목록 HTML
+ *   ns            : string   ???ㅼ엫?ㅽ럹?댁뒪 ("gi" | "drug")
+ *                             ??data-{ns}-step-select / data-{ns}-run-step ?깆뿉 ?ъ슜
+ *   aCase         : object   ???쒖꽦 耳?댁뒪 (null?대㈃ 媛?대뱶 硫붿떆吏)
+ *   typeChip      : string   ??耳?댁뒪 ???諛곗? HTML (e.g. gi-type-chip span)
+ *   subtitle      : string   ???뚰겕踰ㅼ튂 遺?쒕ぉ 臾몄옄?? *   steps         : object[] ???꾩옱 ?쒕굹由ъ삤 ?④퀎 諛곗뿴
+ *   states        : object   ??{ [stepId]: "wait"|"run"|"done"|"error" }
+ *   activeStepId  : string   ???꾩옱 ?좏깮???④퀎 id
+ *   stepResults   : object   ??{ [stepId]: string }
+ *   stepExpanded  : object   ??{ [stepId]: boolean }
+ *   isRunning     : boolean  ??SSE ?ㅽ뻾 以??щ?
+ *   templateOptionsHtml : string ??<option> 紐⑸줉 HTML (?놁쑝硫?null)
+ *   sourceOptionsHtml   : string ??AI ?쒕퉬???④퀎 <option> 紐⑸줉 HTML
  *   getBehaviorHtml     : (sourceKey, behaviors) => string
  *   getSourceHint       : (sourceKey, targetType) => { label, typeLabel, description }
  *   getPermissionStatus : (sourceKey) => "granted"|"requested"|"locked"
@@ -32,8 +30,8 @@
 import { escapeHtml, markdownToHtml } from "../../core/dom.js";
 
 const TYPE_LABEL = {
-  db: "DB 조회", agent: "AI 서비스",
-  rag: "RAG", report: "보고서", approve: "검증",
+  db: "DB 議고쉶", agent: "AI ?쒕퉬??,
+  rag: "RAG", report: "蹂닿퀬??, approve: "寃利?,
 };
 const CHIP_CLS = {
   db: "bigdata", agent: "agent",
@@ -41,14 +39,14 @@ const CHIP_CLS = {
 };
 
 function normalizeReportValidationLabel(label) {
-  const legacy = "보고서 " + "승인";
-  return String(label || "").replaceAll(legacy, "보고서 검증");
+  const legacy = "蹂닿퀬??" + "?뱀씤";
+  return String(label || "").replaceAll(legacy, "蹂닿퀬??寃利?);
 }
 
 export function renderSharedWorkbench(deps, ctx) {
-  /* ── 케이스 없을 때 ─────────────────────────── */
+  /* ?? 耳?댁뒪 ?놁쓣 ????????????????????????????? */
   if (!ctx.aCase) {
-    return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+    return `<div class="profile-loading">?섏궗 ??곸쓣 癒쇱? ?좏깮?섏꽭??</div>`;
   }
 
   const { ns, aCase, typeChip, subtitle, steps, states,
@@ -62,23 +60,23 @@ export function renderSharedWorkbench(deps, ctx) {
   const pct   = total ? Math.round(done / total * 100) : 0;
   const selStep = steps.find(s => s.id === activeStepId) || null;
 
-  /* ── 왼쪽: 단계 칩 목록 ──────────────────────── */
+  /* ?? ?쇱そ: ?④퀎 移?紐⑸줉 ???????????????????????? */
   const boardChips = steps.map((step, i) => {
     const state    = states[step.id] || "wait";
     const isActive = step.id === activeStepId;
     const isDone   = state === "done";
     const stateTag = isDone
-      ? `<span class="gi-chip-state done">완료</span>`
+      ? `<span class="gi-chip-state done">?꾨즺</span>`
       : state === "run"
-        ? `<span class="gi-chip-state run">실행중</span>`
+        ? `<span class="gi-chip-state run">?ㅽ뻾以?/span>`
         : "";
 
-    // 소스 키 → 권한 상태
+    // ?뚯뒪 ????沅뚰븳 ?곹깭
     const srcKey = step.sourceKey || step.key || "";
     const perm   = getPermissionStatus ? getPermissionStatus(srcKey) : "granted";
     const isGranted = perm === "granted";
     const permBadge = !isGranted
-      ? `<span style="font-size:10px;color:#dc2626;margin-left:4px">${escapeHtml(getPermissionLabel?.(perm) || "권한없음")}</span>`
+      ? `<span style="font-size:10px;color:#dc2626;margin-left:4px">${escapeHtml(getPermissionLabel?.(perm) || "沅뚰븳?놁쓬")}</span>`
       : "";
 
     return `
@@ -87,7 +85,7 @@ export function renderSharedWorkbench(deps, ctx) {
         data-${ns}-step-drag-id="${escapeHtml(step.id)}"
         draggable="true"
         tabindex="0" role="button" style="position:relative">
-        <div class="chip-num"${isDone ? ' style="background:#22c55e"' : ""}>${isDone ? "✓" : i + 1}</div>
+        <div class="chip-num"${isDone ? ' style="background:#22c55e"' : ""}>${isDone ? "?? : i + 1}</div>
         <div class="chip-body">
           <div class="chip-title-row">
             <strong>${escapeHtml(normalizeReportValidationLabel(step.label))}</strong>${stateTag}${permBadge}
@@ -98,16 +96,16 @@ export function renderSharedWorkbench(deps, ctx) {
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
           ${i > 0
-            ? `<button class="gi-move-btn" data-${ns}-step-up="${escapeHtml(step.id)}" title="위로">↑</button>`
+            ? `<button class="gi-move-btn" data-${ns}-step-up="${escapeHtml(step.id)}" title="?꾨줈">??/button>`
             : `<span style="width:22px"></span>`}
           ${i < steps.length - 1
-            ? `<button class="gi-move-btn" data-${ns}-step-down="${escapeHtml(step.id)}" title="아래로">↓</button>`
+            ? `<button class="gi-move-btn" data-${ns}-step-down="${escapeHtml(step.id)}" title="?꾨옒濡?>??/button>`
             : `<span style="width:22px"></span>`}
         </div>
       </div>`;
   }).join("");
 
-  /* ── 가운데: 단계 설정 패널 ─────────────────── */
+  /* ?? 媛?대뜲: ?④퀎 ?ㅼ젙 ?⑤꼸 ??????????????????? */
   let configPanel;
   if (selStep) {
     const srcKey    = selStep.sourceKey || selStep.key || "";
@@ -115,7 +113,7 @@ export function renderSharedWorkbench(deps, ctx) {
     const isGranted = perm === "granted";
     const hint      = getSourceHint ? getSourceHint(srcKey, aCase.targetType || "company") : null;
     const stepState = states[selStep.id] || "wait";
-    const stateLabel = { done: "완료", run: "실행중", error: "오류", wait: "대기" }[stepState] || "대기";
+    const stateLabel = { done: "?꾨즺", run: "?ㅽ뻾以?, error: "?ㅻ쪟", wait: "?湲? }[stepState] || "?湲?;
     const stateClass = { done: " done", run: " run", error: " error" }[stepState] || " wait";
 
     configPanel = `
@@ -123,36 +121,36 @@ export function renderSharedWorkbench(deps, ctx) {
         <strong>${escapeHtml(selStep.label)}</strong>
         <span class="gi-chip-state${stateClass}" style="margin-left:8px">${stateLabel}</span>
       </div>
-      <div class="scenario-agent-zone" style="overflow-y:auto;flex:1;min-height:0">
+      <div class="scenario-agent-zone">
 
-        <!-- AI 서비스 단계 선택 -->
+        <!-- AI ?쒕퉬???④퀎 ?좏깮 -->
         <label class="scenario-field">
-          <span>AI 서비스 단계</span>
+          <span>AI ?쒕퉬???④퀎</span>
           <select id="${ns}WbStepSource" class="gi-reg-select" data-${ns}-step-id="${escapeHtml(selStep.id)}">
             ${sourceOptionsHtml || ""}
           </select>
         </label>
 
-        <!-- 권한 없음 경고 -->
+        <!-- 沅뚰븳 ?놁쓬 寃쎄퀬 -->
         ${!isGranted ? `
           <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;
                       padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-            <span style="font-size:12px;color:#dc2626">⚠ ${escapeHtml(getPermissionLabel?.(perm) || "권한 없음")}</span>
+            <span style="font-size:12px;color:#dc2626">??${escapeHtml(getPermissionLabel?.(perm) || "沅뚰븳 ?놁쓬")}</span>
             <button class="btn secondary" type="button"
               style="height:26px;padding:0 10px;font-size:11px;margin-left:auto"
-              data-${ns}-step-request-perm="${escapeHtml(srcKey)}">권한 요청</button>
+              data-${ns}-step-request-perm="${escapeHtml(srcKey)}">沅뚰븳 ?붿껌</button>
           </div>` : ""}
 
-        <!-- 동작 선택 -->
+        <!-- ?숈옉 ?좏깮 -->
         <div class="scenario-field">
-          <span>동작 선택</span>
+          <span>?숈옉 ?좏깮</span>
           <div id="${ns}WbBehaviorOptions" class="scenario-behavior-options"
                data-${ns}-step-id="${escapeHtml(selStep.id)}">
             ${getBehaviorHtml ? getBehaviorHtml(srcKey, selStep.behaviors) : ""}
           </div>
         </div>
 
-        <!-- 서비스 설명 힌트 -->
+        <!-- ?쒕퉬???ㅻ챸 ?뚰듃 -->
         ${hint ? `
           <div class="scenario-source-hint">
             <div class="hint-header">
@@ -162,47 +160,47 @@ export function renderSharedWorkbench(deps, ctx) {
             <p>${escapeHtml(hint.description)}</p>
           </div>` : ""}
 
-        <!-- 추가 지시 -->
+        <!-- 異붽? 吏??-->
         <label class="scenario-field">
-          <span>추가 지시</span>
+          <span>異붽? 吏??/span>
           <textarea id="${ns}WbStepNote" class="gi-wb2-textarea" rows="4"
             style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;
-                   font:inherit;font-size:13px;width:100%;box-sizing:border-box;resize:vertical"
-            placeholder="이 단계에서 중점적으로 확인할 내용을 입력하세요."
+                   font:inherit;font-size:13px;width:100%;box-sizing:border-box;"
+            placeholder="???④퀎?먯꽌 以묒젏?곸쑝濡??뺤씤???댁슜???낅젰?섏꽭??"
             data-${ns}-step-id="${escapeHtml(selStep.id)}">${escapeHtml(selStep.instruction || selStep.note || "")}</textarea>
         </label>
       </div>
 
-      <!-- 단계 추가/삭제 -->
+      <!-- ?④퀎 異붽?/??젣 -->
       <div class="scenario-actions" style="margin-top:12px">
         <select id="${ns}WbAddSource" class="gi-reg-select" style="flex:1">
-          <option value="">+ 단계 추가 선택...</option>
+          <option value="">+ ?④퀎 異붽? ?좏깮...</option>
           ${sourceOptionsHtml || ""}
         </select>
-        <button class="btn" type="button" data-${ns}-step-add>단계 추가</button>
-        <button class="btn secondary" type="button" data-${ns}-step-delete="${escapeHtml(selStep.id)}">선택 삭제</button>
+        <button class="btn" type="button" data-${ns}-step-add>?④퀎 異붽?</button>
+        <button class="btn secondary" type="button" data-${ns}-step-delete="${escapeHtml(selStep.id)}">?좏깮 ??젣</button>
       </div>`;
   } else {
     configPanel = `
       <div class="scenario-config-title" style="margin-bottom:14px">
-        <strong>분석 시나리오 설정</strong>
+        <strong>遺꾩꽍 ?쒕굹由ъ삤 ?ㅼ젙</strong>
       </div>
       <div class="scenario-agent-zone" style="display:flex;flex-direction:column;
            align-items:center;justify-content:center;flex:1;color:#94a3b8;text-align:center;gap:8px">
-        <span style="font-size:32px;opacity:.25">⚙</span>
-        <p style="margin:0;font-size:13px">왼쪽에서 단계를 선택하면<br>설정을 확인하고 편집할 수 있습니다.</p>
+        <span style="font-size:32px;opacity:.25">??/span>
+        <p style="margin:0;font-size:13px">?쇱そ?먯꽌 ?④퀎瑜??좏깮?섎㈃<br>?ㅼ젙???뺤씤?섍퀬 ?몄쭛?????덉뒿?덈떎.</p>
       </div>
       <div class="scenario-actions" style="margin-top:12px">
         <select id="${ns}WbAddSource" class="gi-reg-select" style="flex:1">
-          <option value="">+ 단계 추가 선택...</option>
+          <option value="">+ ?④퀎 異붽? ?좏깮...</option>
           ${sourceOptionsHtml || ""}
         </select>
-        <button class="btn" type="button" data-${ns}-step-add>단계 추가</button>
-        <button class="btn secondary" type="button" disabled>선택 삭제</button>
+        <button class="btn" type="button" data-${ns}-step-add>?④퀎 異붽?</button>
+        <button class="btn secondary" type="button" disabled>?좏깮 ??젣</button>
       </div>`;
   }
 
-  /* ── 오른쪽: 실행 로그 ───────────────────────── */
+  /* ?? ?ㅻⅨ履? ?ㅽ뻾 濡쒓렇 ????????????????????????? */
   const logRows = steps.map((step, i) => {
     const state      = states[step.id] || "wait";
     const isDone     = state === "done";
@@ -212,24 +210,24 @@ export function renderSharedWorkbench(deps, ctx) {
     const isExpanded = !!(stepExpanded[step.id]);
 
     const stateCell = isDone
-      ? `<span class="gi-chip-state done">완료</span>
+      ? `<span class="gi-chip-state done">?꾨즺</span>
          ${hasResult ? `<button class="gi-log-act-btn"
            data-${ns}-toggle-result="${escapeHtml(step.id)}"
-           title="${isExpanded ? "접기" : "결과 보기"}">${isExpanded ? "▲" : "▼"}</button>` : ""}
+           title="${isExpanded ? "?묎린" : "寃곌낵 蹂닿린"}">${isExpanded ? "?? : "??}</button>` : ""}
          <button class="gi-log-act-btn"
            data-${ns}-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}"
-           title="재실행">↺</button>`
+           title="?ъ떎??>??/button>`
       : isError
-        ? `<span class="gi-chip-state" style="background:#fee2e2;color:#dc2626">오류</span>
+        ? `<span class="gi-chip-state" style="background:#fee2e2;color:#dc2626">?ㅻ쪟</span>
            ${hasResult ? `<button class="gi-log-act-btn"
-             data-${ns}-toggle-result="${escapeHtml(step.id)}">${isExpanded ? "▲" : "▼"}</button>` : ""}
+             data-${ns}-toggle-result="${escapeHtml(step.id)}">${isExpanded ? "?? : "??}</button>` : ""}
            <button class="gi-log-act-btn"
-             data-${ns}-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">↺</button>`
+             data-${ns}-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}">??/button>`
         : isRun
-          ? `<span class="gi-chip-state run" style="animation:gi-blink 1.2s infinite">실행중...</span>`
+          ? `<span class="gi-chip-state run" style="animation:gi-blink 1.2s infinite">?ㅽ뻾以?..</span>`
           : `<button class="gi-log-act-btn primary"
                data-${ns}-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(step.id)}"
-               ${isRunning ? "disabled" : ""}>▶</button>`;
+               ${isRunning ? "disabled" : ""}>??/button>`;
 
     const resultSection = (isDone || isError) && hasResult && isExpanded
       ? `<div class="gi-log-result-frame">
@@ -239,7 +237,7 @@ export function renderSharedWorkbench(deps, ctx) {
     return `
       <div class="gi-log-item${isExpanded ? " open" : ""}${isDone ? " gi-log-done" : isRun ? " gi-log-run" : isError ? " gi-log-error" : ""}">
         <div class="gi-log-row">
-          <div class="gi-log-num">${isDone ? "✓" : isError ? "!" : i + 1}</div>
+          <div class="gi-log-num">${isDone ? "?? : isError ? "!" : i + 1}</div>
           <div class="gi-log-name">${escapeHtml(normalizeReportValidationLabel(step.label))}</div>
           <div class="gi-log-state">${stateCell}</div>
         </div>
@@ -247,11 +245,11 @@ export function renderSharedWorkbench(deps, ctx) {
       </div>`;
   }).join("");
 
-  /* ── 전체 레이아웃 ───────────────────────────── */
+  /* ?? ?꾩껜 ?덉씠?꾩썐 ????????????????????????????? */
   return `
     <section class="card scenario-workbench scenario-workbench-v2" style="padding:0;overflow:hidden">
 
-      <!-- 헤더: 케이스 정보 + 진행 상태 -->
+      <!-- ?ㅻ뜑: 耳?댁뒪 ?뺣낫 + 吏꾪뻾 ?곹깭 -->
       <div class="scenario-title-row" style="padding:14px 18px 0">
         <div>
           <h3 style="display:flex;align-items:center;gap:10px;margin:0 0 2px">
@@ -264,41 +262,41 @@ export function renderSharedWorkbench(deps, ctx) {
           <p class="muted" style="margin:0;font-size:12px">${escapeHtml(subtitle)}</p>
         </div>
         <div class="scenario-status">
-          <span>${done === total && total > 0 ? "완료" : done > 0 ? "진행중" : "대기"}</span>
+          <span>${done === total && total > 0 ? "?꾨즺" : done > 0 ? "吏꾪뻾以? : "?湲?}</span>
           <strong>${done}/${total}</strong>
         </div>
       </div>
 
-      <!-- 진행 바 -->
+      <!-- 吏꾪뻾 諛?-->
       <div class="scenario-progress" style="margin:10px 18px 0;height:6px">
         <i style="width:${pct}%"></i>
       </div>
 
-      <!-- 3열 레이아웃 -->
+      <!-- 3???덉씠?꾩썐 -->
       <div class="scenario-layout scenario-execution-layout"
            style="padding:14px 18px 14px;margin-top:10px">
 
-        <!-- 왼쪽: 시나리오 단계 목록 -->
+        <!-- ?쇱そ: ?쒕굹由ъ삤 ?④퀎 紐⑸줉 -->
         <section class="scenario-board">
           <div class="scenario-board-head">
-            <h3>시나리오 단계</h3>
-            <span class="muted" style="font-size:12px">${total}단계</span>
+            <h3>?쒕굹由ъ삤 ?④퀎</h3>
+            <span class="muted" style="font-size:12px">${total}?④퀎</span>
           </div>
           <div class="scenario-list-vertical" style="margin-top:10px">
-            ${boardChips || `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">단계가 없습니다.</div>`}
+            ${boardChips || `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">?④퀎媛 ?놁뒿?덈떎.</div>`}
           </div>
         </section>
 
-        <!-- 가운데: 단계 설정 + 템플릿 -->
+        <!-- 媛?대뜲: ?④퀎 ?ㅼ젙 + ?쒗뵆由?-->
         <aside class="scenario-config" style="display:flex;flex-direction:column">
 
-          <!-- 템플릿 선택 (있을 때만) -->
+          <!-- ?쒗뵆由??좏깮 (?덉쓣 ?뚮쭔) -->
           ${templateOptionsHtml ? `
             <div class="scenario-template-zone" style="margin-bottom:12px">
               <div class="scenario-template-zone-head">
-                <span>시나리오 템플릿</span>
+                <span>?쒕굹由ъ삤 ?쒗뵆由?/span>
                 <button type="button" class="btn scenario-template-apply-btn"
-                  data-${ns}-template-apply>적용</button>
+                  data-${ns}-template-apply>?곸슜</button>
               </div>
               <select id="${ns}WbTemplateSelect" class="scenario-template-select">
                 ${templateOptionsHtml}
@@ -308,29 +306,31 @@ export function renderSharedWorkbench(deps, ctx) {
           ${configPanel}
         </aside>
 
-        <!-- 오른쪽: 실행 로그 -->
+        <!-- ?ㅻⅨ履? ?ㅽ뻾 濡쒓렇 -->
         <section class="scenario-log" style="display:flex;flex-direction:column">
           <div class="scenario-log-head">
-            <h3>분석 실행${isRunning
-              ? ` <span class="gi-chip-state run" style="font-size:11px;animation:gi-blink 1.2s infinite">실행중</span>`
+            <h3>遺꾩꽍 ?ㅽ뻾${isRunning
+              ? ` <span class="gi-chip-state run" style="font-size:11px;animation:gi-blink 1.2s infinite">?ㅽ뻾以?/span>`
               : ""}</h3>
             <div class="scenario-log-actions">
               <button class="btn" type="button"
                 data-${ns}-run-step="${escapeHtml(aCase.caseId)}:all"
                 ${isRunning ? "disabled" : ""}>
-                ${isRunning ? "⏳ 실행중..." : "전체 실행"}
+                ${isRunning ? "???ㅽ뻾以?.." : "?꾩껜 ?ㅽ뻾"}
               </button>
               <button class="btn secondary" type="button"
-                data-${ns}-rerun-step="${escapeHtml(aCase.caseId)}:clear">결과 지우기</button>
+                data-${ns}-rerun-step="${escapeHtml(aCase.caseId)}:clear">寃곌낵 吏?곌린</button>
             </div>
           </div>
           <div class="gi-log-list scenario-step-accordion scenario-ai-results"
                style="margin-top:10px;flex:1;overflow-y:auto">
             ${logRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">
-              실행 버튼을 눌러 시나리오를 시작하세요.</div>`}
+              ?ㅽ뻾 踰꾪듉???뚮윭 ?쒕굹由ъ삤瑜??쒖옉?섏꽭??</div>`}
           </div>
         </section>
 
       </div>
     </section>`;
 }
+
+

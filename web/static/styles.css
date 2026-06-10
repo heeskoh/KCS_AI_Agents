@@ -1018,7 +1018,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .scenario-workbench{margin-top:0}
 .scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:8px}
 .scenario-workbench-v2.result-full-active{height:auto;overflow:visible}
-.scenario-work-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 14px;flex:none}
+.scenario-work-header{display:grid;grid-template-columns:minmax(220px,1fr) minmax(410px,auto) minmax(520px,auto);align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 10px;flex:none}
 .scenario-title-row{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;min-width:0;flex:none}
 .scenario-title-row h3{margin-bottom:6px}
 .scenario-title-row p{margin:0}
@@ -1032,6 +1032,8 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config{display:flex;flex-direction:column}
 .scenario-config-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .scenario-config-title h3{margin:0;font-size:18px;color:var(--text)}
+.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:0;padding:8px 10px;min-width:410px}
+.scenario-service-zone strong{font-size:13px;color:#14532d;white-space:nowrap}
 /* Template zone — colored background block */
 .scenario-template-zone{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:0;padding:8px 10px;min-width:620px}
 .scenario-template-zone strong{font-size:14px;color:#0f172a;white-space:nowrap}
@@ -1040,7 +1042,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .scenario-template-apply-btn{padding:7px 10px;font-size:12px;white-space:nowrap}
 .scenario-template-select{width:100%;height:34px;padding:0 10px;border:1px solid #c8d8f0;border-radius:8px;background:#fff;color:var(--text);font:inherit;font-size:13px}
 /* AI service zone */
-.scenario-agent-zone{flex:1;overflow-y:auto;min-height:0}
+.scenario-agent-zone{flex:1;overflow:hidden;min-height:0;display:flex;flex-direction:column}
 .scenario-agent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .scenario-agent-head strong{font-size:14px;color:#53617b}
 .scenario-field{display:grid;gap:7px;margin-bottom:12px;color:#53617b;font-size:12px;font-weight:800}
@@ -1048,6 +1050,7 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .scenario-field select{height:40px;padding:0 10px}
 .scenario-field textarea{min-height:104px;padding:10px;resize:vertical;line-height:1.5}
 .scenario-config .scenario-field textarea,.scenario-agent-zone .scenario-field textarea{min-height:80px}
+.scenario-agent-zone .scenario-prompt-editor{flex:1;min-height:120px;border-color:#38bdf8;border-radius:10px;font-size:13px;line-height:1.6;background:#fff;overflow-y:auto;resize:none}
 .scenario-behavior-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .scenario-behavior-check{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid #d8e5fb;border-radius:9px;background:#f8fbff;color:#123c85;font-size:12px;font-weight:900}
 .scenario-behavior-check input{accent-color:var(--blue)}
@@ -1064,19 +1067,12 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 .btn-perm-request{flex-shrink:0;padding:5px 12px;font-size:12px;font-weight:800;border-radius:8px;border:1px solid #dc2626;background:#dc2626;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s}
 .btn-perm-request:hover{background:#b91c1c}
 
-.scenario-prompt-thread-field span small{display:block;margin-top:2px;font-weight:600;color:var(--muted)}
-.prompt-thread{display:flex;flex-direction:column;gap:7px;margin-top:2px}
-.prompt-bubble{display:flex;align-items:flex-start;gap:8px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#f8fafc;color:#53617b;transition:border-color .15s,background .15s}
-.prompt-bubble.active{border-color:#bfdbfe;background:#f0f7ff;color:#123c85}
-.prompt-bubble.base{background:#eef4ff;border-color:#cfe0fb;color:#123c85}
-.prompt-bubble-toggle{display:flex;align-items:flex-start;gap:8px;flex:1;font-size:12px;font-weight:700;line-height:1.5;cursor:pointer}
-.prompt-bubble-toggle input{margin-top:3px;accent-color:var(--blue);flex-shrink:0}
-.prompt-bubble-toggle span strong{color:#174ea6;margin-right:4px}
-.prompt-bubble-remove{flex-shrink:0;border:none;background:transparent;color:#94a3b8;font-size:13px;line-height:1;cursor:pointer;padding:2px 4px;border-radius:6px}
-.prompt-bubble-remove:hover{color:#dc2626;background:#fee2e2}
-.prompt-thread-input{display:flex;gap:8px;margin-top:6px}
-.prompt-thread-input input{flex:1;border:1px solid var(--line);border-radius:9px;padding:0 10px;height:36px;font:inherit;font-size:12px;background:#fff;color:var(--text)}
-.prompt-thread-input .btn{height:36px;padding:0 12px;font-size:12px}
+.scenario-prompt-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:4px;flex-wrap:wrap}
+.scenario-prompt-actions .btn{height:32px;padding:0 12px;font-size:12px;line-height:1.2;white-space:nowrap}
+.scenario-prompt-validation{min-height:0;margin:-4px 0 8px}
+.prompt-validation-msg{padding:8px 10px;border-radius:9px;font-size:12px;font-weight:800;line-height:1.4}
+.prompt-validation-msg.good{background:#ecfdf5;border:1px solid #86efac;color:#047857}
+.prompt-validation-msg.warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412}
 .scenario-actions{display:flex;gap:6px;align-items:center;margin-left:auto}
 .scenario-actions .btn{padding:5px 9px;font-size:12px;line-height:1.2;white-space:nowrap}
 .scenario-save-bottom{font-size:12px;padding:7px 10px;white-space:nowrap}
@@ -1283,7 +1279,18 @@ body{margin:0;background:var(--bg);font-family:Arial,'Noto Sans KR',sans-serif;c
 
 @media(max-width:800px){.quick-bar{flex-wrap:wrap}}
 @media(max-width:1200px){.quick-menu-main{grid-template-columns:1fr 1fr 1fr}.job-board{grid-template-columns:repeat(3,minmax(0,1fr))}.upload-summary-grid{grid-template-columns:1fr 1fr}.upload-drop-card{grid-column:1/-1}.template-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:1200px){.canvas-hub{height:auto;min-height:calc(100vh - 146px);overflow:visible}.canvas-tab-body{overflow:visible}.scenario-workbench-v2{height:auto;overflow:visible}.scenario-work-header{grid-template-columns:1fr;align-items:stretch}.scenario-template-zone{min-width:0}.scenario-layout,.scenario-results{grid-template-columns:1fr}.scenario-execution-layout{grid-template-columns:1fr;overflow:visible}.scenario-execution-layout .scenario-log{height:520px;min-height:520px}.scenario-list-horizontal .scenario-chip{flex-basis:232px}.scenario-list-vertical{max-height:320px}.scenario-list-vertical .scenario-chip{min-height:0}}
-@media(max-width:800px){.quick-menu-main,.job-board,.template-grid{grid-template-columns:1fr}.canvas-main-head,.canvas-overview-toolbar,.scenario-title-row,.scenario-board-head,.scenario-log-head,.template-page-head,.profile-run-archive{display:block}.scenario-template-zone{grid-template-columns:1fr}.scenario-board{grid-template-columns:1fr}.scenario-flow-arrow{display:none}.canvas-main-head .btn,.canvas-overview-toolbar .btn,.scenario-board-head .btn,.scenario-log-head .btn,.template-page-head .btn{margin-top:10px}.profile-run-actions{justify-content:flex-start;margin-top:10px}.new-scenario-picker{justify-content:flex-start}.new-scenario-company{width:100%;align-items:flex-start;flex-direction:column}.new-scenario-company select{width:100%;min-width:0}.scenario-execution-layout{grid-template-columns:1fr}.scenario-execution-layout .scenario-log{grid-column:auto}.scenario-behavior-options{grid-template-columns:1fr}}
+@media(max-width:1200px){.canvas-hub{height:auto;min-height:calc(100vh - 146px);overflow:visible}.canvas-tab-body{overflow:visible}.scenario-workbench-v2{height:auto;overflow:visible}.scenario-work-header{grid-template-columns:1fr;align-items:stretch}.scenario-service-zone,.scenario-template-zone{min-width:0}.scenario-layout,.scenario-results{grid-template-columns:1fr}.scenario-execution-layout{grid-template-columns:1fr;overflow:visible}.scenario-execution-layout .scenario-log{height:520px;min-height:520px}.scenario-list-horizontal .scenario-chip{flex-basis:232px}.scenario-list-vertical{max-height:320px}.scenario-list-vertical .scenario-chip{min-height:0}}
+@media(max-width:800px){.quick-menu-main,.job-board,.template-grid{grid-template-columns:1fr}.canvas-main-head,.canvas-overview-toolbar,.scenario-title-row,.scenario-board-head,.scenario-log-head,.template-page-head,.profile-run-archive{display:block}.scenario-service-zone,.scenario-template-zone{grid-template-columns:1fr}.scenario-board{grid-template-columns:1fr}.scenario-flow-arrow{display:none}.canvas-main-head .btn,.canvas-overview-toolbar .btn,.scenario-board-head .btn,.scenario-log-head .btn,.template-page-head .btn{margin-top:10px}.profile-run-actions{justify-content:flex-start;margin-top:10px}.new-scenario-picker{justify-content:flex-start}.new-scenario-company{width:100%;align-items:flex-start;flex-direction:column}.new-scenario-company select{width:100%;min-width:0}.scenario-execution-layout{grid-template-columns:1fr}.scenario-execution-layout .scenario-log{grid-column:auto}.scenario-behavior-options{grid-template-columns:1fr}}
 @media(max-width:800px){.home-file-link-fields{grid-template-columns:1fr}.home-file-link-fields .btn{width:100%}}
 .risk-chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700}.risk-chip.high{background:#fee2e2;color:#dc2626}.risk-chip.mid{background:#fef3c7;color:#d97706}.risk-chip.low{background:#f0fdf4;color:#166534}
+
+/* ── 조사·수사 분석 상세 화면 전체 채우기 ── */
+.content.content-fill{padding:0}
+.content-fill>.gi-hub,.content-fill>.ci-hub{height:100%;min-height:0;flex:1;border-radius:0;border-left:0;border-right:0;border-bottom:0}
+
+/* ── 워크벤치 프롬프트 영역: 마지막 입력 필드가 남은 공간 채우고 자체 스크롤 ── */
+.scenario-agent-zone>.scenario-field:last-child{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
+.scenario-agent-zone>.scenario-field:last-child textarea{flex:1;min-height:220px;overflow-y:auto;resize:none !important}
+.scenario-workbench-v2 .scenario-config{overflow:hidden}
+.scenario-config>.scenario-prompt-validation{flex:none;min-height:0}
+.scenario-config>.scenario-prompt-actions{flex:none;margin-top:6px;margin-left:0;justify-content:flex-start}
