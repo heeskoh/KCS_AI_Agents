@@ -1,4 +1,4 @@
-﻿import { dataTable, escapeHtml, markdownToHtml } from "./core/dom.js";
+﻿import { dataTable, escapeHtml, markdownToHtml, renderValidationDashboard } from "./core/dom.js";
 import { composePrompt } from "./analysis/shared/prompt-composer.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
@@ -5442,7 +5442,7 @@ function canvasReportPanel(){
     reportTitle: "분석 보고서",
     validationTitle: "보고서 검증",
     reportHtml: markdownToHtml(ensureReportRequiredSections(latestReport, "customs", { targetName: companyName })),
-    validationHtml: markdownToHtml(latestValidation),
+    validationHtml: renderValidationDashboard(latestValidation),
     reportId: "scenarioReportOutput",
     validationId: "scenarioValidationOutput",
   });

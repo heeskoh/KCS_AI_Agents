@@ -1192,7 +1192,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .job-meta strong{color:#123c85}
 .canvas-report-wrap{display:flex;flex-direction:column;height:100%}
 .canvas-report-wrap .canvas-selected-company{flex:none;margin-bottom:10px}
-.canvas-report-results{flex:1;min-height:0;margin-top:0;grid-auto-rows:1fr;align-items:stretch}
+.scenario-results.canvas-report-results{flex:1;min-height:0;margin-top:0;grid-auto-rows:1fr;align-items:stretch;grid-template-columns:minmax(0,6fr) minmax(0,4fr)}
 .canvas-report-results .scenario-result-panel{height:auto}
 .profile-run-archive{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;padding:13px 14px;border:1px solid #cfe0fb;border-radius:13px;background:#f8fbff}
 .profile-run-archive.changed{border-color:#f59e0b;background:#fffbeb}
@@ -1320,7 +1320,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-field select{height:40px;padding:0 10px}
 .scenario-field textarea{min-height:104px;padding:10px;resize:vertical;line-height:1.5}
 .scenario-config .scenario-field textarea,.scenario-agent-zone .scenario-field textarea{min-height:80px}
-.scenario-agent-zone .scenario-prompt-editor{flex:1;min-height:120px;border-color:#38bdf8;border-radius:10px;font-size:13px;line-height:1.6;background:#fff;overflow-y:auto;resize:none}
+.scenario-agent-zone .scenario-prompt-editor{flex:1;min-height:120px;border-color:#38bdf8;border-radius:10px;font-size:15px;line-height:1.7;background:#fff;overflow-y:auto;resize:none}
 .scenario-behavior-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .scenario-behavior-check{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid #d8e5fb;border-radius:9px;background:#f8fbff;color:#123c85;font-size:12px;font-weight:900}
 .scenario-behavior-check input{accent-color:var(--blue)}
@@ -1469,6 +1469,40 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-result-panel{height:360px;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
 .canvas-report-results .scenario-result-panel{height:100%;min-height:0}
 .scenario-result-panel .markdown-output{min-height:0;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:14px}
+
+/* ── 보고서 검증 대시보드 ───────────────────────────────────────────────── */
+.validation-dashboard{display:flex;flex-direction:column;gap:14px;height:100%;overflow-y:auto}
+.vd-header{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#64748b}
+.vd-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px}
+.vd-card{border:1px solid #d8e5fb;border-radius:12px;background:#fff;padding:14px}
+.vd-card h4{margin:0 0 10px;font-size:13px;color:#53617b;display:flex;align-items:center;gap:6px}
+.vd-result{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;height:100%}
+.vd-result-value{font-size:22px;font-weight:900}
+.vd-result.pass .vd-result-value{color:#047857}
+.vd-result.warn .vd-result-value{color:#b45309}
+.vd-result.fail .vd-result-value{color:#b91c1c}
+.vd-coverage-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.vd-coverage-row strong{font-size:20px;color:#123c85}
+.vd-gauge{height:10px;border-radius:999px;background:#eef4ff;overflow:hidden;margin-bottom:8px}
+.vd-gauge-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),#10a6c8)}
+.vd-coverage-desc{margin:0;font-size:12px;color:#53617b;line-height:1.5}
+.vd-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.vd-metric-card{border:1px solid #d8e5fb;border-radius:12px;background:#fff;padding:12px}
+.vd-metric-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.vd-metric-head .vd-metric-icon{font-size:15px}
+.vd-metric-head .vd-metric-title{flex:1;font-size:12px;font-weight:800;color:#53617b}
+.vd-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900;white-space:nowrap}
+.vd-badge.good{background:#ecfdf5;color:#047857;border:1px solid #86efac}
+.vd-badge.mid{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
+.vd-badge.bad{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+.vd-badge.neutral{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+.vd-metric-card p{margin:0;font-size:12px;color:#53617b;line-height:1.55}
+.vd-recommend{border:1.5px solid #fdba74;border-radius:12px;background:#fff7ed;padding:14px}
+.vd-recommend h4{margin:0 0 10px;font-size:13px;color:#9a3412;display:flex;align-items:center;gap:6px}
+.vd-recommend ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.vd-recommend li{font-size:12px;color:#7c2d12;line-height:1.55}
+.vd-recommend li strong{color:#9a3412}
+@media(max-width:1200px){.vd-summary,.vd-metrics{grid-template-columns:1fr}}
 .report-required-preview{margin-top:14px;border-top:1px solid #dbe7f6;padding-top:12px}
 .markdown-output{line-height:1.65;word-break:keep-all;overflow-wrap:anywhere}
 .markdown-output h1,.markdown-output h2,.markdown-output h3,.markdown-output h4{margin:16px 0 8px;line-height:1.35}
@@ -1564,4 +1598,4 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-agent-zone>.scenario-field:last-child textarea{flex:1;min-height:220px;overflow-y:auto;resize:none !important}
 .scenario-workbench-v2 .scenario-config{overflow:hidden}
 .scenario-config>.scenario-prompt-validation{flex:none;min-height:0}
-.scenario-config>.scenario-prompt-actions{flex:none;margin-top:6px;margin-left:0;justify-content:flex-start}
+.scenario-config>.scenario-prompt-actions{flex:none;margin-top:6px;margin-left:0;justify-content:flex-end}

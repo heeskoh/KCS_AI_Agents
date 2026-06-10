@@ -1570,6 +1570,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     self._sse("workflow", {"status": "failed"})
                     return
                 print(f"[AI서비스] {label} 실행 완료")
+                output_text = state.get(result_key) or ""
+                if result_key not in ("final_report", "validation_result") and output_text:
+                    state["step_results"] = [
+                        *(state.get("step_results") or []),
+                        {"key": key, "label": label, "result_key": result_key, "result": output_text},
+                    ]
                 self._sse(
                     "step",
                     {
@@ -1577,7 +1583,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                         "label": label,
                         "status": "done",
                         "result_key": result_key,
-                        "output": state.get(result_key) or "",
+                        "output": output_text,
                     },
                 )
             except Exception as exc:
@@ -1722,11 +1728,17 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     return
                 state = {**state, **{k: v for k, v in step_state.items() if k != "scenario"}}
                 print(f"[AI서비스] {label} 실행 완료")
+                output_text = step_state.get(result_key) or ""
+                if result_key not in ("final_report", "validation_result") and output_text:
+                    state["step_results"] = [
+                        *(state.get("step_results") or []),
+                        {"key": agent_key, "label": label, "result_key": result_key, "result": output_text},
+                    ]
                 self._sse("step", {
                     "key": agent_key, "label": label,
                     "gi_step_id": gi_step_id, "status": "done",
                     "result_key": result_key,
-                    "output": step_state.get(result_key) or "",
+                    "output": output_text,
                 })
             except Exception as exc:
                 print(f"[AI서비스] {label} 실행 오류: {exc}")

@@ -1,4 +1,4 @@
-import { escapeHtml, markdownToHtml } from "../../core/dom.js";
+import { escapeHtml, markdownToHtml, renderValidationDashboard } from "../../core/dom.js";
 
 export function renderReportPanel(deps){
   const aCase = deps.activeGenInvCase();
@@ -55,7 +55,7 @@ export function renderReportPanel(deps){
        <div class="report-required-preview">
          ${markdownToHtml(deps.ensureReportRequiredSections("", "general", { targetName: aCase.targetName }))}
        </div>`;
-  const validationHtml = apprDone ? markdownToHtml(apprText) : placeholder("보고서 검증 AI 서비스(gi_appr)", "workbench");
+  const validationHtml = apprDone ? renderValidationDashboard(apprText) : placeholder("보고서 검증 AI 서비스(gi_appr)", "workbench");
   return deps.commonAnalysisReportPanel({
     selectedLabel: aCase.targetType === "company" ? "수사 대상 기업" : "수사 대상 개인",
     targetText: `${escapeHtml(aCase.targetName)} <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>`,

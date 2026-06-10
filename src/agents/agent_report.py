@@ -44,11 +44,12 @@ REPORT_PROMPT = """당신은 관세청 조사 전문 AI입니다.
 1. 업체 개요
    업체명, 업종, 위험등급, 주요 수입 품목, 연간 수입액, 신고 세액 등을 간략히 요약
 
-2. 에이전트 분석 결과 통합 요약
-   실행된 모든 에이전트의 핵심 발견사항을 3~5줄로 종합
+2. AI서비스별 분석 결과 통합 요약
+   실행된 모든 AI서비스의 핵심 발견사항을 3~5줄로 종합
 
-3. 에이전트별 분석 결과
-{agent_section_outline}
+3. AI서비스별 분석결과
+<<AGENT_SECTIONS>>
+위 줄은 그대로 출력하십시오. 다른 내용으로 대체하거나 수정하지 마십시오. 이 영역은 시스템이 자동으로 채웁니다.
 
 4. 조사 착안사항
    3~5개 항목. 각 항목에 관세법 또는 관련 법령·고시 근거를 명시
@@ -58,9 +59,25 @@ REPORT_PROMPT = """당신은 관세청 조사 전문 AI입니다.
    종합 위험도 평가 및 즉시·단기·중기 조치 방향
 """
 
+_AGENT_SECTION_MARKER = "<<AGENT_SECTIONS>>"
+
 
 def _collect_preceding(state: CustomsState) -> list[dict]:
     """Return ordered list of {{label, type, result}} for agents before the report step."""
+    # 실행 시 단계별로 축적된 step_results가 있으면 그대로 사용한다.
+    # (rag_result처럼 여러 AI서비스가 같은 state 키를 공유해도 결과가 유실되지 않는다.)
+    step_results = state.get("step_results") or []
+    if step_results:
+        return [
+            {
+                "label": r.get("label") or r.get("key") or "AI서비스",
+                "type":  r.get("key") or "",
+                "result": r.get("result") or "",
+            }
+            for r in step_results
+            if (r.get("result") or "").strip()
+        ]
+
     scenario = state.get("scenario") or {}
     items = sorted(
         scenario.get("scenario_items") or [],
@@ -117,7 +134,7 @@ def _fallback_report(state: CustomsState, company_result: str, preceding: list[d
     lines.append("")
 
     # 3. AI 서비스 별 결과
-    lines.append("## 3. AI 서비스 별 분석 결과\n")
+    lines.append("## 3. AI서비스별 분석결과\n")
     if preceding:
         for i, r in enumerate(preceding, 1):
             lines += [f"### 3-{i}. {r['label']}\n", _normalize_embedded_agent_result(r["result"]), ""]
@@ -178,6 +195,16 @@ def _fallback_report(state: CustomsState, company_result: str, preceding: list[d
     return "\n".join(lines)
 
 
+def _build_agent_sections(preceding: list[dict]) -> str:
+    """Render every preceding AI service's full result as a numbered subsection."""
+    if not preceding:
+        return "실행된 AI서비스 결과가 없습니다."
+    return "\n\n".join(
+        f"### 3-{i}. {r['label']}\n\n{_normalize_embedded_agent_result(r['result'])}"
+        for i, r in enumerate(preceding, 1)
+    )
+
+
 def agent_report(state: CustomsState) -> CustomsState:
     """Aggregate all preceding agent results into a structured investigation report."""
     print("[Agent] 보고서 작성 에이전트 처리 시작")
@@ -188,21 +215,21 @@ def agent_report(state: CustomsState) -> CustomsState:
         or "기업 기본정보 없음"
     )
     preceding = _collect_preceding(state)
+    agent_sections = _build_agent_sections(preceding)
 
     if llm:
         agent_results = "\n\n".join(
             f"[{r['label']}]\n{r['result']}" for r in preceding
         ) or "분석 결과 없음"
-        agent_section_outline = "\n".join(
-            f"   3-{i}. {r['label']}: 해당 AI 서비스  결과를 분석하여 핵심 내용 요약"
-            for i, r in enumerate(preceding, 1)
-        ) or "   (실행된 AI 서비스  없음)"
         prompt = REPORT_PROMPT.format(
             company_result=company_result,
             agent_results=agent_results,
-            agent_section_outline=agent_section_outline,
         )
         report = llm.invoke(prompt).content
+        if _AGENT_SECTION_MARKER in report:
+            report = report.replace(_AGENT_SECTION_MARKER, agent_sections)
+        else:
+            report += f"\n\n## 3. AI서비스별 분석결과\n\n{agent_sections}\n"
     else:
         report = _fallback_report(state, company_result, preceding)
 
