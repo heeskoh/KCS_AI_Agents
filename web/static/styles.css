@@ -1607,17 +1607,35 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .content.content-fill{padding:0}
 .content-fill>.gi-hub,.content-fill>.ci-hub{height:100%;min-height:0;flex:1;border-radius:0;border-left:0;border-right:0;border-bottom:0}
 
-/* ── 수사 프로파일: 좌측 대시보드(60%) + 우측 관계망 그래프(40%) ── */
-.profile-net-layout{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,4fr);gap:14px;align-items:start}
-.profile-net-left{min-width:0}
-.profile-net-right{min-width:0;position:sticky;top:0;height:calc(100vh - 240px);min-height:520px;display:flex;flex-direction:column}
+/* ── 수사 프로파일: 좌측 대시보드(60%) + 우측 관계망 그래프(40%), 좌우 독립 스크롤 ── */
+.gi-tab-body:has(> .profile-net-layout),
+.ci-tab-body:has(> .profile-net-layout){overflow:hidden;display:flex;flex-direction:column}
+.profile-net-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch;flex:1;min-height:0;height:100%}
+.profile-net-left{min-width:0;min-height:0;overflow-y:auto;padding-right:4px}
+.profile-net-right{min-width:0;min-height:0;height:100%;display:flex;flex-direction:column}
 .profile-net-frame{flex:1;min-height:0;border:1px solid #dbe7f6;border-radius:12px;background:#fff;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)}
 .profile-net-frame-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid #edf2fb;background:#f8fbff;flex:none}
 .profile-net-frame-head h4{margin:0;font-size:14px;color:#123c85}
 .profile-net-frame-head .muted{font-size:11px;white-space:nowrap}
 .profile-net-body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;background:#f8fbff;padding:0}
-.profile-net-graph-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 10px}
-.profile-net-cy{width:100%;height:100%;min-height:300px;border-radius:10px;background:#fff;border:1px solid #edf2fb}
+.profile-net-graph-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 8px;overflow:hidden;position:relative}
+/* 노드/관계 상세 정보 패널 (그래프 우상단 오버레이) */
+.net-detail-panel{position:absolute;top:12px;right:14px;width:262px;max-height:calc(100% - 24px);overflow-y:auto;background:#fff;border:1px solid #c7dcf7;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);z-index:5;display:none}
+.net-detail-head{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #edf2fb;background:#f8fbff;border-radius:10px 10px 0 0;position:sticky;top:0}
+.net-detail-head strong{font-size:12px;color:#123c85;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.net-detail-head em{font-style:normal;font-size:10px;font-weight:800;color:#64748b;background:#eef3fa;border-radius:999px;padding:1px 7px;white-space:nowrap}
+.net-detail-close{border:0;background:transparent;color:#94a3b8;font-size:14px;line-height:1;cursor:pointer;padding:0 2px}
+.net-detail-close:hover{color:#dc2626}
+.net-detail-body{padding:7px 10px;display:flex;flex-direction:column;gap:4px}
+.net-detail-row{display:flex;align-items:baseline;gap:8px;font-size:11px}
+.net-detail-row>span{flex:none;width:74px;color:#64748b;font-weight:700}
+.net-detail-row>b{flex:1;min-width:0;color:#1f2f46;font-weight:600;word-break:break-all}
+.net-detail-foot{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid #edf2fb}
+.net-detail-foot .btn{font-size:11px;padding:3px 10px;border-radius:7px}
+.net-detail-foot .muted{font-size:10px}
+.profile-net-cy{width:100%;height:100%;min-height:0;border-radius:10px;background:#fff;border:1px solid #edf2fb}
+/* 하단(필터 조건 + 관계 표)은 묶어서 스크롤 — 그래프 영역 최대 확보 */
+.profile-net-bottom{flex:none;height:10%;min-height:64px;overflow-y:auto;display:flex;flex-direction:column;border-top:1px solid #edf2fb}
 .profile-net-svg-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
 .profile-net-svg{width:100%;height:100%;flex:1;min-height:0;max-height:none}
 /* 필터 칩 */
@@ -1632,7 +1650,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .profile-net-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-top:1px solid #edf2fb;background:#fff;flex:none}
 .profile-net-list-head strong{font-size:12px;color:#123c85}
 .profile-net-list-head .muted{font-size:11px}
-.profile-net-table-wrap{flex:none;max-height:230px;overflow-y:auto;background:#fff;border-top:1px solid #edf2fb}
+.profile-net-table-wrap{flex:none;background:#fff;border-top:1px solid #edf2fb}
 .profile-net-table{width:100%;border-collapse:collapse;font-size:11.5px}
 .profile-net-table th{position:sticky;top:0;background:#f8fbff;color:#475569;font-size:10.5px;font-weight:900;text-align:left;padding:6px 12px;border-bottom:1px solid #edf2fb}
 .profile-net-table td{padding:6px 12px;border-bottom:1px solid #f4f7fc;color:#1f2f46;vertical-align:middle}
@@ -1680,8 +1698,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .profile-net-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;font-weight:700}
 .profile-net-legend-item i{width:10px;height:10px;border-radius:50%;display:inline-block}
 @media(max-width:1200px){
-  .profile-net-layout{grid-template-columns:1fr}
-  .profile-net-right{position:static}
+  .profile-net-layout{grid-template-columns:1fr;height:auto}
+  .profile-net-left{overflow-y:visible}
+  .profile-net-right{height:auto;min-height:560px}
 }
 
 /* ── 워크벤치 프롬프트 영역: 마지막 입력 필드가 남은 공간 채우고 자체 스크롤 ── */

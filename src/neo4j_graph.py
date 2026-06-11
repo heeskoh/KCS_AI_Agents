@@ -67,6 +67,12 @@ def _node_to_json(node: Node) -> dict[str, Any]:
     if node_id is None:
         node_id = node.element_id
     name = next((props[key] for key in _NODE_NAME_KEYS if props.get(key) is not None), node_id)
+    if label in ("Case", "SmugglingCase"):
+        # 사건 노드는 사건번호 대신 유형이 보이도록 (예: "분산형 · 마약류")
+        type_parts = [props.get("case_type"), props.get("contraband_category")]
+        type_name = " · ".join(str(p) for p in type_parts if p)
+        if type_name:
+            name = type_name
     return {
         "id": f"{label}:{node_id}",
         "label": label,
@@ -401,9 +407,15 @@ def build_company_network_graph(company_id: str, limit: int = 60) -> dict[str, A
     if not exists:
         return None
 
+    # 1단계: 기업과 직접 연결된 모든 노드.
+    # 2단계: 중간 노드가 해당 기업의 사건/수입신고일 때만 확장.
+    #         (관세사·국가·업종 같은 공유 허브 노드를 경유해 무관한
+    #          타 기업 사건이 딸려오는 것을 차단)
     graph = _read_graph(
         """
         MATCH path = (c:Company {company_id: $company_id})-[*1..2]-(n)
+        WHERE ALL(mid IN nodes(path)[1..-1]
+                  WHERE mid:Case OR mid:SmugglingCase OR mid:Declaration)
         RETURN path
         LIMIT $limit
         """,
@@ -424,9 +436,13 @@ def build_person_network_graph(person_id: str, limit: int = 60) -> dict[str, Any
     if not exists:
         return None
 
+    # 1단계: 우범자와 직접 연결된 모든 노드.
+    # 2단계: 중간 노드가 본인 사건/소속 조직일 때만 확장.
     graph = _read_graph(
         """
         MATCH path = (p:Person {person_id: $person_id})-[*1..2]-(n)
+        WHERE ALL(mid IN nodes(path)[1..-1]
+                  WHERE mid:Case OR mid:SmugglingCase OR mid:Org OR mid:Organization)
         RETURN path
         LIMIT $limit
         """,
