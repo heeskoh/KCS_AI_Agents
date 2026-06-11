@@ -3406,9 +3406,9 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 /* 진행작업 상태 저장소: 서버 파일(data/workspace_state.json).
    - 로드: GET /api/workspace_state (없으면 기존 localStorage 상태를 이행)
    - 저장: 디바운스 POST + localStorage 백업, 페이지 종료 시 sendBeacon 플러시 */
-async function fetchWorkspaceState(){
+async function fetchJsonStore(url){
   try{
-    const res = await fetch("/api/workspace_state");
+    const res = await fetch(url);
     if(!res.ok) return null;
     const data = await res.json();
     return data && typeof data.state === "object" && data.state ? data.state : null;
@@ -3419,7 +3419,7 @@ async function fetchWorkspaceState(){
 
 async function loadCanvasState(){
   try{
-    let saved = await fetchWorkspaceState();
+    let saved = await fetchJsonStore("/api/workspace_state");
     if(!saved || !Object.keys(saved).length){
       // 서버 파일이 없으면 기존 localStorage 상태를 1회 이행
       saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
@@ -3449,12 +3449,29 @@ async function loadCanvasState(){
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
     if(saved.hiddenCanvasJobsByUser && typeof saved.hiddenCanvasJobsByUser === "object") hiddenCanvasJobsByUser = saved.hiddenCanvasJobsByUser;
     if(saved.userWorkspaces && typeof saved.userWorkspaces === "object") userWorkspaces = saved.userWorkspaces;
-    if(Array.isArray(saved.customTemplates)){
-      customTemplates = saved.customTemplates;
+    // 분석 템플릿은 별도 파일(data/analysis_templates.json)에서 로드.
+    // 없으면 기존 workspace 상태의 템플릿 키를 1회 이행.
+    let templates = await fetchJsonStore("/api/analysis_templates");
+    if(!templates || !Object.keys(templates).length){
+      templates = {
+        customTemplates: saved.customTemplates,
+        hiddenBuiltinIds: saved.hiddenBuiltinIds,
+        builtinOverrides: saved.builtinOverrides,
+      };
+      if(Array.isArray(saved.customTemplates) || Array.isArray(saved.hiddenBuiltinIds) || saved.builtinOverrides){
+        fetch("/api/analysis_templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(templates),
+        }).catch(() => {});
+      }
+    }
+    if(Array.isArray(templates.customTemplates)){
+      customTemplates = templates.customTemplates;
       customTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
     }
-    if(Array.isArray(saved.hiddenBuiltinIds)) hiddenBuiltinIds = new Set(saved.hiddenBuiltinIds);
-    if(saved.builtinOverrides && typeof saved.builtinOverrides === "object") builtinOverrides = saved.builtinOverrides;
+    if(Array.isArray(templates.hiddenBuiltinIds)) hiddenBuiltinIds = new Set(templates.hiddenBuiltinIds);
+    if(templates.builtinOverrides && typeof templates.builtinOverrides === "object") builtinOverrides = templates.builtinOverrides;
     if(saved.currentUserId) currentUserId = saved.currentUserId;
     normalizeCaseStepLabelsInPlace(defaultGenInvCases);
     migrateLegacyWorkspaceState(saved);
@@ -3480,9 +3497,6 @@ function buildWorkspaceStatePayload(){
     canvasRunArchives,
     hiddenCanvasJobsByUser,
     userWorkspaces,
-    customTemplates,
-    hiddenBuiltinIds: [...hiddenBuiltinIds],
-    builtinOverrides,
     currentUserId,
     generalInvTab: generalInvestigationState.generalInvTab,
     activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
@@ -3494,6 +3508,37 @@ function buildWorkspaceStatePayload(){
     drugReportSubTab: specialInvestigationState.drugReportSubTab,
     investigationTab: customsState.investigationTab,
   };
+}
+
+/* 분석 템플릿(내 저장 템플릿 + 기본 템플릿 수정/숨김)은 별도 파일에 저장 —
+   분석 템플릿 탭에서의 변경 저장이 진행작업 상태와 분리되어 관리된다. */
+function buildTemplatesPayload(){
+  return {
+    customTemplates,
+    hiddenBuiltinIds: [...hiddenBuiltinIds],
+    builtinOverrides,
+  };
+}
+
+let _templatesSaveTimer = null;
+let _templatesPendingPayload = null;
+
+function flushTemplatesState(){
+  if(_templatesSaveTimer){ clearTimeout(_templatesSaveTimer); _templatesSaveTimer = null; }
+  if(!_templatesPendingPayload) return;
+  const body = JSON.stringify(_templatesPendingPayload);
+  _templatesPendingPayload = null;
+  fetch("/api/analysis_templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  }).catch(error => console.warn("분석 템플릿을 서버에 저장하지 못했습니다.", error));
+}
+
+function saveTemplatesState(){
+  _templatesPendingPayload = buildTemplatesPayload();
+  if(_templatesSaveTimer) clearTimeout(_templatesSaveTimer);
+  _templatesSaveTimer = setTimeout(flushTemplatesState, 400);
 }
 
 let _workspaceSaveTimer = null;
@@ -3526,16 +3571,20 @@ function saveCanvasState(){
 
 window.addEventListener("beforeunload", () => {
   // 디바운스 대기 중인 저장분은 종료 직전 sendBeacon으로 플러시
-  if(_workspacePendingPayload){
-    if(_workspaceSaveTimer){ clearTimeout(_workspaceSaveTimer); _workspaceSaveTimer = null; }
+  const beacons = [
+    ["/api/workspace_state", _workspacePendingPayload],
+    ["/api/analysis_templates", _templatesPendingPayload],
+  ];
+  if(_workspaceSaveTimer){ clearTimeout(_workspaceSaveTimer); _workspaceSaveTimer = null; }
+  if(_templatesSaveTimer){ clearTimeout(_templatesSaveTimer); _templatesSaveTimer = null; }
+  beacons.forEach(([url, payload]) => {
+    if(!payload) return;
     try{
-      navigator.sendBeacon(
-        "/api/workspace_state",
-        new Blob([JSON.stringify(_workspacePendingPayload)], { type: "application/json" }),
-      );
-      _workspacePendingPayload = null;
+      navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: "application/json" }));
     }catch(e){ /* noop */ }
-  }
+  });
+  _workspacePendingPayload = null;
+  _templatesPendingPayload = null;
 });
 
 function cloneSavedValue(value, fallback){
@@ -5895,6 +5944,7 @@ function initTemplateEditor(){
       editingTemplateId = newId;
     }
     templateDraftName = "";
+    saveTemplatesState();
     saveCanvasState();
     templateEditorInitialized = false;
     render("canvas");
@@ -6406,6 +6456,7 @@ function initScenarioWorkbench(){
       shared: true,
     };
     customTemplates.unshift(newTemplate);
+    saveTemplatesState();
     saveCanvasState();
     const templateSelect = document.getElementById("scenarioTemplateSelect");
     if(templateSelect){
@@ -8263,6 +8314,7 @@ document.addEventListener("click", (event)=>{
       customTemplates = customTemplates.filter(t => t.id !== templateId);
     }
     if(editingTemplateId === templateId){ editingTemplateId = null; templateDraftName = ""; templateEditorItems = []; templateEditorSelectedId = null; }
+    saveTemplatesState();
     saveCanvasState();
     templateEditorInitialized = false;
     render("canvas");

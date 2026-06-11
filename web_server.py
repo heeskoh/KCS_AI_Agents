@@ -1300,7 +1300,42 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
+    ANALYSIS_TEMPLATES_PATH = DATA_DIR / "analysis_templates.json"
     _workspace_lock = threading.Lock()
+
+    def _read_json_store(self, path) -> dict | None:
+        try:
+            with self._workspace_lock:
+                if path.exists():
+                    return json.loads(path.read_text(encoding="utf-8"))
+                return {}
+        except (OSError, json.JSONDecodeError) as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+
+    def _write_json_store(self, path) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            state = json.loads(raw)
+        except json.JSONDecodeError:
+            self._send_json({"error": "invalid json"}, HTTPStatus.BAD_REQUEST)
+            return
+        if not isinstance(state, dict):
+            self._send_json({"error": "state must be an object"}, HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            with self._workspace_lock:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = path.with_suffix(".json.tmp")
+                tmp_path.write_text(
+                    json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                tmp_path.replace(path)
+        except OSError as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_json({"status": "saved"})
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -1313,16 +1348,15 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/workspace_state":
             # 진행작업(캔버스) 상태 — data/workspace_state.json 파일 저장소
-            try:
-                with self._workspace_lock:
-                    if self.WORKSPACE_STATE_PATH.exists():
-                        state = json.loads(self.WORKSPACE_STATE_PATH.read_text(encoding="utf-8"))
-                    else:
-                        state = {}
-            except (OSError, json.JSONDecodeError) as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
-            self._send_json({"state": state})
+            state = self._read_json_store(self.WORKSPACE_STATE_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/analysis_templates":
+            # 분석 템플릿(내 저장 템플릿 + 기본 템플릿 수정/숨김) — data/analysis_templates.json
+            state = self._read_json_store(self.ANALYSIS_TEMPLATES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
             return
         if parsed.path == "/api/companies":
             self._send_json({"companies": list_companies()})
@@ -1408,28 +1442,11 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/workspace_state":
-            length = int(self.headers.get("Content-Length") or 0)
-            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
-            try:
-                state = json.loads(raw)
-            except json.JSONDecodeError:
-                self._send_json({"error": "invalid json"}, HTTPStatus.BAD_REQUEST)
-                return
-            if not isinstance(state, dict):
-                self._send_json({"error": "state must be an object"}, HTTPStatus.BAD_REQUEST)
-                return
-            try:
-                with self._workspace_lock:
-                    self.WORKSPACE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    tmp_path = self.WORKSPACE_STATE_PATH.with_suffix(".json.tmp")
-                    tmp_path.write_text(
-                        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
-                    )
-                    tmp_path.replace(self.WORKSPACE_STATE_PATH)
-            except OSError as exc:
-                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
-            self._send_json({"status": "saved"})
+            self._write_json_store(self.WORKSPACE_STATE_PATH)
+            return
+
+        if parsed.path == "/api/analysis_templates":
+            self._write_json_store(self.ANALYSIS_TEMPLATES_PATH)
             return
 
         if parsed.path == "/api/coach":
