@@ -10,7 +10,7 @@ export function createGeneralInvestigation(deps){
     const tabs = tabsForPage(pageKey);
     const aCase = deps.activeGenInvCase();
     const tab = deps.getGeneralInvTab();
-    const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업 프로파일";
+    const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업수사 프로파일";
     const tabContext = { case:aCase, profileLabel };
     const targetId = aCase
       ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.caseId))

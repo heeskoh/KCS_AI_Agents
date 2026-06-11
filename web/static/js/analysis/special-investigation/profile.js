@@ -1,9 +1,17 @@
 import { dataTable, escapeHtml } from "../../core/dom.js";
+import { profileNetworkLayout } from "../shared/network-graph.js";
 
 export function renderProfilePanel(deps){
   const ctx = deps.drugCaseContext();
   if(!ctx) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  return ctx.targetType === "company" ? drugCompanyProfilePanel(deps) : drugPersonProfilePanel(deps);
+  const aCase = deps.activeDrugCase();
+  // 좌측 위험내역 대시보드 + 우측 Neo4j 관계망 그래프 (60:40)
+  if(ctx.targetType === "company"){
+    const companyId = aCase?.companyId || "";
+    return profileNetworkLayout(drugCompanyProfilePanel(deps), "company", companyId);
+  }
+  const personId = deps.riskPersonById?.(aCase?.personId)?.person_id || aCase?.personId || "";
+  return profileNetworkLayout(drugPersonProfilePanel(deps), "person", personId);
 }
 
 function drugRiskScoreClass(score){

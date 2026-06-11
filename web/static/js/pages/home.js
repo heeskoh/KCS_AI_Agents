@@ -42,19 +42,29 @@ const NAV_ICONS = {
   system:        `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>`,
 };
 
-function bottomShortcutBar({ isSuperAdmin = () => false } = {}){
-  const adminButton = isSuperAdmin()
-    ? `<button class="bn-item" data-super-scenario-builder type="button">${NAV_ICONS.system}<span>관리자</span></button>`
-    : `<button class="bn-item" data-page="system" type="button">${NAV_ICONS.system}<span>관리자</span></button>`;
+function bnItem({ page, label, image, state = "granted", dataAttr = null }){
+  const locked = state !== "granted";
+  const attr = dataAttr || `data-page="${escapeHtml(page)}"`;
+  return `
+    <button class="bn-item${locked ? " locked" : ""}" ${locked ? "disabled" : attr} type="button"
+            title="${escapeHtml(label)}${locked ? " · 권한이 없습니다" : ""}">
+      ${imageTag(image, label)}
+      <span>${escapeHtml(label)}</span>
+      <i class="bn-state ${locked ? "off" : "on"}" aria-label="${locked ? "비활성" : "활성"}"></i>
+    </button>`;
+}
+
+function bottomShortcutBar({ isSuperAdmin = () => false, shortcutState = () => "granted" } = {}){
+  const adminButton = bnItem({
+    page: "system", label: "관리자", image: "Admin.png",
+    state: shortcutState("system"),
+    dataAttr: isSuperAdmin() ? "data-super-scenario-builder" : `data-page="system"`,
+  });
   return `
     <nav class="home-bottom-nav" aria-label="업무 분석 바로가기">
       <span class="bn-label">업무 바로가기</span>
       <div class="bn-items">
-        ${WORK_SHORTCUTS.map(s => `
-          <button class="bn-item" data-page="${escapeHtml(s.page)}" type="button">
-            ${NAV_ICONS[s.page] || ""}
-            <span>${escapeHtml(s.label)}</span>
-          </button>`).join("")}
+        ${WORK_SHORTCUTS.map(s => bnItem({ ...s, state: shortcutState(s.page) })).join("")}
         ${adminButton}
       </div>
       <button class="bn-exit" id="shutdownAllBtn" type="button">
@@ -100,7 +110,7 @@ function dashboardDrawer(){
   `;
 }
 
-export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () => false }){
+export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () => false, shortcutState = () => "granted" }){
   return `
     <div class="home-layout">
     <div class="home-focus-grid">
@@ -114,11 +124,13 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
 
         <!-- 인사말 (결과 없을 때 표시) -->
         <div class="home-greeting" id="homeGreeting">
-          <div class="home-greeting-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <div class="home-greeting-row">
+            <div class="home-greeting-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+            <h1 id="homeGreetingText">안녕하세요</h1>
           </div>
-          <h1 id="homeGreetingText">안녕하세요</h1>
-          <p>원하는 분석 업무를 자연어로 설명해보세요.<br>내부자료를 검색하거나 AI 분석서비스를 활용하려면 아래 버튼에서 선택하세요.</p>
+          <p>원하는 분석 업무를 자연어로 설명해보세요. 내부자료를 검색하거나 AI 분석서비스를 활용하려면 아래 버튼에서 선택하세요.</p>
         </div>
 
         <!-- 코칭 제안 패널 -->
@@ -202,7 +214,7 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
         </div>
       </section>
     </div>
-    ${bottomShortcutBar({ isSuperAdmin })}
+    ${bottomShortcutBar({ isSuperAdmin, shortcutState })}
     ${dashboardRail()}
     ${dashboardDrawer()}
     </div>

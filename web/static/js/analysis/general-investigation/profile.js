@@ -1,4 +1,5 @@
 import { escapeHtml } from "../../core/dom.js";
+import { profileNetworkLayout } from "../shared/network-graph.js";
 
 function riskTone(score){
   const value = Number(score || 0);
@@ -188,13 +189,17 @@ export function renderProfilePanel(deps){
         </div>
       `;
     }
-    return deps.canvasProfilePanel(companyId, {
-      selectedLabel: "수사 대상 기업",
-      archive: null,
-      changed: false,
-      reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
-      scenarioAction: `<button class="btn" data-gi-tab="workbench">분석 시나리오 설정</button>`,
-    });
+    // 일반수사 기업 대상: 좌측 대시보드 + 우측 Neo4j 관계망 그래프 (60:40)
+    return profileNetworkLayout(
+      deps.canvasProfilePanel(companyId, {
+        selectedLabel: "수사 대상 기업",
+        archive: null,
+        changed: false,
+        reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
+        scenarioAction: `<button class="btn" data-gi-tab="workbench">분석 시나리오 설정</button>`,
+      }),
+      "company", companyId,
+    );
   }
   const person = deps.riskPersonById(aCase.personId);
   const personId = person?.person_id || aCase.personId;
@@ -206,7 +211,11 @@ export function renderProfilePanel(deps){
     deps.loadRiskPersonProfile?.(personId);
     return `<div class="profile-loading">우범자 통합 프로파일 로딩 중...</div>`;
   }
-  return renderPersonFullProfile(aCase, person, detail, type);
+  // 우범자 프로파일: 좌측 위험내역 대시보드 + 우측 Neo4j 관계망 그래프 (60:40)
+  return profileNetworkLayout(
+    renderPersonFullProfile(aCase, person, detail, type),
+    "person", personId,
+  );
 }
 
 export const profileSubtab = {

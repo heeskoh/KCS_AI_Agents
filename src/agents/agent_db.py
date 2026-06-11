@@ -194,6 +194,36 @@ def _fallback_summary(company, declarations, risk) -> str:
     )
 
 
+def _agent_nl_db(state: CustomsState, prompt: str) -> CustomsState:
+    """기업 미지정 시 자연어 → SQL(NL→SQL) 방식으로 CDW를 조회한다.
+
+    'My AI 분석'의 자유 질의도 워크벤치와 동일한 워크플로 파이프라인(agent_db)을
+    통해 실행되도록 하는 폴백 경로.
+    """
+    from src.agents.agent_nl_to_sql import run_nl_db_query
+
+    print(f"[Agent] CDW NL→SQL 조회 시작: {prompt[:60]}")
+    result = run_nl_db_query(prompt, service="db_cdw")
+
+    if result.get("error"):
+        message = f"CDW NL→SQL 조회 오류: {result['error']}"
+        print(f"[Agent] {message}")
+        return _error_state(state, "db_result", message)
+
+    parts: list[str] = []
+    if result.get("summary"):
+        parts.append(str(result["summary"]))
+    if result.get("table_md"):
+        parts.append(f"[조회 결과]\n{result['table_md']}")
+    if result.get("query"):
+        explanation = f"\n{result['explanation']}" if result.get("explanation") else ""
+        parts.append(f"[실행 SQL]\n```sql\n{result['query']}\n```{explanation}")
+
+    rows = result.get("rows") or []
+    print(f"[Agent] CDW NL→SQL 조회 완료: {len(rows)}건")
+    return {**state, "db_result": "\n\n".join(parts) or "[CDW 조회 결과]\n- 조회 결과가 없습니다."}
+
+
 def agent_db(state: CustomsState) -> CustomsState:
     """Read company, declaration, and risk-score data from DuckDB."""
     if target_type(state) == "person":
@@ -204,6 +234,9 @@ def agent_db(state: CustomsState) -> CustomsState:
     print(f"[Agent] CDW DB 조회 시작: {company_id}")
 
     if company_id in NO_COMPANY_SENTINELS:
+        # 대상 기업이 지정되지 않아도 사용자 프롬프트가 있으면 NL→SQL로 직접 조회
+        if prompt.strip():
+            return _agent_nl_db(state, prompt)
         result = (
             "[CDW 조회 결과]\n"
             "- 프롬프트에서 CDW 조회 대상이 되는 기업명, 회사ID 또는 신고번호가 확인되지 않았습니다.\n"

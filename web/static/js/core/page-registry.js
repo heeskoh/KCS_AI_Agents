@@ -38,6 +38,7 @@ export function createPageRegistry({
   riskDashboard,
   riskScreeningPage,
   scenarioBuilderPage,
+  shortcutState,
   simplePage,
 }){
   return {
@@ -45,6 +46,7 @@ export function createPageRegistry({
       activeAnalysisJobs,
       mainCanvasJob,
       isSuperAdmin,
+      shortcutState,
       analysisButtons: typeof analysisButtons === "function" ? analysisButtons() : analysisButtons,
     }),
 

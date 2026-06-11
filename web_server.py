@@ -1485,6 +1485,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        # 브라우저가 구버전 JS/CSS를 캐시해 수정사항이 반영되지 않는 문제 방지
+        self.send_header("Cache-Control", "no-cache, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1571,6 +1573,9 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     return
                 print(f"[AI서비스] {label} 실행 완료")
                 output_text = state.get(result_key) or ""
+                # 호출 측(워크플로 오케스트레이터) 결과 수신 로그
+                _preview = " ".join(str(output_text).split())[:80]
+                print(f"[AI서비스] {label} 결과 수신 ({len(str(output_text))}자): {_preview}")
                 if result_key not in ("final_report", "validation_result") and output_text:
                     state["step_results"] = [
                         *(state.get("step_results") or []),
@@ -1771,7 +1776,16 @@ def shutdown_runtime_resources() -> None:
 def main() -> None:
     host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", "8000"))
-    server = ThreadingHTTPServer((host, port), WorkflowHandler)
+    if os.name == "nt":
+        # Windows에서 SO_REUSEADDR는 동일 포트에 서버 2개가 동시에 바인딩되는 것을
+        # 허용한다(요청이 임의 분배되어 로그 누락·간헐 오동작 발생). 중복 실행 시
+        # 즉시 "포트 사용 중" 오류가 나도록 비활성화한다.
+        ThreadingHTTPServer.allow_reuse_address = False
+    try:
+        server = ThreadingHTTPServer((host, port), WorkflowHandler)
+    except OSError as exc:
+        print(f"[web] 포트 {port} 바인딩 실패: 이미 다른 서버가 실행 중입니다. ({exc})")
+        sys.exit(1)
     print(f"Workflow UI running at http://{host}:{port}")
     try:
         server.serve_forever()
