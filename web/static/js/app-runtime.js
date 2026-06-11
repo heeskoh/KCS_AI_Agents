@@ -21,6 +21,7 @@ import {
 } from "./analysis/shared/scenario-builder-config.js";
 import { isSuperAdminUser } from "./core/super-admin.js";
 import { scenarioBuilderPage as renderScenarioBuilderPage } from "./pages/scenario-builder.js";
+import { intlInfoPageHtml } from "./pages/intl.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -1269,7 +1270,6 @@ let customsInfoDateFrom  = "";
 let customsInfoDateTo    = "";
 
 /* ── 국제정보분석 상태 ─────────────────────────────────────── */
-let intlInfoMessages     = [];
 
 /* ── 관세온톨로지 상태 ─────────────────────────────────────── */
 let ontologyTab          = "graph";    // "graph"|"rules"|"inference"
@@ -4602,53 +4602,11 @@ function customsInfoPage(){
 /* ═══════════════════════════════════════════════════════════════
    국제정보 분석 페이지 (WCO 챗봇 UI)
    ═══════════════════════════════════════════════════════════════ */
+/* 국제정보 분석 — My AI 분석과 동일 구성의 독립 사본(pages/intl.js).
+   요소 ID가 home 과 동일해 코칭·실행·픽커 로직이 그대로 동작하며,
+   우측 캔버스 영역에는 프롬프트 템플릿 카드가 나열된다. */
 function intlInfoPage(){
-  const promptTemplates = [
-    "WCO 최신 HS 개정사항 중 국내 수출입 영향이 큰 품목을 분석해줘",
-    "WCO 마약 관련 최신 결의문 내용을 요약하고 국내 조치사항을 알려줘",
-    "WCO 원산지 규정 분과위원회 결정사항 중 한-미 무역에 영향을 주는 것은?",
-    "WCO SAFE Framework 최신 개정 내용을 정리해줘",
-    "WCO AEO 상호인정협정 현황과 국내 활용 방안을 알려줘",
-  ];
-  return `
-    <section class="card gi-hub gi-hub-full">
-      <div class="gi-page-head">
-        <div>
-          <h2>국제정보 분석</h2>
-          <p class="muted">WCO 회의 결과와 분과위원회 결정사항을 기반으로 국내 수출입 품목과 연관된 분석을 제공합니다.</p>
-        </div>
-      </div>
-      <div class="gi-tab-body" style="display:flex;flex-direction:column;height:100%;min-height:0">
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px">
-          <div style="font-size:13px;color:#1e40af;font-weight:600;margin-bottom:6px">프롬프트 템플릿</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${promptTemplates.map(t=>`
-              <button class="btn small" data-intl-template="${escapeHtml(t)}" style="font-size:11px;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(t)}</button>
-            `).join("")}
-          </div>
-        </div>
-        <div style="flex:1;overflow-y:auto;border:1px solid #dde8ff;border-radius:8px;padding:12px;background:#f8fbff;min-height:200px;display:flex;flex-direction:column;gap:10px" id="intlChatMessages">
-          ${intlInfoMessages.length === 0 ? `
-            <div class="empty-state" style="margin:auto">
-              WCO 회의 결과 및 분과위원회 결정사항에 대해 질문하세요.<br>
-              <span class="muted" style="font-size:12px">위 템플릿을 클릭하거나 직접 입력하세요.</span>
-            </div>
-          ` : intlInfoMessages.map(m=>`
-            <div style="display:flex;${m.role==="user"?"justify-content:flex-end":"justify-content:flex-start"}">
-              <div style="max-width:75%;background:${m.role==="user"?"#1e40af":"#fff"};color:${m.role==="user"?"#fff":"#1e293b"};border-radius:${m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px"};padding:10px 14px;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.08);border:${m.role==="ai"?"1px solid #dde8ff":"none"};white-space:pre-wrap">
-                ${m.role==="ai"?`<div style="font-size:10px;color:#6b7f9e;margin-bottom:4px">WCO AI 분석</div>`:""}
-                ${escapeHtml(m.text)}
-              </div>
-            </div>
-          `).join("")}
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <input id="intlChatInput" class="form-input" style="flex:1" placeholder="WCO 관련 질문을 입력하세요...">
-          <button class="btn primary" data-intl-send style="width:80px">전송</button>
-        </div>
-      </div>
-    </section>
-  `;
+  return intlInfoPageHtml();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -7583,7 +7541,8 @@ function render(page="home"){
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : (customAnalysisPage(page) || pages.home());
-  if(page === "home"){
+  if(page === "home" || page === "case"){
+    // 국제정보 분석(case)은 My AI 분석과 동일 구성 — 같은 코칭/실행 초기화 사용
     scenarioInitialized = false;
     scenarioLoadedForCompany = null;
     coachInitHome();
@@ -8546,28 +8505,15 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  const intlSendBtn = event.target.closest("[data-intl-send]");
-  if(intlSendBtn){
-    const input = document.getElementById("intlChatInput");
-    if(input && input.value.trim()){
-      const q = input.value.trim();
-      intlInfoMessages.push({role:"user",text:q});
-      const templates = [
-        "WCO 2024 관련 결의사항을 분석합니다...",
-        "해당 HS 품목에 대한 국제 분류 동향을 검토합니다...",
-        "최신 분과위원회 결정사항과 연계하여 분석합니다...",
-      ];
-      intlInfoMessages.push({role:"ai",text:`[AI 분석] "${escapeHtml(q)}" 관련 WCO 회의결과를 검토한 결과:\n\n• WCO 관세품목분류위원회(HSC) 최신 결정사항과 비교 분석\n• 국내 수출입 품목과의 연관성 확인\n• ${templates[Math.floor(Math.random()*templates.length)]}\n\n실제 구현 시 WCO 문서 RAG 기반으로 정확한 답변이 제공됩니다.`});
-      input.value = "";
-      render("case");
-    }
-    return;
-  }
-
   const intlTemplateBtn = event.target.closest("[data-intl-template]");
   if(intlTemplateBtn){
-    const input = document.getElementById("intlChatInput");
-    if(input) input.value = intlTemplateBtn.dataset.intlTemplate;
+    const input = document.getElementById("coachPrompt");
+    if(input){
+      input.value = intlTemplateBtn.dataset.intlTemplate;
+      input.focus();
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    document.querySelectorAll(".intl-template-card").forEach(card => card.classList.toggle("selected", card === intlTemplateBtn));
     return;
   }
 
@@ -8624,9 +8570,6 @@ document.addEventListener("click", (event)=>{
       }
       if(page === "rag"){
         customsInfoTab = "today";
-      }
-      if(page === "case"){
-        intlInfoMessages = [];
       }
       if(page === "model"){
         ontologyTab = "graph";
