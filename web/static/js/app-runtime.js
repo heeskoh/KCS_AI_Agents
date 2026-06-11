@@ -3415,8 +3415,8 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 }
 
 /* 진행작업 상태 저장소: 서버 파일(data/workspace_state.json).
-   - 로드: GET /api/workspace_state (없으면 기존 localStorage 상태를 이행)
-   - 저장: 디바운스 POST + localStorage 백업, 페이지 종료 시 sendBeacon 플러시 */
+   - 로드: GET /api/workspace_state (없으면 기존 localStorage 상태를 1회 이행 후 제거)
+   - 저장: 디바운스 POST, 페이지 종료 시 sendBeacon 플러시 (localStorage 미사용) */
 async function fetchJsonStore(url){
   try{
     const res = await fetch(url);
@@ -3442,6 +3442,8 @@ async function loadCanvasState(){
         }).catch(() => {});
       }
     }
+    // 서버 파일이 단일 저장소 — 과거 백업으로 남아 있던 localStorage 항목은 정리
+    try{ localStorage.removeItem(canvasStateKey); }catch(e){ /* noop */ }
     const hasState = Object.keys(saved).length > 0;
     if(Array.isArray(saved.customCanvasJobs)) customCanvasJobs = saved.customCanvasJobs;
     if(Array.isArray(saved.customGenInvCases)) generalInvestigationState.customGenInvCases = normalizeCaseStepLabelsInPlace(saved.customGenInvCases);
@@ -3455,6 +3457,16 @@ async function loadCanvasState(){
     }
     if(saved.userPermissions && typeof saved.userPermissions === "object"){
       userPermissions = {...defaultUserPermissions, ...saved.userPermissions};
+      // 그룹 정의가 부여한 권한은 과거 저장 스냅샷의 locked보다 우선 —
+      // 코드에서 그룹 권한을 확대해도 저장 상태가 이를 되돌리지 않도록 한다.
+      const savedUser = sampleUsers.find(user => user.id === (saved.currentUserId || currentUserId));
+      const savedGroup = userGroups.find(group => group.id === savedUser?.groupId);
+      if(savedGroup){
+        const groupPerms = buildGroupPermissions(savedGroup);
+        Object.keys(groupPerms).forEach(key => {
+          if(groupPerms[key] === "granted") userPermissions[key] = "granted";
+        });
+      }
     }
     if(saved.canvasJobOverrides && typeof saved.canvasJobOverrides === "object") canvasJobOverrides = saved.canvasJobOverrides;
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
@@ -3571,8 +3583,6 @@ function saveCanvasState(){
   try{
     saveCurrentUserWorkspace();
     _workspacePendingPayload = buildWorkspaceStatePayload();
-    // localStorage는 서버 파일 장애 시 복구용 백업
-    try{ localStorage.setItem(canvasStateKey, JSON.stringify(_workspacePendingPayload)); }catch(e){ /* noop */ }
     if(_workspaceSaveTimer) clearTimeout(_workspaceSaveTimer);
     _workspaceSaveTimer = setTimeout(flushWorkspaceState, 400);
   }catch(error){
@@ -5982,19 +5992,12 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
 
       <div class="scenario-layout scenario-execution-layout">
         <aside class="scenario-config">
-          <div class="scenario-config-title">
-            <h3>조사 및 수사 분석 상세</h3>
-          </div>
-
           <div class="scenario-agent-zone">
-            <div class="scenario-agent-head">
-              <strong>선택 단계 조건</strong>
-            </div>
+            <div id="scenarioSourceHint" class="scenario-source-hint"></div>
             <div class="scenario-field">
               <span>동작 선택</span>
               <div id="scenarioBehaviorOptions" class="scenario-behavior-options"></div>
             </div>
-            <div id="scenarioSourceHint" class="scenario-source-hint"></div>
             <div id="scenarioShareEmailPanel"></div>
             <div id="scenarioWebTargetPanel"></div>
             <label class="scenario-field">

@@ -1307,7 +1307,9 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         try:
             with self._workspace_lock:
                 if path.exists():
-                    return json.loads(path.read_text(encoding="utf-8"))
+                    # utf-8-sig: 외부 도구가 BOM을 붙여 저장해도 파싱 실패로
+                    # 빈 상태 응답(=클라이언트 마이그레이션 오작동)이 되지 않도록 한다.
+                    return json.loads(path.read_text(encoding="utf-8-sig"))
                 return {}
         except (OSError, json.JSONDecodeError) as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
