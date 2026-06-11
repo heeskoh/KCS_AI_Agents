@@ -1890,7 +1890,7 @@ function allGenInvCases(){ return [...defaultGenInvCases, ...generalInvestigatio
 function activeGenInvCase(){ return allGenInvCases().find(c => c.caseId === generalInvestigationState.activeGenInvCaseId) || null; }
 function riskPersonById(personId){ return riskPersons.find(person => person.person_id === personId) || null; }
 /* ─────────────────────────────────────────────────────────── */
-let activeCanvasCompanyId = "C-1001";
+let activeCanvasCompanyId = null;
 let activeScenarioTemplateId = "customs-basic";
 let showScenarioCompanyPicker = false;
 let customCanvasJobs = [];
@@ -3403,9 +3403,35 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   });
 }
 
-function loadCanvasState(){
+/* 진행작업 상태 저장소: 서버 파일(data/workspace_state.json).
+   - 로드: GET /api/workspace_state (없으면 기존 localStorage 상태를 이행)
+   - 저장: 디바운스 POST + localStorage 백업, 페이지 종료 시 sendBeacon 플러시 */
+async function fetchWorkspaceState(){
   try{
-    const saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
+    const res = await fetch("/api/workspace_state");
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data && typeof data.state === "object" && data.state ? data.state : null;
+  }catch(error){
+    return null;
+  }
+}
+
+async function loadCanvasState(){
+  try{
+    let saved = await fetchWorkspaceState();
+    if(!saved || !Object.keys(saved).length){
+      // 서버 파일이 없으면 기존 localStorage 상태를 1회 이행
+      saved = JSON.parse(localStorage.getItem(canvasStateKey) || "{}");
+      if(Object.keys(saved).length){
+        fetch("/api/workspace_state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(saved),
+        }).catch(() => {});
+      }
+    }
+    const hasState = Object.keys(saved).length > 0;
     if(Array.isArray(saved.customCanvasJobs)) customCanvasJobs = saved.customCanvasJobs;
     if(Array.isArray(saved.customGenInvCases)) generalInvestigationState.customGenInvCases = normalizeCaseStepLabelsInPlace(saved.customGenInvCases);
     if(saved.activeCanvasCompanyId) activeCanvasCompanyId = saved.activeCanvasCompanyId;
@@ -3433,45 +3459,84 @@ function loadCanvasState(){
     normalizeCaseStepLabelsInPlace(defaultGenInvCases);
     migrateLegacyWorkspaceState(saved);
     restoreUserWorkspace(currentUserId);
+    return hasState;
   }catch(error){
     console.warn("진행작업 상태를 불러오지 못했습니다.", error);
+    return false;
   }
+}
+
+function buildWorkspaceStatePayload(){
+  return {
+    customCanvasJobs,
+    customGenInvCases: generalInvestigationState.customGenInvCases,
+    activeCanvasCompanyId,
+    activeScenarioTemplateId,
+    latestReport,
+    latestValidation,
+    companyScenarios,
+    userPermissions,
+    canvasJobOverrides,
+    canvasRunArchives,
+    hiddenCanvasJobsByUser,
+    userWorkspaces,
+    customTemplates,
+    hiddenBuiltinIds: [...hiddenBuiltinIds],
+    builtinOverrides,
+    currentUserId,
+    generalInvTab: generalInvestigationState.generalInvTab,
+    activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
+    drugInvTab: specialInvestigationState.drugInvTab,
+    activeDrugCaseId: specialInvestigationState.activeDrugCaseId,
+    drugDataSubTab: specialInvestigationState.drugDataSubTab,
+    drugNetworkSubTab: specialInvestigationState.drugNetworkSubTab,
+    drugForensicSubTab: specialInvestigationState.drugForensicSubTab,
+    drugReportSubTab: specialInvestigationState.drugReportSubTab,
+    investigationTab: customsState.investigationTab,
+  };
+}
+
+let _workspaceSaveTimer = null;
+let _workspacePendingPayload = null;
+
+function flushWorkspaceState(){
+  if(_workspaceSaveTimer){ clearTimeout(_workspaceSaveTimer); _workspaceSaveTimer = null; }
+  if(!_workspacePendingPayload) return;
+  const body = JSON.stringify(_workspacePendingPayload);
+  _workspacePendingPayload = null;
+  fetch("/api/workspace_state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  }).catch(error => console.warn("진행작업 상태를 서버에 저장하지 못했습니다.", error));
 }
 
 function saveCanvasState(){
   try{
     saveCurrentUserWorkspace();
-    localStorage.setItem(canvasStateKey, JSON.stringify({
-      customCanvasJobs,
-      customGenInvCases: generalInvestigationState.customGenInvCases,
-      activeCanvasCompanyId,
-      activeScenarioTemplateId,
-      latestReport,
-      latestValidation,
-      companyScenarios,
-      userPermissions,
-      canvasJobOverrides,
-      canvasRunArchives,
-      hiddenCanvasJobsByUser,
-      userWorkspaces,
-      customTemplates,
-      hiddenBuiltinIds: [...hiddenBuiltinIds],
-      builtinOverrides,
-      currentUserId,
-      generalInvTab: generalInvestigationState.generalInvTab,
-      activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
-      drugInvTab: specialInvestigationState.drugInvTab,
-      activeDrugCaseId: specialInvestigationState.activeDrugCaseId,
-      drugDataSubTab: specialInvestigationState.drugDataSubTab,
-      drugNetworkSubTab: specialInvestigationState.drugNetworkSubTab,
-      drugForensicSubTab: specialInvestigationState.drugForensicSubTab,
-      drugReportSubTab: specialInvestigationState.drugReportSubTab,
-      investigationTab: customsState.investigationTab,
-    }));
+    _workspacePendingPayload = buildWorkspaceStatePayload();
+    // localStorage는 서버 파일 장애 시 복구용 백업
+    try{ localStorage.setItem(canvasStateKey, JSON.stringify(_workspacePendingPayload)); }catch(e){ /* noop */ }
+    if(_workspaceSaveTimer) clearTimeout(_workspaceSaveTimer);
+    _workspaceSaveTimer = setTimeout(flushWorkspaceState, 400);
   }catch(error){
     console.warn("진행작업 상태를 저장하지 못했습니다.", error);
   }
 }
+
+window.addEventListener("beforeunload", () => {
+  // 디바운스 대기 중인 저장분은 종료 직전 sendBeacon으로 플러시
+  if(_workspacePendingPayload){
+    if(_workspaceSaveTimer){ clearTimeout(_workspaceSaveTimer); _workspaceSaveTimer = null; }
+    try{
+      navigator.sendBeacon(
+        "/api/workspace_state",
+        new Blob([JSON.stringify(_workspacePendingPayload)], { type: "application/json" }),
+      );
+      _workspacePendingPayload = null;
+    }catch(e){ /* noop */ }
+  }
+});
 
 function cloneSavedValue(value, fallback){
   if(value === undefined || value === null) return fallback;
@@ -4677,16 +4742,6 @@ function canvasTabContent(){
   return canvasOverviewPanel();
 }
 
-function currentJobStatus(){
-  const total = scenarioItems.length || 7;
-  const done = Object.values(stepStatuses).filter(status => status === "완료").length;
-  const hasRunning = Object.values(stepStatuses).some(status => status === "실행 중");
-  if(hasRunning) return { label:"실행 중", done, total, pct:Math.round((done / total) * 100), tone:"running" };
-  if(done && done >= total) return { label:"완료", done, total, pct:100, tone:"done" };
-  if(done) return { label:"일부 완료", done, total, pct:Math.round((done / total) * 100), tone:"running" };
-  return { label:"대기", done:0, total, pct:0, tone:"wait" };
-}
-
 function scenarioSignature(items = scenarioItems){
   return JSON.stringify(items.map(item => ({
     key: item.key,
@@ -4706,49 +4761,8 @@ function applyJobOverride(job){
 }
 
 function canvasJobs(){
-  const status = currentJobStatus();
-  const defaultJobs = [
-    {
-      companyId:"C-1001",
-      companyName:"한국소재무역",
-      title:"한국소재무역 관세 위험 분석",
-      category:"위험선별 분석",
-      company:"한국소재무역 (C-1001)",
-      owner:"조사국 조사1과",
-      updated:"방금",
-      status,
-      next:"AI서비스 분석 작업",
-      tab:"scenario",
-      assignees:["u01","u08"],
-    },
-    {
-      companyId:"C-1002",
-      companyName:"서울인터내셔널",
-      title:"서울인터내셔널 원유·의류 수입 검토",
-      category:"통관 정보분석",
-      company:"서울인터내셔널 (C-1002)",
-      owner:"심사정보 RAG AI 서비스",
-      updated:"오늘 08:40",
-      status:{ label:"자료 수집", done:2, total:7, pct:29, tone:"running" },
-      next:"데이터 수집",
-      tab:"data",
-      assignees:["u01","u09"],
-    },
-    {
-      companyId:"C-1008",
-      companyName:"제주리테일커머스",
-      title:"제주리테일커머스 환급 이상 검토",
-      category:"관세조사 분석",
-      company:"제주리테일커머스 (C-1008)",
-      owner:"보고서 생성 AI 서비스",
-      updated:"어제",
-      status:{ label:"보고서 검증", done:6, total:7, pct:86, tone:"review" },
-      next:"분석보고서 및 검증",
-      tab:"report",
-      assignees:["u01","u16"],
-    },
-  ];
-  return [...defaultJobs.map(applyJobOverride), ...customCanvasJobs.map(applyJobOverride)];
+  // 기본 샘플 작업 없음 — AI 캔버스는 사용자가 직접 등록·분석한 작업만 관리한다.
+  return customCanvasJobs.map(applyJobOverride);
 }
 
 /* AI 캔버스는 "현재 사용자가 분석한 작업"만 관리한다.
@@ -4804,7 +4818,7 @@ function activeGeneralInvestigationJobs(){
   return allGenInvCases()
     .filter(item => !item.archived)
     .filter(item => {
-      if(!item.ownerUserId && !item.assignees) return true;
+      // 캔버스에는 로그인 사용자가 소유/담당한 수사만 표시 (소유자 없는 샘플 사건 제외)
       if(item.ownerUserId === currentUserId) return true;
       return Array.isArray(item.assignees) && item.assignees.includes(currentUserId);
     })
@@ -4836,7 +4850,11 @@ function activeGiCaseStepsForCard(aCase){
 }
 
 function activeDrugInvestigationJobs(){
-  return defaultDrugInvCases.map(item => ({
+  // 캔버스에는 로그인 사용자가 소유/담당한 사건만 표시 (소유자 없는 샘플 사건 제외)
+  return defaultDrugInvCases
+    .filter(item => item.ownerUserId === currentUserId ||
+      (Array.isArray(item.assignees) && item.assignees.includes(currentUserId)))
+    .map(item => ({
     jobId: item.caseId,
     companyId: item.caseId,
     companyName: item.targetName,
@@ -8767,14 +8785,16 @@ function shutdownAllServers(){
     });
 }
 
-loadCanvasState();
-// 저장 상태가 없으면 기본 사용자(u01) 권한으로 초기화
-if(!localStorage.getItem(canvasStateKey)){
-  const initGroup = userGroups.find(g => g.id === (sampleUsers.find(u => u.id === currentUserId)?.groupId)) || userGroups[0];
-  userPermissions = buildGroupPermissions(initGroup);
-}
-renderSidebarPermissions();
-syncSidebarCollapseIcons();
-updateProfileDisplay();
-updateAdminMenuVisibility();
-render();
+(async () => {
+  const hasState = await loadCanvasState();
+  // 저장 상태가 없으면 기본 사용자(u01) 권한으로 초기화
+  if(!hasState){
+    const initGroup = userGroups.find(g => g.id === (sampleUsers.find(u => u.id === currentUserId)?.groupId)) || userGroups[0];
+    userPermissions = buildGroupPermissions(initGroup);
+  }
+  renderSidebarPermissions();
+  syncSidebarCollapseIcons();
+  updateProfileDisplay();
+  updateAdminMenuVisibility();
+  render();
+})();

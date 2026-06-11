@@ -11,3 +11,5 @@ chroma_db/
 node_modules/
 dist/
 .env
+data/workspace_state.json
+

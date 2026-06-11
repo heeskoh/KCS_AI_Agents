@@ -16,7 +16,7 @@ from src.neo4j_graph import (
     build_company_network_graph,
     build_person_network_graph,
 )
-from src.paths import DB_PATH, STATIC_DIR
+from src.paths import DATA_DIR, DB_PATH, STATIC_DIR
 
 load_dotenv()
 
@@ -1299,6 +1299,9 @@ def _detect_person_id(target_name: str, target_id: str = "") -> str:
 class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
+    _workspace_lock = threading.Lock()
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
 
@@ -1307,6 +1310,19 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/static/"):
             self._serve_static(parsed.path.removeprefix("/static/"))
+            return
+        if parsed.path == "/api/workspace_state":
+            # 진행작업(캔버스) 상태 — data/workspace_state.json 파일 저장소
+            try:
+                with self._workspace_lock:
+                    if self.WORKSPACE_STATE_PATH.exists():
+                        state = json.loads(self.WORKSPACE_STATE_PATH.read_text(encoding="utf-8"))
+                    else:
+                        state = {}
+            except (OSError, json.JSONDecodeError) as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+            self._send_json({"state": state})
             return
         if parsed.path == "/api/companies":
             self._send_json({"companies": list_companies()})
@@ -1389,6 +1405,31 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/shutdown":
             self._send_json({"status": "shutting_down"})
             threading.Thread(target=self._shutdown_server, daemon=True).start()
+            return
+
+        if parsed.path == "/api/workspace_state":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                state = json.loads(raw)
+            except json.JSONDecodeError:
+                self._send_json({"error": "invalid json"}, HTTPStatus.BAD_REQUEST)
+                return
+            if not isinstance(state, dict):
+                self._send_json({"error": "state must be an object"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                with self._workspace_lock:
+                    self.WORKSPACE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    tmp_path = self.WORKSPACE_STATE_PATH.with_suffix(".json.tmp")
+                    tmp_path.write_text(
+                        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
+                    tmp_path.replace(self.WORKSPACE_STATE_PATH)
+            except OSError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+            self._send_json({"status": "saved"})
             return
 
         if parsed.path == "/api/coach":
