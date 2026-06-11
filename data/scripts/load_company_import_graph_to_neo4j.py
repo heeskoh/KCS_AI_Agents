@@ -123,20 +123,22 @@ def create_constraints(tx: ManagedTransaction) -> None:
 
 
 def clear_company_graph(tx: ManagedTransaction) -> None:
-    relationship_types = [
-        "FILED",
-        "USES_HS_CODE",
-        "DECLARES_ITEM",
-        "ORIGINATED_FROM",
-        "SUPPLIES_TO",
-        "HAS_RISK_SCORE",
-        "USES_BROKER",
-        "HAS_RELATED_COMPANY",
-        "IN_INDUSTRY",
-        "EXPORTS_TO",
+    # 시작 노드 라벨로 범위를 한정해 다른 그래프(예: 위험인물 그래프의
+    # Case-[:ORIGINATED_FROM]->Country)와 공유되는 관계 타입을 지우지 않는다.
+    delete_statements = [
+        "MATCH (:Company)-[r:FILED]->() DELETE r",
+        "MATCH (:Declaration)-[r:USES_HS_CODE]->() DELETE r",
+        "MATCH (:Declaration)-[r:DECLARES_ITEM]->() DELETE r",
+        "MATCH (:Declaration)-[r:ORIGINATED_FROM]->() DELETE r",
+        "MATCH (:Country)-[r:SUPPLIES_TO]->(:Company) DELETE r",
+        "MATCH (:Company)-[r:HAS_RISK_SCORE]->() DELETE r",
+        "MATCH (:Company)-[r:USES_BROKER]->() DELETE r",
+        "MATCH (:Company)-[r:HAS_RELATED_COMPANY]->() DELETE r",
+        "MATCH (:Company)-[r:IN_INDUSTRY]->() DELETE r",
+        "MATCH (:Company)-[r:EXPORTS_TO]->() DELETE r",
     ]
-    for rel_type in relationship_types:
-        tx.run(f"MATCH ()-[r:{rel_type}]->() DELETE r")
+    for statement in delete_statements:
+        tx.run(statement)
     tx.run(
         """
         MATCH (n)

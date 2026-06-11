@@ -91,21 +91,23 @@ def create_constraints(tx: ManagedTransaction) -> None:
 
 
 def clear_graph(tx: ManagedTransaction) -> None:
-    relationship_types = [
-        "INVOLVED_IN",
-        "NETWORK_EDGE",
-        "HAS_EVIDENCE",
-        "SUPPORTED_BY",
-        "HAS_RISK_INDICATOR",
-        "HAS_ANALYSIS_RESULT",
-        "ORIGINATED_FROM",
-        "TRANSITED_THROUGH",
-        "DESTINED_FOR",
-        "RESIDES_IN",
-        "LOCATED_IN",
+    # 시작 노드 라벨로 범위를 한정해 다른 그래프(예: 업체 그래프의
+    # Declaration-[:ORIGINATED_FROM]->Country)와 공유되는 관계 타입을 지우지 않는다.
+    delete_statements = [
+        "MATCH (:Person)-[r:INVOLVED_IN]->() DELETE r",
+        "MATCH (s)-[r:NETWORK_EDGE]->() WHERE s:Person OR s:Organization OR s:Case DELETE r",
+        "MATCH ()-[r:HAS_EVIDENCE]->(:Evidence) DELETE r",
+        "MATCH (:Case)-[r:SUPPORTED_BY]->() DELETE r",
+        "MATCH (:Person)-[r:HAS_RISK_INDICATOR]->() DELETE r",
+        "MATCH (:Person)-[r:HAS_ANALYSIS_RESULT]->() DELETE r",
+        "MATCH (:Case)-[r:ORIGINATED_FROM]->() DELETE r",
+        "MATCH (:Case)-[r:TRANSITED_THROUGH]->() DELETE r",
+        "MATCH (:Case)-[r:DESTINED_FOR]->() DELETE r",
+        "MATCH (:Person)-[r:RESIDES_IN]->() DELETE r",
+        "MATCH (:Organization)-[r:LOCATED_IN]->() DELETE r",
     ]
-    for rel_type in relationship_types:
-        tx.run(f"MATCH ()-[r:{rel_type}]->() DELETE r")
+    for statement in delete_statements:
+        tx.run(statement)
     tx.run(
         """
         MATCH (n)
