@@ -12,4 +12,3 @@ node_modules/
 dist/
 .env
 data/workspace_state.json
-data.zip
