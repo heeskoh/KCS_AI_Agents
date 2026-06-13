@@ -19,7 +19,7 @@ export function renderWorkbenchPanel(deps) {
 export const workbenchSubtab = {
   id:       "workbench",
   label:    "AI서비스 분석 작업",
-  showWhen: context => !!context.case,
+  enabledWhen: context => !!context.case,
   aiServices: [
     "db_cdw", "declaration_verify", "customs_value", "hs_verify",
     "route_analysis", "network", "proceeds_tracking", "origin_analysis",

@@ -2,7 +2,10 @@ import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
 
 export function renderCasesPanel(deps){
-  const all = deps.allGenInvCases();
+  // 캔버스와 동일하게 로그인 사용자가 소유/담당한 수사만 표시 (관세조사와 동작 일치)
+  const userId = deps.getCurrentUserId?.();
+  const all = deps.allGenInvCases().filter(c =>
+    c.ownerUserId === userId || (Array.isArray(c.assignees) && c.assignees.includes(userId)));
   const q   = generalInvestigationState.genInvFilter.toLowerCase();
   const filtered = q ? all.filter(c =>
     c.targetName.toLowerCase().includes(q) ||
@@ -27,14 +30,18 @@ export function renderCasesPanel(deps){
           `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
       </div>
 
+      ${(() => {
+        const archivedForUser = generalInvestigationState.archivedGenInvCases.filter(c =>
+          c.ownerUserId === userId || (Array.isArray(c.assignees) && c.assignees.includes(userId)) || (!c.ownerUserId && !c.assignees));
+        return `
       <div class="overview-archive-section">
         <button class="overview-archive-toggle" data-gi-toggle-archive>
-          완료건 확인 <strong>(${generalInvestigationState.archivedGenInvCases.length}건)</strong>
+          완료건 확인 <strong>(${archivedForUser.length}건)</strong>
           <span>${generalInvestigationState.genInvArchiveOpen ? "▲" : "▼"}</span>
         </button>
         ${generalInvestigationState.genInvArchiveOpen ? `
           <div class="job-board archive-board" style="margin-top:12px">
-            ${generalInvestigationState.archivedGenInvCases.map(c => {
+            ${archivedForUser.map(c => {
               const type = deps.genInvTypeById(c.invTypeId);
               return `
                 <article class="job-card archive-card" tabindex="0">
@@ -58,7 +65,8 @@ export function renderCasesPanel(deps){
             }).join("") || `<div class="empty-state">완료된 수사 결과가 없습니다.</div>`}
           </div>
         ` : ""}
-      </div>
+      </div>`;
+      })()}
     </div>
   `;
 }

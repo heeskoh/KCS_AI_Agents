@@ -204,7 +204,11 @@ export function registerSpecialInvestigationEvents(ctx){
     if(drugRegSubmit){
       const selectedId = document.getElementById("drugRegTargetSelect")?.value || "";
       if(!selectedId){ alert("수사 대상을 선택하세요."); return; }
-      const invTypeId = document.getElementById("drugRegType")?.value || "d1";
+      // 현재 페이지 도메인(lawsearch=마약 / fxsearch=외환)에 맞춰 사건을 등록한다.
+      const domain = ctx.getCurrentPage?.() === "fxsearch" ? "fxsearch" : "lawsearch";
+      const isFx = domain === "fxsearch";
+      const defaultTypeId = isFx ? "f1" : "d1";
+      const invTypeId = document.getElementById("drugRegType")?.value || defaultTypeId;
 
       let targetName, extraFields = {};
       if(ctx.drugRegTargetType === "company"){
@@ -217,13 +221,17 @@ export function registerSpecialInvestigationEvents(ctx){
         extraFields = { targetType:"person", personId: selectedId, nationality: person?.nationality || "미상" };
       }
 
-      const autoId = "DRUG-" + new Date().getFullYear() + "-" + String(ctx.defaultDrugInvCases.length + 1).padStart(3,"0");
+      const prefix = isFx ? "FX" : "DRUG";
+      const sameDomainCount = ctx.defaultDrugInvCases.filter(c => (c.domain || "lawsearch") === domain).length;
+      const autoId = prefix + "-" + new Date().getFullYear() + "-" + String(sameDomainCount + 1).padStart(3,"0");
+      const userId = ctx.currentUserId || "u01";
       const newCase = {
         caseId: autoId,
-        targetName, invTypeId,
+        targetName, invTypeId, domain,
         ...extraFields,
-        team:        "마약수사 전담팀",
+        team:        isFx ? "외환조사 전담팀" : "마약수사 전담팀",
         investigator: ctx.currentUser().name,
+        ownerUserId: userId, assignees: [userId],
         updated: "방금",
         status: { label:"대기", tone:"wait", done:0, total:6, pct:0 },
       };

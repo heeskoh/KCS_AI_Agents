@@ -1,8 +1,19 @@
 ﻿import { escapeHtml } from "../../core/dom.js";
 import { specialInvestigationState } from "./state.js";
 
+function currentDomain(deps){
+  return deps.getCurrentPage?.() === "fxsearch" ? "fxsearch" : "lawsearch";
+}
+
 export function renderOngoingPanel(deps){
-  const all      = deps.getDefaultDrugInvCases();
+  const domain   = currentDomain(deps);
+  const domainLabel = domain === "fxsearch" ? "외환" : "마약";
+  const userId   = deps.getCurrentUserId?.();
+  // 마약(lawsearch)·외환(fxsearch)은 사건 풀을 공유하므로 현재 페이지 도메인 사건만 노출하고,
+  // 캔버스/관세조사와 동일하게 로그인 사용자 소유·담당 사건만 표시한다.
+  const all      = deps.getDefaultDrugInvCases().filter(c =>
+    (c.domain || "lawsearch") === domain &&
+    (c.ownerUserId === userId || (Array.isArray(c.assignees) && c.assignees.includes(userId))));
   const q        = specialInvestigationState.drugCaseFilter.toLowerCase();
   const filtered = q ? all.filter(c =>
     c.targetName.toLowerCase().includes(q) ||
@@ -24,17 +35,22 @@ export function renderOngoingPanel(deps){
 
       <div class="gi-case-board">
         ${filtered.map(c => drugCaseCard(deps, c)).join("") ||
-          `<div class="empty-state">등록된 마약 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
+          `<div class="empty-state">등록된 ${escapeHtml(domainLabel)} 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
       </div>
 
+      ${(() => {
+        const archivedForDomain = specialInvestigationState.archivedDrugCases.filter(c =>
+          (c.domain || "lawsearch") === domain &&
+          (c.ownerUserId === userId || (Array.isArray(c.assignees) && c.assignees.includes(userId)) || (!c.ownerUserId && !c.assignees)));
+        return `
       <div class="overview-archive-section">
         <button class="overview-archive-toggle" data-drug-toggle-archive>
-          완료건 확인 <strong>(${specialInvestigationState.archivedDrugCases.length}건)</strong>
+          완료건 확인 <strong>(${archivedForDomain.length}건)</strong>
           <span>${specialInvestigationState.drugArchiveOpen ? "▲" : "▼"}</span>
         </button>
         ${specialInvestigationState.drugArchiveOpen ? `
           <div class="job-board archive-board" style="margin-top:12px">
-            ${specialInvestigationState.archivedDrugCases.map(c => {
+            ${archivedForDomain.map(c => {
               const type = deps.drugInvTypeById(c.invTypeId);
               return `
                 <article class="job-card archive-card" tabindex="0">
@@ -58,7 +74,8 @@ export function renderOngoingPanel(deps){
             }).join("") || `<div class="empty-state">완료된 수사 결과가 없습니다.</div>`}
           </div>
         ` : ""}
-      </div>
+      </div>`;
+      })()}
     </div>
   `;
 }
@@ -140,7 +157,7 @@ function drugNewCaseForm(deps){
         <div style="flex:2;min-width:0">
           <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">수사 유형 선택 <span style="color:var(--red)">*</span></label>
           <select id="drugRegType" class="gi-reg-select" style="width:100%;height:36px">
-            ${deps.DRUG_INV_TYPES.map(t=>`<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`).join("")}
+            ${(deps.invTypesForDomain ? deps.invTypesForDomain(currentDomain(deps)) : deps.DRUG_INV_TYPES).map(t=>`<option value="${t.id}">${t.num} ${escapeHtml(t.label)}</option>`).join("")}
           </select>
         </div>
 

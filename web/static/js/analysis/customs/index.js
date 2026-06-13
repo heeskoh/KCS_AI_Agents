@@ -14,6 +14,8 @@ export function createCustomsInvestigation(deps){
     const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
     const activeCompanyId = deps.getActiveCanvasCompanyId?.() || "";
     const activeCompany = (deps.getScenarioCompanies?.() || []).find(company => company.company_id === activeCompanyId) || null;
+    // 조사 대상이 선택돼야 기업프로파일 이후 서브탭이 활성화된다.
+    const tabContext = { case: activeCompanyId ? (activeCompany || { company_id: activeCompanyId }) : null };
     return `
       <section class="card ci-hub${isFullHeight ? " ci-hub-full" : ""}">
         <div class="ci-page-head">
@@ -32,22 +34,24 @@ export function createCustomsInvestigation(deps){
         </div>
         <div class="ci-tab-nav">
           <div class="ci-tabs-left">
-            ${renderAnalysisTabButtons(workTabs, tab, "data-investigation-tab", "ci-tab")}
+            ${renderAnalysisTabButtons(workTabs, tab, "data-investigation-tab", "ci-tab", tabContext)}
           </div>
           <div class="ci-tabs-right">
-            ${renderAnalysisTabButtons(toolTabs, tab, "data-investigation-tab", "ci-tab")}
+            ${renderAnalysisTabButtons(toolTabs, tab, "data-investigation-tab", "ci-tab", tabContext)}
           </div>
         </div>
         <div class="ci-tab-body">
-          ${investigationTabContent(pageKey)}
+          ${investigationTabContent(pageKey, tabContext)}
         </div>
       </section>
     `;
   }
 
-  function investigationTabContent(pageKey = "investigation"){
+  function investigationTabContent(pageKey = "investigation", context = null){
     const tabs = tabsForPage(pageKey);
-    return renderAnalysisTabContent(tabs, deps.getInvestigationTab(), {}, "dashboard");
+    const activeCompanyId = deps.getActiveCanvasCompanyId?.() || "";
+    const ctx = context || { case: activeCompanyId ? { company_id: activeCompanyId } : null };
+    return renderAnalysisTabContent(tabs, deps.getInvestigationTab(), ctx, "ongoing");
   }
 
   function currentTabAgentDefaultOptions(pageKey = "investigation"){

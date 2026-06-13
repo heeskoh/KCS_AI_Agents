@@ -207,7 +207,7 @@ function drugPersonProfilePanel(deps){
 export const profileSubtab = {
   id: "profile",
   label: context => context.config.profileTab,
-  showWhen: context => !!context.case,
+  enabledWhen: context => !!context.case,
   aiServices: ["db_cdw", "company"],
   render: renderProfilePanel,
 };

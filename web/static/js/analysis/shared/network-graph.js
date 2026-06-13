@@ -805,7 +805,7 @@ function bindHandlers(){
 }
 
 /** 우측 관계망 패널 HTML (그래프는 비동기 주입) */
-export function networkGraphPanelHtml(targetType, targetId, title = "관계망 그래프"){
+export function networkGraphPanelHtml(targetType, targetId, title = "관계망 분석"){
   bindHandlers();
   const id = containerId(targetType, targetId);
   // 렌더 직후 비동기 로드 (캐시 있으면 즉시 그려짐)

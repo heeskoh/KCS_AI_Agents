@@ -84,7 +84,17 @@ const DRUG_INV_TYPES = [
   { id:"d4", num:"④", label:"신종마약 유통 수사",     cls:"gi-t4" },
   { id:"d5", num:"⑤", label:"국제공조 수사",          cls:"gi-t5" },
 ];
-function drugInvTypeById(id){ return DRUG_INV_TYPES.find(t=>t.id===id) || DRUG_INV_TYPES[0]; }
+const FX_INV_TYPES = [
+  { id:"f1", num:"①", label:"불법 외환거래 수사",      cls:"gi-t1" },
+  { id:"f2", num:"②", label:"자금세탁 수사",           cls:"gi-t3" },
+  { id:"f3", num:"③", label:"환치기·불법송금 수사",    cls:"gi-t2" },
+  { id:"f4", num:"④", label:"재산국외도피 수사",       cls:"gi-t4" },
+  { id:"f5", num:"⑤", label:"국제공조 수사",           cls:"gi-t5" },
+];
+// 마약(d*)·외환(f*) 수사유형을 함께 조회한다.
+function drugInvTypeById(id){ return DRUG_INV_TYPES.find(t=>t.id===id) || FX_INV_TYPES.find(t=>t.id===id) || DRUG_INV_TYPES[0]; }
+// 특수수사 페이지(lawsearch=마약 / fxsearch=외환)별 수사유형 목록
+function invTypesForDomain(domain){ return domain === "fxsearch" ? FX_INV_TYPES : DRUG_INV_TYPES; }
 
 /* ── 마약수사 유형별 default 시나리오 템플릿 ─────────────────
    giScenarioTemplates와 동일한 {id,name,description,items} 형식으로 표준화.
@@ -205,25 +215,44 @@ let GI_STEP_SOURCES_MAP = {};
 
 const defaultDrugInvCases = [
   {
-    caseId:"DRUG-2026-001", invTypeId:"d2",
+    caseId:"DRUG-2026-001", invTypeId:"d2", domain:"lawsearch",
     targetName:"김우범", targetType:"person", personId:"RP-0001", nationality:"한국",
-    team:"마약수사 전담팀", investigator:"홍길동",
+    team:"마약수사 전담팀", investigator:"임조사",
+    ownerUserId:"u09", assignees:["u09"],
     updated:"방금",
     status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
   },
   {
-    caseId:"DRUG-2026-002", invTypeId:"d1",
+    caseId:"DRUG-2026-002", invTypeId:"d1", domain:"lawsearch",
     targetName:"(주)위장무역", targetType:"company", companyId:"__NO_COMPANY_SELECTED__", drugOrgId:"RO-002", nationality:"한국",
-    team:"마약수사 전담팀", investigator:"김조사",
+    team:"마약수사 전담팀", investigator:"임조사",
+    ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 09:10",
     status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
   },
   {
-    caseId:"DRUG-2026-003", invTypeId:"d5",
+    caseId:"DRUG-2026-003", invTypeId:"d5", domain:"lawsearch",
     targetName:"Park James", targetType:"person", personId:"RP-0003", nationality:"미국",
-    team:"국제협력팀", investigator:"이국제",
+    team:"국제협력팀", investigator:"임조사",
+    ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
     status:{ label:"보고서 검증", tone:"review", done:5, total:6, pct:83 },
+  },
+  {
+    caseId:"FX-2026-001", invTypeId:"f3", domain:"fxsearch",
+    targetName:"(주)글로벌송금", targetType:"company", companyId:"FX-CO-101", drugOrgId:"FX-101", nationality:"한국",
+    team:"외환조사 전담팀", investigator:"임조사",
+    ownerUserId:"u09", assignees:["u09"],
+    updated:"오늘 11:20",
+    status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
+  },
+  {
+    caseId:"FX-2026-002", invTypeId:"f2", domain:"fxsearch",
+    targetName:"이자금", targetType:"person", personId:"RP-0005", nationality:"한국",
+    team:"외환조사 전담팀", investigator:"임조사",
+    ownerUserId:"u09", assignees:["u09"],
+    updated:"어제",
+    status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
   },
 ];
 
@@ -1220,6 +1249,8 @@ const specialInvestigation = createSpecialInvestigation({
   riskPersonById,
   giStepSourceOptionsHtml,
   DRUG_INV_TYPES,
+  invTypesForDomain,
+  getCurrentUserId: () => currentUserId,
   getDrugRunEventSource: () => drugRunEventSource,
   sharedScenarioWorkbenchHtml,
   drugScenarioTemplateOptionsHtml: (currentInvTypeId) =>
@@ -1301,6 +1332,7 @@ const generalInvestigation = createGeneralInvestigation({
   activeGenInvCase,
   genInvTypeById,
   allGenInvCases,
+  getCurrentUserId: () => currentUserId,
   activeGiCaseSteps,
   activeGiStep,
   canvasDataPanel,
@@ -1887,12 +1919,15 @@ const GI_SCENARIO_STEPS = Object.fromEntries(
 const defaultGenInvCases = [
   { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company", companyId:"C-1001",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
+    ownerUserId:"u09", assignees:["u09"],
     investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
   { caseId:"GI-2026-002", targetName:"샘플우범자001 (개인)", invTypeId:"t2", targetType:"person", personId:"RP-0001",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
-    investigator:"권조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
+    ownerUserId:"u09", assignees:["u09"],
+    investigator:"임조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
   { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company", companyId:"C-1003",
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
+    ownerUserId:"u09", assignees:["u09"],
     investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
 ];
 const defaultGenInvCasesBaseline = JSON.parse(JSON.stringify(defaultGenInvCases));
@@ -3693,7 +3728,15 @@ function restoreWorkspaceWorkState(userId){
   if(Array.isArray(workspace.defaultGenInvCasesState)){
     workspace.defaultGenInvCasesState.forEach(savedCase => {
       const idx = defaultGenInvCases.findIndex(item => item.caseId === savedCase.caseId);
-      if(idx >= 0) Object.assign(defaultGenInvCases[idx], cloneSavedValue(savedCase, defaultGenInvCases[idx]));
+      if(idx >= 0){
+        Object.assign(defaultGenInvCases[idx], cloneSavedValue(savedCase, defaultGenInvCases[idx]));
+        // 샘플 사건의 소유/담당(사용자별 표시 기준)은 코드 기준값을 권위로 유지한다.
+        const baseline = defaultGenInvCasesBaseline.find(item => item.caseId === savedCase.caseId);
+        if(baseline){
+          defaultGenInvCases[idx].ownerUserId = baseline.ownerUserId;
+          defaultGenInvCases[idx].assignees = cloneSavedValue(baseline.assignees, []);
+        }
+      }
     });
     normalizeCaseStepLabelsInPlace(defaultGenInvCases);
   }
@@ -4337,7 +4380,12 @@ function canvasPage(){
 }
 
 function activeDrugCase(){
-  return defaultDrugInvCases.find(c => c.caseId === specialInvestigationState.activeDrugCaseId) || null;
+  const aCase = defaultDrugInvCases.find(c => c.caseId === specialInvestigationState.activeDrugCaseId) || null;
+  if(!aCase) return null;
+  // 마약(lawsearch)·외환(fxsearch)은 사건 풀을 공유하므로 현재 페이지 도메인과 일치할 때만 활성 사건으로 본다.
+  const page = activeSpecialInvestigationPage();
+  if((aCase.domain || "lawsearch") !== page) return null;
+  return aCase;
 }
 
 function drugCaseTargetType(aCase = activeDrugCase()){
@@ -4882,20 +4930,25 @@ function activeDrugInvestigationJobs(){
   return defaultDrugInvCases
     .filter(item => item.ownerUserId === currentUserId ||
       (Array.isArray(item.assignees) && item.assignees.includes(currentUserId)))
-    .map(item => ({
-    jobId: item.caseId,
-    companyId: item.caseId,
-    companyName: item.targetName,
-    title: item.targetName,
-    category: item.category,
-    company: `${item.targetName} (${item.caseId})`,
-    owner: item.owner,
-    updated: item.updated,
-    status: item.status,
-    next: "진행중인 분석작업",
-    page: "lawsearch",
-    openTab: "ongoing",
-  }));
+    .map(item => {
+      const domain = item.domain || "lawsearch";
+      const isFx = domain === "fxsearch";
+      const type = drugInvTypeById(item.invTypeId);
+      return {
+        jobId: item.caseId,
+        companyId: item.caseId,
+        companyName: item.targetName,
+        title: `${item.targetName} ${type.label}`,
+        category: isFx ? "외환 수사 분석" : "마약 수사 분석",
+        company: `${item.targetName} (${item.caseId})`,
+        owner: item.investigator || item.owner || currentUser().name,
+        updated: item.updated,
+        status: item.status,
+        next: "진행중인 수사",
+        page: domain,
+        openTab: "profile",
+      };
+    });
 }
 
 function activeAnalysisJobs(){
@@ -5277,13 +5330,17 @@ function canvasOverviewPanel(){
   return `
     <div class="job-board">
       ${jobs.map(job => {
-        const isCustoms = (job.page || "investigation") === "investigation";
+        const page = job.page || "investigation";
+        const isCustoms = page === "investigation";
+        const isSpecial = page === "lawsearch" || page === "fxsearch";
         const isDone = isCustoms && isCompletedActiveJob(job);
         const total = job.status.total ?? "?";
         const done  = job.status.done  ?? 0;
         const isActive = isCustoms
           ? job.companyId === activeCanvasCompanyId
-          : job.jobId === generalInvestigationState.activeGenInvCaseId;
+          : isSpecial
+            ? job.jobId === specialInvestigationState.activeDrugCaseId
+            : job.jobId === generalInvestigationState.activeGenInvCaseId;
         return `
         <article class="job-card ${isActive ? "active" : ""} ${job.isNew ? "new" : ""} ${job.scenarioChanged ? "changed" : ""}" data-analysis-job="${escapeHtml(job.jobId || job.companyId)}" data-analysis-page="${escapeHtml(job.page || "investigation")}" data-analysis-tab="${escapeHtml(job.openTab || "ongoing")}" data-canvas-company="${escapeHtml(job.companyId || "")}" tabindex="0" role="button">
           <div class="job-card-head">
@@ -7781,6 +7838,9 @@ registerSpecialInvestigationEvents({
   get drugInvSelectedTarget(){ return specialInvestigationState.drugInvSelectedTarget; },
   set drugInvSelectedTarget(value){ specialInvestigationState.drugInvSelectedTarget = value; },
   get GI_STEP_SOURCES(){ return GI_STEP_SOURCES; },
+  get currentUserId(){ return currentUserId; },
+  getCurrentPage: () => currentPage,
+  invTypesForDomain,
   activeDrugCase,
   activeDrugCaseSteps,
   currentUser,
@@ -8460,6 +8520,17 @@ document.addEventListener("click", (event)=>{
       generalInvestigationState.activeGiStepId = null;
       saveCanvasState();
       render("generalinv");
+      return;
+    }
+    if(page === "lawsearch" || page === "fxsearch"){
+      // 마약·외환 수사 사건 선택 후 해당 페이지의 프로파일 탭으로 이동
+      const selectedCaseId = analysisJobCard.dataset.analysisJob;
+      specialInvestigationState.activeDrugCaseId = selectedCaseId;
+      const selectedCase = defaultDrugInvCases.find(c => c.caseId === selectedCaseId) || null;
+      resetDrugCaseSubTabs(selectedCase);
+      specialInvestigationState.drugInvTab = (selectedCase ? (targetTab || "profile") : "ongoing");
+      saveCanvasState();
+      render(page);
       return;
     }
     if(page !== "investigation"){
