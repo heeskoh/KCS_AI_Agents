@@ -194,21 +194,20 @@ const DRUG_SCENARIO_STEPS = Object.fromEntries(
 );
 
 /* ── 외환수사 유형별 default 시나리오 템플릿 (f1~f5) ─────────────
-   공통 흐름: CDW → 조사정보 RAG → 자금흐름내역(범죄수익추적·자금흐름 동작)
-   → 범죄수익 추적(자금이체·가상자산·현금이체/인출) → 통신내역 → 관계망
+   공통 흐름: CDW → 조사정보 RAG → 자금흐름내역(범죄수익 추적·자금흐름 동작)
+   → 범죄자금추적(신규 서비스·소스 선택) → 통신내역(신규 서비스) → 범죄수익 추적
    → 웹검색 → 법령 검토 → 보고서 작성 → 보고서 검증.
    (국제공조 f5는 조사정보 RAG 다음에 국제협력 RAG 단계 추가)
    drugScenarioTemplates와 동일하게 평범한 {key, ...} 객체로 정의(TDZ 회피). */
-const FX_PROFIT_BEHAVIORS = ["transfer", "virtual_asset", "cash_withdrawal"];
 function fxBaseItems({ withGlobalRag = false } = {}){
   return [
     { key:"gi_cdw" },
     { key:"gi_rag_inv", label:"조사정보 RAG" },
     ...(withGlobalRag ? [{ key:"gi_rag_int", label:"국제협력 RAG" }] : []),
-    { key:"gi_profit", label:"자금흐름내역 AI 분석 서비스", behaviors:["fund_flow"], instruction:"자금이체·송금·계좌 흐름 내역 분석" },
-    { key:"gi_profit", behaviors:[...FX_PROFIT_BEHAVIORS], instruction:"자금이체·가상자산추적·현금이체/인출 내역 기반 범죄수익 추적" },
-    { key:"gi_comms", instruction:"통화·SMS·SNS·메신저 통신내역 분석" },
-    { key:"gi_net", instruction:"앞 단계 자료를 활용한 관계망 분석" },
+    { key:"gi_profit", label:"자금흐름내역 AI 분석 서비스", behaviors:["fund_flow"], instruction:"계좌·송금 등 자금흐름 내역 분석" },
+    { key:"gi_fundtrace", behaviors:["transfer","virtual_asset","cash"], instruction:"등록된 이체·가상자산·현금 입출금 소스를 기반으로 범죄자금 추적" },
+    { key:"gi_comms", behaviors:["call","sms","sns","messenger"], instruction:"등록된 통화·SMS·SNS·메신저 통신 소스 분석" },
+    { key:"gi_profit", instruction:"범죄수익 흐름·은닉 가능성 분석" },
     { key:"gi_web" },
     { key:"gi_law" },
     { key:"gi_rep", instruction:"증거 정리" },
@@ -217,19 +216,19 @@ function fxBaseItems({ withGlobalRag = false } = {}){
 }
 const fxScenarioTemplates = [
   { id:"f1", name:"불법 외환거래 수사 템플릿",
-    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 불법 외환거래 수사 흐름",
+    description:"자금흐름·범죄자금추적·통신내역·범죄수익을 연결하는 불법 외환거래 수사 흐름",
     items: giTemplateItems(fxBaseItems()) },
   { id:"f2", name:"자금세탁 수사 템플릿",
-    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 자금세탁 수사 흐름",
+    description:"자금흐름·범죄자금추적·통신내역·범죄수익을 연결하는 자금세탁 수사 흐름",
     items: giTemplateItems(fxBaseItems()) },
   { id:"f3", name:"환치기·불법송금 수사 템플릿",
-    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 환치기·불법송금 수사 흐름",
+    description:"자금흐름·범죄자금추적·통신내역·범죄수익을 연결하는 환치기·불법송금 수사 흐름",
     items: giTemplateItems(fxBaseItems()) },
   { id:"f4", name:"재산국외도피 수사 템플릿",
-    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 재산국외도피 수사 흐름",
+    description:"자금흐름·범죄자금추적·통신내역·범죄수익을 연결하는 재산국외도피 수사 흐름",
     items: giTemplateItems(fxBaseItems()) },
   { id:"f5", name:"국제공조 수사 템플릿",
-    description:"국제협력 RAG·자금흐름·범죄수익·통신내역·관계망을 연결하는 국제공조 수사 흐름",
+    description:"국제협력 RAG·자금흐름·범죄자금추적·통신내역·범죄수익을 연결하는 국제공조 수사 흐름",
     items: giTemplateItems(fxBaseItems({ withGlobalRag:true })) },
 ];
 
@@ -596,19 +595,29 @@ const AI_SERVICE_REGISTRY = {
   },
   proceeds_tracking: {
     label: "범죄수익 추적 AI 서비스", type: "proceeds_tracking", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "자금이체·가상자산·현금 이체/인출 내역을 종합해 범죄수익 흐름과 은닉 가능성을 분석",
+    defaultInstruction: "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름" },
       { value: "account_trace", label: "계좌추적 단서" },
       { value: "concealment", label: "은닉 가능성" },
-      { value: "transfer", label: "자금이체" },
-      { value: "virtual_asset", label: "가상자산추적" },
-      { value: "cash_withdrawal", label: "현금이체·인출" },
     ],
   },
+  // 신규: 범죄자금추적 — 실제 등록된 소스(이체·가상자산·현금 등)에 따라 분석.
+  // 동작 선택 = 분석에 사용할 데이터 소스 선택. (범죄수익 추적과는 별개 서비스)
+  fund_trace: {
+    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "등록된 자금 소스(계좌이체·가상자산·현금 입출금 등) 중 선택한 항목을 기반으로 범죄자금 흐름을 추적",
+    behaviorOptions: [
+      { value: "fund_flow", label: "자금흐름내역" },
+      { value: "transfer", label: "계좌·송금 이체내역" },
+      { value: "virtual_asset", label: "가상자산 거래내역" },
+      { value: "cash", label: "현금 입출금내역" },
+    ],
+  },
+  // 신규: 통신내역 AI 분석 — 동작 선택 = 분석에 사용할 통신 소스 선택.
   comms_analysis: {
     label: "통신내역 AI 분석 서비스", type: "comms", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "통화·SMS·SNS·메신저 통신내역을 분석해 연락 빈도, 공범·전달책 관계 단서를 도출",
+    defaultInstruction: "등록된 통신 소스(통화·SMS·SNS·메신저 등) 중 선택한 항목을 분석해 연락 빈도·공범·전달책 관계 단서를 도출",
     behaviorOptions: [
       { value: "call", label: "통화내역" },
       { value: "sms", label: "SMS" },
@@ -792,12 +801,16 @@ const AI_SERVICE_TARGET_CONFIG = {
     "반입·송금·연락·이동 패턴의 이상 징후를 검증"
   ),
   proceeds_tracking: targetConfig(
-    "자금이체·가상자산·현금 이체/인출 내역을 종합해 범죄수익 흐름과 은닉 가능성을 분석",
-    "개인 계좌·송금·가상자산·현금 인출 단서를 종합해 범죄수익 흐름과 은닉 가능성을 분석"
+    "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+    "개인 계좌·송금·현금 반입 단서를 기반으로 범죄수익 은닉 가능성을 분석"
+  ),
+  fund_trace: targetConfig(
+    "등록된 계좌이체·가상자산·현금 입출금 등 선택한 자금 소스를 기반으로 범죄자금 흐름을 추적",
+    "개인 계좌·송금·가상자산·현금 입출금 등 선택한 자금 소스를 기반으로 범죄자금 흐름을 추적"
   ),
   comms_analysis: targetConfig(
-    "임직원·거래처 간 통화·SMS·SNS·메신저 통신내역을 분석해 거래 연관 연락 패턴과 관계 단서를 도출",
-    "통화·SMS·SNS·메신저 통신내역을 분석해 공범·전달책 연락 패턴과 관계 단서를 도출"
+    "임직원·거래처 간 통화·SMS·SNS·메신저 등 선택한 통신 소스를 분석해 연락 패턴·관계 단서를 도출",
+    "통화·SMS·SNS·메신저 등 선택한 통신 소스를 분석해 공범·전달책 연락 패턴·관계 단서를 도출"
   ),
   route_analysis: targetConfig(
     "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
@@ -1518,6 +1531,7 @@ const GI_SERVICE_ALIASES = {
   gi_route:    { sourceKey:"route_analysis", type:"agent" },
   gi_net:      { sourceKey:"network", type:"agent" },
   gi_profit:   { sourceKey:"proceeds_tracking", type:"agent" },
+  gi_fundtrace:{ sourceKey:"fund_trace", type:"agent", label:"범죄자금추적 AI 서비스" },
   gi_comms:    { sourceKey:"comms_analysis", type:"agent", label:"통신내역 AI 분석 서비스" },
   gi_web:      { sourceKey:"web_search", type:"agent", label:"웹검색 AI 서비스" },
   gi_origin:   { sourceKey:"origin_analysis", type:"agent", label:"원산지 검증 AI 서비스" },
