@@ -186,25 +186,25 @@ def build_company_network_report(company_id: str) -> str | None:
         """,
         company_id=company_id,
     )
+    # 수입신고는 (:Company)-[:IMPORTED]->(:HsCode) 관계로 모델링됨 (Declaration 노드 폐지)
     declarations = _read(
         """
-        MATCH (c:Company {company_id: $company_id})-[:FILED]->(d:Declaration)
-        OPTIONAL MATCH (d)-[:ORIGINATED_FROM]->(country:Country)
-        RETURN d.declaration_no AS declaration_no,
-               d.hs_code AS hs_code,
-               d.item_name AS item_name,
-               d.status AS status,
-               d.declared_value AS declared_value,
-               d.import_date AS import_date,
-               coalesce(country.code, d.origin_country) AS origin
-        ORDER BY d.import_date DESC
+        MATCH (c:Company {company_id: $company_id})-[r:IMPORTED]->(h:HsCode)
+        RETURN r.declaration_no AS declaration_no,
+               h.code AS hs_code,
+               r.item_name AS item_name,
+               r.status AS status,
+               r.declared_value AS declared_value,
+               r.import_date AS import_date,
+               r.origin_country AS origin
+        ORDER BY r.import_date DESC
         LIMIT 10
         """,
         company_id=company_id,
     )
     related = _read(
         """
-        MATCH (c:Company {company_id: $company_id})-[r:USES_BROKER|HAS_RELATED_COMPANY|IN_INDUSTRY|EXPORTS_TO]->(n)
+        MATCH (c:Company {company_id: $company_id})-[r:USES_BROKER|HAS_RELATED_COMPANY|EXPORTS_TO]->(n)
         RETURN type(r) AS relation,
                labels(n)[0] AS label,
                coalesce(n.name, n.code, n.org_name, n.company_name) AS value
@@ -213,20 +213,13 @@ def build_company_network_report(company_id: str) -> str | None:
         """,
         company_id=company_id,
     )
-    risk_rows = _read(
-        """
-        MATCH (:Company {company_id: $company_id})-[:HAS_RISK_SCORE]->(r:RiskScore)
-        RETURN r {.*} AS risk
-        ORDER BY r.generated_at DESC
-        LIMIT 1
-        """,
-        company_id=company_id,
-    )
+    # 위험점수는 RiskScore 노드 폐지 → Company 노드 속성으로 흡수됨
+    risk = company
     flagged = _read(
         """
-        MATCH (c:Company {company_id: $company_id})-[:FILED]->(d:Declaration)
-        WHERE d.status IN ['REVIEW', 'INSPECT', 'HOLD']
-        RETURN d.status AS status, count(*) AS count
+        MATCH (c:Company {company_id: $company_id})-[r:IMPORTED]->()
+        WHERE r.status IN ['REVIEW', 'INSPECT', 'HOLD']
+        RETURN r.status AS status, count(*) AS count
         ORDER BY count DESC
         """,
         company_id=company_id,
@@ -248,7 +241,6 @@ def build_company_network_report(company_id: str) -> str | None:
     ] or ["- 주변 관계 없음"]
     flagged_text = ", ".join(f"{row['status']} {row['count']}건" for row in flagged) or "없음"
 
-    risk = risk_rows[0]["risk"] if risk_rows else {}
     risk_detail = (
         f"저가신고 {risk.get('undervaluation_suspicion_rate', '-')}, "
         f"특수관계 {risk.get('related_party_anomaly_rate', '-')}, "
@@ -256,7 +248,7 @@ def build_company_network_report(company_id: str) -> str | None:
         f"환급 {risk.get('customs_refund_anomaly_rate', '-')}, "
         f"HS오류 {risk.get('hs_classification_error_rate', '-')}, "
         f"역외자금 {risk.get('offshore_fund_concealment_suspicion_rate', '-')}"
-    ) if risk else "위험점수 노드 없음"
+    ) if risk and risk.get('undervaluation_suspicion_rate') is not None else "위험지표 미산정"
 
     lines = [
         "[Neo4j 관계망 분석 결과]",
@@ -312,43 +304,21 @@ def build_person_network_report(person_id: str) -> str | None:
         """,
         person_id=person_id,
     )
+    # 사건은 Case 노드 폐지 → 대표주체(인물) 중심 CASE_* 관계로 표현됨.
+    # CASE_FROM/CASE_VIA/CASE_TO(본인 사건) + CASE_LINK(타인 사건 연루)를 사건번호로 묶어 대표값 사용.
     cases = _read(
         """
-        MATCH (:Person {person_id: $person_id})-[r:INVOLVED_IN]->(c:Case)
-        RETURN c.case_id AS case_id,
-               c.case_no AS case_no,
-               c.case_type AS case_type,
-               c.contraband_category AS contraband_category,
-               c.contraband_sub_category AS contraband_sub_category,
-               c.case_status AS case_status,
+        MATCH (:Person {person_id: $person_id})-[r:CASE_FROM|CASE_VIA|CASE_TO|CASE_LINK]-()
+        WITH r.case_id AS case_id, collect(r)[0] AS r
+        RETURN case_id,
+               r.case_type AS case_type,
+               r.contraband_category AS contraband_category,
+               r.contraband_sub_category AS contraband_sub_category,
+               r.case_status AS case_status,
                r.role_in_case AS role_in_case,
                r.confidence_score AS confidence_score
-        ORDER BY r.confidence_score DESC, c.detection_date DESC
+        ORDER BY r.confidence_score DESC
         LIMIT 12
-        """,
-        person_id=person_id,
-    )
-    indicators = _read(
-        """
-        MATCH (:Person {person_id: $person_id})-[:HAS_RISK_INDICATOR]->(ri:RiskIndicator)
-        RETURN ri.indicator_code AS indicator_code,
-               ri.indicator_name AS indicator_name,
-               ri.score AS score,
-               ri.reason AS reason
-        ORDER BY ri.score DESC
-        LIMIT 10
-        """,
-        person_id=person_id,
-    )
-    analyses = _read(
-        """
-        MATCH (:Person {person_id: $person_id})-[:HAS_ANALYSIS_RESULT]->(ar:AnalysisResult)
-        RETURN ar.analysis_type AS analysis_type,
-               ar.model_or_agent AS model_or_agent,
-               ar.risk_score_after AS risk_score_after,
-               ar.output_summary AS output_summary
-        ORDER BY ar.created_at DESC
-        LIMIT 5
         """,
         person_id=person_id,
     )
@@ -363,15 +333,13 @@ def build_person_network_report(person_id: str) -> str | None:
         f"{row.get('contraband_sub_category')} | 역할 {row.get('role_in_case')} | confidence {row.get('confidence_score')}"
         for row in cases
     ] or ["- 관여 사건 없음"]
-    indicator_lines = [
-        f"- {row['indicator_code']} / {row.get('indicator_name')} / score {row.get('score')}"
-        for row in indicators
-    ] or ["- 위험지표 없음"]
+    # 위험지표·분석이력은 노드 폐지 → Person 노드 속성으로 흡수됨
+    indicator_lines = [f"- {person.get('top_indicators') or '위험지표 미산정'} (총 {person.get('indicator_count', 0)}건)"]
     analysis_lines = [
-        f"- {row.get('analysis_type')} ({row.get('model_or_agent')}) / after {row.get('risk_score_after')}: "
-        f"{row.get('output_summary')}"
-        for row in analyses
-    ] or ["- 분석 이력 없음"]
+        f"- {person.get('latest_analysis_type') or '-'} ({person.get('latest_analysis_agent') or '-'}) / "
+        f"after {person.get('latest_risk_score_after')}: {person.get('latest_analysis_summary') or '분석 이력 없음'} "
+        f"(총 {person.get('analysis_count', 0)}건)"
+    ]
 
     lines = [
         "[Neo4j 우범자 관계망 분석 결과]",
@@ -407,16 +375,12 @@ def build_company_network_graph(company_id: str, limit: int = 60) -> dict[str, A
     if not exists:
         return None
 
-    # 1단계: 기업과 직접 연결된 모든 노드.
-    # 2단계: 중간 노드가 해당 기업의 사건/수입신고일 때만 확장.
-    #         (관세사·국가·업종 같은 공유 허브 노드를 경유해 무관한
-    #          타 기업 사건이 딸려오는 것을 차단)
+    # 엔티티 중심 모델: 기업과 직접 연결된 엔티티(HsCode·Country·Broker·RelatedCompany)만.
+    # 사건/수입신고/위험점수는 노드가 아니라 엣지·속성이므로 1-hop ego 네트워크가 곧 관계망.
     graph = _read_graph(
         """
-        MATCH path = (c:Company {company_id: $company_id})-[*1..2]-(n)
-        WHERE ALL(mid IN nodes(path)[1..-1]
-                  WHERE mid:Case OR mid:SmugglingCase OR mid:Declaration)
-        RETURN path
+        MATCH (c:Company {company_id: $company_id})-[r]-(n)
+        RETURN c, r, n
         LIMIT $limit
         """,
         company_id=company_id,
@@ -436,14 +400,12 @@ def build_person_network_graph(person_id: str, limit: int = 60) -> dict[str, Any
     if not exists:
         return None
 
-    # 1단계: 우범자와 직접 연결된 모든 노드.
-    # 2단계: 중간 노드가 본인 사건/소속 조직일 때만 확장.
+    # 엔티티 중심 모델: 우범자와 직접 연결된 엔티티(인물·조직·국가·지역)만.
+    # 사건은 CASE_* 엣지, 위험지표·분석은 노드 속성이므로 1-hop ego 네트워크가 곧 관계망.
     graph = _read_graph(
         """
-        MATCH path = (p:Person {person_id: $person_id})-[*1..2]-(n)
-        WHERE ALL(mid IN nodes(path)[1..-1]
-                  WHERE mid:Case OR mid:SmugglingCase OR mid:Org OR mid:Organization)
-        RETURN path
+        MATCH (p:Person {person_id: $person_id})-[r]-(n)
+        RETURN p, r, n
         LIMIT $limit
         """,
         person_id=person_id,

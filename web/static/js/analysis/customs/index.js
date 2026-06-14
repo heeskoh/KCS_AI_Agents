@@ -1,10 +1,10 @@
 import { escapeHtml } from "../../core/dom.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
-import { createCustomsInvestigationTabs } from "./tabs.js";
 import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 
 export function createCustomsInvestigation(deps){
-  const tabsForPage = (pageKey = "investigation") => createCustomsInvestigationTabs(deps, pageKey);
+  // 통합 서브탭 레지스트리에서 이 페이지의 서브탭을 구성한다(업무 전용 목록 제거).
+  const tabsForPage = (pageKey = "investigation") => deps.buildSubtabsForPage(pageKey);
 
   function investigationPage(pageKey = "investigation"){
     const tabs = tabsForPage(pageKey);

@@ -56,6 +56,19 @@ function nodeLabelKo(label){
   return NODE_LABEL_KO[label] || label;
 }
 
+/* 관계(엣지) 유형 한국어 라벨 — 엔티티 중심 모델에서 사건/수입 등 이벤트는 엣지로 표현된다.
+   NETWORK_EDGE 는 relation_type 속성(예: 송금관계)이 더 구체적이므로 우선 사용. */
+const REL_LABEL_KO = {
+  CASE_FROM: "사건·원산지", CASE_VIA: "사건·경유", CASE_TO: "사건·도착지", CASE_LINK: "동일사건 연루",
+  IMPORTED: "수입신고", SUPPLIES_TO: "공급", EXPORTS_TO: "수출",
+  USES_BROKER: "관세사", HAS_RELATED_COMPANY: "관계사", RELATED_TO: "특수관계",
+  NETWORK_EDGE: "인적관계", RESIDES_IN: "거주", LOCATED_IN: "소재",
+};
+function relLabelKo(type, props){
+  if(type === "NETWORK_EDGE" && props && props.relation_type) return props.relation_type;
+  return REL_LABEL_KO[type] || type;
+}
+
 /* 그래프 데이터 캐시 + 패널별 필터 상태 */
 const _graphCache = new Map();
 const _loading = new Set();
@@ -202,7 +215,7 @@ function nodeDetailHtml(key, data){
 function edgeDetailHtml(key, edge, sourceData, targetData){
   return `
     <div class="net-detail-head">
-      <strong>${escapeHtml(edge.type)}</strong>
+      <strong>${escapeHtml(edge.typeKo || relLabelKo(edge.type, edge.props))}</strong>
       <em>관계</em>
       <button type="button" class="net-detail-close" data-net-detail-close="${escapeHtml(key)}">×</button>
     </div>
@@ -237,7 +250,7 @@ function cyElements(graph){
   const nodeIds = new Set(nodes.map(n => n.id));
   const edgeEls = (graph.edges || [])
     .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
-    .map((e, i) => ({ data: { id: `e${i}`, source: e.source, target: e.target, type: e.type, props: e.properties || {} } }));
+    .map((e, i) => ({ data: { id: `e${i}`, source: e.source, target: e.target, type: e.type, typeKo: relLabelKo(e.type, e.properties), props: e.properties || {} } }));
   return [...nodeEls, ...edgeEls];
 }
 
@@ -269,7 +282,7 @@ const CY_STYLE = [
       "target-arrow-shape": "triangle",
       "target-arrow-color": "#9bbcff",
       "arrow-scale": 1.1,
-      "label": "data(type)",
+      "label": "data(typeKo)",
       "font-size": "10px",
       "font-weight": 700,
       "color": "#64748b",
@@ -443,7 +456,7 @@ function buildGraphSvg(graph, key){
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     return `
       <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"></line>
-      <text x="${mx.toFixed(1)}" y="${(my - 3).toFixed(1)}" class="edge-label" text-anchor="middle">${escapeHtml(truncate(e.type, 12))}</text>
+      <text x="${mx.toFixed(1)}" y="${(my - 3).toFixed(1)}" class="edge-label" text-anchor="middle">${escapeHtml(truncate(relLabelKo(e.type, e.properties), 12))}</text>
     `;
   }).join("");
 
@@ -538,7 +551,7 @@ function buildConditionBuilder(rawGraph, state, key){
 
   const relOptions = [`<option value="">전체 관계</option>`]
     .concat(relTypes.map(t =>
-      `<option value="${escapeHtml(t)}" ${draft.relType === t ? "selected" : ""}>${escapeHtml(t)}</option>`))
+      `<option value="${escapeHtml(t)}" ${draft.relType === t ? "selected" : ""}>${escapeHtml(relLabelKo(t))}</option>`))
     .join("");
 
   // 등록된 조건 목록
@@ -601,7 +614,7 @@ function buildEdgeTable(graph, maxRows = 80){
     return `
       <tr>
         <td><i class="net-dot" style="background:${nodeColor(s?.label)}"></i>${escapeHtml(s?.name || e.source)}<small>${escapeHtml(nodeLabelKo(s?.label || ""))}</small></td>
-        <td class="net-rel">${escapeHtml(e.type)}</td>
+        <td class="net-rel">${escapeHtml(relLabelKo(e.type, e.properties))}</td>
         <td><i class="net-dot" style="background:${nodeColor(t?.label)}"></i>${escapeHtml(t?.name || e.target)}<small>${escapeHtml(nodeLabelKo(t?.label || ""))}</small></td>
       </tr>
     `;

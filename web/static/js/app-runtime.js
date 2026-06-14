@@ -19,6 +19,7 @@ import {
   scenarioConfigForPage,
   scenarioDefaultTabForPage,
 } from "./analysis/shared/scenario-builder-config.js";
+import { createUnifiedSubtabRegistry } from "./analysis/shared/subtab-registry.js";
 import { isSuperAdminUser } from "./core/super-admin.js";
 import { scenarioBuilderPage as renderScenarioBuilderPage } from "./pages/scenario-builder.js";
 import { intlInfoPageHtml } from "./pages/intl.js";
@@ -241,7 +242,7 @@ const defaultDrugInvCases = [
   {
     caseId:"FX-2026-001", invTypeId:"f3", domain:"fxsearch",
     targetName:"(주)글로벌송금", targetType:"company", companyId:"FX-CO-101", drugOrgId:"FX-101", nationality:"한국",
-    team:"외환조사 전담팀", investigator:"임조사",
+    team:"외환수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 11:20",
     status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
@@ -249,7 +250,7 @@ const defaultDrugInvCases = [
   {
     caseId:"FX-2026-002", invTypeId:"f2", domain:"fxsearch",
     targetName:"이자금", targetType:"person", personId:"RP-0005", nationality:"한국",
-    team:"외환조사 전담팀", investigator:"임조사",
+    team:"외환수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
     status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
@@ -1220,7 +1221,7 @@ let templateEditorInitialized = false;
 let templateDraftName = "";
 let canvasTab = "overview";
 
-const specialInvestigation = createSpecialInvestigation({
+const specialDeps = {
   getCurrentPage: () => currentPage,
   getAnalysisScenarioConfig: page => scenarioConfigForPage(scenarioBuilderConfig, page),
   getDrugInvTab: () => specialInvestigationState.drugInvTab,
@@ -1257,9 +1258,10 @@ const specialInvestigation = createSpecialInvestigation({
     DRUG_INV_TYPES.map(t =>
       `<option value="${escapeHtml(t.id)}"${t.id === drugDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${t.num} ${escapeHtml(t.label)}</option>`
     ).join(""),
-});
+};
+const specialInvestigation = createSpecialInvestigation(specialDeps);
 
-const customsInvestigation = createCustomsInvestigation({
+const customsDeps = {
   getInvestigationTab: () => customsState.investigationTab,
   getAnalysisScenarioConfig: page => scenarioConfigForPage(scenarioBuilderConfig, page),
   getScenarioBuilderConfig: () => scenarioBuilderConfig,
@@ -1278,7 +1280,8 @@ const customsInvestigation = createCustomsInvestigation({
   scenarioTemplatePanel,
   scenarioWorkbenchV2,
   getScenarioCompanies: () => scenarioCompanies,
-});
+};
+const customsInvestigation = createCustomsInvestigation(customsDeps);
 
 function isSpecialInvestigationPage(page = currentPage){
   return specialInvestigation.isSpecialInvestigationPage(page);
@@ -1325,7 +1328,7 @@ function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_
 let giRunEventSource   = null; // 일반수사 분석 실행 SSE 연결
 let drugRunEventSource = null; // 마약수사 분석 실행 SSE 연결 (별도 분리)
 
-const generalInvestigation = createGeneralInvestigation({
+const genDeps = {
   getGeneralInvTab: () => generalInvestigationState.generalInvTab,
   getAnalysisScenarioConfig: page => scenarioConfigForPage(scenarioBuilderConfig, page),
   getScenarioBuilderConfig: () => scenarioBuilderConfig,
@@ -1366,7 +1369,21 @@ const generalInvestigation = createGeneralInvestigation({
       `<option value="${escapeHtml(tpl.id)}"${tpl.id === giDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
     ).join(""),
   sharedScenarioWorkbenchHtml,
+};
+const generalInvestigation = createGeneralInvestigation(genDeps);
+
+/* 통합 서브탭 레지스트리 배선 ──────────────────────────────────────
+   3개 업무 deps를 도메인 키로 묶어 통합 레지스트리를 만들고, 각 deps에
+   buildSubtabsForPage(page)를 주입한다. 각 페이지는 자기 도메인 구현으로
+   서브탭을 렌더하되, 타 업무 서브탭을 추가해도 가용 구현으로 폴백 렌더된다. */
+const unifiedSubtabRegistry = createUnifiedSubtabRegistry({
+  customs: customsDeps,
+  general: genDeps,
+  special: specialDeps,
 });
+customsDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "customs", scenarioBuilderConfig);
+genDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig);
+specialDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "special", scenarioBuilderConfig);
 
 const GI_SERVICE_ALIASES = {
   gi_cdw:      { sourceKey:"db_cdw", type:"db" },
@@ -3856,8 +3873,41 @@ function currentUserGroup(){ const u = currentUser(); return userGroups.find(g =
 function isCurrentUserAdmin(){ return currentUserGroup().isAdmin === true; }
 function isCurrentUserSuperAdmin(){ return isSuperAdminUser(currentUser()); }
 
+/* 업무시나리오 구성 저장소: 서버 파일(data/scenario_builder_config.json).
+   - localStorage는 빠른 초기 렌더용 캐시로 유지하되, 서버 파일이 단일 진실원.
+   - 저장: 저장 버튼/동작 변경 시 즉시 POST (관리자 작업은 빈번하지 않음). */
+const SCENARIO_BUILDER_CONFIG_URL = "/api/scenario_builder_config";
+
+function persistScenarioBuilderConfigToServer(config){
+  try{
+    fetch(SCENARIO_BUILDER_CONFIG_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    }).catch(error => console.warn("업무시나리오 구성을 서버에 저장하지 못했습니다.", error));
+  }catch(error){
+    console.warn("업무시나리오 구성을 서버에 저장하지 못했습니다.", error);
+  }
+}
+
+async function loadScenarioBuilderConfigFromServer(){
+  try{
+    const saved = await fetchJsonStore(SCENARIO_BUILDER_CONFIG_URL);
+    if(saved && Object.keys(saved).length){
+      // 서버 파일이 단일 저장소 — 정규화 후 localStorage 캐시에도 반영
+      scenarioBuilderConfig = saveScenarioBuilderConfig(saved);
+    }else{
+      // 서버 파일이 없으면 기존 localStorage 구성을 1회 이행
+      persistScenarioBuilderConfigToServer(scenarioBuilderConfig);
+    }
+  }catch(error){
+    console.warn("업무시나리오 구성을 서버에서 불러오지 못했습니다.", error);
+  }
+}
+
 function saveScenarioBuilderState(config = scenarioBuilderConfig){
   scenarioBuilderConfig = saveScenarioBuilderConfig(config);
+  persistScenarioBuilderConfigToServer(scenarioBuilderConfig);
   return scenarioBuilderConfig;
 }
 
@@ -8867,6 +8917,8 @@ function shutdownAllServers(){
 
 (async () => {
   const hasState = await loadCanvasState();
+  // 업무시나리오 구성을 서버 파일에서 로드 (없으면 localStorage 구성을 서버로 이행)
+  await loadScenarioBuilderConfigFromServer();
   // 저장 상태가 없으면 기본 사용자(u01) 권한으로 초기화
   if(!hasState){
     const initGroup = userGroups.find(g => g.id === (sampleUsers.find(u => u.id === currentUserId)?.groupId)) || userGroups[0];

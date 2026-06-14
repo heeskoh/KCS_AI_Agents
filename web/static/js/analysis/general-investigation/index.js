@@ -1,16 +1,19 @@
 ﻿import { escapeHtml } from "../../core/dom.js";
 import { renderAnalysisTabButtons, renderAnalysisTabContent } from "../../core/tabs.js";
-import { createGeneralInvestigationTabs } from "./tabs.js";
 import { currentSubtabAgentDefaultOptions } from "../shared/scenario-builder-config.js";
 
 export function createGeneralInvestigation(deps){
-  const tabsForPage = (pageKey = "generalinv") => createGeneralInvestigationTabs(deps, pageKey);
+  // 통합 서브탭 레지스트리에서 이 페이지의 서브탭을 구성한다(업무 전용 목록 제거).
+  const tabsForPage = (pageKey = "generalinv") => deps.buildSubtabsForPage(pageKey);
 
   function generalInvPage(pageKey = "generalinv"){
     const tabs = tabsForPage(pageKey);
     const aCase = deps.activeGenInvCase();
     const tab = deps.getGeneralInvTab();
-    const profileLabel = aCase && aCase.targetType === "person" ? "우범자 프로파일" : "기업수사 프로파일";
+    // 일반수사 프로파일 명칭: 대상 유형별 재정의 (기업/개인). 대상 미선택 시 수사영역 대표 명칭.
+    const profileLabel = !aCase
+      ? "일반수사 프로파일"
+      : aCase.targetType === "person" ? "개인수사 프로파일" : "기업수사 프로파일";
     const tabContext = { case:aCase, profileLabel };
     const targetId = aCase
       ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.caseId))

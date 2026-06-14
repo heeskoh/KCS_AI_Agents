@@ -55,12 +55,14 @@ def main() -> None:
                 person_id=args.person_id,
             ).data()
 
+            # 사건은 CASE_* 관계로 표현됨 (Case 노드 폐지)
             cases = session.run(
                 """
-                MATCH (:Person {person_id: $person_id})-[r:INVOLVED_IN]->(c:Case)
-                RETURN c.case_id AS case_id,
-                       c.case_type AS case_type,
-                       c.contraband_category AS contraband_category,
+                MATCH (:Person {person_id: $person_id})-[r:CASE_FROM|CASE_VIA|CASE_TO|CASE_LINK]-()
+                WITH r.case_id AS case_id, collect(r)[0] AS r
+                RETURN case_id,
+                       r.case_type AS case_type,
+                       r.contraband_category AS contraband_category,
                        r.role_in_case AS role_in_case,
                        r.confidence_score AS confidence_score
                 ORDER BY r.confidence_score DESC
@@ -69,14 +71,13 @@ def main() -> None:
                 person_id=args.person_id,
             ).data()
 
+            # 위험지표는 Person 노드 속성으로 흡수됨 (RiskIndicator 노드 폐지)
             indicators = session.run(
                 """
-                MATCH (:Person {person_id: $person_id})-[:HAS_RISK_INDICATOR]->(ri:RiskIndicator)
-                RETURN ri.indicator_code AS indicator_code,
-                       ri.indicator_name AS indicator_name,
-                       ri.score AS score
-                ORDER BY ri.score DESC
-                LIMIT 10
+                MATCH (p:Person {person_id: $person_id})
+                RETURN p.top_indicators AS top_indicators,
+                       p.indicator_count AS indicator_count,
+                       p.latest_analysis_summary AS latest_analysis_summary
                 """,
                 person_id=args.person_id,
             ).data()

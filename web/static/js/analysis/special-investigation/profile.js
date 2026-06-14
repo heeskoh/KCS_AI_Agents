@@ -204,9 +204,19 @@ function drugPersonProfilePanel(deps){
   return drugProfileShell("마약프로파일", "선택한 우범자의 이동·관계망·디지털·자금 단서를 마약수사 지표 중심으로 재구성한 프로파일입니다.", `${aCase.caseId} · 우범자 · ${deps.drugInvTypeById(aCase.invTypeId).label}`, body);
 }
 
+// 마약/외환 프로파일 탭 명칭: 런타임은 대상(기업/개인)별로 재정의하고,
+// 대상 미선택(또는 관리자 화면)에서는 조사영역 대표 명칭(config.profileTab)을 사용한다.
+function specialProfileTabLabel(context){
+  const domainWord = context.pageKey === "fxsearch" ? "외환" : "마약";
+  const targetType = context.case?.targetType;
+  if(targetType === "company") return `기업 ${domainWord}프로파일`;
+  if(targetType === "person") return `개인 ${domainWord}프로파일`;
+  return context.config?.profileTab || `${domainWord}프로파일`;
+}
+
 export const profileSubtab = {
   id: "profile",
-  label: context => context.config.profileTab,
+  label: specialProfileTabLabel,
   enabledWhen: context => !!context.case,
   aiServices: ["db_cdw", "company"],
   render: renderProfilePanel,

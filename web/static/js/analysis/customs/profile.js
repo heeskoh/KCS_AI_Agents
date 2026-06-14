@@ -9,7 +9,8 @@ export function renderProfilePanel(deps){
 
 export const profileSubtab = {
   id: "profile",
-  label: "기업프로파일",
+  // 관세조사는 기업 단위(개인 대상 없음) — 관리자/런타임 공통 "기업조사 프로파일"
+  label: "기업조사 프로파일",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["db_cdw", "company"],

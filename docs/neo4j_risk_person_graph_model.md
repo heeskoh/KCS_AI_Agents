@@ -24,36 +24,39 @@ exploration and graph analytics.
 
 Reference checks found no missing person/case/evidence references for the current sample.
 
+## Modeling (2026 재모델링 — 엔티티 중심)
+
+노드는 엔티티만 두고, **사건(Case)·증거(Evidence)·위험지표(RiskIndicator)·분석결과(AnalysisResult)는
+관계 또는 노드 속성으로 흡수**한다. 사건은 데이터 특성상 사건당 인물 1명(person_case_link)이므로
+그 인물을 **대표주체(hub)** 로 삼아, 사건 속성을 hub→장소(Country/Region) 관계와
+타인 연루(network_edge person→case) 시 spoke→hub 관계로 표현한다.
+
 ## Nodes
 
-| Label | Natural key | Source |
-| --- | --- | --- |
-| `Person` | `person_id` | `risk_person_profile` |
-| `Organization` | `org_id` | `risk_org_profile` |
-| `Case` | `case_id` | `smuggling_case` |
-| `Evidence` | `source_id` | `evidence_source` |
-| `RiskIndicator` | `indicator_id` | `risk_indicator` |
-| `AnalysisResult` | `analysis_id` | `analysis_result` |
-| `Country` | `code` | `smuggling_case.origin_country`, `smuggling_case.transit_country` |
-| `Region` | `name` | `smuggling_case.destination_region`, profile address region |
+| Label | Natural key | Source | Notes |
+| --- | --- | --- | --- |
+| `Person` | `person_id` | `risk_person_profile` | `top_indicators`/`indicator_count`(위험지표 흡수), `latest_analysis_*`/`analysis_count`(분석결과 흡수) |
+| `Organization` | `org_id` | `risk_org_profile` | |
+| `Country` | `code` | `smuggling_case.origin_country`, `transit_country` | |
+| `Region` | `name` | `smuggling_case.destination_region`, profile address region | |
 
 ## Relationships
 
+사건 속성(`case_id, case_no, case_type, contraband_category, contraband_sub_category, case_status,
+detection_date, role_in_case, confidence_score, evidence_level, evidence_summary`)은 아래 CASE_* 관계의 속성으로 평탄화된다.
+
 | Pattern | Meaning |
 | --- | --- |
-| `(:Person)-[:INVOLVED_IN]->(:Case)` | Person-case participation from `person_case_link` |
-| `(:Person)-[:NETWORK_EDGE]->(:Person)` | Person-to-person graph edge from `network_edge` |
-| `(:Person)-[:NETWORK_EDGE]->(:Organization)` | Person-to-organization graph edge |
-| `(:Person)-[:NETWORK_EDGE]->(:Case)` | Person-to-case graph edge |
-| `(:Person)-[:HAS_RISK_INDICATOR]->(:RiskIndicator)` | Person risk indicator |
-| `(:Person)-[:HAS_ANALYSIS_RESULT]->(:AnalysisResult)` | Person analysis history |
-| `(:Case)-[:SUPPORTED_BY]->(:Evidence)` | Case evidence from `person_case_link.source_id` |
-| `(:Person)-[:HAS_EVIDENCE]->(:Evidence)` | Edge/source evidence provenance from `network_edge.source_id_ref` |
-| `(:Case)-[:ORIGINATED_FROM]->(:Country)` | Case origin country |
-| `(:Case)-[:TRANSITED_THROUGH]->(:Country)` | Case transit country |
-| `(:Case)-[:DESTINED_FOR]->(:Region)` | Case destination region |
+| `(:Person hub)-[:CASE_FROM {사건속성}]->(:Country)` | 사건 원산지 (대표주체 기준) |
+| `(:Person hub)-[:CASE_VIA {사건속성}]->(:Country)` | 사건 경유지 |
+| `(:Person hub)-[:CASE_TO {사건속성}]->(:Region)` | 사건 도착지 |
+| `(:Person spoke)-[:CASE_LINK {사건속성}]->(:Person hub)` | 동일 사건 연루(타인) — `network_edge` person→case 기준 |
+| `(:Person)-[:NETWORK_EDGE {relation_type, weight, confidence_score}]->(:Person\|:Organization)` | 인적·조직 직접 관계 |
 | `(:Person)-[:RESIDES_IN]->(:Region)` | Person address region |
 | `(:Organization)-[:LOCATED_IN]->(:Region)` | Organization address region |
+
+> 폐지: `Case`/`Evidence`/`RiskIndicator`/`AnalysisResult` 노드, `INVOLVED_IN`/`SUPPORTED_BY`/
+> `HAS_EVIDENCE`/`HAS_RISK_INDICATOR`/`HAS_ANALYSIS_RESULT`/`ORIGINATED_FROM`/`TRANSITED_THROUGH`/`DESTINED_FOR` 관계.
 
 ## Relationship Properties
 
@@ -92,12 +95,11 @@ RETURN p
 LIMIT 100;
 ```
 
-Risk indicators for a person:
+Risk indicators / analysis for a person (노드 속성으로 흡수됨):
 
 ```cypher
-MATCH p = (:Person {person_id: "RP-0006"})-[:HAS_RISK_INDICATOR]->(ri:RiskIndicator)
-RETURN ri.indicator_code, ri.indicator_name, ri.score, ri.reason
-ORDER BY ri.score DESC;
+MATCH (p:Person {person_id: "RP-0006"})
+RETURN p.top_indicators, p.indicator_count, p.latest_analysis_summary, p.analysis_count;
 ```
 
 Most connected persons:
@@ -109,10 +111,9 @@ ORDER BY edge_count DESC, p.risk_score DESC
 LIMIT 20;
 ```
 
-Cases with evidence:
+A person's cases (사건이 CASE_* 관계로 표현됨):
 
 ```cypher
-MATCH p = (:Person)-[:INVOLVED_IN]->(:Case)-[:SUPPORTED_BY]->(:Evidence)
-RETURN p
-LIMIT 100;
+MATCH (:Person {person_id: "RP-0006"})-[r:CASE_FROM|CASE_VIA|CASE_TO|CASE_LINK]-()
+RETURN DISTINCT r.case_id, r.case_type, r.contraband_category, r.case_status, r.evidence_summary;
 ```

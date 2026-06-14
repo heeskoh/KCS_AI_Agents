@@ -1,12 +1,19 @@
-"""Load DuckDB company import-risk data into Neo4j.
+"""Load DuckDB company import-risk data into Neo4j (entity-centric model).
 
-This loader creates a company-centered graph from:
-  - company_profiles
-  - import_declarations
-  - import_risk_scores
+Modeling principle (2026 재모델링):
+  - 노드 = 엔티티/분류: Company, Country, HsCode, Broker, RelatedCompany
+  - 수입신고(Declaration)는 노드가 아니라 **관계(엣지)**로 표현한다.
+        (:Company)-[:IMPORTED {declaration_no, item_name, declared_value, origin_country,
+                               import_date, status}]->(:HsCode)
+  - 위험점수(RiskScore)·업종(Industry)·품명(Item)은 **노드 속성 또는 엣지 속성**으로 흡수한다.
+        · 위험점수 6개 지표율 → Company 속성
+        · 업종코드 → Company.industry_code 속성
+        · 품명     → IMPORTED 엣지 item_name 속성
+  - 국가/관세사/관계사 관계는 유지: SUPPLIES_TO, EXPORTS_TO, USES_BROKER, HAS_RELATED_COMPANY
+
+DuckDB remains the source of truth. Neo4j is a derived graph store.
 
 Usage:
-    python data/scripts/load_company_import_graph_to_neo4j.py
     python data/scripts/load_company_import_graph_to_neo4j.py --clear
 """
 
@@ -31,6 +38,15 @@ DEFAULT_USER = "neo4j"
 DEFAULT_PASSWORD = "kcsneo4j1234"
 DEFAULT_DATABASE = "neo4j"
 SOURCE_TAG = "duckdb.company_import.sample"
+
+RISK_RATE_FIELDS = (
+    "undervaluation_suspicion_rate",
+    "related_party_anomaly_rate",
+    "fta_origin_misuse_suspicion_rate",
+    "customs_refund_anomaly_rate",
+    "hs_classification_error_rate",
+    "offshore_fund_concealment_suspicion_rate",
+)
 
 
 def clean_value(value: Any) -> Any:
@@ -92,10 +108,7 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
     export_countries = []
     for company in companies:
         for country in country_tokens(company.get("major_export_countries")):
-            export_countries.append({
-                "company_id": company["company_id"],
-                "country": country,
-            })
+            export_countries.append({"company_id": company["company_id"], "country": country})
 
     return {
         "companies": companies,
@@ -106,50 +119,51 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def build_risk_by_company(risk_scores: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """company_id → 최신 위험점수 행 (generated_at 기준)."""
+    latest: dict[str, dict[str, Any]] = {}
+    for row in risk_scores:
+        cid = row.get("company_id")
+        if not cid:
+            continue
+        prev = latest.get(cid)
+        if prev is None or str(row.get("generated_at") or "") >= str(prev.get("generated_at") or ""):
+            latest[cid] = row
+    return latest
+
+
 def create_constraints(tx: ManagedTransaction) -> None:
     statements = [
         "CREATE CONSTRAINT company_id IF NOT EXISTS FOR (n:Company) REQUIRE n.company_id IS UNIQUE",
-        "CREATE CONSTRAINT declaration_no IF NOT EXISTS FOR (n:Declaration) REQUIRE n.declaration_no IS UNIQUE",
-        "CREATE CONSTRAINT risk_score_id IF NOT EXISTS FOR (n:RiskScore) REQUIRE n.risk_score_id IS UNIQUE",
         "CREATE CONSTRAINT country_code IF NOT EXISTS FOR (n:Country) REQUIRE n.code IS UNIQUE",
         "CREATE CONSTRAINT hs_code IF NOT EXISTS FOR (n:HsCode) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT item_name IF NOT EXISTS FOR (n:Item) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT broker_name IF NOT EXISTS FOR (n:Broker) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT related_company_name IF NOT EXISTS FOR (n:RelatedCompany) REQUIRE n.name IS UNIQUE",
-        "CREATE CONSTRAINT industry_code IF NOT EXISTS FOR (n:Industry) REQUIRE n.code IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
 
 
 def clear_company_graph(tx: ManagedTransaction) -> None:
-    # 시작 노드 라벨로 범위를 한정해 다른 그래프(예: 위험인물 그래프의
-    # Case-[:ORIGINATED_FROM]->Country)와 공유되는 관계 타입을 지우지 않는다.
     delete_statements = [
-        "MATCH (:Company)-[r:FILED]->() DELETE r",
-        "MATCH (:Declaration)-[r:USES_HS_CODE]->() DELETE r",
-        "MATCH (:Declaration)-[r:DECLARES_ITEM]->() DELETE r",
-        "MATCH (:Declaration)-[r:ORIGINATED_FROM]->() DELETE r",
+        "MATCH (:Company)-[r:IMPORTED]->() DELETE r",
         "MATCH (:Country)-[r:SUPPLIES_TO]->(:Company) DELETE r",
-        "MATCH (:Company)-[r:HAS_RISK_SCORE]->() DELETE r",
         "MATCH (:Company)-[r:USES_BROKER]->() DELETE r",
         "MATCH (:Company)-[r:HAS_RELATED_COMPANY]->() DELETE r",
-        "MATCH (:Company)-[r:IN_INDUSTRY]->() DELETE r",
         "MATCH (:Company)-[r:EXPORTS_TO]->() DELETE r",
     ]
     for statement in delete_statements:
         tx.run(statement)
     tx.run(
-        """
-        MATCH (n)
-        WHERE n.updated_from = $source_tag
-        DETACH DELETE n
-        """,
+        "MATCH (n) WHERE n.updated_from = $source_tag DETACH DELETE n",
         {"source_tag": SOURCE_TAG},
     )
 
 
-def merge_company(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+def merge_company(tx: ManagedTransaction, row: dict[str, Any], risk: dict[str, Any]) -> None:
+    params = {**row, "source_tag": SOURCE_TAG}
+    for field in RISK_RATE_FIELDS:
+        params[field] = risk.get(field)
     tx.run(
         """
         MERGE (c:Company {company_id: $company_id})
@@ -170,21 +184,16 @@ def merge_company(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             c.declared_duty_amount = $declared_duty_amount,
             c.recent_customs_refund = $recent_customs_refund,
             c.fta_reduction_rate = $fta_reduction_rate,
+            c.undervaluation_suspicion_rate = $undervaluation_suspicion_rate,
+            c.related_party_anomaly_rate = $related_party_anomaly_rate,
+            c.fta_origin_misuse_suspicion_rate = $fta_origin_misuse_suspicion_rate,
+            c.customs_refund_anomaly_rate = $customs_refund_anomaly_rate,
+            c.hs_classification_error_rate = $hs_classification_error_rate,
+            c.offshore_fund_concealment_suspicion_rate = $offshore_fund_concealment_suspicion_rate,
             c.updated_from = $source_tag
         """,
-        {**row, "source_tag": SOURCE_TAG},
+        params,
     )
-
-    if row.get("industry_code"):
-        tx.run(
-            """
-            MATCH (c:Company {company_id: $company_id})
-            MERGE (i:Industry {code: $industry_code})
-            SET i.updated_from = $source_tag
-            MERGE (c)-[:IN_INDUSTRY]->(i)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
     if row.get("customs_broker_firm"):
         tx.run(
             """
@@ -220,52 +229,25 @@ def merge_export_country(tx: ManagedTransaction, row: dict[str, Any]) -> None:
 
 
 def merge_declaration(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    """수입신고 → (:Company)-[:IMPORTED {...}]->(:HsCode). HS 코드 없으면 건너뜀."""
+    if not row.get("hs_code"):
+        return
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
-        MERGE (d:Declaration {declaration_no: $declaration_no})
-        SET d.duckdb_id = $id,
-            d.hs_code = $hs_code,
-            d.item_name = $item_name,
-            d.declared_value = $declared_value,
-            d.origin_country = $origin_country,
-            d.import_date = $import_date,
-            d.status = $status,
-            d.updated_from = $source_tag
-        MERGE (c)-[:FILED]->(d)
+        MERGE (h:HsCode {code: $hs_code})
+        SET h.updated_from = $source_tag
+        MERGE (c)-[r:IMPORTED {declaration_no: $declaration_no}]->(h)
+        SET r.duckdb_id = $id,
+            r.item_name = $item_name,
+            r.declared_value = $declared_value,
+            r.origin_country = $origin_country,
+            r.import_date = $import_date,
+            r.status = $status,
+            r.updated_from = $source_tag
         """,
         {**row, "source_tag": SOURCE_TAG},
     )
-    if row.get("hs_code"):
-        tx.run(
-            """
-            MATCH (d:Declaration {declaration_no: $declaration_no})
-            MERGE (h:HsCode {code: $hs_code})
-            SET h.updated_from = $source_tag
-            MERGE (d)-[:USES_HS_CODE]->(h)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
-    if row.get("item_name"):
-        tx.run(
-            """
-            MATCH (d:Declaration {declaration_no: $declaration_no})
-            MERGE (item:Item {name: $item_name})
-            SET item.updated_from = $source_tag
-            MERGE (d)-[:DECLARES_ITEM]->(item)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
-    if row.get("origin_country"):
-        tx.run(
-            """
-            MATCH (d:Declaration {declaration_no: $declaration_no})
-            MERGE (country:Country {code: $origin_country})
-            SET country.updated_from = $source_tag
-            MERGE (d)-[:ORIGINATED_FROM]->(country)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
 
 
 def merge_supply_stat(tx: ManagedTransaction, row: dict[str, Any]) -> None:
@@ -286,35 +268,14 @@ def merge_supply_stat(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     )
 
 
-def merge_risk_score(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    risk_score_id = f"IRS-{row['id']}"
-    tx.run(
-        """
-        MATCH (c:Company {company_id: $company_id})
-        MERGE (r:RiskScore {risk_score_id: $risk_score_id})
-        SET r.duckdb_id = $id,
-            r.risk_level = $risk_level,
-            r.risk_score = $risk_score,
-            r.undervaluation_suspicion_rate = $undervaluation_suspicion_rate,
-            r.related_party_anomaly_rate = $related_party_anomaly_rate,
-            r.fta_origin_misuse_suspicion_rate = $fta_origin_misuse_suspicion_rate,
-            r.customs_refund_anomaly_rate = $customs_refund_anomaly_rate,
-            r.hs_classification_error_rate = $hs_classification_error_rate,
-            r.offshore_fund_concealment_suspicion_rate = $offshore_fund_concealment_suspicion_rate,
-            r.generated_at = $generated_at,
-            r.updated_from = $source_tag
-        MERGE (c)-[:HAS_RISK_SCORE]->(r)
-        """,
-        {**row, "risk_score_id": risk_score_id, "source_tag": SOURCE_TAG},
-    )
-
-
 def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) -> dict[str, Any]:
     load_dotenv()
     uri = os.getenv("NEO4J_URI", DEFAULT_URI)
     user = os.getenv("NEO4J_USER", DEFAULT_USER)
     password = os.getenv("NEO4J_PASSWORD", DEFAULT_PASSWORD)
     database = os.getenv("NEO4J_DATABASE", DEFAULT_DATABASE)
+
+    risk_by_company = build_risk_by_company(data["risk_scores"])
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
@@ -325,30 +286,19 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
                 session.execute_write(clear_company_graph)
 
             for row in data["companies"]:
-                session.execute_write(merge_company, row)
+                session.execute_write(merge_company, row, risk_by_company.get(row["company_id"], {}))
             for row in data["export_countries"]:
                 session.execute_write(merge_export_country, row)
             for row in data["declarations"]:
                 session.execute_write(merge_declaration, row)
             for row in data["supply_stats"]:
                 session.execute_write(merge_supply_stat, row)
-            for row in data["risk_scores"]:
-                session.execute_write(merge_risk_score, row)
 
             node_counts = session.run(
-                """
-                MATCH (n)
-                WITH labels(n)[0] AS label, count(*) AS count
-                RETURN label, count
-                ORDER BY label
-                """
+                "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
             ).data()
             relationship_counts = session.run(
-                """
-                MATCH ()-[r]->()
-                RETURN type(r) AS type, count(*) AS count
-                ORDER BY type
-                """
+                "MATCH ()-[r]->() RETURN type(r) AS type, count(*) AS count ORDER BY type"
             ).data()
     finally:
         driver.close()
@@ -356,16 +306,16 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
     return {
         "companies_loaded": len(data["companies"]),
         "declarations_loaded": len(data["declarations"]),
-        "risk_scores_loaded": len(data["risk_scores"]),
         "supply_stats_loaded": len(data["supply_stats"]),
         "export_country_links_loaded": len(data["export_countries"]),
+        "risk_scores_folded": len(risk_by_company),
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load DuckDB company import-risk graph into Neo4j")
+    parser = argparse.ArgumentParser(description="Load DuckDB company import-risk graph into Neo4j (entity-centric)")
     parser.add_argument("--clear", action="store_true", help="Clear previously loaded company graph before loading.")
     args = parser.parse_args()
 

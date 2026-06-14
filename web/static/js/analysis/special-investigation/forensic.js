@@ -31,10 +31,10 @@ function drugSubTabNav(group, active, tabs){
   `;
 }
 
-export function renderForensicPanel(deps){
-  const aCase = deps.activeDrugCase();
-  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-  const ctx = deps.drugCaseContext(aCase);
+export function renderForensicPanel(deps, uctx){
+  // 정규화된 대상 컨텍스트(ctx.target)를 사용해 어느 업무에서든 현재 대상으로 렌더한다.
+  const ctx = uctx?.target;
+  if(!ctx) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const tabs = [
     {key:"dashboard", label:"종합 분석 대시보드"},
     {key:"money", label:"자금흐름"},
@@ -150,7 +150,7 @@ export function renderForensicPanel(deps){
     <div class="drug-forensic-dashboard">
       <div class="drug-forensic-toolbar">
         <strong>종합 분석 대시보드</strong>
-        <span>자금·디지털 포렌식 통합 현황</span>
+        <span>자금·디지털 압수증거 통합 현황</span>
         <div>
           <button>분석기간 2025-06-01 - 2026-06-17</button>
           <button>대상 전체</button>
@@ -254,7 +254,7 @@ export function renderForensicPanel(deps){
   `;
   return `
     <div class="drug-forensic-page">
-      ${drugContextHeader(ctx, "자금·디지털 포렌식 분석", "선택 대상 유형에 맞춰 자금·디지털·SNS 단서를 전환합니다.")}
+      ${drugContextHeader(ctx, "자금·디지털 압수증거 분석", "선택 대상 유형에 맞춰 자금·디지털·SNS 단서를 전환합니다.")}
       ${drugSubTabNav("forensic", specialInvestigationState.drugForensicSubTab, tabs)}
       ${specialInvestigationState.drugForensicSubTab === "dashboard" ? dashboard : `
         <section class="drug-forensic-detail">
@@ -289,7 +289,7 @@ export function renderForensicPanel(deps){
 
 export const forensicSubtab = {
   id: "forensic",
-  label: "자금·디지털 포렌식 분석",
+  label: "자금·디지털 압수증거 분석",
   enabledWhen: context => !!context.case,
   aiServices: ["proceeds_tracking", "network", "web_search"],
   render: renderForensicPanel,

@@ -10,15 +10,22 @@ import {
   ANALYSIS_TEMPLATE_OPTIONS,
   DEFAULT_ANALYSIS_SCENARIOS,
 } from "../analysis/shared/scenario-builder-config.js";
-import { CUSTOMS_SUBTABS } from "../analysis/customs/tabs.js";
-import { GENERAL_INVESTIGATION_SUBTABS } from "../analysis/general-investigation/tabs.js";
-import { SPECIAL_INVESTIGATION_SUBTABS } from "../analysis/special-investigation/tabs.js";
+import {
+  ALL_SUBTAB_IDS,
+  ANALYSIS_SUBTAB_CATALOG,
+  DOMAIN_BY_TEMPLATE,
+  canonicalSubtabId,
+  scenarioHasSubtab,
+} from "../analysis/shared/subtab-registry.js";
 
-const SUBTABS_BY_TEMPLATE = {
-  customs: CUSTOMS_SUBTABS,
-  "general-investigation": GENERAL_INVESTIGATION_SUBTABS,
-  "special-investigation": SPECIAL_INVESTIGATION_SUBTABS,
-};
+// '활용 가능한 서브탭 선택' 풀에서 제외 — 진행중인 작업(ongoing/cases)·프로파일(profile).
+const POOL_EXCLUDED_SUBTAB_IDS = new Set(["ongoing", "cases", "profile"]);
+
+// 통합 카탈로그에서 (동의어 정규화) 해당 서브탭 정의를 찾는다.
+function catalogSubtabById(id){
+  const cid = canonicalSubtabId(id);
+  return ANALYSIS_SUBTAB_CATALOG.find(subtab => subtab.id === cid) || null;
+}
 
 export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "", showNewForm = false, newDraft = {}, editingServiceId = null }){
   if(!isSuperAdmin()){
@@ -166,9 +173,8 @@ function analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft
 
 /* ── 서브탭 Pool 편집 패널 (미포함 섹션 없음 — Pool 패널에서 확인) ── */
 function subtabPoolEditor(page, scenario, isCustom){
-  const allSubtabs = SUBTABS_BY_TEMPLATE[scenario.template] || [];
   const enabledIds = scenario.enabledSubtabs || [];
-  const includedSubtabs = enabledIds.map(id => allSubtabs.find(t => t.id === id)).filter(Boolean);
+  const includedSubtabs = enabledIds.map(id => catalogSubtabById(id)).filter(Boolean);
 
   return `
     <!-- 기본 진입 탭 -->
@@ -241,7 +247,7 @@ function subtabPoolEditor(page, scenario, isCustom){
 
 /* ── 오른쪽: 활용 가능한 서브탭 선택 패널 ────────────────── */
 /* ── 오른쪽 30%: 활용 가능한 서브탭 선택 Panel ──────────────
-   - 하드코딩 제거 — SUBTABS_BY_TEMPLATE 에서 실제 구현된 서브탭 읽음
+   - 통합 카탈로그(ANALYSIS_SUBTAB_CATALOG)에서 등록된 모든 서브탭 읽음 (업무 전용 제약 없음)
    - 신규 폼 모드: sbNewDraft.enabledSubtabs 에 없는 것 표시
                    클릭 → data-sb-new-subtab-toggle
    - 편집 모드: scenario.enabledSubtabs 에 없는 것 표시
@@ -253,19 +259,17 @@ function extraSubtabsPanel(page, scenario, showNewForm, newDraft){
   let fakeSc   = {};
 
   if(showNewForm && newDraft){
-    // 신규 폼 모드: fixed template pool 에서 미포함 서브탭
-    const FIXED_TEMPLATE = "special-investigation";
-    const allSubtabs = SUBTABS_BY_TEMPLATE[FIXED_TEMPLATE] || [];
-    const enabledSet = new Set(newDraft.enabledSubtabs || []);
-    excludedSubtabs  = allSubtabs.filter(t => !enabledSet.has(t.id));
-    fakeSc = { page: newDraft.page || "", template: FIXED_TEMPLATE };
+    // 신규 폼 모드: 통합 카탈로그(진행중인 작업·프로파일 제외) 중 미포함 서브탭
+    fakeSc = { page: newDraft.page || "", template: "special-investigation", enabledSubtabs: newDraft.enabledSubtabs || [] };
+    excludedSubtabs  = ANALYSIS_SUBTAB_CATALOG
+      .filter(t => !POOL_EXCLUDED_SUBTAB_IDS.has(t.id) && !scenarioHasSubtab(fakeSc, t.id));
     dataAttr = "data-sb-new-subtab-toggle";
   } else if(scenario){
-    // 편집 모드: 선택된 업무분석 template pool 에서 미포함 서브탭
-    const allSubtabs = SUBTABS_BY_TEMPLATE[scenario.template] || [];
-    const enabledSet = new Set(scenario.enabledSubtabs || []);
-    excludedSubtabs  = allSubtabs.filter(t => !enabledSet.has(t.id));
+    // 편집 모드: 분석업무와 무관하게 통합 카탈로그(진행중인 작업·프로파일 제외) 중 미포함 서브탭
+    // 동의어(예: scenario/workbench)는 이미 포함된 경우 풀에 다시 노출하지 않는다.
     fakeSc = scenario;
+    excludedSubtabs  = ANALYSIS_SUBTAB_CATALOG
+      .filter(t => !POOL_EXCLUDED_SUBTAB_IDS.has(t.id) && !scenarioHasSubtab(scenario, t.id));
     dataAttr = `data-sb-subtab-toggle-prefix`; // page:tabId 형식 — 아래에서 조합
   } else {
     return `<div class="muted" style="font-size:12px;padding:20px 0;text-align:center">
@@ -319,14 +323,12 @@ function extraSubtabsPanel(page, scenario, showNewForm, newDraft){
    - 모든 버튼 white-space:nowrap
    ─────────────────────────────────────────────────────────── */
 function newAnalysisPoolForm(draft){
-  // 템플릿 고정: special-investigation
-  const FIXED_TEMPLATE = "special-investigation";
-  const allSubtabs = SUBTABS_BY_TEMPLATE[FIXED_TEMPLATE] || [];
-  const enabledSet  = new Set(draft.enabledSubtabs || []);
-  const enabledIds  = (draft.enabledSubtabs || []).filter(id => allSubtabs.some(t => t.id === id));
-  const includedSubtabs = enabledIds.map(id => allSubtabs.find(t => t.id === id)).filter(Boolean);
+  // 신규 업무분석 템플릿: special-investigation. 포함 서브탭은 분석업무와 무관하게
+  // 통합 카탈로그(ANALYSIS_SUBTAB_CATALOG)에서 조회한다.
+  const fakeSc = { page: draft.page || "", template: "special-investigation", defaultTab: draft.defaultTab || "" };
+  const enabledIds  = (draft.enabledSubtabs || []).filter(id => ALL_SUBTAB_IDS.has(id));
+  const includedSubtabs = enabledIds.map(id => catalogSubtabById(id)).filter(Boolean);
   // excludedSubtabs는 오른쪽 Pool(extraSubtabsPanel)에서 처리 — 여기서 불필요
-  const fakeSc = { page: draft.page || "", template: FIXED_TEMPLATE, defaultTab: draft.defaultTab || "" };
 
   return `
     <div style="border:2px solid #7c3aed;border-radius:10px;padding:16px 18px;background:#faf5ff">
@@ -455,14 +457,8 @@ function newAnalysisPoolForm(draft){
    - data-agent-* 속성명 유지 (저장 로직 호환)
    ═══════════════════════════════════════════════════════════ */
 function agentDefaultsSection(config, editingServiceId = null){
-  const allSubtabs = [
-    ...CUSTOMS_SUBTABS,
-    ...GENERAL_INVESTIGATION_SUBTABS,
-    ...SPECIAL_INVESTIGATION_SUBTABS,
-  ];
-
-  // serviceId → 사용 서브탭 목록
-  const usageMap = buildServiceUsageMap(allSubtabs);
+  // serviceId → 사용 서브탭 목록 (통합 카탈로그 기준)
+  const usageMap = buildServiceUsageMap(ANALYSIS_SUBTAB_CATALOG);
 
   // 관리자 설정 화면은 현재 시나리오에서 쓰는 서비스만이 아니라,
   // 등록 가능한 전체 AI 서비스 레지스트리를 기준으로 보여준다.
@@ -716,12 +712,20 @@ function option(value, label, selected){
 }
 
 function tabLabel(tab, scenario){
+  // 관리자 화면(업무시나리오 구성)에서는 대상(기업/개인) 구분 없이
+  // 수사 영역 기준의 대표 명칭으로 표시한다.
+  //  - 일반수사: "일반수사 프로파일" (general-investigation 서브탭은 context.profileLabel 사용)
+  //  - 마약수사: "마약수사 프로파일" / 외환수사: "외환수사 프로파일" (special-investigation은 config.profileTab 사용)
   const context = {
+    // 통합 카탈로그 라벨은 ctx.domain으로 업무 구현을 선택한다.
+    domain: DOMAIN_BY_TEMPLATE[scenario?.template] || "special",
+    pageKey: scenario?.page,
+    profileLabel: "일반수사 프로파일",
     config: {
       profileTab: "프로파일",
       dashboardTab: "위험 대시보드",
-      ...(scenario.page === "lawsearch" ? { profileTab:"마약프로파일", dashboardTab:"마약위험 대시보드" } : {}),
-      ...(scenario.page === "fxsearch" ? { profileTab:"외환프로파일", dashboardTab:"외환위험 대시보드" } : {}),
+      ...(scenario.page === "lawsearch" ? { profileTab:"마약수사 프로파일", dashboardTab:"마약위험 대시보드" } : {}),
+      ...(scenario.page === "fxsearch" ? { profileTab:"외환수사 프로파일", dashboardTab:"외환위험 대시보드" } : {}),
     },
   };
   return typeof tab.label === "function" ? tab.label(context) : tab.label;

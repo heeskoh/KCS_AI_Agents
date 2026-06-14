@@ -44,12 +44,13 @@ def main() -> None:
 
             declarations = session.run(
                 """
-                MATCH (c:Company)-[:FILED]->(d:Declaration)-[:ORIGINATED_FROM]->(country:Country)
+                MATCH (c:Company)-[r:IMPORTED]->(h:HsCode)
                 WHERE c.company_id = $company_id
-                RETURN d.declaration_no AS declaration_no,
-                       d.status AS status,
-                       country.code AS origin
-                ORDER BY d.import_date DESC
+                RETURN r.declaration_no AS declaration_no,
+                       r.status AS status,
+                       h.code AS hs_code,
+                       r.origin_country AS origin
+                ORDER BY r.import_date DESC
                 LIMIT 5
                 """,
                 company_id=args.company_id,

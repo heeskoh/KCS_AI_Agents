@@ -4,11 +4,8 @@ import { profileSubtab } from "./profile.js";
 import { reportSubtab } from "./report.js";
 import { workbenchSubtab } from "./workbench.js";
 import { withAgentMetadata } from "../shared/agent-metadata.js";
-import {
-  configuredSubtabsForPage,
-  subtabWithAgentDefaultOptions,
-} from "../shared/scenario-builder-config.js";
 
+// 일반수사 서브탭 정의 목록. 런타임 탭 구성은 통합 레지스트리(subtab-registry.js)가 담당한다.
 export const GENERAL_INVESTIGATION_SUBTABS = [
   casesSubtab,
   profileSubtab,
@@ -16,11 +13,3 @@ export const GENERAL_INVESTIGATION_SUBTABS = [
   workbenchSubtab,
   reportSubtab,
 ].map(withAgentMetadata);
-
-export function createGeneralInvestigationTabs(deps, page = "generalinv"){
-  const config = deps.getScenarioBuilderConfig?.();
-  return configuredSubtabsForPage(GENERAL_INVESTIGATION_SUBTABS, config, page).map(subtab => ({
-    ...subtabWithAgentDefaultOptions(subtab, config),
-    render: () => subtab.render(deps),
-  }));
-}

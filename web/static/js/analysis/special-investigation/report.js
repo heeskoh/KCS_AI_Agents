@@ -14,7 +14,7 @@ export function renderReportPanel(deps){
 - 사건 번호: ${ctx.case.caseId}
 - 수사 유형: ${ctx.type.label}
 - 핵심 판단: ${targetSummary}
-- 권고 조치: CDW 조회 결과와 관계망·포렌식 단서를 병합하여 검사/추적 우선순위를 지정합니다.
+- 권고 조치: CDW 조회 결과와 관계망·압수증거 단서를 병합하여 검사/추적 우선순위를 지정합니다.
 `;
   const validation = deps.getLatestValidation() || `
 - 대상 식별자와 프로파일 유형이 일치합니다.

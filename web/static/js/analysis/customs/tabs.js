@@ -6,11 +6,8 @@ import { reportSubtab } from "./report.js";
 import { scenarioSubtab } from "./scenario.js";
 import { templatesSubtab } from "./templates.js";
 import { withAgentMetadata } from "../shared/agent-metadata.js";
-import {
-  configuredSubtabsForPage,
-  subtabWithAgentDefaultOptions,
-} from "../shared/scenario-builder-config.js";
 
+// 관세조사 서브탭 정의 목록. 런타임 탭 구성은 통합 레지스트리(subtab-registry.js)가 담당한다.
 export const CUSTOMS_SUBTABS = [
   ongoingSubtab,
   profileSubtab,
@@ -20,11 +17,3 @@ export const CUSTOMS_SUBTABS = [
   dashboardSubtab,
   templatesSubtab,
 ].map(withAgentMetadata);
-
-export function createCustomsInvestigationTabs(deps, page = "investigation"){
-  const config = deps.getScenarioBuilderConfig?.();
-  return configuredSubtabsForPage(CUSTOMS_SUBTABS, config, page).map(subtab => ({
-    ...subtabWithAgentDefaultOptions(subtab, config),
-    render: () => subtab.render(deps),
-  }));
-}

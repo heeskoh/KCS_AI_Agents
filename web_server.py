@@ -1301,6 +1301,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
     WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
     ANALYSIS_TEMPLATES_PATH = DATA_DIR / "analysis_templates.json"
+    SCENARIO_BUILDER_CONFIG_PATH = DATA_DIR / "scenario_builder_config.json"
     _workspace_lock = threading.Lock()
 
     def _read_json_store(self, path) -> dict | None:
@@ -1357,6 +1358,13 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/analysis_templates":
             # 분석 템플릿(내 저장 템플릿 + 기본 템플릿 수정/숨김) — data/analysis_templates.json
             state = self._read_json_store(self.ANALYSIS_TEMPLATES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/scenario_builder_config":
+            # 업무시나리오 구성(전문업무분석 버튼·서브탭·AI 서비스 기본옵션)
+            #  — data/scenario_builder_config.json 파일 저장소
+            state = self._read_json_store(self.SCENARIO_BUILDER_CONFIG_PATH)
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -1449,6 +1457,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/analysis_templates":
             self._write_json_store(self.ANALYSIS_TEMPLATES_PATH)
+            return
+
+        if parsed.path == "/api/scenario_builder_config":
+            self._write_json_store(self.SCENARIO_BUILDER_CONFIG_PATH)
             return
 
         if parsed.path == "/api/coach":

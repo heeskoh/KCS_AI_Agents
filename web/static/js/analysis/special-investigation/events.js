@@ -229,7 +229,7 @@ export function registerSpecialInvestigationEvents(ctx){
         caseId: autoId,
         targetName, invTypeId, domain,
         ...extraFields,
-        team:        isFx ? "외환조사 전담팀" : "마약수사 전담팀",
+        team:        isFx ? "외환수사 전담팀" : "마약수사 전담팀",
         investigator: ctx.currentUser().name,
         ownerUserId: userId, assignees: [userId],
         updated: "방금",

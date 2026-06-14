@@ -64,20 +64,35 @@ DuckDB 데이터베이스 스키마 (관세청 CDW):
 
 # ── Neo4j 스키마 설명 ─────────────────────────────────────────────────────────
 _NEO4J_SCHEMA = """
-Neo4j 그래프 데이터베이스 스키마 (관계망):
+Neo4j 그래프 데이터베이스 스키마 (엔티티 중심 관계망):
+
+설계 원칙: 노드는 엔티티/분류만(기업·사람·조직·지역·국가·HS코드·관세사·관계사).
+사건/수입신고/증거/위험점수/분석결과는 노드가 아니라 관계(엣지) 또는 노드 속성으로 표현한다.
 
 노드 레이블:
-- Company { company_id, company_name, risk_level, industry_code }
-- Person  { person_id, name, risk_level, nationality }
-- Declaration { declaration_no, hs_code, item_name, declared_value, origin_country, import_date }
-- Country { code, name }
+- Company { company_id, company_name, risk_level, risk_score, industry_code,
+            undervaluation_suspicion_rate, related_party_anomaly_rate, fta_origin_misuse_suspicion_rate,
+            customs_refund_anomaly_rate, hs_classification_error_rate, offshore_fund_concealment_suspicion_rate }
+- Person  { person_id, name, risk_level, risk_score, nationality, risk_tags, watch_status,
+            top_indicators, indicator_count, latest_analysis_summary, analysis_count }   -- 위험지표/분석결과 흡수
+- Organization { org_id, org_name, org_type, country, risk_score }
+- Country { code }
+- HsCode { code }
+- Broker { name }
+- RelatedCompany { name }
+- Region { name }
 
-관계 유형:
-- (Company)-[:FILED]->(Declaration)
-- (Company)-[:RELATED_TO]->(Company)   -- 특수관계
-- (Country)-[:SUPPLIES_TO]->(Company)
-- (Person)-[:INVOLVED_IN]->(smuggling_case)
-- (Person)-[:ASSOCIATED_WITH]->(Company)
+관계 유형(이벤트는 엣지로):
+- (Company)-[:IMPORTED { declaration_no, hs_code(타깃 노드), item_name, declared_value, origin_country, import_date, status }]->(HsCode)  -- 수입신고
+- (Country)-[:SUPPLIES_TO { declaration_count, total_declared_value, ... }]->(Company)
+- (Company)-[:EXPORTS_TO]->(Country)
+- (Company)-[:USES_BROKER]->(Broker)
+- (Company)-[:HAS_RELATED_COMPANY]->(RelatedCompany)
+- (Person)-[:NETWORK_EDGE { relation_type, weight, confidence_score }]->(Person|Organization)
+- (Person)-[:CASE_FROM|CASE_VIA { case_id, case_type, contraband_category, role_in_case, evidence_level, ... }]->(Country)  -- 사건 원산지/경유
+- (Person)-[:CASE_TO { 사건속성 }]->(Region)        -- 사건 도착지
+- (Person)-[:CASE_LINK { 사건속성 }]->(Person)       -- 동일 사건 연루(대표주체 허브)
+- (Person)-[:RESIDES_IN]->(Region), (Organization)-[:LOCATED_IN]->(Region)
 """
 
 # ── LLM 프롬프트 ──────────────────────────────────────────────────────────────

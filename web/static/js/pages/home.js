@@ -4,7 +4,7 @@ const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 
 
 const WORK_SHORTCUTS = [
   { className: "sky", page: "investigation", label: "관세조사", image: "Customs_Aduit.png" },
-  { className: "rose", page: "generalinv", label: "일반조사", image: "General_Inv.png" },
+  { className: "rose", page: "generalinv", label: "일반수사", image: "General_Inv.png" },
   { className: "purple", page: "lawsearch", label: "마약수사", image: "Drug_Inv.png" },
   { className: "teal", page: "fxsearch", label: "외환수사", image: "Foreigncash.png" },
   { className: "olive", page: "case", label: "국제정보", image: "Global.png" },
