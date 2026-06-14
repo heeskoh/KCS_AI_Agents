@@ -193,12 +193,59 @@ const DRUG_SCENARIO_STEPS = Object.fromEntries(
   drugScenarioTemplates.map(template => [template.id, template.items])
 );
 
+/* ── 외환수사 유형별 default 시나리오 템플릿 (f1~f5) ─────────────
+   공통 흐름: CDW → 조사정보 RAG → 자금흐름내역(범죄수익추적·자금흐름 동작)
+   → 범죄수익 추적(자금이체·가상자산·현금이체/인출) → 통신내역 → 관계망
+   → 웹검색 → 법령 검토 → 보고서 작성 → 보고서 검증.
+   (국제공조 f5는 조사정보 RAG 다음에 국제협력 RAG 단계 추가)
+   drugScenarioTemplates와 동일하게 평범한 {key, ...} 객체로 정의(TDZ 회피). */
+const FX_PROFIT_BEHAVIORS = ["transfer", "virtual_asset", "cash_withdrawal"];
+function fxBaseItems({ withGlobalRag = false } = {}){
+  return [
+    { key:"gi_cdw" },
+    { key:"gi_rag_inv", label:"조사정보 RAG" },
+    ...(withGlobalRag ? [{ key:"gi_rag_int", label:"국제협력 RAG" }] : []),
+    { key:"gi_profit", label:"자금흐름내역 AI 분석 서비스", behaviors:["fund_flow"], instruction:"자금이체·송금·계좌 흐름 내역 분석" },
+    { key:"gi_profit", behaviors:[...FX_PROFIT_BEHAVIORS], instruction:"자금이체·가상자산추적·현금이체/인출 내역 기반 범죄수익 추적" },
+    { key:"gi_comms", instruction:"통화·SMS·SNS·메신저 통신내역 분석" },
+    { key:"gi_net", instruction:"앞 단계 자료를 활용한 관계망 분석" },
+    { key:"gi_web" },
+    { key:"gi_law" },
+    { key:"gi_rep", instruction:"증거 정리" },
+    { key:"gi_appr" },
+  ];
+}
+const fxScenarioTemplates = [
+  { id:"f1", name:"불법 외환거래 수사 템플릿",
+    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 불법 외환거래 수사 흐름",
+    items: giTemplateItems(fxBaseItems()) },
+  { id:"f2", name:"자금세탁 수사 템플릿",
+    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 자금세탁 수사 흐름",
+    items: giTemplateItems(fxBaseItems()) },
+  { id:"f3", name:"환치기·불법송금 수사 템플릿",
+    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 환치기·불법송금 수사 흐름",
+    items: giTemplateItems(fxBaseItems()) },
+  { id:"f4", name:"재산국외도피 수사 템플릿",
+    description:"자금흐름·범죄수익·통신내역·관계망을 연결하는 재산국외도피 수사 흐름",
+    items: giTemplateItems(fxBaseItems()) },
+  { id:"f5", name:"국제공조 수사 템플릿",
+    description:"국제협력 RAG·자금흐름·범죄수익·통신내역·관계망을 연결하는 국제공조 수사 흐름",
+    items: giTemplateItems(fxBaseItems({ withGlobalRag:true })) },
+];
+
+const FX_SCENARIO_STEPS = Object.fromEntries(
+  fxScenarioTemplates.map(template => [template.id, template.items])
+);
+
 /* ── 마약수사 케이스 스텝 초기화/조회 헬퍼 ─────────────────── */
 function activeDrugCaseSteps(){
   const aCase = activeDrugCase();
   if(!aCase) return [];
   if(!aCase.giSteps){
-    const defaults = DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)];
+    const isFxCase = String(aCase.caseId || "").startsWith("FX-") || aCase.domain === "fxsearch";
+    const defaults = isFxCase
+      ? FX_SCENARIO_STEPS[fxDefaultTemplateId(aCase.invTypeId)]
+      : DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)];
     aCase.giSteps    = defaults.map((s, i) => normalizeGiScenarioStep({
       ...s, id:`drs_${i}_${uid()}`, targetType:aCase.targetType || "person", target_type:aCase.targetType || "person",
       label: s.label || GI_STEP_SOURCES_MAP[s.key]?.label || s.key,
@@ -549,11 +596,24 @@ const AI_SERVICE_REGISTRY = {
   },
   proceeds_tracking: {
     label: "범죄수익 추적 AI 서비스", type: "proceeds_tracking", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+    defaultInstruction: "자금이체·가상자산·현금 이체/인출 내역을 종합해 범죄수익 흐름과 은닉 가능성을 분석",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름" },
       { value: "account_trace", label: "계좌추적 단서" },
       { value: "concealment", label: "은닉 가능성" },
+      { value: "transfer", label: "자금이체" },
+      { value: "virtual_asset", label: "가상자산추적" },
+      { value: "cash_withdrawal", label: "현금이체·인출" },
+    ],
+  },
+  comms_analysis: {
+    label: "통신내역 AI 분석 서비스", type: "comms", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "통화·SMS·SNS·메신저 통신내역을 분석해 연락 빈도, 공범·전달책 관계 단서를 도출",
+    behaviorOptions: [
+      { value: "call", label: "통화내역" },
+      { value: "sms", label: "SMS" },
+      { value: "sns", label: "SNS" },
+      { value: "messenger", label: "메신저" },
     ],
   },
   route_analysis: {
@@ -732,8 +792,12 @@ const AI_SERVICE_TARGET_CONFIG = {
     "반입·송금·연락·이동 패턴의 이상 징후를 검증"
   ),
   proceeds_tracking: targetConfig(
-    "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
-    "개인 계좌·송금·현금 반입 단서를 기반으로 범죄수익 은닉 가능성을 분석"
+    "자금이체·가상자산·현금 이체/인출 내역을 종합해 범죄수익 흐름과 은닉 가능성을 분석",
+    "개인 계좌·송금·가상자산·현금 인출 단서를 종합해 범죄수익 흐름과 은닉 가능성을 분석"
+  ),
+  comms_analysis: targetConfig(
+    "임직원·거래처 간 통화·SMS·SNS·메신저 통신내역을 분석해 거래 연관 연락 패턴과 관계 단서를 도출",
+    "통화·SMS·SNS·메신저 통신내역을 분석해 공범·전달책 연락 패턴과 관계 단서를 도출"
   ),
   route_analysis: targetConfig(
     "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
@@ -1167,6 +1231,7 @@ function builtinTemplateCards(templates){
 function allScenarioTemplates(domain = "customs"){
   if(domain === "general") return builtinTemplateCards(giScenarioTemplates);
   if(domain === "drug") return builtinTemplateCards(drugScenarioTemplates);
+  if(domain === "fx") return builtinTemplateCards(fxScenarioTemplates);
   const builtins = scenarioTemplates
     .filter(t => !hiddenBuiltinIds.has(t.id))
     .map(t => ({
@@ -1453,6 +1518,8 @@ const GI_SERVICE_ALIASES = {
   gi_route:    { sourceKey:"route_analysis", type:"agent" },
   gi_net:      { sourceKey:"network", type:"agent" },
   gi_profit:   { sourceKey:"proceeds_tracking", type:"agent" },
+  gi_comms:    { sourceKey:"comms_analysis", type:"agent", label:"통신내역 AI 분석 서비스" },
+  gi_web:      { sourceKey:"web_search", type:"agent", label:"웹검색 AI 서비스" },
   gi_origin:   { sourceKey:"origin_analysis", type:"agent", label:"원산지 검증 AI 서비스" },
   gi_anomaly:  { sourceKey:"abnormal_trade", type:"agent" },
   gi_patent:   { sourceKey:"patent", type:"agent" },
@@ -1629,15 +1696,16 @@ function activeGiStep(){
 function refreshScenarioWorkbenchFromCase(aCase, fallbackRender){
   if(!aCase) return;
   const isDrugCase = String(aCase.caseId || "").startsWith("DRUG-");
+  // AI서비스 분석 작업 탭의 대표(canonical) id는 "scenario"(workbench는 별칭). 과거 저장 상태 호환을 위해 둘 다 허용.
   const isActiveGeneralWorkbench =
     !isDrugCase &&
     currentPage === "generalinv" &&
-    generalInvestigationState.generalInvTab === "workbench" &&
+    (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench") &&
     activeGenInvCase()?.caseId === aCase.caseId;
   const isActiveDrugWorkbench =
     isDrugCase &&
     isSpecialInvestigationPage(currentPage) &&
-    specialInvestigationState.drugInvTab === "workbench" &&
+    (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "workbench") &&
     activeDrugCase()?.caseId === aCase.caseId;
 
   if((isActiveGeneralWorkbench || isActiveDrugWorkbench) && document.getElementById("scenarioList")){
@@ -1878,6 +1946,10 @@ function giDefaultTemplateId(invTypeId){
 
 function drugDefaultTemplateId(invTypeId){
   return drugScenarioTemplates.some(template => template.id === invTypeId) ? invTypeId : "d1";
+}
+
+function fxDefaultTemplateId(invTypeId){
+  return fxScenarioTemplates.some(template => template.id === invTypeId) ? invTypeId : "f1";
 }
 
 /* ── 일반수사 분석 시나리오 템플릿 ──────────────────────── */
@@ -3982,6 +4054,7 @@ function buildScenarioTemplatesSeed(){
     customs: scenarioTemplates,
     general: giScenarioTemplates,
     drug: drugScenarioTemplates,
+    fx: fxScenarioTemplates,
   }, {});
 }
 
@@ -3990,6 +4063,8 @@ function rebuildScenarioStepMaps(){
   giScenarioTemplates.forEach(template => { GI_SCENARIO_STEPS[template.id] = template.items; });
   Object.keys(DRUG_SCENARIO_STEPS).forEach(key => delete DRUG_SCENARIO_STEPS[key]);
   drugScenarioTemplates.forEach(template => { DRUG_SCENARIO_STEPS[template.id] = template.items; });
+  Object.keys(FX_SCENARIO_STEPS).forEach(key => delete FX_SCENARIO_STEPS[key]);
+  fxScenarioTemplates.forEach(template => { FX_SCENARIO_STEPS[template.id] = template.items; });
 }
 
 function overrideTemplateArrayInPlace(targetArray, defs){
@@ -4011,8 +4086,10 @@ function applyScenarioTemplatesOverride(data){
   overrideTemplateArrayInPlace(scenarioTemplates, data.customs);
   overrideTemplateArrayInPlace(giScenarioTemplates, data.general);
   overrideTemplateArrayInPlace(drugScenarioTemplates, data.drug);
+  overrideTemplateArrayInPlace(fxScenarioTemplates, data.fx);
   giScenarioTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
   drugScenarioTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
+  fxScenarioTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
   rebuildScenarioStepMaps();
 }
 
@@ -6184,9 +6261,11 @@ function initTemplateEditor(){
     if(!templateEditorItems.length){ alert("최소 한 단계 이상 추가해 주세요."); return; }
     const savedItems = templateEditorItems.map(i => ({...i, id: uid()}));
     // 일반/마약 빌트인 편집: scenario_templates.json에 저장(조직 관리자만)
-    if(templateEditorDomain === "general" || templateEditorDomain === "drug"){
+    if(templateEditorDomain === "general" || templateEditorDomain === "drug" || templateEditorDomain === "fx"){
       if(!isCurrentUserAdmin()){ alert("조직 관리자만 빌트인 템플릿을 편집할 수 있습니다."); return; }
-      const arr = templateEditorDomain === "general" ? giScenarioTemplates : drugScenarioTemplates;
+      const arr = templateEditorDomain === "general" ? giScenarioTemplates
+        : templateEditorDomain === "fx" ? fxScenarioTemplates
+        : drugScenarioTemplates;
       const target = arr.find(t => t.id === editingTemplateId);
       if(target){
         target.name = name;
@@ -7278,10 +7357,16 @@ function clearScenarioResults(){
 /* 케이스 단계를 전역 scenarioItems 형식으로 로드 */
 function loadCaseStepsToWorkbench(aCase){
   if(!aCase) return;
-  const isDrugCase = String(aCase.caseId || "").startsWith("DRUG-");
-  const defaultSteps = isDrugCase
-    ? (DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)] || [])
-    : (GI_SCENARIO_STEPS[giDefaultTemplateId(aCase.invTypeId)] || []);
+  // 특수수사: 마약(DRUG-/lawsearch)은 DRUG 템플릿, 외환(FX-/fxsearch)은 전용 FX 템플릿 사용.
+  const isFxCase = String(aCase.caseId || "").startsWith("FX-") || aCase.domain === "fxsearch";
+  const isDrugCase = isFxCase
+    || String(aCase.caseId || "").startsWith("DRUG-")
+    || aCase.domain === "lawsearch";   // 특수수사 공통(drs 접두사·person 기본)
+  const defaultSteps = isFxCase
+    ? (FX_SCENARIO_STEPS[fxDefaultTemplateId(aCase.invTypeId)] || [])
+    : isDrugCase
+      ? (DRUG_SCENARIO_STEPS[drugDefaultTemplateId(aCase.invTypeId)] || [])
+      : (GI_SCENARIO_STEPS[giDefaultTemplateId(aCase.invTypeId)] || []);
   if(!Array.isArray(aCase.giSteps) || !aCase.giSteps.length){
     const prefix = isDrugCase ? "drs" : "gis";
     aCase.giSteps = defaultSteps.map((step, index) => normalizeGiScenarioStep({
@@ -7850,7 +7935,7 @@ function render(page="home"){
   const contentEl = document.getElementById("content");
   const fillPage = (page === "canvas" && canvasTab === "report") ||
                    ((page === "investigation" || pageTemplate === "customs") && customsState.investigationTab === "scenario") ||
-                   ((page === "generalinv" || pageTemplate === "general-investigation") && generalInvestigationState.generalInvTab === "workbench") ||
+                   ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench")) ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : (customAnalysisPage(page) || pages.home());
@@ -7877,8 +7962,8 @@ function render(page="home"){
       const companyId = generalInvCompanyId(activeGenInvCase());
       if(companyId && !scenarioCompanies.length) loadScenarioCompanies();
     }
-    // 분석 시나리오 워크벤치 탭 — 공통 init
-    if(generalInvestigationState.generalInvTab === "workbench"){
+    // 분석 시나리오 워크벤치 탭(AI서비스 분석 작업) — 대표 id "scenario"(workbench 별칭) 모두 처리
+    if(generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench"){
       scenarioInitialized = false;
       initGiScenarioWorkbench();
     }
@@ -7904,7 +7989,7 @@ function render(page="home"){
     }
     // 템플릿 편집 탭 — 관세 편집기를 특수수사 도메인으로 재사용 (조직 관리자 전용)
     if(specialInvestigationState.drugInvTab === "templates" && isCurrentUserAdmin()){
-      templateEditorDomain = "drug";
+      templateEditorDomain = page === "fxsearch" ? "fx" : "drug";
       templateEditorInitialized = false;
       initTemplateEditor();
     }
