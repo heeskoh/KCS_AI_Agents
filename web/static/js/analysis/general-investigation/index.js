@@ -8,6 +8,9 @@ export function createGeneralInvestigation(deps){
 
   function generalInvPage(pageKey = "generalinv"){
     const tabs = tabsForPage(pageKey);
+    // 업무탭은 왼쪽, 도구탭(group:"tools" — 예: 분석 시나리오 템플릿)은 오른쪽 끝으로 분리한다.
+    const workTabs = tabs.filter(item => item.group !== "tools");
+    const toolTabs = tabs.filter(item => item.group === "tools");
     const aCase = deps.activeGenInvCase();
     const tab = deps.getGeneralInvTab();
     // 일반수사 프로파일 명칭: 대상 유형별 재정의 (기업/개인). 대상 미선택 시 수사영역 대표 명칭.
@@ -34,8 +37,13 @@ export function createGeneralInvestigation(deps){
             </div>
           ` : ""}
         </div>
-        <div class="gi-tab-nav">
-          ${renderAnalysisTabButtons(tabs, tab, "data-gi-tab", "gi-tab", tabContext)}
+        <div class="gi-tab-nav" style="justify-content:space-between">
+          <div style="display:flex;gap:2px">
+            ${renderAnalysisTabButtons(workTabs, tab, "data-gi-tab", "gi-tab", tabContext)}
+          </div>
+          <div style="display:flex;gap:2px">
+            ${renderAnalysisTabButtons(toolTabs, tab, "data-gi-tab", "gi-tab", tabContext)}
+          </div>
         </div>
         <div class="gi-tab-body">
           ${generalInvTabContent(tabContext, pageKey)}

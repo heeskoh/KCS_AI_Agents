@@ -1302,6 +1302,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
     ANALYSIS_TEMPLATES_PATH = DATA_DIR / "analysis_templates.json"
     SCENARIO_BUILDER_CONFIG_PATH = DATA_DIR / "scenario_builder_config.json"
+    SCENARIO_TEMPLATES_PATH = DATA_DIR / "scenario_templates.json"
+    PROMPT_OVERRIDES_PATH = DATA_DIR / "prompt_overrides.json"
     _workspace_lock = threading.Lock()
 
     def _read_json_store(self, path) -> dict | None:
@@ -1365,6 +1367,18 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             # 업무시나리오 구성(전문업무분석 버튼·서브탭·AI 서비스 기본옵션)
             #  — data/scenario_builder_config.json 파일 저장소
             state = self._read_json_store(self.SCENARIO_BUILDER_CONFIG_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/scenario_templates":
+            # 수사유형별 빌트인 시나리오 템플릿(관세·일반·마약) — data/scenario_templates.json
+            state = self._read_json_store(self.SCENARIO_TEMPLATES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/prompt_overrides":
+            # AI 서비스 상세 프롬프트 템플릿 오버라이드 — data/prompt_overrides.json
+            state = self._read_json_store(self.PROMPT_OVERRIDES_PATH)
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -1461,6 +1475,14 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/scenario_builder_config":
             self._write_json_store(self.SCENARIO_BUILDER_CONFIG_PATH)
+            return
+
+        if parsed.path == "/api/scenario_templates":
+            self._write_json_store(self.SCENARIO_TEMPLATES_PATH)
+            return
+
+        if parsed.path == "/api/prompt_overrides":
+            self._write_json_store(self.PROMPT_OVERRIDES_PATH)
             return
 
         if parsed.path == "/api/coach":

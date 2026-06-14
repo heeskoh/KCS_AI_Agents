@@ -7,6 +7,7 @@ import { profileSubtab } from "./profile.js";
 import { reportSubtab } from "./report.js";
 import { scenarioSubtab } from "./scenario.js";
 import { slangSubtab } from "./slang.js";
+import { templatesSubtab } from "./templates.js";
 import { withAgentMetadata } from "../shared/agent-metadata.js";
 
 export const SPECIAL_INVESTIGATION_CONFIG = {
@@ -34,4 +35,5 @@ export const SPECIAL_INVESTIGATION_SUBTABS = [
   reportSubtab,
   slangSubtab,
   dashboardSubtab,
+  templatesSubtab,
 ].map(withAgentMetadata);

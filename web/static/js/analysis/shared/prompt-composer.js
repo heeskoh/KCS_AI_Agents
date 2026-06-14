@@ -9,6 +9,69 @@ const PROMPT_BASE_PATH = "/static/prompts/agents/";
 /** 로드된 프롬프트 캐시 */
 const _cache = {};
 
+/* 관리자가 등록한 상세 프롬프트 오버라이드.
+   구조: { [serviceId]: { company:{[behaviorKey]:text}, person:{...} } }
+   behaviorKey = 정렬된 동작 value를 "+"로 연결(없으면 "default"). */
+const _overrides = {};
+const PROMPT_OVERRIDES_URL = "/api/prompt_overrides";
+
+export function behaviorKeyFor(behaviors = []){
+  const sorted = [...behaviors].filter(Boolean).sort();
+  return sorted.length ? sorted.join("+") : "default";
+}
+
+export function applyPromptOverridesData(data){
+  Object.keys(_overrides).forEach(key => delete _overrides[key]);
+  if(data && typeof data === "object"){
+    Object.entries(data).forEach(([serviceId, byTarget]) => {
+      if(byTarget && typeof byTarget === "object") _overrides[serviceId] = byTarget;
+    });
+  }
+}
+
+export function getPromptOverridesData(){
+  return JSON.parse(JSON.stringify(_overrides));
+}
+
+export function getPromptOverride(serviceId, targetType, behaviors){
+  const target = targetType === "person" ? "person" : "company";
+  return _overrides[serviceId]?.[target]?.[behaviorKeyFor(behaviors)] || null;
+}
+
+export function setPromptOverride(serviceId, targetType, behaviors, text){
+  const target = targetType === "person" ? "person" : "company";
+  const key = behaviorKeyFor(behaviors);
+  if(!_overrides[serviceId]) _overrides[serviceId] = {};
+  if(!_overrides[serviceId][target]) _overrides[serviceId][target] = {};
+  const value = String(text || "").trim();
+  if(value) _overrides[serviceId][target][key] = value;
+  else delete _overrides[serviceId][target][key];
+}
+
+let _overridesLoadPromise = null;
+export function loadPromptOverrides(){
+  if(_overridesLoadPromise) return _overridesLoadPromise;
+  _overridesLoadPromise = (async () => {
+    try{
+      const res = await fetch(PROMPT_OVERRIDES_URL);
+      if(res.ok){
+        const data = await res.json();
+        if(data && data.state && typeof data.state === "object") applyPromptOverridesData(data.state);
+      }
+    }catch{ /* noop */ }
+    return _overrides;
+  })();
+  return _overridesLoadPromise;
+}
+
+export function savePromptOverrides(){
+  return fetch(PROMPT_OVERRIDES_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(getPromptOverridesData()),
+  }).catch(error => console.warn("프롬프트 오버라이드를 저장하지 못했습니다.", error));
+}
+
 /**
  * 에이전트 프롬프트 JSON을 로드합니다 (캐시 사용).
  * @param {string} serviceId
@@ -132,10 +195,20 @@ function buildPrompt(role, sections) {
 
 export async function composePrompt(serviceId, behaviors = [], targetType = "company") {
   const data = await loadAgentPrompt(serviceId);
+  await loadPromptOverrides();
+  const target = targetType === "person" ? "person" : "company";
+
+  // 관리자 등록 오버라이드: 현재 선택(동작 조합)에 정확히 일치하는 등록본이 있으면 최우선.
+  const overrideForTarget = _overrides[serviceId]?.[target] || {};
+  const exactOverride = overrideForTarget[behaviorKeyFor(behaviors)];
+  if (exactOverride) return exactOverride;
+
   if (!data) return "";
 
-  const target = targetType === "person" ? "person" : "company";
-  const composite = data.compositePrompts?.[target];
+  // 단일 동작 키 오버라이드도 반영되도록 정의 프롬프트에 병합한다.
+  const composite = data.compositePrompts?.[target]
+    ? { ...data.compositePrompts[target], ...overrideForTarget }
+    : (Object.keys(overrideForTarget).length ? { ...overrideForTarget } : null);
 
   if (composite) {
     const singles = behaviors.map(b => composite[b]).filter(Boolean);

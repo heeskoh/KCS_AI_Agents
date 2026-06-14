@@ -19,7 +19,8 @@ import {
 } from "../analysis/shared/subtab-registry.js";
 
 // '활용 가능한 서브탭 선택' 풀에서 제외 — 진행중인 작업(ongoing/cases)·프로파일(profile).
-const POOL_EXCLUDED_SUBTAB_IDS = new Set(["ongoing", "cases", "profile"]);
+// templates: 시나리오 설정과 무관하게 관리자에게 자동 노출되므로 설정 풀에서 제외한다.
+const POOL_EXCLUDED_SUBTAB_IDS = new Set(["ongoing", "cases", "profile", "templates"]);
 
 // 통합 카탈로그에서 (동의어 정규화) 해당 서브탭 정의를 찾는다.
 function catalogSubtabById(id){

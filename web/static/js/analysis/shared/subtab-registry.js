@@ -152,16 +152,31 @@ export function createUnifiedSubtabRegistry(depsByDomain){
   }));
 
   // 페이지의 enabledSubtabs(동의어 정규화)로 필터하고, 도메인을 컨텍스트에 주입한다.
-  function subtabsForPage(page, domain, config){
+  // options:
+  //   removeIds  — 시나리오 설정(enabledSubtabs)에서 나온 항목이라도 제외할 서브탭 id 목록
+  //   appendIds  — 설정과 무관하게 항상 오른쪽 끝에 추가할 서브탭 id 목록(중복 제거)
+  // 두 옵션은 "시나리오 설정과 다르게 동작하는" 탭(예: 관리자 전용 템플릿)을 위한 것이다.
+  function subtabsForPage(page, domain, config, options = {}){
+    const { removeIds = [], appendIds = [] } = options;
+    const removeSet = new Set(removeIds.map(canonicalSubtabId));
     const scenario = scenarioConfigForPage(config, page);
     const enabled = scenario?.enabledSubtabs;
     // enabledSubtabs 순서를 그대로 따른다(관리자 정렬 반영). 동의어는 대표 id로 정규화 후 중복 제거.
-    const list = Array.isArray(enabled)
+    const list = (Array.isArray(enabled)
       ? enabled
           .map(id => allSubtabs.find(subtab => subtab.id === canonicalSubtabId(id)))
           .filter(Boolean)
           .filter((subtab, index, arr) => arr.indexOf(subtab) === index)
-      : allSubtabs;
+      : [...allSubtabs])
+      .filter(subtab => !removeSet.has(subtab.id));
+    // 항상 오른쪽 끝에 추가(설정 포함 여부·순서와 무관). 이미 있으면 중복 추가하지 않는다.
+    const present = new Set(list.map(subtab => subtab.id));
+    for(const id of appendIds){
+      const cid = canonicalSubtabId(id);
+      if(present.has(cid)) continue;
+      const base = allSubtabs.find(subtab => subtab.id === cid);
+      if(base){ list.push(base); present.add(cid); }
+    }
     return list.map(base => ({
       ...subtabWithAgentDefaultOptions(base, config),
       label: ctx => base.label({ ...ctx, domain }),

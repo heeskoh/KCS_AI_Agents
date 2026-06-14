@@ -1,5 +1,5 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml, renderValidationDashboard } from "./core/dom.js";
-import { composePrompt } from "./analysis/shared/prompt-composer.js";
+import { composePrompt, setPromptOverride, savePromptOverrides } from "./analysis/shared/prompt-composer.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
 import { registerCustomsEvents } from "./analysis/customs/events.js";
@@ -101,79 +101,89 @@ function invTypesForDomain(domain){ return domain === "fxsearch" ? FX_INV_TYPES 
    giScenarioTemplates와 동일한 {id,name,description,items} 형식으로 표준화.
    GI_SERVICE_ALIASES 키 재사용 (gi_cdw, gi_imp, gi_route, gi_net,
    gi_profit, gi_law, gi_rep, gi_appr) + 마약전용 키 추가          */
+// 참고: 이 배열은 파일 상단에서 평가되므로 giTemplateStep()(GI_STEP_SOURCES 의존)을
+// 쓰면 TDZ 오류가 난다. 단계는 평범한 {key, instruction} 객체로 정의하고, 라벨·동작·
+// sourceKey 등은 케이스 스텝 구성 시 normalizeGiScenarioStep에서 해석된다.
+// 일반수사 t1~t5와 동일한 수사유형별 시퀀스를 사용한다.
 const drugScenarioTemplates = [
   {
     id: "d1",
     name: "마약 밀수입 수사 템플릿",
-    description: "신고검증, 운송경로, 관계망, 범죄수익, 조사·국제 RAG를 연결하는 수사 흐름",
+    description: "과세가격, 심사 RAG, 신고검증, 품목분류, 이상거래, 법령 검토를 연결하는 수사 흐름",
     items: giTemplateItems([
       { key:"gi_cdw" },
-      { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
-      { key:"gi_route",  label:"운송경로 분석 AI 서비스" },
-      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-      { key:"gi_profit", label:"범죄수익 추적 AI 서비스" },
-      { key:"gi_rag_inv",label:"조사결과 RAG" },
-      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_val" },
+      { key:"gi_rag_rev" },
+      { key:"gi_imp" },
+      { key:"gi_val" },
+      { key:"gi_hs" },
+      { key:"gi_anomaly", instruction:"이상거래 검증 AI 서비스 신규 구성" },
       { key:"gi_law" },
-      { key:"gi_rep" },
+      { key:"gi_rep", instruction:"증거 정리" },
       { key:"gi_appr" },
     ]),
   },
   {
     id: "d2",
     name: "마약 우범여행자 수사 템플릿",
-    description: "신고검증, 여행경로, 관계망, 조사 RAG, 법령 검토를 연결하는 수사 흐름",
+    description: "신고검증, 운송경로, 관계망, 범죄수익, 조사·국제협력 RAG, 법령 검토를 연결하는 수사 흐름",
     items: giTemplateItems([
       { key:"gi_cdw" },
-      { key:"gi_route",  label:"여행경로 분석 AI 서비스" },
-      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_imp",    instruction:"품명·중량·가격 불일치, 화물 이상 패턴" },
+      { key:"gi_route" },
+      { key:"gi_net",    instruction:"관계망 분석 AI 서비스 실행" },
+      { key:"gi_profit", instruction:"자금흐름, 계좌 추적 연계" },
+      { key:"gi_rag_inv" },
+      { key:"gi_rag_int" },
       { key:"gi_law" },
-      { key:"gi_rep" },
+      { key:"gi_rep",    instruction:"증거 정리" },
       { key:"gi_appr" },
     ]),
   },
   {
     id: "d3",
     name: "마약 자금세탁 수사 템플릿",
-    description: "신고검증, 자금세탁 추적, 관계망, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+    description: "신고검증, 운송경로, 원산지, 조사·국제협력 RAG, 법령 검토를 연결하는 수사 흐름",
     items: giTemplateItems([
       { key:"gi_cdw" },
-      { key:"gi_profit", label:"자금세탁 추적 AI 서비스" },
-      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-      { key:"gi_rag_inv",label:"조사결과 RAG" },
-      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_imp",    instruction:"품명·중량·가격 불일치, 화물 이상 패턴" },
+      { key:"gi_route",  instruction:"우회수입 탐지" },
+      { key:"gi_origin" },
+      { key:"gi_rag_inv" },
+      { key:"gi_rag_int" },
       { key:"gi_law" },
-      { key:"gi_rep" },
+      { key:"gi_rep",    instruction:"증거 정리" },
       { key:"gi_appr" },
     ]),
   },
   {
     id: "d4",
     name: "신종마약 유통 수사 템플릿",
-    description: "신고검증, 관계망, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+    description: "신고검증, 범죄수익 추적, 조사·국제협력 RAG, 법령 검토를 연결하는 수사 흐름",
     items: giTemplateItems([
       { key:"gi_cdw" },
-      { key:"gi_imp",    label:"수입신고 검증 AI 서비스" },
-      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-      { key:"gi_rag_inv",label:"조사결과 RAG" },
-      { key:"gi_rag_int",label:"국제공조 RAG" },
+      { key:"gi_imp",    instruction:"품명·중량·가격 불일치, 화물 이상 패턴" },
+      { key:"gi_profit", instruction:"자금흐름, 계좌 추적 연계" },
+      { key:"gi_rag_inv" },
+      { key:"gi_rag_int" },
       { key:"gi_law" },
-      { key:"gi_rep" },
+      { key:"gi_rep",    instruction:"증거 정리" },
       { key:"gi_appr" },
     ]),
   },
   {
     id: "d5",
     name: "국제공조 수사 템플릿",
-    description: "신고검증, 관계망, 국제·조사 RAG, 법령 검토를 연결하는 수사 흐름",
+    description: "신고검증, 특허정보, 품목분류, 운송경로, 심사 RAG, 법령 검토를 연결하는 수사 흐름",
     items: giTemplateItems([
       { key:"gi_cdw" },
-      { key:"gi_net",    label:"관계망 분석 AI 서비스" },
-      { key:"gi_rag_int",label:"국제공조 RAG" },
-      { key:"gi_rag_inv",label:"조사결과 RAG" },
+      { key:"gi_imp",    instruction:"품명·중량·가격 불일치, 화물 이상 패턴" },
+      { key:"gi_patent", instruction:"권리자 정보 확인" },
+      { key:"gi_hs",     instruction:"위조품 식별" },
+      { key:"gi_route",  instruction:"우회수입 탐지, 공급망 역추적" },
+      { key:"gi_rag_rev" },
       { key:"gi_law" },
-      { key:"gi_rep" },
+      { key:"gi_rep",    instruction:"증거 정리" },
       { key:"gi_appr" },
     ]),
   },
@@ -1127,7 +1137,36 @@ const scenarioTemplates = [
   },
 ];
 
-function allScenarioTemplates(){
+// 템플릿의 소유 조직(정보국/본청/세관)을 해석한다.
+// ownerOrgId가 없으면(레거시) 등록자의 그룹에서 조직을 유추한다.
+function templateOrgId(template){
+  if(template.ownerOrgId) return template.ownerOrgId;
+  const owner = sampleUsers.find(user => user.id === template.ownerUserId);
+  const group = owner ? userGroups.find(g => g.id === owner.groupId) : null;
+  return group?.org || null;
+}
+
+// 일반/마약 빌트인 템플릿을 편집기 카드 형태로 변환.
+// 단계 key를 AI 서비스 키(sourceKey)로 정규화해 관세 편집기(AI서비스 키 기반)와 호환시킨다.
+function builtinTemplateCards(templates){
+  return templates.map(t => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    items: (t.items || []).map((item, index) => ({
+      ...item,
+      key: scenarioSourceByKey(item.key) ? item.key : (item.sourceKey || giCommonSourceKey(item.key)),
+      order: item.order ?? index + 1,
+    })),
+    ownerUserId: "system",
+    ownerName: "공통",
+    isBuiltin: true,
+  }));
+}
+
+function allScenarioTemplates(domain = "customs"){
+  if(domain === "general") return builtinTemplateCards(giScenarioTemplates);
+  if(domain === "drug") return builtinTemplateCards(drugScenarioTemplates);
   const builtins = scenarioTemplates
     .filter(t => !hiddenBuiltinIds.has(t.id))
     .map(t => ({
@@ -1137,12 +1176,21 @@ function allScenarioTemplates(){
       ownerName: "공통",
       isBuiltin: true,
     }));
-  const sharedCustoms = customTemplates.map(t => ({
-    ...t,
-    ownerUserId: t.ownerUserId || currentUserId,
-    ownerName: t.ownerName || currentUser().name,
-    isCustom: true,
-  }));
+  // 커스텀 템플릿은 등록자의 조직 단위로 공유한다.
+  // (내가 등록했거나 같은 조직 소속이면 노출. 조직을 알 수 없는 레거시 항목은 공통 노출.)
+  const myOrg = currentUserGroup().org;
+  const sharedCustoms = customTemplates
+    .filter(t => {
+      const orgId = templateOrgId(t);
+      return t.ownerUserId === currentUserId || !orgId || orgId === myOrg;
+    })
+    .map(t => ({
+      ...t,
+      ownerUserId: t.ownerUserId || currentUserId,
+      ownerName: t.ownerName || currentUser().name,
+      ownerOrgId: t.ownerOrgId || templateOrgId(t),
+      isCustom: true,
+    }));
   return [...builtins, ...sharedCustoms];
 }
 
@@ -1154,7 +1202,7 @@ function scenarioTemplateOptionsHtml(){
     .join("");
   const shared = templates.filter(t => !t.isBuiltin);
   const sharedHtml = shared.length
-    ? `<optgroup label="공유 템플릿">${shared.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(templateOwnerLabel(t))}</option>`).join("")}</optgroup>`
+    ? `<optgroup label="조직 공유 템플릿">${shared.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(t.ownerOrgId || templateOrgId(t) || "")} ${escapeHtml(templateOwnerLabel(t))}</option>`).join("")}</optgroup>`
     : "";
   return `<optgroup label="공통 템플릿">${builtIn}</optgroup>` + sharedHtml;
   const custom  = customTemplates.length
@@ -1163,12 +1211,12 @@ function scenarioTemplateOptionsHtml(){
   return builtIn + custom;
 }
 
-function scenarioTemplateById(id){
-  return allScenarioTemplates().find(template => template.id === id) || scenarioTemplates[0];
+function scenarioTemplateById(id, domain = "customs"){
+  return allScenarioTemplates(domain).find(template => template.id === id) || allScenarioTemplates(domain)[0] || scenarioTemplates[0];
 }
 
-function cloneTemplateItems(templateId){
-  const template = scenarioTemplateById(templateId);
+function cloneTemplateItems(templateId, domain = "customs"){
+  const template = scenarioTemplateById(templateId, domain);
   return template.items.map((item, index) => normalizeScenarioItem({...item, id: uid()}, index));
 }
 
@@ -1219,6 +1267,9 @@ let templateEditorItems = [];
 let templateEditorSelectedId = null;
 let templateEditorInitialized = false;
 let templateDraftName = "";
+// 템플릿 편집기 대상 도메인: "customs" | "general" | "drug"
+// (관세 편집기를 일반/마약수사 빌트인 편집에도 재사용)
+let templateEditorDomain = "customs";
 let canvasTab = "overview";
 
 const specialDeps = {
@@ -1233,6 +1284,7 @@ const specialDeps = {
   drugCaseContext,
   drugInvTypeById,
   render,
+  scenarioTemplatePanel,
   commonAnalysisReportPanel,
   ensureReportRequiredSections,
   findCompanyById,
@@ -1340,6 +1392,7 @@ const genDeps = {
   activeGiStep,
   canvasDataPanel,
   canvasProfilePanel,
+  scenarioTemplatePanel,
   commonAnalysisReportPanel,
   ensureReportRequiredSections,
   generalInvCompanyId,
@@ -1381,9 +1434,16 @@ const unifiedSubtabRegistry = createUnifiedSubtabRegistry({
   general: genDeps,
   special: specialDeps,
 });
-customsDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "customs", scenarioBuilderConfig);
-genDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig);
-specialDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "special", scenarioBuilderConfig);
+// 분석 시나리오 템플릿(templates) 서브탭은 시나리오 설정(enabledSubtabs)과 무관하게 동작한다.
+// - 설정에 들어있어도 무시(removeIds)하고, 조직 관리자에게만 해당 업무 영역 서브탭의
+//   '오른쪽 끝'에 자동으로 추가(appendIds)한다. 비관리자에게는 노출하지 않는다.
+// - 일반 사용자는 'AI서비스 분석 작업' 탭에서 등록된 템플릿을 불러와 개인별로 조정한다.
+function adminSubtabOptions(){
+  return { removeIds: ["templates"], appendIds: isCurrentUserAdmin() ? ["templates"] : [] };
+}
+customsDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "customs", scenarioBuilderConfig, adminSubtabOptions());
+genDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, adminSubtabOptions());
+specialDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "special", scenarioBuilderConfig, adminSubtabOptions());
 
 const GI_SERVICE_ALIASES = {
   gi_cdw:      { sourceKey:"db_cdw", type:"db" },
@@ -3911,6 +3971,77 @@ function saveScenarioBuilderState(config = scenarioBuilderConfig){
   return scenarioBuilderConfig;
 }
 
+/* 수사유형별 빌트인 시나리오 템플릿 저장소: 서버 파일(data/scenario_templates.json).
+   - 코드 정의(scenarioTemplates/giScenarioTemplates/drugScenarioTemplates)는 동기 시드로 유지.
+   - 부팅 시 서버 파일이 있으면 in-place로 오버라이드(라벨/단계 갱신), 없으면 시드를 1회 저장.
+   파생 맵(GI_SCENARIO_STEPS/DRUG_SCENARIO_STEPS)은 const라 키를 갱신(재바인딩 X). */
+const SCENARIO_TEMPLATES_URL = "/api/scenario_templates";
+
+function buildScenarioTemplatesSeed(){
+  return cloneSavedValue({
+    customs: scenarioTemplates,
+    general: giScenarioTemplates,
+    drug: drugScenarioTemplates,
+  }, {});
+}
+
+function rebuildScenarioStepMaps(){
+  Object.keys(GI_SCENARIO_STEPS).forEach(key => delete GI_SCENARIO_STEPS[key]);
+  giScenarioTemplates.forEach(template => { GI_SCENARIO_STEPS[template.id] = template.items; });
+  Object.keys(DRUG_SCENARIO_STEPS).forEach(key => delete DRUG_SCENARIO_STEPS[key]);
+  drugScenarioTemplates.forEach(template => { DRUG_SCENARIO_STEPS[template.id] = template.items; });
+}
+
+function overrideTemplateArrayInPlace(targetArray, defs){
+  if(!Array.isArray(defs)) return;
+  defs.forEach(def => {
+    if(!def || !def.id) return;
+    const target = targetArray.find(t => t.id === def.id);
+    if(!target) return; // 코드에 없는 id는 빌트인 범위 밖 — 무시
+    if(def.name) target.name = def.name;
+    if(def.description != null) target.description = def.description;
+    if(Array.isArray(def.items)){
+      target.items = def.items.map((item, index) => ({ ...item, order: item.order ?? index + 1 }));
+    }
+  });
+}
+
+function applyScenarioTemplatesOverride(data){
+  if(!data || typeof data !== "object") return;
+  overrideTemplateArrayInPlace(scenarioTemplates, data.customs);
+  overrideTemplateArrayInPlace(giScenarioTemplates, data.general);
+  overrideTemplateArrayInPlace(drugScenarioTemplates, data.drug);
+  giScenarioTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
+  drugScenarioTemplates.forEach(template => normalizeScenarioLabelsInPlace(template.items));
+  rebuildScenarioStepMaps();
+}
+
+function persistScenarioTemplatesToServer(){
+  try{
+    fetch(SCENARIO_TEMPLATES_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildScenarioTemplatesSeed()),
+    }).catch(error => console.warn("시나리오 템플릿을 서버에 저장하지 못했습니다.", error));
+  }catch(error){
+    console.warn("시나리오 템플릿을 서버에 저장하지 못했습니다.", error);
+  }
+}
+
+async function loadScenarioTemplatesFromServer(){
+  try{
+    const saved = await fetchJsonStore(SCENARIO_TEMPLATES_URL);
+    if(saved && Object.keys(saved).length){
+      applyScenarioTemplatesOverride(saved);
+    }else{
+      // 서버 파일이 없으면 현재 코드 정의를 시드로 1회 저장
+      persistScenarioTemplatesToServer();
+    }
+  }catch(error){
+    console.warn("시나리오 템플릿을 서버에서 불러오지 못했습니다.", error);
+  }
+}
+
 function scenarioBuilderDefaultTab(page, fallbackId){
   return scenarioDefaultTabForPage(scenarioBuilderConfig, page, fallbackId);
 }
@@ -5780,12 +5911,20 @@ function templateCardHtml(template){
   // Button states:
   // - 편집 중: 변경·삭제 모두 비활성
   // - 편집 중 아님: 변경·삭제 모두 활성 (빌트인 포함)
+  const isCustomsDomain = templateEditorDomain === "customs";
   const changeBtn = isEditing
     ? `<button class="btn secondary" type="button" disabled style="opacity:.4">템플릿 변경</button>`
-    : `<button class="btn secondary" type="button" data-template-edit-btn="${escapeHtml(template.id)}">${editable ? "템플릿 변경" : "복사 후 변경"}</button>`;
-  const deleteBtn = isEditing
-    ? `<button class="btn secondary" type="button" disabled style="opacity:.4">템플릿 삭제</button>`
-    : `<button class="btn secondary template-delete-action" type="button" data-delete-template="${escapeHtml(template.id)}" ${deletable ? "" : "disabled title=\"소유자 또는 관리자만 삭제할 수 있습니다.\""}>템플릿 삭제</button>`;
+    : (editable
+        ? `<button class="btn secondary" type="button" data-template-edit-btn="${escapeHtml(template.id)}">템플릿 변경</button>`
+        : (isCustomsDomain
+            ? `<button class="btn secondary" type="button" data-template-edit-btn="${escapeHtml(template.id)}">복사 후 변경</button>`
+            : `<button class="btn secondary" type="button" disabled title="조직 관리자만 빌트인 템플릿을 편집할 수 있습니다.">템플릿 변경</button>`));
+  // 일반/마약 빌트인 템플릿은 수사유형 표준이므로 삭제 불가(관세조사만 삭제 제공)
+  const deleteBtn = !isCustomsDomain
+    ? ""
+    : (isEditing
+        ? `<button class="btn secondary" type="button" disabled style="opacity:.4">템플릿 삭제</button>`
+        : `<button class="btn secondary template-delete-action" type="button" data-delete-template="${escapeHtml(template.id)}" ${deletable ? "" : "disabled title=\"소유자 또는 관리자만 삭제할 수 있습니다.\""}>템플릿 삭제</button>`);
 
   return `
     <article class="template-card ${isEditing ? "template-card-editing" : ""}" data-template-card="${escapeHtml(template.id)}">
@@ -5809,14 +5948,16 @@ function templateCardHtml(template){
 function editingTemplateName(){
   if(!editingTemplateId) return "";
   if(editingTemplateId === "__new__") return templateDraftName || "";
-  const t = allScenarioTemplates().find(t => t.id === editingTemplateId);
+  const t = allScenarioTemplates(templateEditorDomain).find(t => t.id === editingTemplateId);
   return t?.name || "";
 }
 
-function scenarioTemplatePanel(){
-  const allTemplates = allScenarioTemplates();
+function scenarioTemplatePanel(domain = "customs"){
+  templateEditorDomain = domain;
+  const allTemplates = allScenarioTemplates(domain);
   const editorName = editingTemplateName();
   const hasEditing = !!editingTemplateId;
+  const allowNew = domain === "customs"; // 신규 커스텀 등록은 관세조사에서만(일반/마약은 빌트인 편집)
   return `
     <div class="template-management-layout">
       <aside class="template-editor-panel">
@@ -5841,6 +5982,13 @@ function scenarioTemplatePanel(){
             <span>추가 지시</span>
             <textarea id="templateInstruction" placeholder="${hasEditing ? "이 단계에서 중점적으로 확인할 내용을 입력하세요." : "템플릿을 선택하거나 새 템플릿을 만드세요."}" ${!hasEditing ? "disabled" : ""}></textarea>
           </label>
+          <label class="scenario-field">
+            <span>상세 프롬프트 템플릿 <small class="muted">(선택한 AI 서비스·동작 기준 · 조직 관리자만 등록)</small></span>
+            <textarea id="templatePromptComposed" rows="8" placeholder="단계를 선택하면 등록된 상세 프롬프트가 표시됩니다." ${!hasEditing ? "disabled" : ""}></textarea>
+          </label>
+          <div class="scenario-actions">
+            <button id="templatePromptRegister" type="button" class="btn secondary" ${!hasEditing ? "disabled" : ""}>상세 프롬프트 등록</button>
+          </div>
           <div class="scenario-actions">
             <button id="templateAddButton" type="button" class="btn" ${!hasEditing ? "disabled" : ""}>단계 추가</button>
             <button id="templateDeleteStepButton" type="button" class="btn secondary" ${!templateEditorSelectedId ? "disabled" : ""}>선택 삭제</button>
@@ -5855,7 +6003,7 @@ function scenarioTemplatePanel(){
             <h2>분석 시나리오 템플릿</h2>
             <p class="muted">공통 조사 흐름을 관리하는 화면입니다. 기업별 실행 화면에서는 여기의 템플릿을 불러와 필요한 부분만 조정합니다.</p>
           </div>
-          <button id="templateNewButton" type="button" class="btn secondary">새 템플릿</button>
+          ${allowNew ? `<button id="templateNewButton" type="button" class="btn secondary">새 템플릿</button>` : ""}
         </div>
         <div class="template-card-grid">
           ${editingTemplateId === "__new__" ? `
@@ -5946,6 +6094,28 @@ function syncTemplateEditorFields(){
   if(hint && !item) hint.innerHTML = "";
   renderShareEmailPanel("template");
   renderWebTargetPanel("template");
+  loadComposedPromptForSelected();
+}
+
+// 선택한 단계의 AI 서비스·동작 조합에 해당하는 상세 프롬프트(등록 오버라이드 우선)를 로드한다.
+function templateStepServiceId(item){
+  if(!item) return "";
+  return scenarioSourceByKey(item.key) ? item.key : giCommonSourceKey(item.key);
+}
+async function loadComposedPromptForSelected(){
+  const ta = document.getElementById("templatePromptComposed");
+  if(!ta) return;
+  const item = templateEditorItems.find(i => i.id === templateEditorSelectedId);
+  if(!item){ ta.value = ""; ta.dataset.serviceId = ""; return; }
+  const serviceId = templateStepServiceId(item);
+  const targetType = normalizeTargetType(item.targetType || item.target_type || "company");
+  ta.dataset.serviceId = serviceId;
+  ta.dataset.targetType = targetType;
+  const text = await composePrompt(serviceId, item.behaviors || [], targetType);
+  // 비동기 사이 선택이 바뀌지 않았을 때만 반영
+  if(templateEditorItems.find(i => i.id === templateEditorSelectedId) === item){
+    ta.value = text || "";
+  }
 }
 
 function initTemplateEditor(){
@@ -6013,6 +6183,24 @@ function initTemplateEditor(){
     if(!name){ nameInput?.focus(); alert("템플릿 이름을 입력해 주세요."); return; }
     if(!templateEditorItems.length){ alert("최소 한 단계 이상 추가해 주세요."); return; }
     const savedItems = templateEditorItems.map(i => ({...i, id: uid()}));
+    // 일반/마약 빌트인 편집: scenario_templates.json에 저장(조직 관리자만)
+    if(templateEditorDomain === "general" || templateEditorDomain === "drug"){
+      if(!isCurrentUserAdmin()){ alert("조직 관리자만 빌트인 템플릿을 편집할 수 있습니다."); return; }
+      const arr = templateEditorDomain === "general" ? giScenarioTemplates : drugScenarioTemplates;
+      const target = arr.find(t => t.id === editingTemplateId);
+      if(target){
+        target.name = name;
+        target.description = `${templateEditorItems.length}단계 · 수정됨`;
+        target.items = savedItems.map((it, i) => ({ ...it, order: i + 1 }));
+        rebuildScenarioStepMaps();
+        persistScenarioTemplatesToServer();
+      }
+      templateDraftName = "";
+      templateEditorInitialized = false;
+      render(currentPage);
+      alert(`"${name}" 템플릿이 저장되었습니다.`);
+      return;
+    }
     const isExistingCustom = editingTemplateId && editingTemplateId !== "__new__"
       && customTemplates.some(t => t.id === editingTemplateId);
     const isBuiltin = editingTemplateId && editingTemplateId !== "__new__"
@@ -6026,7 +6214,8 @@ function initTemplateEditor(){
     } else {
       // __new__ → create new custom card
       const newId = `custom-${uid()}`;
-      customTemplates.unshift({ id: newId, name, description:`${templateEditorItems.length}단계`, items: savedItems, isCustom: true, ownerUserId: currentUserId, ownerName: currentUser().name, shared: true });
+      // 등록자의 조직(정보국/본청/세관) 단위로 공유한다.
+      customTemplates.unshift({ id: newId, name, description:`${templateEditorItems.length}단계`, items: savedItems, isCustom: true, ownerUserId: currentUserId, ownerName: currentUser().name, ownerOrgId: currentUserGroup().org, shared: true });
       editingTemplateId = newId;
     }
     templateDraftName = "";
@@ -6044,6 +6233,20 @@ function initTemplateEditor(){
     templateEditorSelectedId = null;
     templateEditorInitialized = false;
     render("canvas");
+  });
+
+  // 상세 프롬프트 등록(오버라이드 저장) — 조직 관리자만. AI 서비스·동작 조합 단위로 전역 반영.
+  document.getElementById("templatePromptRegister")?.addEventListener("click", () => {
+    if(!isCurrentUserAdmin()){ alert("조직 관리자만 상세 프롬프트를 등록할 수 있습니다."); return; }
+    const item = templateEditorItems.find(i => i.id === templateEditorSelectedId);
+    if(!item){ alert("프롬프트를 등록할 단계를 먼저 선택하세요."); return; }
+    const ta = document.getElementById("templatePromptComposed");
+    if(!ta) return;
+    const serviceId = templateStepServiceId(item);
+    const targetType = normalizeTargetType(item.targetType || item.target_type || "company");
+    setPromptOverride(serviceId, targetType, item.behaviors || [], ta.value);
+    savePromptOverrides();
+    alert("상세 프롬프트가 등록되었습니다. 이후 분석 실행에 반영됩니다.");
   });
 }
 
@@ -7679,6 +7882,12 @@ function render(page="home"){
       scenarioInitialized = false;
       initGiScenarioWorkbench();
     }
+    // 템플릿 편집 탭 — 관세 편집기를 일반수사 도메인으로 재사용 (조직 관리자 전용)
+    if(generalInvestigationState.generalInvTab === "templates" && isCurrentUserAdmin()){
+      templateEditorDomain = "general";
+      templateEditorInitialized = false;
+      initTemplateEditor();
+    }
   }
   if(isSpecialInvestigationPage(page)){
     const drugCtx = drugCaseContext();
@@ -7692,6 +7901,12 @@ function render(page="home"){
     if(specialInvestigationState.drugInvTab === "scenario"){
       scenarioInitialized = false;
       initDrugScenarioWorkbench();
+    }
+    // 템플릿 편집 탭 — 관세 편집기를 특수수사 도메인으로 재사용 (조직 관리자 전용)
+    if(specialInvestigationState.drugInvTab === "templates" && isCurrentUserAdmin()){
+      templateEditorDomain = "drug";
+      templateEditorInitialized = false;
+      initTemplateEditor();
     }
   }
   if(page === "investigation" || pageTemplate === "customs"){
@@ -8356,15 +8571,21 @@ document.addEventListener("click", (event)=>{
   const templateEditBtn = event.target.closest("[data-template-edit-btn]");
   if(templateEditBtn){
     const templateId = templateEditBtn.dataset.templateEditBtn;
-    const template = allScenarioTemplates().find(t => t.id === templateId);
+    const domain = templateEditorDomain;
+    const template = allScenarioTemplates(domain).find(t => t.id === templateId);
     if(!template) return;
+    // 일반/마약 빌트인 편집은 조직 관리자만
+    if(domain !== "customs" && !isCurrentUserAdmin()){
+      alert("조직 관리자만 빌트인 템플릿을 편집할 수 있습니다.");
+      return;
+    }
     const editable = canEditTemplate(template);
     editingTemplateId = editable ? templateId : "__new__";
     templateDraftName = editable ? "" : `${template.name} 사본`;
     templateEditorItems = template.items.map((item, i) => normalizeScenarioItem({...item, id: uid()}, i));
     templateEditorSelectedId = templateEditorItems[0]?.id || null;
     templateEditorInitialized = false;
-    render("canvas");
+    if(domain === "customs") render("canvas"); else render(currentPage);
     return;
   }
 
@@ -8919,6 +9140,8 @@ function shutdownAllServers(){
   const hasState = await loadCanvasState();
   // 업무시나리오 구성을 서버 파일에서 로드 (없으면 localStorage 구성을 서버로 이행)
   await loadScenarioBuilderConfigFromServer();
+  // 수사유형별 빌트인 시나리오 템플릿을 서버 파일에서 로드/시드
+  await loadScenarioTemplatesFromServer();
   // 저장 상태가 없으면 기본 사용자(u01) 권한으로 초기화
   if(!hasState){
     const initGroup = userGroups.find(g => g.id === (sampleUsers.find(u => u.id === currentUserId)?.groupId)) || userGroups[0];
