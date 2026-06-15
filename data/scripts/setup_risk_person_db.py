@@ -265,6 +265,27 @@ def build_seed_rows() -> dict[str, list[tuple]]:
     for i in range(1, 101):
         person_id = f"RP-{i:04d}"
         category, sub_category, method = contraband[(i - 1) % len(contraband)]
+
+        # 인물별 연계 국가/품목군을 1~2개로 제한 — 실제 마약·밀수범은 대부분
+        # 특정 1~2개국·1~2개 품목군에 집중되는 패턴을 반영.
+        n_home = choose_weighted(rng, [(1, 55), (2, 45)])
+        home_countries = rng.sample(countries, n_home)
+        other_contraband = [c for c in contraband if c[0] != category]
+        secondary_contraband = rng.choice(other_contraband) if rng.random() < 0.35 else None
+
+        def _pick_origin_transit() -> tuple[str, str]:
+            origin = rng.choice(home_countries)
+            if len(home_countries) > 1 and rng.random() < 0.5:
+                transit = next(c for c in home_countries if c != origin)
+            else:
+                transit = "없음"
+            return origin, transit
+
+        def _pick_case_contraband() -> tuple[str, str, str]:
+            if secondary_contraband and rng.random() < 0.25:
+                return secondary_contraband
+            return category, sub_category, method
+
         base_score = rng.uniform(38, 96)
         if category in {"마약류", "총기류"}:
             base_score += rng.uniform(3, 8)
@@ -303,8 +324,7 @@ def build_seed_rows() -> dict[str, list[tuple]]:
         source_id = f"EV-{i:04d}"
         detection_date = today - timedelta(days=rng.randint(5, 720))
         channel = rng.choice(channels)
-        origin = rng.choice(countries)
-        transit = rng.choice([c for c in countries if c != origin] + ["없음"])
+        origin, transit = _pick_origin_transit()
         case_type = rng.choice(["밀수입", "밀수출", "환적", "특송", "우편", "여행자"])
         quantity = round(rng.uniform(0.2, 35.0), 2)
         estimated_value = round(quantity * rng.uniform(450_000, 9_500_000), -3)
@@ -451,13 +471,12 @@ def build_seed_rows() -> dict[str, list[tuple]]:
         # edges to other persons in the sample network.
         history_count = rng.randint(3, 10)
         for h in range(2, history_count + 1):
-            hist_category, hist_sub_category, hist_method = rng.choice(contraband)
+            hist_category, hist_sub_category, hist_method = _pick_case_contraband()
             hist_case_id = f"SC-{i:04d}-{h:02d}"
             hist_source_id = f"EV-{i:04d}-{h:02d}"
             hist_detection_date = today - timedelta(days=rng.randint(15, 1_460))
             hist_channel = rng.choice(channels)
-            hist_origin = rng.choice(countries)
-            hist_transit = rng.choice([c for c in countries if c != hist_origin] + ["없음"])
+            hist_origin, hist_transit = _pick_origin_transit()
             hist_quantity = round(rng.uniform(0.1, 42.0), 2)
             hist_value = round(hist_quantity * rng.uniform(350_000, 12_000_000), -3)
             hist_role = rng.choice(roles)
