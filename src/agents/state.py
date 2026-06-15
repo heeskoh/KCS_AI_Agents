@@ -36,6 +36,7 @@ class CustomsState(TypedDict, total=False):
     declaration_verify_result: Optional[str]# 수입신고검증               (agent_declaration_verify)
     hs_verify_result: Optional[str]         # 품목분류검증               (agent_hs_verify)
     customs_value_result: Optional[str]     # 과세가격평가               (agent_customs_value)
+    risk_profile_result: Optional[str]      # 위험지표 조사 프로파일      (agent_risk_profile)
     summary_result: Optional[str]           # 문서 요약                  (agent_summary)
     patent_result: Optional[str]            # 특허정보조회               (agent_patent)
     rag_create_result: Optional[str]        # RAG 생성                   (agent_rag_create)

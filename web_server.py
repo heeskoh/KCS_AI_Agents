@@ -323,11 +323,24 @@ def get_company_profile(company_id: str) -> dict[str, object]:
             """,
             [company_id],
         ).df()
+        # 2026 재설계: 지표별 근거(company_risk_indicator). 테이블 없으면 빈 목록.
+        try:
+            indicators = conn.execute(
+                """
+                SELECT indicator_code, indicator_name, score, reason, recommendation
+                FROM company_risk_indicator
+                WHERE company_id = ?
+                """,
+                [company_id],
+            ).df().to_dict("records")
+        except duckdb.CatalogException:
+            indicators = []
 
     return {
         "company": company.to_dict("records")[0] if not company.empty else {},
         "declarations": declarations.to_dict("records"),
         "risk": risk.to_dict("records")[0] if not risk.empty else {},
+        "risk_indicators": {r["indicator_code"]: r for r in indicators},
     }
 
 

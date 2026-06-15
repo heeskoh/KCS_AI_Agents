@@ -30,6 +30,7 @@ from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
 from src.agents.agent_rag import agent_rag_source
 from src.agents.agent_rag_create import agent_rag_create
 from src.agents.agent_report import agent_report
+from src.agents.agent_risk_profile import agent_risk_profile
 from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_summary import agent_summary
 from src.agents.agent_validate import agent_validate
@@ -94,6 +95,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("declaration_verify", "수입신고 검증", agent_declaration_verify, "declaration_verify_result", "declaration_verify_agent"),
     AgentModule("hs_verify", "품목분류 검증", agent_hs_verify, "hs_verify_result", "hs_verify_agent"),
     AgentModule("customs_value", "과세가격 평가", agent_customs_value, "customs_value_result", "customs_value_agent"),
+    AgentModule("risk_profile", "위험지표 프로파일", agent_risk_profile, "risk_profile_result", "risk_profile_agent", ("company_risk_profile", "risk_indicator_profile")),
     AgentModule("summary", "요약", agent_summary, "summary_result", "summary_agent"),
     AgentModule("patent", "특허정보 조회", agent_patent, "patent_result", "patent_agent"),
     AgentModule("rag_create", "RAG 생성", agent_rag_create, "rag_create_result", "rag_create_agent"),

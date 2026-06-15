@@ -5739,6 +5739,7 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
 
   const c = cache.company || {};
   const risk = cache.risk || {};
+  const indicators = cache.risk_indicators || {};
   const declarations = cache.declarations || [];
   const riskLevel = c.risk_level || risk.risk_level || "-";
   const riskScore = c.risk_score ?? risk.risk_score;
@@ -5798,15 +5799,23 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
         </div>
         <div class="risk-bars">
           ${[
-            ["저가신고 의심률",        risk.undervaluation_suspicion_rate],
-            ["특수관계 이상률",        risk.related_party_anomaly_rate],
-            ["FTA 원산지 오용 의심률", risk.fta_origin_misuse_suspicion_rate],
-            ["관세환급 이상률",        risk.customs_refund_anomaly_rate],
-            ["HS 분류 오류률",         risk.hs_classification_error_rate],
-            ["역외자금 은닉 의심률",   risk.offshore_fund_concealment_suspicion_rate],
-          ].map(([label, val]) => {
+            ["저가신고 의심률",        "undervaluation",    risk.undervaluation_suspicion_rate],
+            ["특수관계 이상률",        "related_party",     risk.related_party_anomaly_rate],
+            ["FTA 원산지 오용 의심률", "fta_origin_misuse", risk.fta_origin_misuse_suspicion_rate],
+            ["관세환급 이상률",        "customs_refund",    risk.customs_refund_anomaly_rate],
+            ["HS 분류 오류율",         "hs_classification", risk.hs_classification_error_rate],
+            ["역외자금 은닉 의심률",   "offshore_fund",     risk.offshore_fund_concealment_suspicion_rate],
+          ].map(([label, code, val]) => {
             const pct = val != null ? Math.min(100, Number(val)) : 0;
             const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
+            const meta = indicators[code] || {};
+            const bullets = String(meta.reason || "")
+              .split("\n").map(s => s.replace(/^[-\s]+/, "").trim()).filter(Boolean);
+            const reasonHtml = bullets.length
+              ? `<ul class="risk-reason">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+              : "";
+            const recoHtml = (pct >= 60 && meta.recommendation)
+              ? `<p class="risk-reco">📌 ${escapeHtml(meta.recommendation)}</p>` : "";
             return `
               <div class="risk-bar-row">
                 <span>${label}</span>
@@ -5814,7 +5823,8 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
                   <i class="${tone}" style="width:${pct}%"></i>
                 </div>
                 <strong class="${tone === "high" ? "high" : tone === "mid" ? "mid-risk" : "good"}">${val != null ? Number(val).toFixed(1) : "-"}%</strong>
-              </div>`;
+              </div>
+              ${reasonHtml}${recoHtml}`;
           }).join("")}
         </div>
       </div>
