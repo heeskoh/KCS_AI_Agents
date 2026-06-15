@@ -26,6 +26,12 @@
   drug_new_substance     신종마약·위해도        ← person_seizure_record(harm_weight)
   drug_laundering        자금세탁 연계          ← person_laundering_link
 
+[공통 — 관계망 확장용 활동 로그]
+  person_activity_record  우범자의 전자상거래·국제우편·특송 송수신 전체 이력.
+    압수사건과 무관한 평시 거래도 포함하여, 관계망 분석에서
+    "거래상대방 국가/지역", "거래관계 급증" 등의 패턴 탐지에 활용.
+    is_case_related/linked_case_id 로 사건 연계 여부 표시.
+
 [외환수사 forex]
   fx_remittance          해외송금 이상          ← person_fx_transaction
   fx_hawala              환치기·불법송금        ← person_fx_transaction(channel)
@@ -119,6 +125,27 @@ CREATE TABLE IF NOT EXISTS person_laundering_link (
 )
 """
 
+DDL_PERSON_ACTIVITY_RECORD = """
+CREATE TABLE IF NOT EXISTS person_activity_record (
+    id                   INTEGER,
+    person_id            VARCHAR,
+    activity_date        DATE,
+    activity_type        VARCHAR,        -- 전자상거래주문 / 국제우편발송 / 국제우편수취 / 특송발송 / 특송수취
+    direction            VARCHAR,        -- 발송 / 수신
+    channel              VARCHAR,        -- 해외직구 / 오픈마켓 / SNS마켓 / 구매대행 / EMS / 특송업체
+    counterpart_name     VARCHAR,
+    counterpart_country  VARCHAR,        -- 해외 상대방 국가(국내면 '대한민국')
+    counterpart_region   VARCHAR,        -- 국내 상대방 거주지역(해외면 NULL)
+    counterpart_person_id VARCHAR,       -- 등록된 인물(RP-xxxx)이면 FK, 미식별이면 NULL
+    item_name            VARCHAR,
+    item_category        VARCHAR,
+    amount               DOUBLE,
+    is_case_related      BOOLEAN,        -- 압수사건과 직접 연계 여부
+    linked_case_id       VARCHAR,        -- 연계 시 smuggling_case.case_id
+    note                 VARCHAR
+)
+"""
+
 # ── 외환수사 전용 근거 테이블 ────────────────────────────────────────────────
 
 DDL_PERSON_FX_TRANSACTION = """
@@ -184,6 +211,7 @@ SOURCE_TABLES: list[tuple[str, str]] = [
     ("person_concealment_event", DDL_PERSON_CONCEALMENT_EVENT),
     ("person_identity_flag", DDL_PERSON_IDENTITY_FLAG),
     ("person_laundering_link", DDL_PERSON_LAUNDERING_LINK),
+    ("person_activity_record", DDL_PERSON_ACTIVITY_RECORD),
     ("person_fx_transaction", DDL_PERSON_FX_TRANSACTION),
     ("person_asset_flight", DDL_PERSON_ASSET_FLIGHT),
     ("person_offshore_link", DDL_PERSON_OFFSHORE_LINK),
