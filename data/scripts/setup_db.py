@@ -30,6 +30,7 @@ try:
         SYNTHETIC_NAMES,
         _clean_hs,
         _origin,
+        _origin_name,
         _tax_no,
     )
 except ImportError:
@@ -39,6 +40,7 @@ except ImportError:
         SYNTHETIC_NAMES,
         _clean_hs,
         _origin,
+        _origin_name,
         _tax_no,
     )
 
@@ -85,6 +87,7 @@ CREATE TABLE IF NOT EXISTS import_declarations (
     item_name       VARCHAR,
     declared_value  DOUBLE,
     origin_country  VARCHAR,
+    origin_country_name VARCHAR,
     import_date     DATE,
     status          VARCHAR
 )
@@ -248,6 +251,7 @@ def build_pdf_sample_seed_rows() -> tuple[list[tuple], list[tuple], list[tuple]]
             meta["fta_reduction_rate"],
         ))
 
+        origin_code = _origin(ext.get("origin_country"))
         declarations.append((
             2000 + idx,
             meta["company_id"],
@@ -255,7 +259,8 @@ def build_pdf_sample_seed_rows() -> tuple[list[tuple], list[tuple], list[tuple]]
             _clean_hs(ext.get("hs_code")),
             ext.get("item_name"),
             declared_value,
-            _origin(ext.get("origin_country")),
+            origin_code,
+            _origin_name(origin_code),
             ext.get("import_date"),
             meta["status"],
         ))
@@ -342,6 +347,7 @@ def _generate_peer_declarations(
         ref_val    = sum(r["declared_value"] for r in ref_rows) / len(ref_rows)
         ref_item   = ref_rows[0]["item_name"]
         ref_origin = ref_rows[0]["origin_country"]
+        ref_origin_name = _origin_name(ref_origin)
 
         for _ in range(needed):
             factor = rng.gauss(0.55, 0.08) if rng.random() < 0.05 else rng.gauss(1.0, 0.18)
@@ -355,6 +361,7 @@ def _generate_peer_declarations(
                 "item_name":      ref_item,
                 "declared_value": round(ref_val * factor),
                 "origin_country": ref_origin,
+                "origin_country_name": ref_origin_name,
                 "import_date":    (date.today() - timedelta(days=days_ago)).isoformat(),
                 "status":         rng.choice(status_pool),
             })
@@ -539,14 +546,17 @@ def main() -> None:
                 print("\n[3/4] 기본 시드 데이터 삽입")
                 pdf_companies, pdf_declarations, pdf_risk_scores = build_pdf_sample_seed_rows()
                 seed_companies = SEED_COMPANIES + pdf_companies
-                seed_declarations = SEED_DECLARATIONS + pdf_declarations
+                # SEED_DECLARATIONS는 코드만 가진 9-튜플 → origin_country_name 주입(10-튜플)
+                seed_declarations = [
+                    (*row[:7], _origin_name(row[6]), *row[7:]) for row in SEED_DECLARATIONS
+                ] + pdf_declarations
                 seed_risk_scores = SEED_RISK_SCORES + pdf_risk_scores
                 conn.executemany(
                     "INSERT INTO company_profiles VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     seed_companies,
                 )
                 conn.executemany(
-                    "INSERT INTO import_declarations VALUES (?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO import_declarations VALUES (?,?,?,?,?,?,?,?,?,?)",
                     seed_declarations,
                 )
                 conn.executemany(

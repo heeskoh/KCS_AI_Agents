@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,10 @@ from neo4j import GraphDatabase, ManagedTransaction
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_ROOT / "data" / "customs.duckdb"
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from src.countries import country_code, country_name  # noqa: E402
 
 DEFAULT_URI = "bolt://localhost:7687"
 DEFAULT_USER = "neo4j"
@@ -274,28 +279,30 @@ def merge_case_location(tx: ManagedTransaction, hub_person_id: str, props: dict[
                         case: dict[str, Any]) -> None:
     """대표주체(hub) → 사건 장소(원산지/경유 Country, 도착 Region) 관계."""
     if case.get("origin_country"):
+        code = country_code(case["origin_country"])
         tx.run(
             """
             MATCH (p:Person {person_id: $hub})
             MERGE (c:Country {code: $code})
-            SET c.updated_from = $source_tag
+            SET c.name = $name, c.updated_from = $source_tag
             MERGE (p)-[r:CASE_FROM {case_id: $case_id}]->(c)
             SET r += $props, r.updated_from = $source_tag
             """,
-            {"hub": hub_person_id, "code": case["origin_country"], "case_id": props["case_id"],
-             "props": props, "source_tag": SOURCE_TAG},
+            {"hub": hub_person_id, "code": code, "name": country_name(code, default=case["origin_country"]),
+             "case_id": props["case_id"], "props": props, "source_tag": SOURCE_TAG},
         )
     if case.get("transit_country") and case.get("transit_country") != "없음":
+        code = country_code(case["transit_country"])
         tx.run(
             """
             MATCH (p:Person {person_id: $hub})
             MERGE (c:Country {code: $code})
-            SET c.updated_from = $source_tag
+            SET c.name = $name, c.updated_from = $source_tag
             MERGE (p)-[r:CASE_VIA {case_id: $case_id}]->(c)
             SET r += $props, r.updated_from = $source_tag
             """,
-            {"hub": hub_person_id, "code": case["transit_country"], "case_id": props["case_id"],
-             "props": props, "source_tag": SOURCE_TAG},
+            {"hub": hub_person_id, "code": code, "name": country_name(code, default=case["transit_country"]),
+             "case_id": props["case_id"], "props": props, "source_tag": SOURCE_TAG},
         )
     if case.get("destination_region"):
         tx.run(

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,10 @@ from neo4j import GraphDatabase, ManagedTransaction
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_ROOT / "data" / "customs.duckdb"
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from src.countries import country_code, country_name  # noqa: E402
 
 DEFAULT_URI = "bolt://localhost:7687"
 DEFAULT_USER = "neo4j"
@@ -94,6 +99,7 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
             SELECT
                 company_id,
                 origin_country,
+                MAX(origin_country_name) AS origin_country_name,
                 COUNT(*) AS declaration_count,
                 SUM(declared_value) AS total_declared_value,
                 SUM(CASE WHEN status = 'REVIEW' THEN 1 ELSE 0 END) AS review_count,
@@ -108,7 +114,12 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
     export_countries = []
     for company in companies:
         for country in country_tokens(company.get("major_export_countries")):
-            export_countries.append({"company_id": company["company_id"], "country": country})
+            code = country_code(country)
+            export_countries.append({
+                "company_id": company["company_id"],
+                "country_code": code,
+                "country_name": country_name(code, default=country),
+            })
 
     return {
         "companies": companies,
@@ -220,8 +231,9 @@ def merge_export_country(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
-        MERGE (country:Country {code: $country})
-        SET country.updated_from = $source_tag
+        MERGE (country:Country {code: $country_code})
+        SET country.name = $country_name,
+            country.updated_from = $source_tag
         MERGE (c)-[:EXPORTS_TO]->(country)
         """,
         {**row, "source_tag": SOURCE_TAG},
@@ -242,6 +254,7 @@ def merge_declaration(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             r.item_name = $item_name,
             r.declared_value = $declared_value,
             r.origin_country = $origin_country,
+            r.origin_country_name = $origin_country_name,
             r.import_date = $import_date,
             r.status = $status,
             r.updated_from = $source_tag
@@ -255,7 +268,8 @@ def merge_supply_stat(tx: ManagedTransaction, row: dict[str, Any]) -> None:
         """
         MATCH (c:Company {company_id: $company_id})
         MERGE (country:Country {code: $origin_country})
-        SET country.updated_from = $source_tag
+        SET country.name = $origin_country_name,
+            country.updated_from = $source_tag
         MERGE (country)-[r:SUPPLIES_TO]->(c)
         SET r.declaration_count = $declaration_count,
             r.total_declared_value = $total_declared_value,

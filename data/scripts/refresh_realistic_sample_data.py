@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -19,6 +20,10 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "data" / "customs.duckdb"
 EXTRACT_PATH = ROOT / "data" / "sample_import_pdf_extracts.json"
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from src.countries import country_code, country_name  # noqa: E402
 
 
 COMPANY_META = [
@@ -298,6 +303,7 @@ COMPANY_META = [
 ]
 
 
+# 2-letter ISO/영문 표기 → alpha-3 코드 보정 (한글명은 src.countries가 처리)
 ORIGIN_FIX = {
     "THAILAND": "THA",
     "CN": "CHN",
@@ -327,11 +333,20 @@ def _clean_hs(value: str | None) -> str:
 
 
 def _origin(value: str | None) -> str:
-    text = (value or "").strip().upper()
-    for key, code in ORIGIN_FIX.items():
-        if key in text:
+    """원산지 표기(2-letter/영문/한글명) → ISO alpha-3 코드로 정규화."""
+    text = (value or "").strip()
+    if not text:
+        return "UNK"
+    upper = text.upper()
+    for key, code in ORIGIN_FIX.items():   # 2-letter/영문 표기 보정
+        if key in upper:
             return code
-    return text[:3] if text else "UNK"
+    return country_code(text)              # 한글명/별칭/alpha-3 처리
+
+
+def _origin_name(code: str | None) -> str:
+    """alpha-3 코드 → 한글 국가명."""
+    return country_name(code)
 
 
 def _tax_no(index: int) -> str:
@@ -389,6 +404,7 @@ def main() -> None:
             meta["fta_reduction_rate"],
         ))
 
+        origin_code = _origin(ext.get("origin_country"))
         declaration_rows.append((
             decl_start + idx - 1,
             meta["company_id"],
@@ -396,7 +412,8 @@ def main() -> None:
             _clean_hs(ext.get("hs_code")),
             ext["item_name"],
             declared_value,
-            _origin(ext.get("origin_country")),
+            origin_code,
+            _origin_name(origin_code),
             ext["import_date"],
             meta["status"],
         ))
@@ -418,7 +435,7 @@ def main() -> None:
     )
     con.executemany(
         """
-        INSERT INTO import_declarations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO import_declarations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         declaration_rows,
     )

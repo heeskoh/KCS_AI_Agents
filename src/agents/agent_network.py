@@ -38,20 +38,12 @@ from src.agents.scope import (
     target_type,
 )
 from src.config import CFG
+from src.countries import COUNTRY_NAMES  # 국가 코드→한글명 단일 기준
 from src.llm import llm
 from src.neo4j_graph import Neo4jGraphError, build_company_network_report, build_person_network_report
 from src.paths import DB_PATH
 
 # ── 참조 데이터 ────────────────────────────────────────────────────────────────
-
-COUNTRY_NAMES: dict[str, str] = {
-    "TWN": "대만",    "CHN": "중국",     "JPN": "일본",       "KOR": "한국",
-    "SAU": "사우디아라비아", "ARE": "UAE",  "MYS": "말레이시아", "THA": "태국",
-    "VNM": "베트남",  "BGD": "방글라데시", "KHM": "캄보디아",   "IDN": "인도네시아",
-    "CHE": "스위스",  "DEU": "독일",     "USA": "미국",        "GBR": "영국",
-    "AUS": "호주",    "CHL": "칠레",     "PER": "페루",        "SGP": "싱가포르",
-    "HKG": "홍콩",    "MEX": "멕시코",   "IND": "인도",        "BRA": "브라질",
-}
 
 # 역외 관할권 키워드 (company name → 리스크 판정)
 _OFFSHORE_HIGH: tuple[str, ...] = (
