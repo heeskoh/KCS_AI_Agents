@@ -179,10 +179,27 @@ const PROP_LABEL_KO = {
   broker_name: "관세사", org_name: "조직명", risk_score: "위험점수", risk_level: "위험등급",
   declaration_no: "신고번호", declared_value: "신고금액", import_date: "수입일",
   indicator_name: "지표명", code: "코드", value: "값", score: "점수",
+  // 인물(우범자) 프로파일 + 흡수된 위험지표·정보분석 속성
+  profile_type: "프로파일 유형", name_aliases: "별칭", birth_date: "생년월일", gender: "성별",
+  nationality: "국적", occupation: "직업", risk_tags: "위험 태그", watch_status: "관찰 상태",
+  address_region: "주소지", org_type: "조직 유형", relation_type: "관계 유형", weight: "가중치",
+  confidence_score: "신뢰도",
+  indicator_count: "위험지표 수", top_indicators: "주요 위험지표",
+  analysis_count: "정보분석 건수", latest_analysis_type: "최근 분석유형",
+  latest_analysis_agent: "분석 AI서비스", latest_analysis_summary: "최근 정보분석 요약",
+  latest_risk_score_after: "분석후 위험점수",
+  // 사건(CASE_*) 엣지 속성
+  case_no: "사건번호", role_in_case: "역할", evidence_level: "증거수준",
+  evidence_summary: "증거 요약", modus_operandi: "수법",
 };
 const PROP_HIDDEN = new Set(["seed_batch_id", "updated_from"]);
 /* 상세 패널에 우선 노출할 키 순서 */
 const PROP_PRIORITY = [
+  // 인물 핵심: 위험·정보분석 우선 노출
+  "risk_level", "risk_score", "risk_tags", "top_indicators", "indicator_count",
+  "analysis_count", "latest_analysis_type", "latest_analysis_summary", "latest_risk_score_after",
+  "nationality", "occupation", "watch_status",
+  // 사건(CASE_*) 엣지 속성
   "case_no", "case_type", "case_status", "contraband_category", "contraband_sub_category",
   "summary", "detection_date", "detection_channel", "origin_country", "transit_country",
   "destination_region", "modus_operandi", "concealment_method", "estimated_value",
