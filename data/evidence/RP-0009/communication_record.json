@@ -1,0 +1,95 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0009-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0009",
+  "subject_name": "샘플우범자009",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 14",
+    "imei_masked": "353xxx-xx-xxxx09-5",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0009)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "Instagram DM",
+      "direction": "수신",
+      "timestamp": "2023-09-07T13:00:00",
+      "counterpart_name": "말레이시아 거래상대 (미상)",
+      "counterpart_number_masked": "+60-1-***-5129",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "received, thanks",
+      "note": "SC-0009-03 권총 부품 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-09-09T07:00:00",
+      "counterpart_name": "말레이시아 거래상대 (미상)",
+      "counterpart_number_masked": "+60-1-***-5129",
+      "counterpart_person_id": null,
+      "duration_sec": 338,
+      "message_preview": null,
+      "note": "SC-0009-03 권총 부품 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-05-23T11:56:00",
+      "counterpart_name": "샘플우범자062",
+      "counterpart_number_masked": "010-****-2062",
+      "counterpart_person_id": "RP-0062",
+      "duration_sec": 111,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "메신저",
+      "app": "카카오톡",
+      "direction": "수신",
+      "timestamp": "2026-05-26T08:03:00",
+      "counterpart_name": "샘플우범자062",
+      "counterpart_number_masked": "010-****-2062",
+      "counterpart_person_id": "RP-0062",
+      "duration_sec": null,
+      "message_preview": "이번엔 좀 더 큰 건이라 시간 걸릴듯",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0005",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-06-02T11:58:00",
+      "counterpart_name": "샘플우범자062",
+      "counterpart_number_masked": "010-****-2062",
+      "counterpart_person_id": "RP-0062",
+      "duration_sec": null,
+      "message_preview": "물건 발송했어, 송장번호 따로 보낼게",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0006",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-06-04T22:50:00",
+      "counterpart_name": "샘플우범자062",
+      "counterpart_number_masked": "010-****-2062",
+      "counterpart_person_id": "RP-0062",
+      "duration_sec": 64,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    }
+  ]
+}

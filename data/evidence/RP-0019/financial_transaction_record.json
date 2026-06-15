@@ -1,0 +1,113 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0019-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0019",
+  "subject_name": "샘플우범자019",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-202603",
+    "account_holder": "샘플우범자019"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0019)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2024-02-03",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 16842000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": "MX-WIRE-***-7942",
+      "counterpart_bank": "MX Sample Bank",
+      "note": "SC-0019-02 필로폰 관련 수출대금 일부 수취 (소속)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2024-02-05",
+      "txn_type": "현금출금",
+      "direction": "출금",
+      "amount": 269472000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0019-02 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2026-02-04",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 10252000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": "MX-WIRE-***-7942",
+      "counterpart_bank": "MX Sample Bank",
+      "note": "SC-0019 필로폰 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2026-05-14",
+      "txn_type": "계좌이체",
+      "direction": "이체",
+      "amount": 736000.0,
+      "counterpart_type": "person",
+      "counterpart_person_id": "RP-0075",
+      "counterpart_org_id": null,
+      "counterpart_name": "샘플우범자075",
+      "counterpart_account_masked": "302-***-108325",
+      "counterpart_bank": "샘플제2은행",
+      "note": "생활용품 거래대금 (2026-05-11 발송 건)"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2026-05-18",
+      "txn_type": "계좌입금",
+      "direction": "입금",
+      "amount": 387000.0,
+      "counterpart_type": "person",
+      "counterpart_person_id": "RP-0075",
+      "counterpart_org_id": null,
+      "counterpart_name": "샘플우범자075",
+      "counterpart_account_masked": "302-***-108325",
+      "counterpart_bank": "샘플제2은행",
+      "note": "생활용품 거래대금 수취 (2026-05-17 수신 건)"
+    },
+    {
+      "record_id": "FIN-0006",
+      "txn_date": "2026-05-25",
+      "txn_type": "계좌이체",
+      "direction": "이체",
+      "amount": 495000.0,
+      "counterpart_type": "person",
+      "counterpart_person_id": "RP-0075",
+      "counterpart_org_id": null,
+      "counterpart_name": "샘플우범자075",
+      "counterpart_account_masked": "302-***-108325",
+      "counterpart_bank": "샘플제2은행",
+      "note": "생활용품 거래대금 (2026-05-24 발송 건)"
+    },
+    {
+      "record_id": "FIN-0007",
+      "txn_date": "2026-05-28",
+      "txn_type": "계좌입금",
+      "direction": "입금",
+      "amount": 858000.0,
+      "counterpart_type": "person",
+      "counterpart_person_id": "RP-0075",
+      "counterpart_org_id": null,
+      "counterpart_name": "샘플우범자075",
+      "counterpart_account_masked": "302-***-108325",
+      "counterpart_bank": "샘플제2은행",
+      "note": "생활용품 거래대금 수취 (2026-05-25 수신 건)"
+    }
+  ]
+}

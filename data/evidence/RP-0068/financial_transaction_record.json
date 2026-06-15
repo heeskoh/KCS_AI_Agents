@@ -1,0 +1,57 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0068-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0068",
+  "subject_name": "샘플우범자068",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-209316",
+    "account_holder": "샘플우범자068"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0068)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2025-10-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 5609000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": "CN-WIRE-***-5594",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0068 대마 카트리지 관련 수입대금 일부 송금 (동일주소)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2026-05-22",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 125536000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0068-02 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2026-05-24",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 7846000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": "CN-WIRE-***-5594",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0068-02 대마 카트리지 관련 수입대금 일부 송금 (동일주소)"
+    }
+  ]
+}

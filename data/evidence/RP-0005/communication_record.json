@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0005-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0005",
+  "subject_name": "샘플우범자005",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy S23",
+    "imei_masked": "353xxx-xx-xxxx05-0",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0005)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "Telegram",
+      "direction": "수신",
+      "timestamp": "2023-07-29T13:00:00",
+      "counterpart_name": "네덜란드 거래상대 (미상)",
+      "counterpart_number_masked": "+31-6-***-5273",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "received, thanks",
+      "note": "SC-0005-03 마취성 진통제 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-07-31T08:00:00",
+      "counterpart_name": "네덜란드 거래상대 (미상)",
+      "counterpart_number_masked": "+31-6-***-5273",
+      "counterpart_person_id": null,
+      "duration_sec": 241,
+      "message_preview": null,
+      "note": "SC-0005-03 마취성 진통제 거래 당일 통화"
+    }
+  ]
+}

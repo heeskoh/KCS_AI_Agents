@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0018-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0018",
+  "subject_name": "샘플우범자018",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy S23",
+    "imei_masked": "353xxx-xx-xxxx18-2",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0018)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2024-10-27T09:00:00",
+      "counterpart_name": "태국 거래상대 (미상)",
+      "counterpart_number_masked": "+66-8-***-9664",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "received, thanks",
+      "note": "SC-0018 고가 브랜드 의류 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2024-10-29T11:00:00",
+      "counterpart_name": "태국 거래상대 (미상)",
+      "counterpart_number_masked": "+66-8-***-9664",
+      "counterpart_person_id": null,
+      "duration_sec": 244,
+      "message_preview": null,
+      "note": "SC-0018 고가 브랜드 의류 거래 당일 통화"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0049-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0049",
+  "subject_name": "샘플우범자049",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 14",
+    "imei_masked": "353xxx-xx-xxxx49-5",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0049)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2023-04-20T09:00:00",
+      "counterpart_name": "필리핀 거래상대 (미상)",
+      "counterpart_number_masked": "+63-9-***-9455",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "received, thanks",
+      "note": "SC-0049-04 필로폰 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-04-22T07:00:00",
+      "counterpart_name": "필리핀 거래상대 (미상)",
+      "counterpart_number_masked": "+63-9-***-9455",
+      "counterpart_person_id": null,
+      "duration_sec": 87,
+      "message_preview": null,
+      "note": "SC-0049-04 필로폰 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2023-12-25T11:00:00",
+      "counterpart_name": "중국 거래상대 (미상)",
+      "counterpart_number_masked": "+86-138-***-6441",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "please check the address again",
+      "note": "SC-0049-02 필로폰 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-12-27T09:00:00",
+      "counterpart_name": "중국 거래상대 (미상)",
+      "counterpart_number_masked": "+86-138-***-6441",
+      "counterpart_person_id": null,
+      "duration_sec": 232,
+      "message_preview": null,
+      "note": "SC-0049-02 필로폰 거래 당일 통화"
+    }
+  ]
+}

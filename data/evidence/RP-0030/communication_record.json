@@ -1,0 +1,121 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0030-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0030",
+  "subject_name": "샘플우범자030",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 14",
+    "imei_masked": "353xxx-xx-xxxx30-8",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Cellebrite UFED",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0030)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WhatsApp",
+      "direction": "수신",
+      "timestamp": "2023-03-05T14:00:00",
+      "counterpart_name": "베트남 거래상대 (미상)",
+      "counterpart_number_masked": "+84-90-***-4245",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "confirmed, will arrange next batch",
+      "note": "SC-0030-04 고가 브랜드 의류 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-03-07T09:00:00",
+      "counterpart_name": "베트남 거래상대 (미상)",
+      "counterpart_number_masked": "+84-90-***-4245",
+      "counterpart_person_id": null,
+      "duration_sec": 235,
+      "message_preview": null,
+      "note": "SC-0030-04 고가 브랜드 의류 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2025-04-08T09:00:00",
+      "counterpart_name": "중국 거래상대 (미상)",
+      "counterpart_number_masked": "+86-138-***-4697",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "confirmed, will arrange next batch",
+      "note": "SC-0030 고가 브랜드 의류 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2025-04-10T08:00:00",
+      "counterpart_name": "중국 거래상대 (미상)",
+      "counterpart_number_masked": "+86-138-***-4697",
+      "counterpart_person_id": null,
+      "duration_sec": 66,
+      "message_preview": null,
+      "note": "SC-0030 고가 브랜드 의류 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0005",
+      "record_type": "전화",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-07T16:32:00",
+      "counterpart_name": "샘플우범자067",
+      "counterpart_number_masked": "010-****-2067",
+      "counterpart_person_id": "RP-0067",
+      "duration_sec": 109,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0006",
+      "record_type": "메신저",
+      "app": "카카오톡",
+      "direction": "발신",
+      "timestamp": "2026-05-21T11:54:00",
+      "counterpart_name": "샘플우범자067",
+      "counterpart_number_masked": "010-****-2067",
+      "counterpart_person_id": "RP-0067",
+      "duration_sec": null,
+      "message_preview": "이번 건도 잘 처리됐어, 다음 주에 또 보자",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0007",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-06-02T22:42:00",
+      "counterpart_name": "샘플우범자067",
+      "counterpart_number_masked": "010-****-2067",
+      "counterpart_person_id": "RP-0067",
+      "duration_sec": null,
+      "message_preview": "오늘 보낸 거 확인되면 바로 연락줘",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0008",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-06-07T09:05:00",
+      "counterpart_name": "샘플우범자067",
+      "counterpart_number_masked": "010-****-2067",
+      "counterpart_person_id": "RP-0067",
+      "duration_sec": 45,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    }
+  ]
+}

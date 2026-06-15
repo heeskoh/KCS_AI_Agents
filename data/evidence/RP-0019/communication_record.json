@@ -1,0 +1,95 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0019-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0019",
+  "subject_name": "샘플우범자019",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy S22",
+    "imei_masked": "353xxx-xx-xxxx19-2",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0019)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WhatsApp",
+      "direction": "수신",
+      "timestamp": "2026-01-31T09:00:00",
+      "counterpart_name": "말레이시아 거래상대 (미상)",
+      "counterpart_number_masked": "+60-1-***-6139",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "Package will ship soon, tracking to follow.",
+      "note": "SC-0019 필로폰 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-02-02T10:00:00",
+      "counterpart_name": "말레이시아 거래상대 (미상)",
+      "counterpart_number_masked": "+60-1-***-6139",
+      "counterpart_person_id": null,
+      "duration_sec": 240,
+      "message_preview": null,
+      "note": "SC-0019 필로폰 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "전화",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-11T10:21:00",
+      "counterpart_name": "샘플우범자075",
+      "counterpart_number_masked": "010-****-2075",
+      "counterpart_person_id": "RP-0075",
+      "duration_sec": 293,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "메신저",
+      "app": "카카오톡",
+      "direction": "수신",
+      "timestamp": "2026-05-17T14:38:00",
+      "counterpart_name": "샘플우범자075",
+      "counterpart_number_masked": "010-****-2075",
+      "counterpart_person_id": "RP-0075",
+      "duration_sec": null,
+      "message_preview": "받았어. 결제 넣어둘게",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0005",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-24T22:59:00",
+      "counterpart_name": "샘플우범자075",
+      "counterpart_number_masked": "010-****-2075",
+      "counterpart_person_id": "RP-0075",
+      "duration_sec": null,
+      "message_preview": "오늘 보낸 거 확인되면 바로 연락줘",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0006",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-05-25T13:14:00",
+      "counterpart_name": "샘플우범자075",
+      "counterpart_number_masked": "010-****-2075",
+      "counterpart_person_id": "RP-0075",
+      "duration_sec": 100,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0039-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0039",
+  "subject_name": "샘플우범자039",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-205343",
+    "account_holder": "샘플우범자039"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0039)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2023-03-28",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 3034000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-014",
+      "counterpart_name": "샘플무역네트워크14",
+      "counterpart_account_masked": "VN-WIRE-***-9182",
+      "counterpart_bank": "VN Sample Bank",
+      "note": "SC-0039-04 권총 부품 관련 수입대금 일부 송금 (연락관계)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2024-01-04",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 17267000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-014",
+      "counterpart_name": "샘플무역네트워크14",
+      "counterpart_account_masked": "VN-WIRE-***-9182",
+      "counterpart_bank": "VN Sample Bank",
+      "note": "SC-0039-02 권총 부품 관련 수출대금 일부 수취 (연락관계)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2024-01-06",
+      "txn_type": "현금출금",
+      "direction": "출금",
+      "amount": 276270000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-014",
+      "counterpart_name": "샘플무역네트워크14",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0039-02 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2024-02-17",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 12129000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-014",
+      "counterpart_name": "샘플무역네트워크14",
+      "counterpart_account_masked": "VN-WIRE-***-9182",
+      "counterpart_bank": "VN Sample Bank",
+      "note": "SC-0039-03 권총 부품 관련 수입대금 일부 송금 (연락관계)"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2024-07-24",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 4264000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-014",
+      "counterpart_name": "샘플무역네트워크14",
+      "counterpart_account_masked": "VN-WIRE-***-9182",
+      "counterpart_bank": "VN Sample Bank",
+      "note": "SC-0039 권총 부품 관련 수입대금 일부 송금 (연락관계)"
+    }
+  ]
+}

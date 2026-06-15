@@ -1,0 +1,121 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0074-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0074",
+  "subject_name": "샘플우범자074",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy S22",
+    "imei_masked": "353xxx-xx-xxxx74-7",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Magnet AXIOM",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0074)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WhatsApp",
+      "direction": "수신",
+      "timestamp": "2024-02-26T14:00:00",
+      "counterpart_name": "베트남 거래상대 (미상)",
+      "counterpart_number_masked": "+84-90-***-5555",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "received, thanks",
+      "note": "SC-0074-02 대마 카트리지 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2024-02-28T07:00:00",
+      "counterpart_name": "베트남 거래상대 (미상)",
+      "counterpart_number_masked": "+84-90-***-5555",
+      "counterpart_person_id": null,
+      "duration_sec": 274,
+      "message_preview": null,
+      "note": "SC-0074-02 대마 카트리지 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "전화",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-06T12:48:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": 167,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "메신저",
+      "app": "텔레그램",
+      "direction": "발신",
+      "timestamp": "2026-05-07T19:51:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": null,
+      "message_preview": "물건 발송했어, 송장번호 따로 보낼게",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0005",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-22T08:32:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": null,
+      "message_preview": "이번엔 좀 더 큰 건이라 시간 걸릴듯",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0006",
+      "record_type": "전화",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-24T09:48:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": 248,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0007",
+      "record_type": "메신저",
+      "app": "카카오톡",
+      "direction": "수신",
+      "timestamp": "2026-05-29T13:24:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": null,
+      "message_preview": "이번 건도 잘 처리됐어, 다음 주에 또 보자",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0008",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-06-08T09:45:00",
+      "counterpart_name": "샘플우범자100",
+      "counterpart_number_masked": "010-****-2100",
+      "counterpart_person_id": "RP-0100",
+      "duration_sec": null,
+      "message_preview": "받았어. 결제 넣어둘게",
+      "note": null
+    }
+  ]
+}

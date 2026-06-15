@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0002-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0002",
+  "subject_name": "샘플우범자002",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy A54",
+    "imei_masked": "353xxx-xx-xxxx02-9",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Magnet AXIOM",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0002)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2026-03-16T14:00:00",
+      "counterpart_name": "필리핀 거래상대 (미상)",
+      "counterpart_number_masked": "+63-9-***-5042",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "please check the address again",
+      "note": "SC-0002-02 대마 카트리지 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-03-18T08:00:00",
+      "counterpart_name": "필리핀 거래상대 (미상)",
+      "counterpart_number_masked": "+63-9-***-5042",
+      "counterpart_person_id": null,
+      "duration_sec": 88,
+      "message_preview": null,
+      "note": "SC-0002-02 대마 카트리지 거래 당일 통화"
+    }
+  ]
+}

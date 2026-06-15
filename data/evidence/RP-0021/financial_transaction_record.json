@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0021-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0021",
+  "subject_name": "샘플우범자021",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-202877",
+    "account_holder": "샘플우범자021"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0021)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2022-08-22",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 5031000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-021",
+      "counterpart_name": "샘플무역네트워크21",
+      "counterpart_account_masked": "TH-WIRE-***-4446",
+      "counterpart_bank": "TH Sample Bank",
+      "note": "SC-0021-02 권총 부품 관련 수출대금 일부 수취 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2024-01-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 5980000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-021",
+      "counterpart_name": "샘플무역네트워크21",
+      "counterpart_account_masked": "TH-WIRE-***-4446",
+      "counterpart_bank": "TH Sample Bank",
+      "note": "SC-0021-03 권총 부품 관련 수입대금 일부 송금 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2025-06-15",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 103888000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-021",
+      "counterpart_name": "샘플무역네트워크21",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0021-04 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2025-06-17",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 6493000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-021",
+      "counterpart_name": "샘플무역네트워크21",
+      "counterpart_account_masked": "TH-WIRE-***-4446",
+      "counterpart_bank": "TH Sample Bank",
+      "note": "SC-0021-04 권총 부품 관련 수입대금 일부 송금 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2025-08-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 3958000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-021",
+      "counterpart_name": "샘플무역네트워크21",
+      "counterpart_account_masked": "TH-WIRE-***-4446",
+      "counterpart_bank": "TH Sample Bank",
+      "note": "SC-0021 권총 부품 관련 수입대금 일부 송금 (명의대여)"
+    }
+  ]
+}

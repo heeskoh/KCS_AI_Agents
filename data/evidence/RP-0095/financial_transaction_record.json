@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0095-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0095",
+  "subject_name": "샘플우범자095",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-213015",
+    "account_holder": "샘플우범자095"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0095)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2023-02-15",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 170000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-020",
+      "counterpart_name": "샘플무역네트워크20",
+      "counterpart_account_masked": "PH-WIRE-***-2205",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0095-04 마취성 진통제 관련 수입대금 일부 송금 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2023-06-12",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 7507000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-020",
+      "counterpart_name": "샘플무역네트워크20",
+      "counterpart_account_masked": "PH-WIRE-***-2205",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0095-03 마취성 진통제 관련 수출대금 일부 수취 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2023-06-14",
+      "txn_type": "현금출금",
+      "direction": "출금",
+      "amount": 120115000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-020",
+      "counterpart_name": "샘플무역네트워크20",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0095-03 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2024-11-14",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1084000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-020",
+      "counterpart_name": "샘플무역네트워크20",
+      "counterpart_account_masked": "PH-WIRE-***-2205",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0095-02 마취성 진통제 관련 수입대금 일부 송금 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2025-11-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 4918000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-020",
+      "counterpart_name": "샘플무역네트워크20",
+      "counterpart_account_masked": "PH-WIRE-***-2205",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0095 마취성 진통제 관련 수입대금 일부 송금 (명의대여)"
+    }
+  ]
+}

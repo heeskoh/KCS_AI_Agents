@@ -1,0 +1,108 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0064-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0064",
+  "subject_name": "샘플우범자064",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 14",
+    "imei_masked": "353xxx-xx-xxxx64-3",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Magnet AXIOM",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0064)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "Telegram",
+      "direction": "수신",
+      "timestamp": "2023-06-29T11:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-2248",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "confirmed, will arrange next batch",
+      "note": "SC-0064-02 스테로이드 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-07-01T09:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-2248",
+      "counterpart_person_id": null,
+      "duration_sec": 317,
+      "message_preview": null,
+      "note": "SC-0064-02 스테로이드 거래 당일 통화"
+    },
+    {
+      "record_id": "COMM-0003",
+      "record_type": "전화",
+      "app": null,
+      "direction": "발신",
+      "timestamp": "2026-05-13T13:31:00",
+      "counterpart_name": "샘플우범자024",
+      "counterpart_number_masked": "010-****-2024",
+      "counterpart_person_id": "RP-0024",
+      "duration_sec": 151,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0004",
+      "record_type": "메신저",
+      "app": "텔레그램",
+      "direction": "발신",
+      "timestamp": "2026-05-19T20:56:00",
+      "counterpart_name": "샘플우범자024",
+      "counterpart_number_masked": "010-****-2024",
+      "counterpart_person_id": "RP-0024",
+      "duration_sec": null,
+      "message_preview": "오늘 보낸 거 확인되면 바로 연락줘",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0005",
+      "record_type": "SMS",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-05-22T15:23:00",
+      "counterpart_name": "샘플우범자024",
+      "counterpart_number_masked": "010-****-2024",
+      "counterpart_person_id": "RP-0024",
+      "duration_sec": null,
+      "message_preview": "물건 발송했어, 송장번호 따로 보낼게",
+      "note": null
+    },
+    {
+      "record_id": "COMM-0006",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2026-05-27T10:38:00",
+      "counterpart_name": "샘플우범자024",
+      "counterpart_number_masked": "010-****-2024",
+      "counterpart_person_id": "RP-0024",
+      "duration_sec": 235,
+      "message_preview": null,
+      "note": "거래 급증 구간 통화"
+    },
+    {
+      "record_id": "COMM-0007",
+      "record_type": "메신저",
+      "app": "카카오톡",
+      "direction": "발신",
+      "timestamp": "2026-05-29T19:17:00",
+      "counterpart_name": "샘플우범자024",
+      "counterpart_number_masked": "010-****-2024",
+      "counterpart_person_id": "RP-0024",
+      "duration_sec": null,
+      "message_preview": "오늘 보낸 거 확인되면 바로 연락줘",
+      "note": null
+    }
+  ]
+}

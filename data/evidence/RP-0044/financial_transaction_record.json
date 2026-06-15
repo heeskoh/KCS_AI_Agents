@@ -1,0 +1,57 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0044-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0044",
+  "subject_name": "샘플우범자044",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-206028",
+    "account_holder": "샘플우범자044"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0044)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2025-03-05",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 152752000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0044 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2025-03-07",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 9547000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": "MX-WIRE-***-9826",
+      "counterpart_bank": "MX Sample Bank",
+      "note": "SC-0044 대마 카트리지 관련 수입대금 일부 송금 (명의대여)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2026-05-01",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 794000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-019",
+      "counterpart_name": "샘플무역네트워크19",
+      "counterpart_account_masked": "MX-WIRE-***-9826",
+      "counterpart_bank": "MX Sample Bank",
+      "note": "SC-0044-02 대마 카트리지 관련 수출대금 일부 수취 (명의대여)"
+    }
+  ]
+}

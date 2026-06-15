@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0051-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0051",
+  "subject_name": "샘플우범자051",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-206987",
+    "account_holder": "샘플우범자051"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0051)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2023-07-19",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 19002000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-001",
+      "counterpart_name": "샘플무역네트워크01",
+      "counterpart_account_masked": "NL-WIRE-***-2425",
+      "counterpart_bank": "NL Sample Bank",
+      "note": "SC-0051-04 권총 부품 관련 수출대금 일부 수취 (소속)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2024-02-02",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 415188000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-001",
+      "counterpart_name": "샘플무역네트워크01",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0051-03 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2024-02-04",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 25949000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-001",
+      "counterpart_name": "샘플무역네트워크01",
+      "counterpart_account_masked": "NL-WIRE-***-2425",
+      "counterpart_bank": "NL Sample Bank",
+      "note": "SC-0051-03 권총 부품 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2025-02-04",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 8386000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-001",
+      "counterpart_name": "샘플무역네트워크01",
+      "counterpart_account_masked": "NL-WIRE-***-2425",
+      "counterpart_bank": "NL Sample Bank",
+      "note": "SC-0051 권총 부품 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2025-12-18",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1237000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-001",
+      "counterpart_name": "샘플무역네트워크01",
+      "counterpart_account_masked": "NL-WIRE-***-2425",
+      "counterpart_bank": "NL Sample Bank",
+      "note": "SC-0051-02 권총 부품 관련 수입대금 일부 송금 (소속)"
+    }
+  ]
+}

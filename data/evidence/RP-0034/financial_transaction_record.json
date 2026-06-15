@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0034-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0034",
+  "subject_name": "샘플우범자034",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-204658",
+    "account_holder": "샘플우범자034"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0034)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2024-12-06",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 532000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-009",
+      "counterpart_name": "샘플무역네트워크09",
+      "counterpart_account_masked": "CN-WIRE-***-2959",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0034-04 스테로이드 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2025-04-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 850000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-009",
+      "counterpart_name": "샘플무역네트워크09",
+      "counterpart_account_masked": "CN-WIRE-***-2959",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0034 스테로이드 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2025-05-14",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 406000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-009",
+      "counterpart_name": "샘플무역네트워크09",
+      "counterpart_account_masked": "CN-WIRE-***-2959",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0034-03 스테로이드 관련 수입대금 일부 송금 (소속)"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2025-08-14",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 59485000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-009",
+      "counterpart_name": "샘플무역네트워크09",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0034-02 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2025-08-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 3718000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-009",
+      "counterpart_name": "샘플무역네트워크09",
+      "counterpart_account_masked": "CN-WIRE-***-2959",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0034-02 스테로이드 관련 수입대금 일부 송금 (소속)"
+    }
+  ]
+}

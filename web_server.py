@@ -1202,6 +1202,31 @@ def get_session_files(session_id: str) -> list[dict]:
         return list(_UPLOAD_SESSIONS.get(session_id, []))
 
 
+def import_evidence_file(body: dict) -> dict:
+    """통신/금융거래 xlsx·csv를 표준 압수정보 JSON으로 변환해 등록한다.
+
+    body 형식:
+      { "person_id": "RP-0067", "kind": "communication"|"financial",
+        "file": { "name": "...", "mime": "...", "encoding": "text|base64", "content": "..." } }
+    """
+    from src.evidence_import import EvidenceImportError, import_evidence_file as _import
+
+    person_id = (body.get("person_id") or "").strip()
+    kind = (body.get("kind") or "").strip()
+    file_info = body.get("file") or {}
+
+    data = _decode_attachment_bytes(file_info)
+    if not data:
+        return {"error": "파일 내용이 서버에 전달되지 않았습니다."}
+
+    try:
+        return _import(person_id, kind, data, file_info.get("name") or "")
+    except EvidenceImportError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"등록 중 오류가 발생했습니다: {exc}"}
+
+
 _GRAPH_EXTRACT_SYSTEM = (
     "당신은 관세청 수사 분석을 돕는 관계망 추출 AI입니다. "
     "주어진 문서(통화내역·계좌거래·진술서·명단 등)에서 인물·기업·전화번호·계좌·장소·차량 등 "
@@ -1625,6 +1650,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 body = {}
             self._send_json(clear_upload_session(body.get("session_id", "")))
+            return
+
+        if parsed.path == "/api/evidence/import":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(import_evidence_file(body))
             return
 
         if parsed.path == "/api/graph/extract":

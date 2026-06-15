@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0048-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0048",
+  "subject_name": "샘플우범자048",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "Galaxy S22",
+    "imei_masked": "353xxx-xx-xxxx48-7",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0048)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WhatsApp",
+      "direction": "수신",
+      "timestamp": "2025-02-19T10:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-7716",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "confirmed, will arrange next batch",
+      "note": "SC-0048-03 고가 브랜드 의류 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2025-02-21T08:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-7716",
+      "counterpart_person_id": null,
+      "duration_sec": 183,
+      "message_preview": null,
+      "note": "SC-0048-03 고가 브랜드 의류 거래 당일 통화"
+    }
+  ]
+}

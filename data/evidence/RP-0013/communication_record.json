@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0013-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0013",
+  "subject_name": "샘플우범자013",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 15",
+    "imei_masked": "353xxx-xx-xxxx13-5",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Cellebrite UFED",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0013)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "Instagram DM",
+      "direction": "수신",
+      "timestamp": "2024-09-11T14:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-1435",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "Package will ship soon, tracking to follow.",
+      "note": "SC-0013 필로폰 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2024-09-13T10:00:00",
+      "counterpart_name": "멕시코 거래상대 (미상)",
+      "counterpart_number_masked": "+52-55-***-1435",
+      "counterpart_person_id": null,
+      "duration_sec": 75,
+      "message_preview": null,
+      "note": "SC-0013 필로폰 거래 당일 통화"
+    }
+  ]
+}

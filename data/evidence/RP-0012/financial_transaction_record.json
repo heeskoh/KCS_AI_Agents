@@ -1,0 +1,85 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0012-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0012",
+  "subject_name": "샘플우범자012",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-201644",
+    "account_holder": "샘플우범자012"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0012)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2024-03-20",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 3513000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-012",
+      "counterpart_name": "샘플무역네트워크12",
+      "counterpart_account_masked": "CN-WIRE-***-5935",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0012-03 고가 브랜드 의류 관련 수입대금 일부 송금 (동일주소)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2024-11-09",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 14892000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-012",
+      "counterpart_name": "샘플무역네트워크12",
+      "counterpart_account_masked": "CN-WIRE-***-5935",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0012 고가 브랜드 의류 관련 수입대금 일부 송금 (동일주소)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2024-12-08",
+      "txn_type": "해외송금",
+      "direction": "입금",
+      "amount": 16675000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-012",
+      "counterpart_name": "샘플무역네트워크12",
+      "counterpart_account_masked": "CN-WIRE-***-5935",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0012-04 고가 브랜드 의류 관련 수출대금 일부 수취 (동일주소)"
+    },
+    {
+      "record_id": "FIN-0004",
+      "txn_date": "2024-12-10",
+      "txn_type": "현금출금",
+      "direction": "출금",
+      "amount": 266805000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-012",
+      "counterpart_name": "샘플무역네트워크12",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0012-04 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0005",
+      "txn_date": "2026-01-03",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 9877000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-012",
+      "counterpart_name": "샘플무역네트워크12",
+      "counterpart_account_masked": "CN-WIRE-***-5935",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0012-02 고가 브랜드 의류 관련 수입대금 일부 송금 (동일주소)"
+    }
+  ]
+}

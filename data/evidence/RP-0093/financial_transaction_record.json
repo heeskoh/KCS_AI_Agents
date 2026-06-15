@@ -1,0 +1,57 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0093-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0093",
+  "subject_name": "샘플우범자093",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-212741",
+    "account_holder": "샘플우범자093"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0093)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2023-10-28",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1758000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": "CN-WIRE-***-1684",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0093-02 고가 브랜드 의류 관련 수입대금 일부 송금 (거래관계)"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2025-09-15",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 29438000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0093 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2025-09-17",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1840000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-018",
+      "counterpart_name": "샘플무역네트워크18",
+      "counterpart_account_masked": "CN-WIRE-***-1684",
+      "counterpart_bank": "CN Sample Bank",
+      "note": "SC-0093 권총 부품 관련 수입대금 일부 송금 (거래관계)"
+    }
+  ]
+}

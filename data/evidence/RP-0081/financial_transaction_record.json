@@ -1,0 +1,57 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0081-FIN",
+  "source_type": "금융계좌 추적자료",
+  "subject_person_id": "RP-0081",
+  "subject_name": "샘플우범자081",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-211097",
+    "account_holder": "샘플우범자081"
+  },
+  "extraction_date": "2026-06-16",
+  "note": "person_activity_record(RP-0081)의 거래 급증 구간 및 사건 연계 활동을 근거로 생성한 금융거래기록 샘플.",
+  "records": [
+    {
+      "record_id": "FIN-0001",
+      "txn_date": "2025-03-11",
+      "txn_type": "현금입금",
+      "direction": "입금",
+      "amount": 25540000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-006",
+      "counterpart_name": "샘플무역네트워크06",
+      "counterpart_account_masked": null,
+      "counterpart_bank": null,
+      "note": "SC-0081 추정가액 규모와 근접한 자금흐름, 자금원/용처 불명"
+    },
+    {
+      "record_id": "FIN-0002",
+      "txn_date": "2025-03-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1596000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-006",
+      "counterpart_name": "샘플무역네트워크06",
+      "counterpart_account_masked": "PH-WIRE-***-5501",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0081 권총 부품 관련 수입대금 일부 송금 (거래관계)"
+    },
+    {
+      "record_id": "FIN-0003",
+      "txn_date": "2025-08-02",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 1262000.0,
+      "counterpart_type": "company",
+      "counterpart_person_id": null,
+      "counterpart_org_id": "RO-006",
+      "counterpart_name": "샘플무역네트워크06",
+      "counterpart_account_masked": "PH-WIRE-***-5501",
+      "counterpart_bank": "PH Sample Bank",
+      "note": "SC-0081-02 권총 부품 관련 수입대금 일부 송금 (거래관계)"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schema_id": "financial_transaction_record_v1",
+  "description": "압수 금융계좌 추적자료 표준 스키마. data/evidence/seized/<PERSON_ID>_financial_transactions.json 형식의 근거.",
+  "file_structure": {
+    "evidence_id": "string - 예: EV-SEIZED-RP-0067-FIN",
+    "source_type": "string - 자료 출처 구분, 예: '금융계좌 추적자료'",
+    "subject_person_id": "string - 압수 대상 인물 ID (RP-xxxx)",
+    "subject_name": "string - 압수 대상 인물명",
+    "account": {
+      "bank": "string - 은행명",
+      "account_no_masked": "string - 마스킹된 계좌번호",
+      "account_holder": "string - 예금주명"
+    },
+    "extraction_date": "date(YYYY-MM-DD) - 추출일",
+    "note": "string - 자료의 맥락/연계 설명",
+    "records": "array<record> - 아래 record 스키마 목록"
+  },
+  "record_schema": {
+    "record_id": "string - 예: FIN-0001 (파일 내 고유)",
+    "txn_date": "date(YYYY-MM-DD) - 거래일",
+    "txn_type": "string - 계좌이체 | 계좌입금 | 현금입금 | 해외송금 등",
+    "direction": "string - 이체 | 입금",
+    "amount": "number - 거래금액(원)",
+    "counterpart_type": "string - person | company",
+    "counterpart_person_id": "string|null - counterpart_type=person 이고 등록된 인물이면 FK(RP-xxxx), 미식별이면 null",
+    "counterpart_org_id": "string|null - counterpart_type=company 이고 등록된 기업이면 FK(RO-xxxx), 미식별이면 null",
+    "counterpart_name": "string - 상대방 표시명",
+    "counterpart_account_masked": "string|null - 마스킹된 상대방 계좌번호, 현금거래 등은 null",
+    "counterpart_bank": "string|null - 상대방 은행명, 현금거래 등은 null",
+    "note": "string|null - 사건/활동 연계 설명"
+  },
+  "linkage_notes": [
+    "counterpart_person_id/counterpart_org_id 가 있으면 person_activity_record, person_network_link, network_edge 의 상대방과 연계 가능",
+    "note 에 연계 사건(case_id)이나 person_activity_record 의 거래 급증 구간을 명시하여 관계망 분석에 활용"
+  ]
+}

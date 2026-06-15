@@ -1,0 +1,43 @@
+{
+  "evidence_id": "EV-SEIZED-RP-0057-COMM",
+  "source_type": "디지털포렌식 추출자료",
+  "subject_person_id": "RP-0057",
+  "subject_name": "샘플우범자057",
+  "device": {
+    "device_type": "스마트폰",
+    "model": "iPhone 15",
+    "imei_masked": "353xxx-xx-xxxx57-1",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Oxygen Forensic Detective",
+    "extraction_date": "2026-06-16"
+  },
+  "note": "person_activity_record(RP-0057)의 사건 연계 활동 및 거래 급증 구간을 근거로 생성한 통신기록 샘플.",
+  "records": [
+    {
+      "record_id": "COMM-0001",
+      "record_type": "메신저",
+      "app": "WeChat",
+      "direction": "수신",
+      "timestamp": "2023-10-03T10:00:00",
+      "counterpart_name": "미국 거래상대 (미상)",
+      "counterpart_number_masked": "+1-202-***-7147",
+      "counterpart_person_id": null,
+      "duration_sec": null,
+      "message_preview": "Package will ship soon, tracking to follow.",
+      "note": "SC-0057-02 권총 부품 관련 사전 연락 추정"
+    },
+    {
+      "record_id": "COMM-0002",
+      "record_type": "전화",
+      "app": null,
+      "direction": "수신",
+      "timestamp": "2023-10-05T08:00:00",
+      "counterpart_name": "미국 거래상대 (미상)",
+      "counterpart_number_masked": "+1-202-***-7147",
+      "counterpart_person_id": null,
+      "duration_sec": 360,
+      "message_preview": null,
+      "note": "SC-0057-02 권총 부품 거래 당일 통화"
+    }
+  ]
+}

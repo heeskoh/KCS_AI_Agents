@@ -100,6 +100,9 @@ function emptyState(){
     fileNodes: [], fileEdges: [],      // 파일 등록으로 병합된 노드/엣지
     fileSources: [],                   // 등록된 파일/추출 출처 라벨 목록
     uploadSessionId: "",               // 비정형 파일 업로드 세션
+    evidencePersonId: "",              // 통신/거래내역 등록 대상 인물ID
+    evidenceKind: "communication",     // communication | financial
+    evidenceResult: null,              // 최근 등록 결과 메시지
     analysisMode: "", analysisSel: [], // 분석 기법: ""|common|centrality|cluster, 선택 노드
     analysisResult: null,              // 분석 산출물(메시지/하이라이트 대상)
   };
@@ -863,6 +866,51 @@ const ANALYSIS_METHODS = [
   { id: "cluster", label: "군집(연결요소)" },
 ];
 
+/* ── 통신/거래내역 xlsx·csv 등록 → 표준 압수정보 JSON 변환 ── */
+const _stagedEvidenceFile = new Map(); // key → {name,mime,encoding,content,size}
+
+function buildEvidenceImportSection(state, key){
+  if(!state.evidencePersonId){
+    const [type, id] = key.split(":");
+    if(type === "person") state.evidencePersonId = id || "";
+  }
+  const staged = _stagedEvidenceFile.get(key);
+  const resultLine = state.evidenceResult
+    ? (state.evidenceResult.error
+        ? `<p class="net-ws-hint" style="color:#dc2626">${escapeHtml(state.evidenceResult.error)}</p>`
+        : `<p class="net-ws-hint">등록 완료: ${state.evidenceResult.added}건 추가 (총 ${state.evidenceResult.total}건) → ${escapeHtml(state.evidenceResult.file)}</p>`)
+    : "";
+  return `
+    <div class="net-ws-sect">
+      <div class="net-ws-sect-title">통신/거래내역 등록 (xlsx·csv → 표준 JSON)</div>
+      <div class="net-ws-field">
+        <span>대상 인물ID</span>
+        <input type="text" class="net-ws-select" data-net-evidence-person="${escapeHtml(key)}"
+          value="${escapeHtml(state.evidencePersonId)}" placeholder="예) RP-0067">
+      </div>
+      <div class="net-ws-field">
+        <span>구분</span>
+        <select class="net-ws-select" data-net-evidence-kind="${escapeHtml(key)}">
+          <option value="communication" ${state.evidenceKind === "communication" ? "selected" : ""}>통신내역</option>
+          <option value="financial" ${state.evidenceKind === "financial" ? "selected" : ""}>금융거래내역</option>
+        </select>
+      </div>
+      <div class="net-ws-file-row">
+        <label class="btn secondary net-ws-file-btn">파일 선택${staged ? `: ${escapeHtml(truncate(staged.name, 18))}` : ""}
+          <input type="file" data-net-evidence-file="${escapeHtml(key)}"
+            accept=".csv,.xlsx,.xls" style="display:none">
+        </label>
+        <button type="button" class="btn net-ws-btn" data-net-evidence-import="${escapeHtml(key)}">등록</button>
+      </div>
+      <p class="net-ws-hint">표준 필드명(${state.evidenceKind === "communication"
+        ? "record_type, app, direction, timestamp, counterpart_name, ..."
+        : "txn_date, txn_type, direction, amount, counterpart_type, ..."}) 헤더의 xlsx/csv를
+        data/evidence/&lt;인물ID&gt;/${state.evidenceKind === "communication" ? "communication_record.json" : "financial_transaction_record.json"} 으로 등록합니다.</p>
+      ${resultLine}
+    </div>
+  `;
+}
+
 function buildWorkbenchControls(raw, state, key){
   const hopOptions = [1, 2, 3].map(h =>
     `<option value="${h}" ${Number(state.hops) === h ? "selected" : ""}>${h}단계</option>`).join("");
@@ -916,6 +964,8 @@ function buildWorkbenchControls(raw, state, key){
       <div class="net-ws-file-chips">${fileChips}</div>
       ${state.fileSources.length ? `<button type="button" class="net-ws-clear" data-net-file-clear="${escapeHtml(key)}">파일 관계 비우기</button>` : ""}
     </div>
+
+    ${buildEvidenceImportSection(state, key)}
 
     <div class="net-ws-sect">
       <div class="net-ws-sect-title">분석 기법</div>
@@ -1221,6 +1271,40 @@ async function runExtract(key){
   }
 }
 
+/* 통신/거래내역 xlsx·csv → 표준 압수정보 JSON 등록 */
+async function runEvidenceImport(key){
+  const state = filterStateFor(key);
+  const personId = (state.evidencePersonId || "").trim();
+  const kind = state.evidenceKind || "communication";
+  const staged = _stagedEvidenceFile.get(key);
+  if(!personId){ alert("대상 인물ID를 입력하세요."); return; }
+  if(!staged){ alert("등록할 xlsx/csv 파일을 선택하세요."); return; }
+
+  const btn = document.querySelector(`[data-net-evidence-import="${CSS.escape(key)}"]`);
+  if(btn){ btn.disabled = true; btn.textContent = "등록 중..."; }
+  try {
+    const res = await fetch("/api/evidence/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ person_id: personId, kind, file: staged }),
+    });
+    const data = await res.json();
+    if(!res.ok || data.error){
+      state.evidenceResult = { error: data.error || `등록 실패 (${res.status})` };
+      rerenderPanelByKey(key);
+      return;
+    }
+    state.evidenceResult = { added: data.added, total: data.total, file: data.file };
+    _stagedEvidenceFile.delete(key);
+    const kindLabel = kind === "communication" ? "통신내역" : "거래내역";
+    mergeFileGraph(key, data.nodes || [], data.edges || [], `${personId} ${kindLabel} 등록`);
+  } catch (e) {
+    state.evidenceResult = { error: "등록 중 오류가 발생했습니다." };
+    rerenderPanelByKey(key);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = "등록"; }
+  }
+}
+
 /* ── B1: 경로 탐색 API 호출 ── */
 async function fetchPath(key, sourceId, targetId){
   const state = filterStateFor(key);
@@ -1245,10 +1329,17 @@ function bindHandlers(){
   // A1: 검색 입력 — 재렌더 없이 cy에 직접 강조(입력 포커스 유지)
   document.addEventListener("input", event => {
     const searchInput = event.target.closest("[data-net-search]");
-    if(!searchInput) return;
-    const key = searchInput.dataset.netSearch;
-    filterStateFor(key).searchTerm = searchInput.value;
-    applySearchHighlight(key, searchInput.value);
+    if(searchInput){
+      const key = searchInput.dataset.netSearch;
+      filterStateFor(key).searchTerm = searchInput.value;
+      applySearchHighlight(key, searchInput.value);
+      return;
+    }
+    const evidencePerson = event.target.closest("[data-net-evidence-person]");
+    if(evidencePerson){
+      const key = evidencePerson.dataset.netEvidencePerson;
+      filterStateFor(key).evidencePersonId = evidencePerson.value;
+    }
   });
 
   document.addEventListener("click", event => {
@@ -1357,6 +1448,9 @@ function bindHandlers(){
       rerenderPanelByKey(key);
       return;
     }
+    // 통신/거래내역 등록: xlsx/csv → 표준 JSON 변환
+    const evidenceImportBtn = event.target.closest("[data-net-evidence-import]");
+    if(evidenceImportBtn){ runEvidenceImport(evidenceImportBtn.dataset.netEvidenceImport); return; }
     // 분석 실행 / 해제
     const analysisRun = event.target.closest("[data-net-analysis-run]");
     if(analysisRun){
@@ -1468,6 +1562,26 @@ function bindHandlers(){
         _stagedFiles.set(key, [...cur, ...valid]);
         const btn = document.querySelector(`[data-net-extract="${CSS.escape(key)}"]`);
         if(btn) btn.textContent = `관계 추출 (${(_stagedFiles.get(key) || []).length}개 첨부)`;
+      });
+      return;
+    }
+    // 통신/거래내역 등록: 구분 변경
+    const evidenceKindSel = event.target.closest("[data-net-evidence-kind]");
+    if(evidenceKindSel){
+      const key = evidenceKindSel.dataset.netEvidenceKind;
+      filterStateFor(key).evidenceKind = evidenceKindSel.value;
+      filterStateFor(key).evidenceResult = null;
+      rerenderPanelByKey(key);
+      return;
+    }
+    // 통신/거래내역 등록: 파일 첨부 → 읽어서 스테이징
+    const evidenceFileInput = event.target.closest("[data-net-evidence-file]");
+    if(evidenceFileInput && evidenceFileInput.files && evidenceFileInput.files.length){
+      const key = evidenceFileInput.dataset.netEvidenceFile;
+      readFileEntry(evidenceFileInput.files[0]).then(entry => {
+        if(entry) _stagedEvidenceFile.set(key, entry);
+        filterStateFor(key).evidenceResult = null;
+        rerenderPanelByKey(key);
       });
       return;
     }

@@ -1,0 +1,37 @@
+{
+  "schema_id": "communication_record_v1",
+  "description": "압수 디지털포렌식(통신) 자료 표준 스키마. data/evidence/seized/<PERSON_ID>_communication_log.json 형식의 근거.",
+  "file_structure": {
+    "evidence_id": "string - 예: EV-SEIZED-RP-0067-COMM",
+    "source_type": "string - 자료 출처 구분, 예: '디지털포렌식 추출자료'",
+    "subject_person_id": "string - 압수 대상 인물 ID (RP-xxxx)",
+    "subject_name": "string - 압수 대상 인물명",
+    "device": {
+      "device_type": "string - 예: 스마트폰",
+      "model": "string - 예: Galaxy S22",
+      "imei_masked": "string - 마스킹된 IMEI",
+      "seized_date": "date(YYYY-MM-DD) - 압수일",
+      "extraction_tool": "string - 예: Cellebrite UFED",
+      "extraction_date": "date(YYYY-MM-DD) - 추출일"
+    },
+    "note": "string - 자료의 맥락/연계 설명",
+    "records": "array<record> - 아래 record 스키마 목록"
+  },
+  "record_schema": {
+    "record_id": "string - 예: COMM-0001 (파일 내 고유)",
+    "record_type": "string - 전화 | SMS | 메신저 | SNS",
+    "app": "string|null - 카카오톡 | WhatsApp | WeChat | Instagram DM 등, 전화/SMS는 null",
+    "direction": "string - 발신 | 수신",
+    "timestamp": "datetime(ISO 8601) - 예: 2026-05-06T19:32:00",
+    "counterpart_name": "string - 상대방 표시명",
+    "counterpart_number_masked": "string - 마스킹된 전화번호/계정",
+    "counterpart_person_id": "string|null - 등록된 인물(RP-xxxx)이면 FK, 미식별이면 null",
+    "duration_sec": "number|null - 전화 통화시간(초), 메신저/SMS는 null",
+    "message_preview": "string|null - 메시지 일부 내용, 전화는 null",
+    "note": "string|null - 사건/활동 연계 설명"
+  },
+  "linkage_notes": [
+    "counterpart_person_id 가 있으면 person_activity_record / person_network_link 의 상대방과 연계 가능",
+    "note 에 연계 사건(case_id)이나 person_activity_record 의 거래 급증 구간을 명시하여 관계망 분석에 활용"
+  ]
+}
