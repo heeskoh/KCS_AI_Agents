@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from src.neo4j_graph import (
     Neo4jGraphError,
     build_company_network_graph,
+    build_path_graph,
     build_person_network_graph,
 )
 from src.paths import DATA_DIR, DB_PATH, STATIC_DIR
@@ -1182,6 +1183,79 @@ def get_session_files(session_id: str) -> list[dict]:
         return list(_UPLOAD_SESSIONS.get(session_id, []))
 
 
+_GRAPH_EXTRACT_SYSTEM = (
+    "당신은 관세청 수사 분석을 돕는 관계망 추출 AI입니다. "
+    "주어진 문서(통화내역·계좌거래·진술서·명단 등)에서 인물·기업·전화번호·계좌·장소·차량 등 "
+    "엔티티와 그들 사이의 관계를 추출하세요.\n"
+    "[규칙]\n"
+    "- 반드시 JSON만 출력: {\"nodes\":[{\"name\":\"\",\"label\":\"\"}],\"edges\":[{\"source\":\"\",\"target\":\"\",\"type\":\"\"}]}\n"
+    "- label은 다음 중 하나: Person, Company, Phone, Account, Place, Vehicle, Org, Item\n"
+    "- edges의 source/target은 nodes의 name과 정확히 일치해야 합니다.\n"
+    "- type은 관계를 나타내는 짧은 한국어/영문 동사구(예: 통화, 송금, USES_PHONE, 거래).\n"
+    "- 문서에 근거가 없는 관계는 만들지 마세요. 확실한 것만 추출합니다."
+)
+
+
+def extract_graph_from_files(body: dict) -> dict:
+    """업로드 파일/텍스트에서 LLM으로 엔티티·관계를 추출해 그래프(nodes/edges)로 반환한다."""
+    from src.llm import llm
+
+    if not llm:
+        return {"nodes": [], "edges": [], "found": False, "error": "LLM이 초기화되지 않았습니다."}
+
+    session_id = body.get("session_id") or ""
+    files = get_session_files(session_id) if session_id else _get_request_files(body)
+    texts: list[str] = []
+    for f in files[:8]:
+        text, _err = _extract_attachment_text(f)
+        if text:
+            texts.append(f"[파일: {f.get('name','')}]\n{text.strip()[:_ATTACHMENT_TEXT_LIMIT]}")
+    raw_text = (body.get("text") or "").strip()
+    if raw_text:
+        texts.append(f"[직접 입력]\n{raw_text[:_ATTACHMENT_TEXT_LIMIT]}")
+    if not texts:
+        return {"nodes": [], "edges": [], "found": False, "error": "추출할 파일/텍스트가 없습니다."}
+
+    corpus = "\n\n".join(texts)[:_ATTACHMENT_TOTAL_LIMIT]
+    try:
+        response = llm.invoke(
+            f"{_GRAPH_EXTRACT_SYSTEM}\n\n[문서]\n{corpus}\n\n반드시 JSON만 출력하세요."
+        ).content
+    except Exception as exc:
+        return {"nodes": [], "edges": [], "found": False, "error": f"추출 실패: {exc}"}
+
+    import re as _re
+    text = str(response).strip()
+    if "```" in text:
+        text = _re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
+    match = _re.search(r"\{.*\}", text, _re.DOTALL)
+    try:
+        data = json.loads(match.group() if match else text)
+    except (json.JSONDecodeError, AttributeError):
+        return {"nodes": [], "edges": [], "found": False, "error": "추출 결과를 해석하지 못했습니다."}
+
+    # name → {label:value} id 매핑 후 프런트 그래프 형식으로 정규화 (source: file 표식)
+    name_to_id: dict[str, str] = {}
+    nodes: list[dict] = []
+    for n in (data.get("nodes") or []):
+        name = str(n.get("name") or "").strip()
+        label = str(n.get("label") or "Item").strip() or "Item"
+        if not name or name in name_to_id:
+            continue
+        node_id = f"{label}:{name}"
+        name_to_id[name] = node_id
+        nodes.append({"id": node_id, "label": label, "name": name, "properties": {"source": "file"}})
+    edges: list[dict] = []
+    for e in (data.get("edges") or []):
+        src = name_to_id.get(str(e.get("source") or "").strip())
+        tgt = name_to_id.get(str(e.get("target") or "").strip())
+        if not src or not tgt or src == tgt:
+            continue
+        edges.append({"source": src, "target": tgt, "type": str(e.get("type") or "관계"), "properties": {"source": "file"}})
+
+    return {"nodes": nodes, "edges": edges, "found": bool(nodes)}
+
+
 def create_initial_state(company_id: str) -> dict[str, str | None]:
     return {
         "company_id": company_id,
@@ -1424,12 +1498,14 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/graph/company":
-            company_id = parse_qs(parsed.query).get("company_id", [""])[0].strip()
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            hops = q.get("hops", ["1"])[0]
             if not company_id:
                 self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
                 return
             try:
-                graph = build_company_network_graph(company_id)
+                graph = build_company_network_graph(company_id, hops=hops)
             except Neo4jGraphError as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return
@@ -1440,17 +1516,34 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/graph/person":
-            person_id = parse_qs(parsed.query).get("person_id", [""])[0].strip()
+            q = parse_qs(parsed.query)
+            person_id = q.get("person_id", [""])[0].strip()
+            hops = q.get("hops", ["1"])[0]
             if not person_id:
                 self._send_json({"error": "person_id is required"}, HTTPStatus.BAD_REQUEST)
                 return
             try:
-                graph = build_person_network_graph(person_id)
+                graph = build_person_network_graph(person_id, hops=hops)
             except Neo4jGraphError as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return
             if graph is None:
                 self._send_json({"error": "person not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/path":
+            q = parse_qs(parsed.query)
+            source = q.get("source", [""])[0].strip()
+            target = q.get("target", [""])[0].strip()
+            if not source or not target:
+                self._send_json({"error": "source and target are required"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                graph = build_path_graph(source, target)
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return
             self._send_json(graph)
             return
@@ -1513,6 +1606,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 body = {}
             self._send_json(clear_upload_session(body.get("session_id", "")))
+            return
+
+        if parsed.path == "/api/graph/extract":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(extract_graph_from_files(body))
             return
 
         if parsed.path == "/api/analyze_intent":

@@ -42,8 +42,8 @@ export function renderNetworkPanel(deps, uctx){
   return `
     <div class="drug-network-page">
       ${header}
-      <div class="profile-net-right" style="height:auto;min-height:620px">
-        ${networkGraphPanelHtml(targetType, targetId, "관계망 그래프")}
+      <div class="profile-net-right net-right-wb">
+        ${networkGraphPanelHtml(targetType, targetId, "관계망 분석", { workbench: true })}
       </div>
     </div>
   `;

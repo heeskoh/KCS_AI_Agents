@@ -365,9 +365,18 @@ def build_person_network_report(person_id: str) -> str | None:
     return "\n".join(lines)
 
 
-def build_company_network_graph(company_id: str, limit: int = 60) -> dict[str, Any] | None:
-    """Return a node/edge graph centered on a company, or None if no company exists."""
+def _clamp_hops(hops: int) -> int:
+    try:
+        return max(1, min(int(hops), 3))
+    except (TypeError, ValueError):
+        return 1
 
+
+def build_company_network_graph(company_id: str, limit: int = 60, hops: int = 1) -> dict[str, Any] | None:
+    """Return a node/edge graph centered on a company, or None if no company exists.
+
+    hops: 1~3단계 이웃까지 확장(기본 1-hop ego 네트워크).
+    """
     exists = _read(
         "MATCH (c:Company {company_id: $company_id}) RETURN c.company_id AS company_id LIMIT 1",
         company_id=company_id,
@@ -375,24 +384,21 @@ def build_company_network_graph(company_id: str, limit: int = 60) -> dict[str, A
     if not exists:
         return None
 
-    # 엔티티 중심 모델: 기업과 직접 연결된 엔티티(HsCode·Country·Broker·RelatedCompany)만.
-    # 사건/수입신고/위험점수는 노드가 아니라 엣지·속성이므로 1-hop ego 네트워크가 곧 관계망.
-    graph = _read_graph(
-        """
-        MATCH (c:Company {company_id: $company_id})-[r]-(n)
-        RETURN c, r, n
-        LIMIT $limit
-        """,
-        company_id=company_id,
-        limit=limit,
-    )
+    h = _clamp_hops(hops)
+    if h == 1:
+        query = "MATCH (c:Company {company_id: $company_id})-[r]-(n) RETURN c, r, n LIMIT $limit"
+    else:
+        query = f"MATCH path = (c:Company {{company_id: $company_id}})-[*1..{h}]-(n) RETURN path LIMIT $limit"
+    graph = _read_graph(query, company_id=company_id, limit=limit)
     graph["center"] = f"Company:{company_id}"
     return graph
 
 
-def build_person_network_graph(person_id: str, limit: int = 60) -> dict[str, Any] | None:
-    """Return a node/edge graph centered on a risk person, or None if no person exists."""
+def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1) -> dict[str, Any] | None:
+    """Return a node/edge graph centered on a risk person, or None if no person exists.
 
+    hops: 1~3단계 이웃까지 확장(기본 1-hop ego 네트워크).
+    """
     exists = _read(
         "MATCH (p:Person {person_id: $person_id}) RETURN p.person_id AS person_id LIMIT 1",
         person_id=person_id,
@@ -400,16 +406,48 @@ def build_person_network_graph(person_id: str, limit: int = 60) -> dict[str, Any
     if not exists:
         return None
 
-    # 엔티티 중심 모델: 우범자와 직접 연결된 엔티티(인물·조직·국가·지역)만.
-    # 사건은 CASE_* 엣지, 위험지표·분석은 노드 속성이므로 1-hop ego 네트워크가 곧 관계망.
-    graph = _read_graph(
-        """
-        MATCH (p:Person {person_id: $person_id})-[r]-(n)
-        RETURN p, r, n
-        LIMIT $limit
-        """,
-        person_id=person_id,
-        limit=limit,
-    )
+    h = _clamp_hops(hops)
+    if h == 1:
+        query = "MATCH (p:Person {person_id: $person_id})-[r]-(n) RETURN p, r, n LIMIT $limit"
+    else:
+        query = f"MATCH path = (p:Person {{person_id: $person_id}})-[*1..{h}]-(n) RETURN path LIMIT $limit"
+    graph = _read_graph(query, person_id=person_id, limit=limit)
     graph["center"] = f"Person:{person_id}"
+    return graph
+
+
+def _split_node_ref(ref: str) -> tuple[str, str]:
+    """프런트 노드 id('{label}:{value}')를 (label, value)로 분리."""
+    text = str(ref or "")
+    label, _, value = text.partition(":")
+    return label, (value or label)
+
+
+def build_path_graph(source_ref: str, target_ref: str, max_hops: int = 6) -> dict[str, Any]:
+    """두 노드 사이 최단 경로를 그래프(nodes/edges)로 반환한다.
+
+    source_ref/target_ref 는 프런트 노드 id 형식('{label}:{value}').
+    경로가 없으면 {"nodes": [], "edges": [], "found": False} 를 반환한다.
+    """
+    src_label, src_value = _split_node_ref(source_ref)
+    tgt_label, tgt_value = _split_node_ref(target_ref)
+    # 라벨별 id 속성이 달라 _NODE_ID_KEYS 중 하나와 매칭되면 동일 노드로 본다.
+    # 라벨별 id 속성이 다르고, 고유 id가 없는 노드는 elementId로 식별되므로 둘 다 매칭한다.
+    id_expr_a = "[" + ", ".join(f"a.{k}" for k in _NODE_ID_KEYS) + "]"
+    id_expr_b = "[" + ", ".join(f"b.{k}" for k in _NODE_ID_KEYS) + "]"
+    query = (
+        f"MATCH (a) WHERE $src_label IN labels(a) AND ($src_value IN {id_expr_a} OR elementId(a) = $src_value) "
+        f"MATCH (b) WHERE $tgt_label IN labels(b) AND ($tgt_value IN {id_expr_b} OR elementId(b) = $tgt_value) "
+        f"MATCH p = shortestPath((a)-[*..{int(max_hops)}]-(b)) "
+        "RETURN p LIMIT 1"
+    )
+    graph = _read_graph(
+        query,
+        src_label=src_label, src_value=src_value,
+        tgt_label=tgt_label, tgt_value=tgt_value,
+    )
+    graph["source"] = source_ref
+    graph["target"] = target_ref
+    graph["center"] = source_ref
+    graph["found"] = bool(graph.get("nodes"))
     return graph

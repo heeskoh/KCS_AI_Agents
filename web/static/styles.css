@@ -1701,6 +1701,57 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .net-cond-arrow{color:#94a3b8;font-weight:900}
 .net-cond-del{border:0;background:transparent;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:1px 5px;border-radius:6px;flex:none}
 .net-cond-del:hover{color:#dc2626;background:#fee2e2}
+/* A1: 노드 검색창 */
+.profile-net-search-wrap{flex:1;min-width:140px;display:flex}
+.profile-net-search{flex:1;min-width:0;border:1px solid #dbe7f6;border-radius:8px;background:#f8fbff;color:#1f2f46;font-size:11.5px;padding:4px 9px}
+.profile-net-search:focus{outline:none;border-color:#93c5fd;background:#fff;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+/* B1: 경로 탐색 */
+.profile-net-pathfinder{flex:none;border-top:1px solid #edf2fb;background:#fffdf6;padding:9px 12px;display:flex;flex-direction:column;gap:7px}
+.profile-net-path-form{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.net-path-arrow{color:#f59e0b;font-weight:900}
+.net-path-find{font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:8px;background:#f59e0b}
+.net-path-find:disabled{opacity:.45;cursor:not-allowed}
+.net-path-find:not(:disabled):hover{background:#d97706}
+.net-path-clear{font-size:11.5px;padding:4px 10px;border-radius:8px}
+.net-path-result{font-size:11.5px;border-radius:8px;padding:7px 10px}
+.net-path-result.found{background:#fffbeb;border:1px solid #fde68a;color:#78350f}
+.net-path-result.none{background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b}
+.net-path-seq{display:flex;flex-wrap:wrap;align-items:center;gap:4px;line-height:1.7}
+.net-path-meta{margin-top:4px;color:#92400e}.net-path-meta b{font-size:13px}
+/* B1: 경로 모드 배너 */
+.profile-net-path-banner{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;background:#fef3c7;border-bottom:1px solid #fde68a;color:#78350f;font-size:12px;font-weight:800}
+.net-path-clear-inline{border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:800;border-radius:8px;padding:3px 10px;cursor:pointer}
+.net-path-clear-inline:hover{background:#fffbeb}
+/* ── 관계망분석 워크벤치(좌 제어패널 + 우 그래프) ── */
+.net-right-wb{height:auto;min-height:640px}
+.net-ws{display:grid;grid-template-columns:268px minmax(0,1fr);height:100%;min-height:0}
+.net-ws-left{border-right:1px solid #e4edf9;background:#fbfdff;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:12px}
+.net-ws-main{min-width:0;display:flex;flex-direction:column;min-height:0}
+.net-ws-sect{border:1px solid #e4edf9;border-radius:10px;background:#fff;padding:9px 10px}
+.net-ws-sect-title{font-size:12px;font-weight:900;color:#123c85;margin-bottom:7px}
+.net-ws-field{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.net-ws-field>span{font-size:11px;font-weight:800;color:#64748b;white-space:nowrap;min-width:54px}
+.net-ws-select{flex:1;min-width:0;border:1px solid #dbe7f6;border-radius:8px;background:#fff;color:#1f2f46;font-size:11.5px;padding:4px 7px}
+.net-ws-hint{font-size:10.5px;color:#94a3b8;line-height:1.45;margin:2px 0 0}
+.net-ws-sub{display:block;font-size:11px;font-weight:800;color:#475569;margin:4px 0 4px}
+.net-ws-sub small{font-weight:600;color:#94a3b8}
+.net-ws-textarea{width:100%;border:1px solid #dbe7f6;border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.5;resize:vertical;font-family:inherit;background:#fff;box-sizing:border-box}
+.net-ws-textarea:focus{outline:none;border-color:#93c5fd}
+.net-ws-btn{width:100%;margin-top:5px;font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:8px}
+.net-ws-btn:disabled{opacity:.5;cursor:not-allowed}
+.net-ws-file-row{display:flex;gap:6px;margin-top:5px}
+.net-ws-file-row .net-ws-btn{margin-top:0}
+.net-ws-file-btn{flex:none;font-size:11.5px;padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.net-ws-file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;min-height:18px}
+.net-file-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #fbcfe8;border-radius:999px;background:#fdf2f8;color:#9d174d;font-size:10.5px;font-weight:700;padding:2px 8px}
+.net-file-chip small{color:#be185d}
+.net-ws-clear{width:100%;margin-top:6px;border:1px solid #fecaca;background:#fff5f5;color:#dc2626;font-size:11px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer}
+.net-ws-clear:hover{background:#fee2e2}
+.net-analysis-result{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;background:#ecfdf5;border-bottom:1px solid #a7f3d0;color:#065f46;font-size:11.5px;font-weight:700}
+@media(max-width:1100px){
+  .net-ws{grid-template-columns:1fr}
+  .net-ws-left{border-right:0;border-bottom:1px solid #e4edf9;max-height:none}
+}
 .profile-net-svg line{stroke:#9bbcff;stroke-width:2}
 .profile-net-svg .edge-label{font-size:11.5px;fill:#7c8aa5;font-weight:700}
 .profile-net-svg .node-label{font-size:13.5px;fill:#fff;font-weight:800}

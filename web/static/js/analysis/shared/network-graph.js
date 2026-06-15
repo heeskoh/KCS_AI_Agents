@@ -39,6 +39,11 @@ const NODE_COLORS = {
   Industry:      "#a16207",
   Region:        "#475569",
   RelatedCompany:"#1d4ed8",
+  Phone:         "#e11d48",
+  Account:       "#0d9488",
+  Place:         "#7c3aed",
+  Vehicle:       "#b45309",
+  Entity:        "#0891b2",
 };
 const NODE_LABEL_KO = {
   Person: "인물", Company: "기업", Declaration: "수입신고",
@@ -47,6 +52,7 @@ const NODE_LABEL_KO = {
   RiskIndicator: "위험지표", RiskScore: "위험점수", AnalysisResult: "분석이력",
   Broker: "관세사", HsCode: "HS코드", Item: "품목",
   Industry: "업종", Region: "지역", RelatedCompany: "관계사",
+  Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
 };
 
 function nodeColor(label){
@@ -84,17 +90,29 @@ function emptyDraft(){
   return { focusIds: new Set(), targetLabel: "", relType: "" };
 }
 function emptyState(){
-  return { hiddenLabels: new Set(), draft: emptyDraft(), conditions: [], condSeq: 0 };
+  return {
+    hiddenLabels: new Set(), draft: emptyDraft(), conditions: [], condSeq: 0,
+    searchTerm: "",                    // A1: 노드 검색어
+    pathSrc: "", pathTgt: "",          // B1: 경로 탐색 출발/도착 노드 id
+    pathResult: null,                  // B1: 경로 API 응답 {nodes,edges,source,target,found}
+    hops: 1,                           // 데이터소스: 이웃 확장 단계(1~3)
+    fileNodes: [], fileEdges: [],      // 파일 등록으로 병합된 노드/엣지
+    fileSources: [],                   // 등록된 파일/추출 출처 라벨 목록
+    uploadSessionId: "",               // 비정형 파일 업로드 세션
+    analysisMode: "", analysisSel: [], // 분석 기법: ""|common|centrality|cluster, 선택 노드
+    analysisResult: null,              // 분석 산출물(메시지/하이라이트 대상)
+  };
 }
 function filterStateFor(key){
   if(!_filterState.has(key)) _filterState.set(key, emptyState());
   return _filterState.get(key);
 }
 
-function graphUrl(targetType, targetId){
+function graphUrl(targetType, targetId, hops = 1){
+  const h = `&hops=${encodeURIComponent(hops)}`;
   return targetType === "person"
-    ? `/api/graph/person?person_id=${encodeURIComponent(targetId)}`
-    : `/api/graph/company?company_id=${encodeURIComponent(targetId)}`;
+    ? `/api/graph/person?person_id=${encodeURIComponent(targetId)}${h}`
+    : `/api/graph/company?company_id=${encodeURIComponent(targetId)}${h}`;
 }
 
 function truncate(text, max = 10){
@@ -128,6 +146,23 @@ function loadCytoscape(){
 
 /* key → cytoscape 인스턴스 (재렌더 시 destroy) */
 const _cyInstances = new Map();
+
+/* ── A1: 검색 하이라이트 (cy 인스턴스에 직접 적용 — 재렌더 없이 입력 포커스 유지) ── */
+function applySearchHighlight(key, term){
+  const cy = _cyInstances.get(key);
+  if(!cy) return;
+  const q = String(term || "").trim().toLowerCase();
+  cy.nodes().removeClass("search-dim search-hit");
+  if(!q) return;
+  const hits = cy.nodes().filter(n => String(n.data("name") || "").toLowerCase().includes(q));
+  if(!hits.length){
+    cy.nodes().addClass("search-dim");
+    return;
+  }
+  cy.nodes().addClass("search-dim");
+  hits.removeClass("search-dim").addClass("search-hit");
+  cy.animate({ center: { eles: hits }, zoom: Math.min(cy.zoom(), 1.1) }, { duration: 260 });
+}
 
 /* ── 상세 정보 패널 ──────────────────────────────────────
    마우스 액션: 호버 = 이웃 강조 · 클릭 = 상세 정보 · 더블클릭 = 기준 노드 지정/해제 */
@@ -227,30 +262,67 @@ function edgeDetailHtml(key, edge, sourceData, targetData){
   `;
 }
 
-/* 필터 적용된 그래프 → cytoscape elements */
+/* ── A2: 위험도 추출/등급 ── */
+function nodeRiskScore(props){
+  const score = Number(props && props.risk_score);
+  if(Number.isFinite(score)) return score;
+  const lvl = String((props && props.risk_level) || "").toUpperCase();
+  if(lvl === "CRITICAL") return 95;
+  if(lvl === "HIGH") return 85;
+  if(lvl === "MEDIUM") return 65;
+  if(lvl === "LOW") return 40;
+  return NaN;
+}
+function riskTier(score){
+  if(!Number.isFinite(score)) return "none";
+  if(score >= 80) return "high";
+  if(score >= 60) return "mid";
+  return "low";
+}
+const RISK_BORDER = { high: "#dc2626", mid: "#f59e0b", low: "#cbd5e1", none: "#fff" };
+
+/* 필터 적용된 그래프 → cytoscape elements (A2 위험도 인코딩 + B1 경로 강조 포함) */
 function cyElements(graph){
   const coreSet = new Set(graph.coreIds || [graph.center]);
+  const pathMode = !!graph.pathMode;
   const nodes = graph.nodes || [];
   const directIds = new Set();
   (graph.edges || []).forEach(e => {
     if(coreSet.has(e.source) && !coreSet.has(e.target)) directIds.add(e.target);
     if(coreSet.has(e.target) && !coreSet.has(e.source)) directIds.add(e.source);
   });
-  const nodeEls = nodes.map(n => ({
-    data: {
-      id: n.id,
-      name: n.name,
-      typeKo: nodeLabelKo(n.label),
-      color: nodeColor(n.label),
-      ring: coreSet.has(n.id) ? 3 : (directIds.has(n.id) ? 2 : 1),
-      core: coreSet.has(n.id) ? 1 : 0,
-      props: n.properties || {},
-    },
-  }));
+  const nodeEls = nodes.map(n => {
+    const isCore = coreSet.has(n.id);
+    const score = nodeRiskScore(n.properties);
+    const tier = riskTier(score);
+    const baseW = isCore ? 72 : 52;
+    const w = baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0);
+    return {
+      data: {
+        id: n.id,
+        name: n.name,
+        typeKo: nodeLabelKo(n.label),
+        color: nodeColor(n.label),
+        ring: isCore ? 3 : (directIds.has(n.id) ? 2 : 1),
+        core: isCore ? 1 : 0,
+        risk: Number.isFinite(score) ? Math.round(score) : null,
+        riskTier: tier,
+        w,
+        bcolor: isCore ? "#dc2626" : RISK_BORDER[tier],
+        bwidth: isCore ? 4 : (tier === "high" || tier === "mid" ? 4 : 3),
+        props: n.properties || {},
+      },
+    };
+  });
   const nodeIds = new Set(nodes.map(n => n.id));
   const edgeEls = (graph.edges || [])
     .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
-    .map((e, i) => ({ data: { id: `e${i}`, source: e.source, target: e.target, type: e.type, typeKo: relLabelKo(e.type, e.properties), props: e.properties || {} } }));
+    .map((e, i) => ({ data: {
+      id: `e${i}`, source: e.source, target: e.target, type: e.type,
+      typeKo: relLabelKo(e.type, e.properties), props: e.properties || {},
+      onPath: pathMode ? 1 : 0,
+      fileEdge: (e.properties && e.properties.source === "file") ? 1 : 0,
+    } }));
   return [...nodeEls, ...edgeEls];
 }
 
@@ -265,16 +337,32 @@ const CY_STYLE = [
       "text-halign": "center",
       "text-wrap": "ellipsis",
       "text-max-width": "62px",
-      "width": 52, "height": 52,
-      "border-width": 3, "border-color": "#fff",
+      // A2: 위험도에 따라 크기·테두리(색/굵기)를 데이터로 매핑
+      "width": "data(w)", "height": "data(w)",
+      "border-width": "data(bwidth)", "border-color": "data(bcolor)",
       "text-outline-width": 2, "text-outline-color": "data(color)",
   }},
   { selector: "node[core = 1]", style: {
-      "width": 72, "height": 72,
       "font-size": "13px",
-      "border-width": 4, "border-color": "#dc2626",
   }},
   { selector: ".dim", style: { "opacity": .18 } },
+  // A1: 검색 결과 — 비매칭 흐림 + 매칭 강조
+  { selector: ".search-dim", style: { "opacity": .12 } },
+  { selector: ".search-hit", style: {
+      "border-color": "#facc15", "border-width": 6,
+      "text-outline-color": "#ca8a04",
+  }},
+  // 분석 기법 강조
+  { selector: ".analysis-dim", style: { "opacity": .12 } },
+  { selector: ".analysis-hit", style: {
+      "border-color": "#16a34a", "border-width": 6,
+      "text-outline-color": "#15803d",
+  }},
+  // 파일 등록 엣지 — 점선·자홍색으로 Neo4j 관계와 구분
+  { selector: "edge[fileEdge = 1]", style: {
+      "line-color": "#db2777", "target-arrow-color": "#db2777",
+      "line-style": "dashed", "color": "#9d174d",
+  }},
   { selector: "edge", style: {
       "curve-style": "bezier",
       "line-color": "#9bbcff",
@@ -290,6 +378,14 @@ const CY_STYLE = [
       "text-background-color": "#f8fbff",
       "text-background-opacity": .9,
       "text-background-padding": "2px",
+  }},
+  // B1: 경로 상의 엣지 강조 (금색 굵은 선)
+  { selector: "edge[onPath = 1]", style: {
+      "line-color": "#f59e0b",
+      "target-arrow-color": "#f59e0b",
+      "width": 4.5,
+      "color": "#b45309",
+      "font-weight": 800,
   }},
 ];
 
@@ -344,6 +440,11 @@ function mountCytoscape(key, filteredGraph){
       rerenderPanelByKey(key);
     });
     _cyInstances.set(key, cy);
+    // A1: 재렌더 후에도 검색 강조 유지
+    const term = filterStateFor(key).searchTerm;
+    if(term) applySearchHighlight(key, term);
+    // 분석 기법 강조 유지
+    applyAnalysisHighlight(key);
   }).catch(() => {
     // CDN 차단 등으로 cytoscape 로드 실패 → 자체 SVG 렌더러 폴백
     area.outerHTML = `<div class="profile-net-svg-fallback">${buildGraphSvg(filteredGraph, key)}</div>`;
@@ -385,7 +486,32 @@ function evalCondition(cond, nodes, edges, nodeById){
 /* ── 필터 적용 ───────────────────────────────────────────
    1) 유형 숨김: hiddenLabels 노드 제거 (중심·기준 노드는 유지)
    2) 활성 조건이 있으면 각 조건의 결과(기준 노드 + 매칭 연결)를 합집합으로 표시 */
+/* Neo4j 원본 그래프 + 파일 등록 노드/엣지 병합 (id 기준 중복 제거) */
+function mergedGraph(raw, state){
+  if(!state.fileNodes.length && !state.fileEdges.length) return raw;
+  const byId = new Map((raw.nodes || []).map(n => [n.id, n]));
+  state.fileNodes.forEach(n => { if(!byId.has(n.id)) byId.set(n.id, n); });
+  const edgeKey = e => `${e.source}|${e.type}|${e.target}`;
+  const seen = new Set((raw.edges || []).map(edgeKey));
+  const edges = [...(raw.edges || [])];
+  state.fileEdges.forEach(e => { if(!seen.has(edgeKey(e))){ seen.add(edgeKey(e)); edges.push(e); } });
+  return { ...raw, nodes: [...byId.values()], edges };
+}
+
 function applyFilter(graph, state){
+  // B1: 경로 탐색 결과가 있으면 경로 서브그래프만 표시(양 끝을 기준 노드로)
+  if(state.pathResult && state.pathResult.found){
+    const pr = state.pathResult;
+    return {
+      ...graph,
+      nodes: pr.nodes || [],
+      edges: pr.edges || [],
+      center: pr.source,
+      coreIds: [pr.source, pr.target],
+      pathMode: true,
+    };
+  }
+
   const centerId = graph.center;
   const { hiddenLabels } = state;
   const conds = activeConditions(state);
@@ -464,11 +590,14 @@ function buildGraphSvg(graph, key){
     const p = pos[node.id];
     if(!p) return "";
     const isCore = coreSet.has(node.id);
-    const r = isCore ? 34 : 24;
+    const tier = riskTier(nodeRiskScore(node.properties)); // A2: 폴백에도 위험도 반영
+    const r = (isCore ? 34 : 24) + (tier === "high" ? 6 : tier === "mid" ? 3 : 0);
+    const stroke = isCore ? "#dc2626" : RISK_BORDER[tier];
+    const strokeW = isCore ? 3 : (tier === "high" || tier === "mid" ? 3 : 1);
     return `
       <g class="net-node" data-net-node="${escapeHtml(key)}::${escapeHtml(node.id)}" style="cursor:pointer">
         <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${nodeColor(node.label)}"
-          ${isCore ? 'stroke="#dc2626" stroke-width="3"' : ""}>
+          stroke="${stroke}" stroke-width="${strokeW}">
           <title>${escapeHtml(`${nodeLabelKo(node.label)}: ${node.name}`)} (클릭: 기준 노드 지정/해제)</title>
         </circle>
         <text x="${p.x.toFixed(1)}" y="${(p.y + 4).toFixed(1)}" class="node-label" text-anchor="middle">${escapeHtml(truncate(node.name, isCore ? 7 : 5))}</text>
@@ -485,24 +614,26 @@ function buildGraphSvg(graph, key){
   `;
 }
 
-/* ── 상단 유형 칩 필터 ── */
+/* ── 상단 도구막대: A1 검색창 + 유형 칩 필터 ── */
 function buildFilterBar(rawGraph, state, key){
   const counts = new Map();
   (rawGraph.nodes || []).forEach(n => counts.set(n.label, (counts.get(n.label) || 0) + 1));
   const labels = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a));
-  if(labels.length <= 1) return "";
-  return `
-    <div class="profile-net-filter">
-      <span class="profile-net-filter-title">유형</span>
-      ${labels.map(label => `
-        <button type="button" class="profile-net-filter-chip${state.hiddenLabels.has(label) ? " off" : ""}"
-          data-net-filter="${escapeHtml(key)}::${escapeHtml(label)}">
-          <i style="background:${nodeColor(label)}"></i>${escapeHtml(nodeLabelKo(label))}
-          <b>${counts.get(label)}</b>
-        </button>
-      `).join("")}
-    </div>
-  `;
+  const search = `
+    <div class="profile-net-search-wrap">
+      <input type="search" class="profile-net-search" data-net-search="${escapeHtml(key)}"
+        placeholder="노드 검색(이름)..." value="${escapeHtml(state.searchTerm || "")}" autocomplete="off">
+    </div>`;
+  const chips = labels.length <= 1 ? "" : `
+    <span class="profile-net-filter-title">유형</span>
+    ${labels.map(label => `
+      <button type="button" class="profile-net-filter-chip${state.hiddenLabels.has(label) ? " off" : ""}"
+        data-net-filter="${escapeHtml(key)}::${escapeHtml(label)}">
+        <i style="background:${nodeColor(label)}"></i>${escapeHtml(nodeLabelKo(label))}
+        <b>${counts.get(label)}</b>
+      </button>
+    `).join("")}`;
+  return `<div class="profile-net-filter">${search}${chips}</div>`;
 }
 
 /* 조건 한 건의 요약 문구: "사건1, 사건2 → 국가 (관계: 전체)" */
@@ -604,6 +735,80 @@ function buildConditionBuilder(rawGraph, state, key){
   `;
 }
 
+/* ── B1: 경로 탐색 UI (출발/도착 노드 선택 + 결과 요약) ── */
+function nodeOptionGroups(nodes, selectedId){
+  const labels = [...new Set(nodes.map(n => n.label))];
+  return labels.map(label => {
+    const options = nodes
+      .filter(n => n.label === label)
+      .map(n => `<option value="${escapeHtml(n.id)}" ${n.id === selectedId ? "selected" : ""}>${escapeHtml(truncate(n.name, 22))}</option>`)
+      .join("");
+    return options ? `<optgroup label="${escapeHtml(nodeLabelKo(label))}">${options}</optgroup>` : "";
+  }).join("");
+}
+
+function buildPathFinder(rawGraph, state, key){
+  const nodes = rawGraph.nodes || [];
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  const pr = state.pathResult;
+
+  let resultHtml = "";
+  if(pr){
+    if(pr.found){
+      const seq = (pr.nodes || []).map(n =>
+        `<i class="net-dot" style="background:${nodeColor(n.label)}"></i>${escapeHtml(truncate(n.name, 12))}`
+      ).join(' <span class="net-cond-arrow">→</span> ');
+      const hops = Math.max((pr.nodes || []).length - 1, 0);
+      resultHtml = `
+        <div class="net-path-result found">
+          <div class="net-path-seq">${seq}</div>
+          <div class="net-path-meta"><b>${hops}</b>단계 연결 · 관계 ${(pr.edges || []).length}건</div>
+        </div>`;
+    } else {
+      resultHtml = `<div class="net-path-result none">선택한 두 대상 사이의 연결 경로를 찾지 못했습니다(6단계 이내).</div>`;
+    }
+  }
+
+  const srcName = state.pathSrc ? truncate(nodeById.get(state.pathSrc)?.name || "", 18) : "";
+  const tgtName = state.pathTgt ? truncate(nodeById.get(state.pathTgt)?.name || "", 18) : "";
+
+  return `
+    <div class="profile-net-pathfinder">
+      <div class="profile-net-cond-head">
+        <strong>경로 탐색</strong>
+        <span class="muted">두 대상을 선택하면 사이를 잇는 최단 연결 경로를 찾아 강조합니다.</span>
+      </div>
+      <div class="profile-net-path-form">
+        <select class="net-cond-select" data-net-path-src="${escapeHtml(key)}">
+          <option value="">출발 노드...</option>
+          ${nodeOptionGroups(nodes, state.pathSrc)}
+        </select>
+        <span class="net-path-arrow">→</span>
+        <select class="net-cond-select" data-net-path-tgt="${escapeHtml(key)}">
+          <option value="">도착 노드...</option>
+          ${nodeOptionGroups(nodes, state.pathTgt)}
+        </select>
+        <button type="button" class="btn net-path-find" data-net-path-find="${escapeHtml(key)}"
+          ${state.pathSrc && state.pathTgt && state.pathSrc !== state.pathTgt ? "" : "disabled"}>경로 찾기</button>
+        ${pr ? `<button type="button" class="btn secondary net-path-clear" data-net-path-clear="${escapeHtml(key)}">해제</button>` : ""}
+      </div>
+      ${resultHtml}
+    </div>
+  `;
+}
+
+/* 경로 모드 배너 (그래프 상단) */
+function buildPathBanner(state, key){
+  const pr = state.pathResult;
+  if(!pr || !pr.found) return "";
+  const hops = Math.max((pr.nodes || []).length - 1, 0);
+  return `
+    <div class="profile-net-path-banner">
+      <span>🔗 경로 보기 — ${hops}단계 연결</span>
+      <button type="button" class="net-path-clear-inline" data-net-path-clear="${escapeHtml(key)}">전체 관계망으로 돌아가기</button>
+    </div>`;
+}
+
 /* ── 하단 데이터 목록: 표시 중인 관계(엣지) 테이블 ── */
 function buildEdgeTable(graph, maxRows = 80){
   const nodeById = new Map((graph.nodes || []).map(n => [n.id, n]));
@@ -631,20 +836,197 @@ function buildEdgeTable(graph, maxRows = 80){
   `;
 }
 
+/* ── 워크벤치 좌측 제어 패널: 데이터 소스 + 파일 등록 + 분석 기법 ── */
+const ANALYSIS_METHODS = [
+  { id: "", label: "기본 (필터/경로)" },
+  { id: "common", label: "공통 이웃" },
+  { id: "centrality", label: "중심성(연결도)" },
+  { id: "cluster", label: "군집(연결요소)" },
+];
+
+function buildWorkbenchControls(raw, state, key){
+  const hopOptions = [1, 2, 3].map(h =>
+    `<option value="${h}" ${Number(state.hops) === h ? "selected" : ""}>${h}단계</option>`).join("");
+  const methodOptions = ANALYSIS_METHODS.map(m =>
+    `<option value="${m.id}" ${state.analysisMode === m.id ? "selected" : ""}>${escapeHtml(m.label)}</option>`).join("");
+  const fileChips = state.fileSources.length
+    ? state.fileSources.map((s, i) => `
+        <span class="net-file-chip">
+          ${escapeHtml(truncate(s.name, 16))} <small>${s.nodes}N·${s.edges}E</small>
+        </span>`).join("")
+    : `<span class="muted" style="font-size:11px">등록된 파일 관계 없음</span>`;
+  // 공통 이웃: 노드 2개 선택 UI
+  const commonPickers = state.analysisMode === "common"
+    ? `<div class="net-ws-field">
+         <span>대상 2개 선택</span>
+         <select class="net-ws-select" data-net-analysis-a="${escapeHtml(key)}">
+           <option value="">대상 A...</option>${raw ? nodeOptionGroups(raw.nodes || [], state.analysisSel[0]) : ""}
+         </select>
+         <select class="net-ws-select" data-net-analysis-b="${escapeHtml(key)}">
+           <option value="">대상 B...</option>${raw ? nodeOptionGroups(raw.nodes || [], state.analysisSel[1]) : ""}
+         </select>
+       </div>`
+    : "";
+  return `
+    <div class="net-ws-sect">
+      <div class="net-ws-sect-title">데이터 소스</div>
+      <div class="net-ws-field">
+        <span>이웃 확장</span>
+        <select class="net-ws-select" data-net-hops="${escapeHtml(key)}">${hopOptions}</select>
+      </div>
+      <p class="net-ws-hint">Neo4j에서 대상 중심 N단계까지 조회합니다. 엔티티·관계 유형은 상단 칩에서 선택합니다.</p>
+    </div>
+
+    <div class="net-ws-sect">
+      <div class="net-ws-sect-title">파일 등록</div>
+      <label class="net-ws-sub">정형 관계 CSV <small>(출발,관계,대상[,가중치])</small></label>
+      <textarea class="net-ws-textarea" data-net-csv="${escapeHtml(key)}" rows="3"
+        placeholder="예) 홍길동,통화,김철수&#10;김철수,송금,ABC무역"></textarea>
+      <button type="button" class="btn net-ws-btn" data-net-csv-add="${escapeHtml(key)}">관계 추가</button>
+
+      <label class="net-ws-sub" style="margin-top:8px">비정형 문서/텍스트 <small>(LLM 추출)</small></label>
+      <textarea class="net-ws-textarea" data-net-extract-text="${escapeHtml(key)}" rows="3"
+        placeholder="통화내역·계좌거래·진술서 등을 붙여넣거나 파일을 첨부하세요."></textarea>
+      <div class="net-ws-file-row">
+        <label class="btn secondary net-ws-file-btn">파일 첨부
+          <input type="file" data-net-extract-file="${escapeHtml(key)}" multiple
+            accept=".txt,.md,.csv,.json,.pdf,.docx,.xlsx" style="display:none">
+        </label>
+        <button type="button" class="btn net-ws-btn" data-net-extract="${escapeHtml(key)}">관계 추출</button>
+      </div>
+      <div class="net-ws-file-chips">${fileChips}</div>
+      ${state.fileSources.length ? `<button type="button" class="net-ws-clear" data-net-file-clear="${escapeHtml(key)}">파일 관계 비우기</button>` : ""}
+    </div>
+
+    <div class="net-ws-sect">
+      <div class="net-ws-sect-title">분석 기법</div>
+      <div class="net-ws-field">
+        <span>방법</span>
+        <select class="net-ws-select" data-net-analysis-mode="${escapeHtml(key)}">${methodOptions}</select>
+      </div>
+      ${commonPickers}
+      ${state.analysisMode ? `<button type="button" class="btn net-ws-btn" data-net-analysis-run="${escapeHtml(key)}">분석 실행</button>` : ""}
+    </div>
+  `;
+}
+
+/* ── 분석 기법 계산 (표시 중인 그래프 기준) ──
+   반환: { text, hitIds:Set } — hitIds 노드를 강조하고 나머지는 흐림 처리 */
+function computeAnalysis(mode, graph, sel){
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  const adj = new Map(nodes.map(n => [n.id, new Set()]));
+  edges.forEach(e => {
+    if(adj.has(e.source) && adj.has(e.target)){
+      adj.get(e.source).add(e.target);
+      adj.get(e.target).add(e.source);
+    }
+  });
+
+  if(mode === "common"){
+    const [a, b] = sel || [];
+    if(!a || !b || !adj.has(a) || !adj.has(b)) return { text: "공통 이웃: 대상 2개를 선택하세요.", hitIds: new Set() };
+    const common = [...adj.get(a)].filter(id => adj.get(b).has(id));
+    const hitIds = new Set([a, b, ...common]);
+    const names = common.map(id => nodeById.get(id)?.name).filter(Boolean).slice(0, 6).join(", ");
+    return {
+      text: common.length
+        ? `공통 이웃 ${common.length}건: ${names}${common.length > 6 ? " 외" : ""}`
+        : "두 대상의 공통 이웃이 없습니다.",
+      hitIds,
+    };
+  }
+  if(mode === "centrality"){
+    const ranked = nodes.map(n => ({ id: n.id, name: n.name, deg: adj.get(n.id)?.size || 0 }))
+      .sort((x, y) => y.deg - x.deg);
+    const top = ranked.slice(0, 5).filter(r => r.deg > 0);
+    const hitIds = new Set(top.map(r => r.id));
+    const desc = top.map(r => `${truncate(r.name, 10)}(${r.deg})`).join(", ");
+    return { text: `최다 연결 상위 ${top.length}: ${desc}`, hitIds };
+  }
+  if(mode === "cluster"){
+    const seen = new Set();
+    let largest = [];
+    for(const n of nodes){
+      if(seen.has(n.id)) continue;
+      const comp = [];
+      const stack = [n.id];
+      while(stack.length){
+        const cur = stack.pop();
+        if(seen.has(cur)) continue;
+        seen.add(cur); comp.push(cur);
+        (adj.get(cur) || []).forEach(nb => { if(!seen.has(nb)) stack.push(nb); });
+      }
+      if(comp.length > largest.length) largest = comp;
+    }
+    const compCount = (() => {
+      const s = new Set(); let c = 0;
+      for(const n of nodes){ if(s.has(n.id)) continue; c++; const st=[n.id]; while(st.length){const x=st.pop(); if(s.has(x))continue; s.add(x);(adj.get(x)||[]).forEach(nb=>{if(!s.has(nb))st.push(nb);});} }
+      return c;
+    })();
+    return { text: `군집 ${compCount}개 · 최대 군집 ${largest.length}개 노드 강조`, hitIds: new Set(largest) };
+  }
+  return null;
+}
+
+/* 분석 강조를 cy 인스턴스에 적용 (재렌더 후 호출) */
+function applyAnalysisHighlight(key){
+  const cy = _cyInstances.get(key);
+  const r = filterStateFor(key).analysisResult;
+  if(!cy) return;
+  cy.elements().removeClass("analysis-dim analysis-hit");
+  if(!r || !r.hitIds || !r.hitIds.size) return;
+  cy.nodes().forEach(n => {
+    if(r.hitIds.has(n.id())) n.addClass("analysis-hit");
+    else n.addClass("analysis-dim");
+  });
+  cy.edges().forEach(e => {
+    if(!(r.hitIds.has(e.source().id()) && r.hitIds.has(e.target().id()))) e.addClass("analysis-dim");
+  });
+}
+
+/* 분석 산출물 메시지 (그래프 상단) */
+function buildAnalysisResult(state, key){
+  const r = state.analysisResult;
+  if(!r) return "";
+  return `
+    <div class="net-analysis-result">
+      <span>${escapeHtml(r.text)}</span>
+      <button type="button" class="net-path-clear-inline" data-net-analysis-clear="${escapeHtml(key)}">해제</button>
+    </div>`;
+}
+
+/* 현재 키의 원본(병합 포함) 그래프를 반환. Neo4j 미조회 + 파일만 있으면 합성. */
+function currentRawGraph(key, state){
+  const cached = _graphCache.get(key);
+  if(cached) return mergedGraph(cached, state);
+  if(state.fileNodes.length){
+    return mergedGraph({ nodes: [], edges: [], center: state.fileNodes[0].id }, state);
+  }
+  return null;
+}
+
 /* ── 패널 내부 콘텐츠 렌더 ── */
 function renderPanelContent(targetType, targetId){
   const key = graphKey(targetType, targetId);
-  const raw = _graphCache.get(key);
-  if(!raw) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 관계망 로딩 중...</div>`;
   const state = filterStateFor(key);
+  const raw = currentRawGraph(key, state);
+  if(!raw){
+    const body = `<div class="profile-net-empty"><span class="home-running-dot"></span> 관계망 로딩 중...</div>`;
+    return state.workbench ? wrapWorkbench(null, state, key, body) : body;
+  }
   const filtered = applyFilter(raw, state);
   const graphArea = filtered.nodes.length
     ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
-    : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">필터 조건을 확인하세요.</span></div>`;
-  return `
+    : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">필터 조건·데이터 소스를 확인하세요.</span></div>`;
+  const main = `
     ${buildFilterBar(raw, state, key)}
+    ${buildPathBanner(state, key)}
     <div class="profile-net-graph-area">${graphArea}</div>
     <div class="profile-net-bottom">
+      ${buildAnalysisResult(state, key)}
+      ${buildPathFinder(raw, state, key)}
       ${buildConditionBuilder(raw, state, key)}
       <div class="profile-net-list-head">
         <strong>관계 데이터 목록</strong>
@@ -653,15 +1035,27 @@ function renderPanelContent(targetType, targetId){
       ${buildEdgeTable(filtered)}
     </div>
   `;
+  return state.workbench ? wrapWorkbench(raw, state, key, main) : main;
+}
+
+/* 워크벤치 모드: 좌측 데이터/파일/분석 제어 패널 + 우측 메인 */
+function wrapWorkbench(raw, state, key, mainHtml){
+  return `
+    <div class="net-ws">
+      <aside class="net-ws-left">${buildWorkbenchControls(raw, state, key)}</aside>
+      <div class="net-ws-main">${mainHtml}</div>
+    </div>
+  `;
 }
 
 /* 패널 HTML 주입 + cytoscape 마운트 */
 function renderPanelInto(el, targetType, targetId){
   const key = graphKey(targetType, targetId);
   el.innerHTML = renderPanelContent(targetType, targetId);
-  const raw = _graphCache.get(key);
+  const state = filterStateFor(key);
+  const raw = currentRawGraph(key, state);
   if(raw){
-    const filtered = applyFilter(raw, filterStateFor(key));
+    const filtered = applyFilter(raw, state);
     if(filtered.nodes.length) mountCytoscape(key, filtered);
   }
 }
@@ -684,10 +1078,17 @@ async function loadGraphInto(targetType, targetId){
   if(_loading.has(key)) return;
   _loading.add(key);
   try {
-    const res = await fetch(graphUrl(targetType, targetId));
+    const res = await fetch(graphUrl(targetType, targetId, filterStateFor(key).hops));
     const data = await res.json();
     if(!res.ok || data.error){
       const message = data.error || `그래프 조회 실패 (${res.status})`;
+      const state = filterStateFor(key);
+      // 워크벤치 모드이거나 파일 관계가 있으면 빈 그래프로 패널을 표시(컨트롤 유지).
+      if(state.workbench || state.fileNodes.length){
+        _graphCache.set(key, { nodes: [], edges: [], center: "" });
+        rerenderPanelByKey(key);
+        return;
+      }
       const target = document.getElementById(containerId(targetType, targetId));
       if(target) target.innerHTML = `<div class="profile-net-empty">Neo4j 관계망을 불러올 수 없습니다.<br><span class="muted">${escapeHtml(message)}</span></div>`;
       return;
@@ -702,11 +1103,134 @@ async function loadGraphInto(targetType, targetId){
   }
 }
 
-/* ── 이벤트 위임 (1회 등록): 유형 칩, 기준 노드 추가/제거, 대상 유형, 초기화, 노드 클릭 ── */
+/* hop 변경 등으로 Neo4j를 다시 조회 (캐시 무효화 후 재로드) */
+function reloadGraph(targetType, targetId){
+  const key = graphKey(targetType, targetId);
+  _graphCache.delete(key);
+  _loading.delete(key);
+  loadGraphInto(targetType, targetId);
+}
+
+/* ── 파일 등록: 임시 파일 스테이징 + 병합 유틸 ── */
+const _stagedFiles = new Map();     // key → [{name,type,encoding,content,size}]
+const _TEXT_EXT = /\.(txt|md|csv|json|tsv|log)$/i;
+
+function readFileEntry(file){
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    const isText = _TEXT_EXT.test(file.name) || (file.type || "").startsWith("text");
+    reader.onload = () => {
+      let content = reader.result || "";
+      let encoding = "text";
+      if(!isText){
+        encoding = "base64";
+        const s = String(content);
+        content = s.includes(",") ? s.split(",")[1] : s;  // data:...;base64,XXXX → XXXX
+      }
+      resolve({ name: file.name, mime: file.type || "", encoding, content, size: file.size });
+    };
+    reader.onerror = () => resolve(null);
+    if(isText) reader.readAsText(file);
+    else reader.readAsDataURL(file);
+  });
+}
+
+/* 추출/CSV 결과를 상태에 병합 (id 기준 중복 제거) */
+function mergeFileGraph(key, nodes, edges, sourceName){
+  const state = filterStateFor(key);
+  const existingIds = new Set(state.fileNodes.map(n => n.id));
+  let addedN = 0, addedE = 0;
+  nodes.forEach(n => { if(!existingIds.has(n.id)){ existingIds.add(n.id); state.fileNodes.push(n); addedN++; } });
+  const ekey = e => `${e.source}|${e.type}|${e.target}`;
+  const existingE = new Set(state.fileEdges.map(ekey));
+  edges.forEach(e => { if(!existingE.has(ekey(e))){ existingE.add(ekey(e)); state.fileEdges.push(e); addedE++; } });
+  state.fileSources.push({ name: sourceName, nodes: addedN, edges: addedE });
+  rerenderPanelByKey(key);
+}
+
+/* CSV 텍스트(출발,관계,대상[,가중치]) → {nodes, edges} */
+function parseCsvRelations(text){
+  const nodes = new Map();
+  const edges = [];
+  String(text || "").split(/\r?\n/).forEach(line => {
+    const cols = line.split(/[,\t]/).map(c => c.trim()).filter((c, i) => i < 4);
+    if(cols.length < 3) return;
+    const [src, rel, tgt, weight] = cols;
+    if(!src || !tgt) return;
+    const sid = `Entity:${src}`, tid = `Entity:${tgt}`;
+    if(!nodes.has(sid)) nodes.set(sid, { id: sid, label: "Entity", name: src, properties: { source: "file" } });
+    if(!nodes.has(tid)) nodes.set(tid, { id: tid, label: "Entity", name: tgt, properties: { source: "file" } });
+    edges.push({ source: sid, target: tid, type: rel || "관계", properties: { source: "file", weight } });
+  });
+  return { nodes: [...nodes.values()], edges };
+}
+
+async function runExtract(key){
+  const state = filterStateFor(key);
+  const textEl = document.querySelector(`[data-net-extract-text="${CSS.escape(key)}"]`);
+  const text = textEl ? textEl.value.trim() : "";
+  const staged = _stagedFiles.get(key) || [];
+  if(!text && !staged.length){ alert("추출할 텍스트를 입력하거나 파일을 첨부하세요."); return; }
+
+  const btn = document.querySelector(`[data-net-extract="${CSS.escape(key)}"]`);
+  if(btn){ btn.disabled = true; btn.textContent = "추출 중..."; }
+  try {
+    let payload = { text };
+    if(staged.length){
+      const up = await fetch("/api/upload", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: state.uploadSessionId || "", files: staged }),
+      }).then(r => r.json());
+      if(up.session_id){ state.uploadSessionId = up.session_id; payload.session_id = up.session_id; }
+    }
+    const res = await fetch("/api/graph/extract", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if(!res.ok || data.error || !data.found){
+      alert(data.error || "추출된 관계가 없습니다.");
+      if(btn){ btn.disabled = false; btn.textContent = "관계 추출"; }
+      return;
+    }
+    const srcName = staged.length ? `${staged[0].name} 외 ${staged.length}건` : "직접 입력";
+    _stagedFiles.set(key, []);
+    mergeFileGraph(key, data.nodes || [], data.edges || [], srcName);
+  } catch (e) {
+    alert("관계 추출 중 오류가 발생했습니다.");
+    if(btn){ btn.disabled = false; btn.textContent = "관계 추출"; }
+  }
+}
+
+/* ── B1: 경로 탐색 API 호출 ── */
+async function fetchPath(key, sourceId, targetId){
+  const state = filterStateFor(key);
+  try {
+    const res = await fetch(`/api/graph/path?source=${encodeURIComponent(sourceId)}&target=${encodeURIComponent(targetId)}`);
+    const data = await res.json();
+    state.pathResult = (!res.ok || data.error)
+      ? { found: false, error: data.error || `조회 실패 (${res.status})` }
+      : data;
+  } catch (e) {
+    state.pathResult = { found: false, error: "서버 연결 실패" };
+  }
+  rerenderPanelByKey(key);
+}
+
+/* ── 이벤트 위임 (1회 등록): 유형 칩, 기준 노드 추가/제거, 대상 유형, 초기화, 노드 클릭, 검색, 경로 ── */
 let _handlerBound = false;
 function bindHandlers(){
   if(_handlerBound) return;
   _handlerBound = true;
+
+  // A1: 검색 입력 — 재렌더 없이 cy에 직접 강조(입력 포커스 유지)
+  document.addEventListener("input", event => {
+    const searchInput = event.target.closest("[data-net-search]");
+    if(!searchInput) return;
+    const key = searchInput.dataset.netSearch;
+    filterStateFor(key).searchTerm = searchInput.value;
+    applySearchHighlight(key, searchInput.value);
+  });
 
   document.addEventListener("click", event => {
     const chip = event.target.closest("[data-net-filter]");
@@ -772,6 +1296,67 @@ function bindHandlers(){
       rerenderPanelByKey(key);
       return;
     }
+    // B1: 경로 찾기 / 해제
+    const pathFind = event.target.closest("[data-net-path-find]");
+    if(pathFind){
+      const key = pathFind.dataset.netPathFind;
+      const state = filterStateFor(key);
+      if(state.pathSrc && state.pathTgt && state.pathSrc !== state.pathTgt){
+        fetchPath(key, state.pathSrc, state.pathTgt);
+      }
+      return;
+    }
+    const pathClear = event.target.closest("[data-net-path-clear]");
+    if(pathClear){
+      const key = pathClear.dataset.netPathClear;
+      const state = filterStateFor(key);
+      state.pathResult = null;
+      rerenderPanelByKey(key);
+      return;
+    }
+    // 파일 등록: CSV 관계 추가
+    const csvAdd = event.target.closest("[data-net-csv-add]");
+    if(csvAdd){
+      const key = csvAdd.dataset.netCsvAdd;
+      const ta = document.querySelector(`[data-net-csv="${CSS.escape(key)}"]`);
+      const parsed = parseCsvRelations(ta ? ta.value : "");
+      if(!parsed.edges.length){ alert("‘출발,관계,대상’ 형식으로 1줄 이상 입력하세요."); return; }
+      if(ta) ta.value = "";
+      mergeFileGraph(key, parsed.nodes, parsed.edges, "CSV 입력");
+      return;
+    }
+    // 파일 등록: 비정형 관계 추출
+    const extractBtn = event.target.closest("[data-net-extract]");
+    if(extractBtn){ runExtract(extractBtn.dataset.netExtract); return; }
+    // 파일 관계 비우기
+    const fileClear = event.target.closest("[data-net-file-clear]");
+    if(fileClear){
+      const key = fileClear.dataset.netFileClear;
+      const state = filterStateFor(key);
+      state.fileNodes = []; state.fileEdges = []; state.fileSources = [];
+      _stagedFiles.set(key, []);
+      rerenderPanelByKey(key);
+      return;
+    }
+    // 분석 실행 / 해제
+    const analysisRun = event.target.closest("[data-net-analysis-run]");
+    if(analysisRun){
+      const key = analysisRun.dataset.netAnalysisRun;
+      const state = filterStateFor(key);
+      const raw = currentRawGraph(key, state);
+      if(raw){
+        const filtered = applyFilter(raw, state);
+        state.analysisResult = computeAnalysis(state.analysisMode, filtered, state.analysisSel);
+        rerenderPanelByKey(key);
+      }
+      return;
+    }
+    const analysisClear = event.target.closest("[data-net-analysis-clear]");
+    if(analysisClear){
+      filterStateFor(analysisClear.dataset.netAnalysisClear).analysisResult = null;
+      rerenderPanelByKey(analysisClear.dataset.netAnalysisClear);
+      return;
+    }
     const nodeEl = event.target.closest("[data-net-node]");
     if(nodeEl){
       const [key, ...idParts] = nodeEl.dataset.netNode.split("::");
@@ -813,21 +1398,77 @@ function bindHandlers(){
       const key = relSelect.dataset.netRelSelect;
       filterStateFor(key).draft.relType = relSelect.value || "";
       rerenderPanelByKey(key);
+      return;
+    }
+    // B1: 경로 출발/도착 노드 선택 (버튼 활성화 상태 갱신 위해 재렌더)
+    const pathSrcSel = event.target.closest("[data-net-path-src]");
+    if(pathSrcSel){
+      const key = pathSrcSel.dataset.netPathSrc;
+      filterStateFor(key).pathSrc = pathSrcSel.value || "";
+      rerenderPanelByKey(key);
+      return;
+    }
+    const pathTgtSel = event.target.closest("[data-net-path-tgt]");
+    if(pathTgtSel){
+      const key = pathTgtSel.dataset.netPathTgt;
+      filterStateFor(key).pathTgt = pathTgtSel.value || "";
+      rerenderPanelByKey(key);
+      return;
+    }
+    // 데이터 소스: hop 변경 → Neo4j 재조회
+    const hopsSel = event.target.closest("[data-net-hops]");
+    if(hopsSel){
+      const key = hopsSel.dataset.netHops;
+      filterStateFor(key).hops = Number(hopsSel.value) || 1;
+      const [tt, ...rest] = key.split(":");
+      reloadGraph(tt, rest.join(":"));
+      return;
+    }
+    // 분석 기법: 방법 변경
+    const modeSel = event.target.closest("[data-net-analysis-mode]");
+    if(modeSel){
+      const key = modeSel.dataset.netAnalysisMode;
+      const state = filterStateFor(key);
+      state.analysisMode = modeSel.value || "";
+      state.analysisResult = null;
+      rerenderPanelByKey(key);
+      return;
+    }
+    const selA = event.target.closest("[data-net-analysis-a]");
+    if(selA){ const k = selA.dataset.netAnalysisA; const s = filterStateFor(k); s.analysisSel = [selA.value, s.analysisSel[1] || ""]; return; }
+    const selB = event.target.closest("[data-net-analysis-b]");
+    if(selB){ const k = selB.dataset.netAnalysisB; const s = filterStateFor(k); s.analysisSel = [s.analysisSel[0] || "", selB.value]; return; }
+    // 비정형 파일 첨부 → 읽어서 스테이징
+    const fileInput = event.target.closest("[data-net-extract-file]");
+    if(fileInput && fileInput.files && fileInput.files.length){
+      const key = fileInput.dataset.netExtractFile;
+      const files = [...fileInput.files];
+      Promise.all(files.map(readFileEntry)).then(entries => {
+        const valid = entries.filter(Boolean);
+        const cur = _stagedFiles.get(key) || [];
+        _stagedFiles.set(key, [...cur, ...valid]);
+        const btn = document.querySelector(`[data-net-extract="${CSS.escape(key)}"]`);
+        if(btn) btn.textContent = `관계 추출 (${(_stagedFiles.get(key) || []).length}개 첨부)`;
+      });
+      return;
     }
   });
 }
 
-/** 우측 관계망 패널 HTML (그래프는 비동기 주입) */
-export function networkGraphPanelHtml(targetType, targetId, title = "관계망 분석"){
+/** 우측 관계망 패널 HTML (그래프는 비동기 주입)
+ *  opts.workbench=true → 좌측 데이터소스/파일등록/분석 제어 패널 포함(관계망분석 서브탭용) */
+export function networkGraphPanelHtml(targetType, targetId, title = "관계망 분석", opts = {}){
   bindHandlers();
   const id = containerId(targetType, targetId);
+  const state = filterStateFor(graphKey(targetType, targetId));
+  state.workbench = !!opts.workbench;
   // 렌더 직후 비동기 로드 (캐시 있으면 즉시 그려짐)
   setTimeout(() => loadGraphInto(targetType, targetId), 0);
   return `
-    <section class="profile-net-frame">
+    <section class="profile-net-frame${state.workbench ? " net-frame-wb" : ""}">
       <div class="profile-net-frame-head">
         <h4>${escapeHtml(title)}</h4>
-        <span class="muted">호버: 이웃 강조 · 클릭: 상세 정보 · 더블클릭: 기준 노드 · 휠: 줌</span>
+        <span class="muted">호버: 이웃 강조 · 클릭: 상세 · 더블클릭: 기준 노드 · 휠: 줌</span>
       </div>
       <div class="profile-net-body" id="${id}">
         ${renderPanelContent(targetType, targetId)}
