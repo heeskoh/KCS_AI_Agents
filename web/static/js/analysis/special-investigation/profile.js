@@ -146,6 +146,12 @@ function drugPersonProfilePanel(deps){
   const score = Math.round(Number(person?.risk_score || (aCase.targetType === "person" ? 82 : 76)));
   const level = drugRiskLevelLabel(person?.risk_level || (score >= 85 ? "CRITICAL" : score >= 70 ? "HIGH" : "MEDIUM"));
   const tags = person?.risk_tags || "마약류, 필로폰, 고위험국 이동, 분산송금";
+  // 실제 우범자 프로파일(근거 기반 위험지표) 로드
+  if(personId && !deps.getRiskPersonProfile?.(personId) && !deps.isRiskPersonProfileLoading?.(personId)) {
+    deps.loadRiskPersonProfile?.(personId);
+  }
+  const detail = deps.getRiskPersonProfile?.(personId);
+  const realIndicators = detail?.indicators || [];
   const metrics = [
     { label:"우범자 마약위험", value:`${score}`, desc:"개인 프로파일·사건·관계망 통합", tone:drugRiskScoreClass(score) },
     { label:"고위험국 이동", value:"92", desc:"NL·TH·PH 반복 이동/배송", tone:"high" },
@@ -158,13 +164,6 @@ function drugPersonProfilePanel(deps){
     ["RS-2026-0001", "밀수입", "필로폰", "공항 여행자", "연락책", "강함"],
     ["RS-2026-0001-02", "밀반출", "위조상품", "국제우편", "연락책", "중간"],
     ["RS-2026-DRG-07", "마약 자금세탁", "분산송금", "ATM/해외송금", "자금책 의심", "중간"],
-  ];
-  const indicatorRows = [
-    ["HIGH_RISK_ROUTE", "고위험국 반복 이동/배송", "92", "필로폰 관련 경로 반복"],
-    ["NETWORK_PROXIMITY", "기존 적발자와 관계망 근접도", "86", "공범·수취인 연결"],
-    ["SMALL_BATCH_REPEAT", "소량 반복 반입 패턴", "85", "국제우편 분산 반입"],
-    ["SLANG_SOCIAL_SIGNAL", "은어/SNS 거래 단서", "81", "메신저 별칭·주문 흔적"],
-    ["SPLIT_REMITTANCE", "분산송금/현금화", "77", "소액 반복 이체와 출금"],
   ];
   const body = `
     ${drugMetricCards(metrics)}
@@ -192,8 +191,26 @@ function drugPersonProfilePanel(deps){
     </div>
     <div class="drug-profile-grid">
       <section class="drug-profile-panel">
-        <h4>개인 위험지표</h4>
-        ${dataTable(["코드","지표명","점수","마약수사 단서"], indicatorRows)}
+        <h4>개인 위험지표 (근거 기반)</h4>
+        ${realIndicators.length ? `<div class="risk-bars">
+          ${realIndicators.map(row => {
+            const pct = row.score != null ? Math.min(100, Number(row.score)) : 0;
+            const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
+            const bullets = String(row.reason || "")
+              .split("\n").map(s => s.replace(/^[-\s]+/, "").trim()).filter(Boolean);
+            const reasonHtml = bullets.length
+              ? `<ul class="risk-reason">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>` : "";
+            const recoHtml = (pct >= 60 && row.recommendation)
+              ? `<p class="risk-reco">📌 ${escapeHtml(row.recommendation)}</p>` : "";
+            return `
+              <div class="risk-bar-row">
+                <span>${escapeHtml(row.indicator_name || row.indicator_code)}</span>
+                <div class="risk-bar-track"><i class="${tone}" style="width:${pct}%"></i></div>
+                <strong class="${tone === "high" ? "high" : tone === "mid" ? "mid-risk" : "good"}">${row.score != null ? Number(row.score).toFixed(0) : "-"}%</strong>
+              </div>${reasonHtml}${recoHtml}`;
+          }).join("")}
+        </div>`
+        : `<p class="muted">${deps.isRiskPersonProfileLoading?.(personId) ? "위험지표 불러오는 중…" : "산출된 위험지표가 없습니다."}</p>`}
       </section>
       <section class="drug-profile-panel">
         <h4>관련 사건 이력</h4>

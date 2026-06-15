@@ -115,13 +115,24 @@ function renderPersonFullProfile(aCase, person, detail, type){
       <div class="person-profile-grid">
         <section class="person-profile-panel">
           <h4>개인 위험지표</h4>
-          ${smallTable(["코드", "지표명", "값", "점수", "가중치"], indicators.slice(0, 8).map(row => [
-            row.indicator_code,
-            row.indicator_name,
-            row.indicator_value,
-            row.score,
-            row.weight,
-          ]))}
+          <div class="risk-bars">
+          ${indicators.map(row => {
+            const pct = row.score != null ? Math.min(100, Number(row.score)) : 0;
+            const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
+            const bullets = String(row.reason || "")
+              .split("\n").map(s => s.replace(/^[-\s]+/, "").trim()).filter(Boolean);
+            const reasonHtml = bullets.length
+              ? `<ul class="risk-reason">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>` : "";
+            const recoHtml = (pct >= 60 && row.recommendation)
+              ? `<p class="risk-reco">📌 ${escapeHtml(row.recommendation)}</p>` : "";
+            return `
+              <div class="risk-bar-row">
+                <span>${escapeHtml(row.indicator_name || row.indicator_code)}</span>
+                <div class="risk-bar-track"><i class="${tone}" style="width:${pct}%"></i></div>
+                <strong class="${tone === "high" ? "high" : tone === "mid" ? "mid-risk" : "good"}">${row.score != null ? Number(row.score).toFixed(0) : "-"}%</strong>
+              </div>${reasonHtml}${recoHtml}`;
+          }).join("") || '<p class="muted">산출된 위험지표가 없습니다.</p>'}
+          </div>
         </section>
         <section class="person-profile-panel">
           <h4>관련 사건 이력</h4>

@@ -15,6 +15,11 @@ from pathlib import Path
 
 import duckdb
 
+try:
+    from generate_person_risk_profiles import generate_all as generate_person_risk_profiles
+except ImportError:
+    from data.scripts.generate_person_risk_profiles import generate_all as generate_person_risk_profiles
+
 
 DB_PATH = Path(__file__).resolve().parents[1] / "customs.duckdb"
 SEED_BATCH_ID = "risk-person-sample-v1"
@@ -579,7 +584,12 @@ def insert_rows(conn: duckdb.DuckDBPyConnection, rows: dict[str, list[tuple]]) -
         "evidence_source": "INSERT INTO evidence_source VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         "person_case_link": "INSERT INTO person_case_link VALUES (?,?,?,?,?,?,?,?,?)",
         "network_edge": "INSERT INTO network_edge VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        "risk_indicator": "INSERT INTO risk_indicator VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        # 컬럼 명시형: risk_indicator 가 이후 domain/recommendation/related_refs 로 확장돼도 안전.
+        "risk_indicator": (
+            "INSERT INTO risk_indicator (indicator_id, entity_type, entity_id, indicator_code, "
+            "indicator_name, indicator_value, score, weight, reason, calculated_at, seed_batch_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+        ),
         "analysis_result": "INSERT INTO analysis_result VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
     }
     for table, table_rows in rows.items():
@@ -633,6 +643,8 @@ def main() -> None:
                 clear_seed(conn)
             rows = build_seed_rows()
             insert_rows(conn, rows)
+            print("\n[위험지표] 근거 데이터 생성 + 도메인별 6지표 산출 (일반/마약)")
+            generate_person_risk_profiles(conn, verbose=True)
         print_summary(conn)
 
 

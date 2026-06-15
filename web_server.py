@@ -125,7 +125,10 @@ def get_risk_person_profile(person_id: str) -> dict[str, object]:
 
         indicators = conn.execute(
             """
-            SELECT indicator_code, indicator_name, indicator_value, score, weight, reason, calculated_at
+            SELECT indicator_code, indicator_name, indicator_value, score, weight, reason,
+                   COALESCE(domain, '') AS domain,
+                   COALESCE(recommendation, '') AS recommendation,
+                   calculated_at
             FROM risk_indicator
             WHERE entity_type = 'person' AND entity_id = ?
             ORDER BY score DESC NULLS LAST, weight DESC NULLS LAST
@@ -289,6 +292,8 @@ def get_risk_person_profile(person_id: str) -> dict[str, object]:
         "profile": profile_row,
         "summary": summary,
         "indicators": indicator_rows,
+        # 2026 재설계: 지표 코드 키 맵(근거 bullet 렌더용). domain(general/drug) 포함.
+        "risk_indicators": {r["indicator_code"]: r for r in indicator_rows},
         "cases": case_rows,
         "roles": role_rows,
         "network": network_rows,
