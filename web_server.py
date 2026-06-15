@@ -158,6 +158,7 @@ def get_risk_person_profile(person_id: str) -> dict[str, object]:
                 c.lead_agency,
                 c.summary,
                 pcl.role_in_case,
+                pcl.is_cargo_owner,
                 pcl.confidence_score,
                 pcl.evidence_level,
                 pcl.source_id

@@ -98,6 +98,7 @@ DDL = [
         person_id VARCHAR,
         case_id VARCHAR,
         role_in_case VARCHAR,
+        is_cargo_owner BOOLEAN,         -- 화주 여부(수입계열: 수하인, 수출계열: 송하인일 때 true)
         confidence_score DOUBLE,
         evidence_level VARCHAR,
         source_id VARCHAR,
@@ -228,9 +229,15 @@ def build_seed_rows() -> dict[str, list[tuple]]:
     countries = ["태국", "베트남", "중국", "미국", "멕시코", "네덜란드", "필리핀", "말레이시아"]
     regions = ["서울", "인천", "부산", "대구", "광주", "대전", "경기", "제주"]
     channels = ["국제우편", "특송화물", "공항 여행자", "항만 컨테이너", "환적화물"]
-    roles = ["운반책", "수취인", "발송책", "모집책", "자금책", "연락책", "공범"]
-    profile_types = [("운반책", 28), ("수취인", 24), ("연락책", 16), ("모집책", 12), ("자금책", 10), ("총책 의심", 6), ("조직대표", 4)]
+    roles = ["운반책", "수하인", "송하인", "모집책", "자금책", "연락책", "공범"]
+    profile_types = [("운반책", 28), ("수하인", 24), ("연락책", 16), ("모집책", 12), ("자금책", 10), ("총책 의심", 6), ("조직대표", 4)]
     occupations = ["무직", "배송기사", "온라인 판매자", "무역업", "유학생", "프리랜서", "물류대행", "요식업"]
+    export_case_types = {"밀수출", "밀반출"}
+
+    def _is_cargo_owner(case_type: str, role: str) -> bool:
+        if case_type in export_case_types:
+            return role == "송하인"
+        return role == "수하인"
 
     persons: list[tuple] = []
     orgs: list[tuple] = []
@@ -368,11 +375,13 @@ def build_seed_rows() -> dict[str, list[tuple]]:
             now,
         ))
 
+        role = rng.choice(roles)
         links.append((
             f"PCL-{i:04d}",
             person_id,
             case_id,
-            rng.choice(roles),
+            role,
+            _is_cargo_owner(case_type, role),
             round(rng.uniform(0.55, 0.98), 2),
             rng.choice(["확정", "강함", "중간", "약함"]),
             source_id,
@@ -480,11 +489,12 @@ def build_seed_rows() -> dict[str, list[tuple]]:
             hist_quantity = round(rng.uniform(0.1, 42.0), 2)
             hist_value = round(hist_quantity * rng.uniform(350_000, 12_000_000), -3)
             hist_role = rng.choice(roles)
+            hist_case_type = rng.choice(["밀반입", "밀반출", "추적", "특송", "우편", "여행자"])
 
             cases.append((
                 hist_case_id,
                 f"RS-2026-{i:04d}-{h:02d}",
-                rng.choice(["밀반입", "밀반출", "추적", "특송", "우편", "여행자"]),
+                hist_case_type,
                 hist_category,
                 hist_sub_category,
                 rng.choice(["첩보", "조사중", "송치", "종결", "보강필요"]),
@@ -525,6 +535,7 @@ def build_seed_rows() -> dict[str, list[tuple]]:
                 person_id,
                 hist_case_id,
                 hist_role,
+                _is_cargo_owner(hist_case_type, hist_role),
                 round(rng.uniform(0.52, 0.99), 2),
                 rng.choice(["확정", "강함", "중간", "약함"]),
                 hist_source_id,
@@ -601,7 +612,7 @@ def insert_rows(conn: duckdb.DuckDBPyConnection, rows: dict[str, list[tuple]]) -
         "risk_org_profile": "INSERT INTO risk_org_profile VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         "smuggling_case": "INSERT INTO smuggling_case VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         "evidence_source": "INSERT INTO evidence_source VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        "person_case_link": "INSERT INTO person_case_link VALUES (?,?,?,?,?,?,?,?,?)",
+        "person_case_link": "INSERT INTO person_case_link VALUES (?,?,?,?,?,?,?,?,?,?)",
         "network_edge": "INSERT INTO network_edge VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         # 컬럼 명시형: risk_indicator 가 이후 domain/recommendation/related_refs 로 확장돼도 안전.
         "risk_indicator": (
