@@ -30,6 +30,38 @@ python data\scripts\init_chromadb.py
 
 데이터를 완전히 다시 만들려면 각 스크립트에 `--reset`을 붙입니다.
 
+## Neo4j 그래프 DB 설정 (새 PC 또는 초기 설치)
+
+Neo4j는 Docker로 실행합니다. DuckDB가 먼저 생성되어 있어야 합니다.
+
+### 1. Neo4j 컨테이너 기동
+
+```powershell
+docker compose -f docker-compose.neo4j.yml up -d
+```
+
+브라우저 확인: `http://localhost:7474` (ID: `neo4j` / PW: `kcsneo4j1234`)
+
+### 2. 그래프 데이터 로드
+
+아래 두 스크립트를 순서대로 실행합니다. `--clear`는 기존 데이터를 지우고 다시 씁니다.
+
+```powershell
+# 인물·기업·사건·관계망 그래프
+.\venv\Scripts\python.exe data\scripts\load_risk_person_graph_to_neo4j.py --clear
+
+# 기업 수입위험 그래프
+.\venv\Scripts\python.exe data\scripts\load_company_import_graph_to_neo4j.py --clear
+```
+
+### 3. 로드 확인
+
+```powershell
+.\venv\Scripts\python.exe data\scripts\neo4j_smoke_test.py
+```
+
+> `load_network_edge_to_neo4j.py`는 구 버전 레거시 스크립트로 reload 시 실행하지 않습니다.
+
 ## 웹 서버
 
 ```powershell
