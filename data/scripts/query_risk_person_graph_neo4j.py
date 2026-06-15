@@ -76,8 +76,21 @@ def main() -> None:
                 """
                 MATCH (p:Person {person_id: $person_id})
                 RETURN p.top_indicators AS top_indicators,
-                       p.indicator_count AS indicator_count,
-                       p.latest_analysis_summary AS latest_analysis_summary
+                       p.indicator_count AS indicator_count
+                """,
+                person_id=args.person_id,
+            ).data()
+
+            # 분석은 ANALYZED_BY 엣지로 표현됨 (AnalysisResult 노드 폐지)
+            analyses = session.run(
+                """
+                MATCH (:Person {person_id: $person_id})-[r:ANALYZED_BY]->(a:Agent)
+                RETURN r.analysis_type AS analysis_type,
+                       a.name AS agent,
+                       r.risk_score_after AS risk_score_after,
+                       r.output_summary AS output_summary
+                ORDER BY r.created_at DESC
+                LIMIT 10
                 """,
                 person_id=args.person_id,
             ).data()
@@ -87,6 +100,7 @@ def main() -> None:
         print(f"top_network_edges: {top_edges}")
         print(f"involved_cases: {cases}")
         print(f"risk_indicators: {indicators}")
+        print(f"analyses: {analyses}")
     finally:
         driver.close()
 

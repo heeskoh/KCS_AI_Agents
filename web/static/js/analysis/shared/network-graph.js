@@ -33,6 +33,7 @@ const NODE_COLORS = {
   RiskIndicator: "#ca8a04",
   RiskScore:     "#ca8a04",
   AnalysisResult:"#64748b",
+  Agent:         "#0d9488",
   Broker:        "#9333ea",
   HsCode:        "#0891b2",
   Item:          "#65a30d",
@@ -49,7 +50,7 @@ const NODE_LABEL_KO = {
   Person: "인물", Company: "기업", Declaration: "수입신고",
   Country: "국가", Case: "사건", SmugglingCase: "사건",
   Org: "조직", Organization: "조직", Evidence: "증거",
-  RiskIndicator: "위험지표", RiskScore: "위험점수", AnalysisResult: "분석이력",
+  RiskIndicator: "위험지표", RiskScore: "위험점수", AnalysisResult: "분석이력", Agent: "AI 분석서비스",
   Broker: "관세사", HsCode: "HS코드", Item: "품목",
   Industry: "업종", Region: "지역", RelatedCompany: "관계사",
   Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
@@ -179,15 +180,16 @@ const PROP_LABEL_KO = {
   broker_name: "관세사", org_name: "조직명", risk_score: "위험점수", risk_level: "위험등급",
   declaration_no: "신고번호", declared_value: "신고금액", import_date: "수입일",
   indicator_name: "지표명", code: "코드", value: "값", score: "점수",
-  // 인물(우범자) 프로파일 + 흡수된 위험지표·정보분석 속성
+  // 인물(우범자) 프로파일 + 흡수된 위험지표 속성
   profile_type: "프로파일 유형", name_aliases: "별칭", birth_date: "생년월일", gender: "성별",
   nationality: "국적", occupation: "직업", risk_tags: "위험 태그", watch_status: "관찰 상태",
   address_region: "주소지", org_type: "조직 유형", relation_type: "관계 유형", weight: "가중치",
   confidence_score: "신뢰도",
   indicator_count: "위험지표 수", top_indicators: "주요 위험지표",
-  analysis_count: "정보분석 건수", latest_analysis_type: "최근 분석유형",
-  latest_analysis_agent: "분석 AI서비스", latest_analysis_summary: "최근 정보분석 요약",
-  latest_risk_score_after: "분석후 위험점수",
+  // 정보분석(ANALYZED_BY) 엣지 속성
+  analysis_type: "분석유형", input_summary: "분석 입력요약", output_summary: "정보분석 요약",
+  risk_score_before: "분석전 위험점수", risk_score_after: "분석후 위험점수",
+  explanation: "분석 설명", review_status: "검토상태", created_at: "생성일시",
   // 사건(CASE_*) 엣지 속성
   case_no: "사건번호", role_in_case: "역할", evidence_level: "증거수준",
   evidence_summary: "증거 요약", modus_operandi: "수법",
@@ -197,7 +199,7 @@ const PROP_HIDDEN = new Set(["seed_batch_id", "updated_from"]);
 const PROP_PRIORITY = [
   // 인물 핵심: 위험·정보분석 우선 노출
   "risk_level", "risk_score", "risk_tags", "top_indicators", "indicator_count",
-  "analysis_count", "latest_analysis_type", "latest_analysis_summary", "latest_risk_score_after",
+  "analysis_type", "output_summary", "risk_score_after", "risk_score_before", "review_status",
   "nationality", "occupation", "watch_status",
   // 사건(CASE_*) 엣지 속성
   "case_no", "case_type", "case_status", "contraband_category", "contraband_sub_category",

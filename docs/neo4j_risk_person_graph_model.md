@@ -31,14 +31,21 @@ Reference checks found no missing person/case/evidence references for the curren
 그 인물을 **대표주체(hub)** 로 삼아, 사건 속성을 hub→장소(Country/Region) 관계와
 타인 연루(network_edge person→case) 시 spoke→hub 관계로 표현한다.
 
+요약:
+- **사건** = `CASE_*` 엣지 (대표주체 인물 중심)
+- **증거** = 사건(`CASE_*`) 엣지의 `evidence_summary`/`evidence_level`/`evidence_agency` 속성으로 흡수
+- **분석** = `(:Person)-[:ANALYZED_BY]->(:Agent)` 엣지 (수행 주체 model_or_agent는 Agent 노드)
+- **위험지표** = `Person.top_indicators`/`indicator_count` 속성으로 흡수
+
 ## Nodes
 
 | Label | Natural key | Source | Notes |
 | --- | --- | --- | --- |
-| `Person` | `person_id` | `risk_person_profile` | `top_indicators`/`indicator_count`(위험지표 흡수), `latest_analysis_*`/`analysis_count`(분석결과 흡수) |
+| `Person` | `person_id` | `risk_person_profile` | `top_indicators`/`indicator_count`(위험지표 흡수) |
 | `Organization` | `org_id` | `risk_org_profile` | |
 | `Country` | `code` | `smuggling_case.origin_country`, `transit_country` | |
 | `Region` | `name` | `smuggling_case.destination_region`, profile address region | |
+| `Agent` | `name` | `analysis_result.model_or_agent` | 분석 수행 AI 서비스(분류 엔티티) |
 
 ## Relationships
 
@@ -51,9 +58,13 @@ detection_date, role_in_case, confidence_score, evidence_level, evidence_summary
 | `(:Person hub)-[:CASE_VIA {사건속성}]->(:Country)` | 사건 경유지 |
 | `(:Person hub)-[:CASE_TO {사건속성}]->(:Region)` | 사건 도착지 |
 | `(:Person spoke)-[:CASE_LINK {사건속성}]->(:Person hub)` | 동일 사건 연루(타인) — `network_edge` person→case 기준 |
+| `(:Person)-[:ANALYZED_BY {분석속성}]->(:Agent)` | 정보분석 1건 (분석결과 → 엣지) |
 | `(:Person)-[:NETWORK_EDGE {relation_type, weight, confidence_score}]->(:Person\|:Organization)` | 인적·조직 직접 관계 |
 | `(:Person)-[:RESIDES_IN]->(:Region)` | Person address region |
 | `(:Organization)-[:LOCATED_IN]->(:Region)` | Organization address region |
+
+`ANALYZED_BY` 속성: `analysis_id, analysis_type, input_summary, output_summary,
+risk_score_before, risk_score_after, explanation, review_status, created_at`.
 
 > 폐지: `Case`/`Evidence`/`RiskIndicator`/`AnalysisResult` 노드, `INVOLVED_IN`/`SUPPORTED_BY`/
 > `HAS_EVIDENCE`/`HAS_RISK_INDICATOR`/`HAS_ANALYSIS_RESULT`/`ORIGINATED_FROM`/`TRANSITED_THROUGH`/`DESTINED_FOR` 관계.
@@ -95,11 +106,19 @@ RETURN p
 LIMIT 100;
 ```
 
-Risk indicators / analysis for a person (노드 속성으로 흡수됨):
+Risk indicators for a person (노드 속성으로 흡수됨):
 
 ```cypher
 MATCH (p:Person {person_id: "RP-0006"})
-RETURN p.top_indicators, p.indicator_count, p.latest_analysis_summary, p.analysis_count;
+RETURN p.top_indicators, p.indicator_count;
+```
+
+Analysis history for a person (ANALYZED_BY 엣지):
+
+```cypher
+MATCH (:Person {person_id: "RP-0006"})-[r:ANALYZED_BY]->(a:Agent)
+RETURN a.name, r.analysis_type, r.risk_score_after, r.output_summary, r.created_at
+ORDER BY r.created_at DESC;
 ```
 
 Most connected persons:

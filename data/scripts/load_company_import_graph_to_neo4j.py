@@ -165,8 +165,15 @@ def clear_company_graph(tx: ManagedTransaction) -> None:
     ]
     for statement in delete_statements:
         tx.run(statement)
+    # 본 로더 전용 노드만 삭제. Country는 우범자 그래프와 공유하므로 제외
+    # (공유 노드를 DETACH DELETE 하면 상대 그래프의 관계까지 사라짐).
     tx.run(
-        "MATCH (n) WHERE n.updated_from = $source_tag DETACH DELETE n",
+        """
+        MATCH (n)
+        WHERE n.updated_from = $source_tag
+          AND (n:Company OR n:HsCode OR n:Broker OR n:RelatedCompany)
+        DETACH DELETE n
+        """,
         {"source_tag": SOURCE_TAG},
     )
 

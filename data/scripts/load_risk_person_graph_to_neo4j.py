@@ -1,7 +1,7 @@
 """Load DuckDB risk-person investigation data into Neo4j (entity-centric model).
 
 Modeling principle (2026 재모델링):
-  - 노드 = 엔티티/분류: Person, Organization, Region, Country
+  - 노드 = 엔티티/분류: Person, Organization, Region, Country, Agent
   - 사건(Case)·증거(Evidence)·분석결과(AnalysisResult)·위험지표(RiskIndicator)는
     노드가 아니라 **관계(엣지) 또는 노드 속성**으로 표현한다.
       · 사건  → 대표주체(사건 소유 인물=hub) 중심의 별(star) 관계
@@ -9,8 +9,10 @@ Modeling principle (2026 재모델링):
                  · (hub)-[:CASE_FROM/CASE_VIA {사건속성}]->(:Country)
                  · (hub)-[:CASE_TO {사건속성}]->(:Region)
       · 증거  → 사건 엣지의 evidence_summary/evidence_level 속성으로 흡수
+      · 분석  → (인물)-[:ANALYZED_BY {analysis_type, risk_score_before/after,
+                output_summary, explanation, review_status, created_at}]->(:Agent) 엣지.
+                분석 수행 주체(model_or_agent)는 Agent 노드(분류 엔티티)로 둔다.
       · 위험지표 → Person.top_indicators / indicator_count 속성으로 흡수
-      · 분석결과 → Person.latest_analysis_* / analysis_count 속성으로 흡수
 
 DuckDB remains the source of truth. Neo4j is a derived graph store.
 
@@ -107,24 +109,19 @@ def build_indices(data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
         if prev is None or (link.get("confidence_score") or 0) > (prev.get("confidence_score") or 0):
             hub_by_case[cid] = link
 
-    # 위험지표 → 인물별 요약
+    # 위험지표 → 인물별 요약 (Person 노드 속성으로 흡수)
     ind_by_person: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for ri in data["risk_indicators"]:
         if ri.get("entity_type") == "person" and ri.get("entity_id"):
             ind_by_person[ri["entity_id"]].append(ri)
 
-    # 분석결과 → 인물별 최신 + 건수
-    ana_by_person: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for ar in data["analysis_results"]:
-        if ar.get("entity_type") == "person" and ar.get("entity_id"):
-            ana_by_person[ar["entity_id"]].append(ar)
+    # 분석결과는 노드 속성으로 흡수하지 않고 ANALYZED_BY 엣지로 표현한다(merge_analysis 참조).
 
     return {
         "cases_by_id": cases_by_id,
         "evidence_by_id": evidence_by_id,
         "hub_by_case": hub_by_case,
         "ind_by_person": ind_by_person,
-        "ana_by_person": ana_by_person,
     }
 
 
@@ -135,17 +132,9 @@ def person_rollup(person_id: str, idx: dict[str, Any]) -> dict[str, Any]:
     top_text = ", ".join(
         f"{r.get('indicator_name') or r.get('indicator_code')}({r.get('score')})" for r in top
     )
-    analyses = sorted(idx["ana_by_person"].get(person_id, []),
-                      key=lambda r: str(r.get("created_at") or ""), reverse=True)
-    latest = analyses[0] if analyses else {}
     return {
         "indicator_count": len(indicators),
         "top_indicators": top_text or None,
-        "analysis_count": len(analyses),
-        "latest_analysis_type": latest.get("analysis_type"),
-        "latest_analysis_agent": latest.get("model_or_agent"),
-        "latest_risk_score_after": latest.get("risk_score_after"),
-        "latest_analysis_summary": latest.get("output_summary"),
     }
 
 
@@ -181,6 +170,7 @@ def create_constraints(tx: ManagedTransaction) -> None:
         "CREATE CONSTRAINT organization_id IF NOT EXISTS FOR (n:Organization) REQUIRE n.org_id IS UNIQUE",
         "CREATE CONSTRAINT country_code IF NOT EXISTS FOR (n:Country) REQUIRE n.code IS UNIQUE",
         "CREATE CONSTRAINT region_name IF NOT EXISTS FOR (n:Region) REQUIRE n.name IS UNIQUE",
+        "CREATE CONSTRAINT agent_name IF NOT EXISTS FOR (n:Agent) REQUIRE n.name IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
@@ -192,13 +182,21 @@ def clear_graph(tx: ManagedTransaction) -> None:
         "MATCH (s)-[r:NETWORK_EDGE]->() WHERE s:Person OR s:Organization DELETE r",
         "MATCH (:Person)-[r:CASE_LINK]->() DELETE r",
         "MATCH (:Person)-[r:CASE_FROM|CASE_VIA|CASE_TO]->() DELETE r",
+        "MATCH (:Person)-[r:ANALYZED_BY]->() DELETE r",
         "MATCH (:Person)-[r:RESIDES_IN]->() DELETE r",
         "MATCH (:Organization)-[r:LOCATED_IN]->() DELETE r",
     ]
     for statement in delete_statements:
         tx.run(statement)
+    # 본 로더 전용 노드만 삭제. Country는 업체 그래프와 공유하므로 제외
+    # (공유 노드를 DETACH DELETE 하면 상대 그래프의 관계까지 사라짐).
     tx.run(
-        "MATCH (n) WHERE n.updated_from = $source_tag DETACH DELETE n",
+        """
+        MATCH (n)
+        WHERE n.updated_from = $source_tag
+          AND (n:Person OR n:Organization OR n:Region OR n:Agent)
+        DETACH DELETE n
+        """,
         {"source_tag": SOURCE_TAG},
     )
 
@@ -224,11 +222,6 @@ def merge_person(tx: ManagedTransaction, row: dict[str, Any], rollup: dict[str, 
             p.watch_status = $watch_status,
             p.indicator_count = $indicator_count,
             p.top_indicators = $top_indicators,
-            p.analysis_count = $analysis_count,
-            p.latest_analysis_type = $latest_analysis_type,
-            p.latest_analysis_agent = $latest_analysis_agent,
-            p.latest_risk_score_after = $latest_risk_score_after,
-            p.latest_analysis_summary = $latest_analysis_summary,
             p.seed_batch_id = $seed_batch_id,
             p.updated_from = $source_tag
         """,
@@ -370,6 +363,35 @@ def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any], idx: dict[st
         )
 
 
+def merge_analysis(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    """분석결과 1건 → (인물)-[:ANALYZED_BY {분석속성}]->(:Agent).
+
+    분석 수행 주체(model_or_agent)는 분류 엔티티인 Agent 노드로 둔다.
+    """
+    if row.get("entity_type") != "person" or not row.get("entity_id"):
+        return
+    agent = row.get("model_or_agent") or "unknown_agent"
+    tx.run(
+        """
+        MATCH (p:Person {person_id: $entity_id})
+        MERGE (a:Agent {name: $agent})
+        SET a.updated_from = $source_tag
+        MERGE (p)-[r:ANALYZED_BY {analysis_id: $analysis_id}]->(a)
+        SET r.analysis_type = $analysis_type,
+            r.input_summary = $input_summary,
+            r.output_summary = $output_summary,
+            r.risk_score_before = $risk_score_before,
+            r.risk_score_after = $risk_score_after,
+            r.explanation = $explanation,
+            r.review_status = $review_status,
+            r.created_at = $created_at,
+            r.seed_batch_id = $seed_batch_id,
+            r.updated_from = $source_tag
+        """,
+        {**row, "agent": agent, "source_tag": SOURCE_TAG},
+    )
+
+
 def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) -> dict[str, Any]:
     load_dotenv()
     uri = os.getenv("NEO4J_URI", DEFAULT_URI)
@@ -406,6 +428,10 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
             for row in data["network_edges"]:
                 session.execute_write(merge_network_edge, row, idx)
 
+            # 분석결과 → (인물)-[:ANALYZED_BY]->(:Agent) 엣지
+            for row in data["analysis_results"]:
+                session.execute_write(merge_analysis, row)
+
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
             ).data()
@@ -420,6 +446,7 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
         "orgs_loaded": len(data["orgs"]),
         "cases_indexed": len(idx["hub_by_case"]),
         "network_edges_loaded": len(data["network_edges"]),
+        "analysis_edges_loaded": len(data["analysis_results"]),
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,
     }

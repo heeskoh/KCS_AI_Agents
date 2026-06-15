@@ -323,6 +323,21 @@ def build_person_network_report(person_id: str) -> str | None:
         person_id=person_id,
     )
 
+    # 분석은 AnalysisResult 노드 폐지 → (인물)-[:ANALYZED_BY]->(:Agent) 엣지로 표현됨.
+    analyses = _read(
+        """
+        MATCH (:Person {person_id: $person_id})-[r:ANALYZED_BY]->(a:Agent)
+        RETURN r.analysis_type AS analysis_type,
+               a.name AS agent,
+               r.risk_score_after AS risk_score_after,
+               r.output_summary AS output_summary,
+               r.created_at AS created_at
+        ORDER BY r.created_at DESC
+        LIMIT 12
+        """,
+        person_id=person_id,
+    )
+
     edge_lines = [
         f"- {row['relation_type']} -> {row['target_label']}:{row['target_id']} "
         f"({row.get('target_name') or '-'}) / weight {row.get('weight')} confidence {row.get('confidence_score')}"
@@ -333,13 +348,14 @@ def build_person_network_report(person_id: str) -> str | None:
         f"{row.get('contraband_sub_category')} | 역할 {row.get('role_in_case')} | confidence {row.get('confidence_score')}"
         for row in cases
     ] or ["- 관여 사건 없음"]
-    # 위험지표·분석이력은 노드 폐지 → Person 노드 속성으로 흡수됨
+    # 위험지표는 노드 폐지 → Person 노드 속성으로 흡수됨
     indicator_lines = [f"- {person.get('top_indicators') or '위험지표 미산정'} (총 {person.get('indicator_count', 0)}건)"]
+    # 분석이력은 ANALYZED_BY 엣지로 표현됨
     analysis_lines = [
-        f"- {person.get('latest_analysis_type') or '-'} ({person.get('latest_analysis_agent') or '-'}) / "
-        f"after {person.get('latest_risk_score_after')}: {person.get('latest_analysis_summary') or '분석 이력 없음'} "
-        f"(총 {person.get('analysis_count', 0)}건)"
-    ]
+        f"- {row.get('analysis_type') or '-'} ({row.get('agent') or '-'}) / "
+        f"after {row.get('risk_score_after')}: {row.get('output_summary') or '-'}"
+        for row in analyses
+    ] or ["- 분석 이력 없음"]
 
     lines = [
         "[Neo4j 우범자 관계망 분석 결과]",
