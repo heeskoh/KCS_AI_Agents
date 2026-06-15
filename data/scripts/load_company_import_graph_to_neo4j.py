@@ -93,6 +93,11 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
         companies = as_dicts(conn, "SELECT * FROM company_profiles ORDER BY company_id")
         declarations = as_dicts(conn, "SELECT * FROM import_declarations ORDER BY id")
         risk_scores = as_dicts(conn, "SELECT * FROM import_risk_scores ORDER BY id")
+        # 2026 재설계: 근거 기반 위험지표 (테이블 없으면 빈 목록 — 하위호환)
+        try:
+            risk_indicators = as_dicts(conn, "SELECT * FROM company_risk_indicator ORDER BY id")
+        except duckdb.CatalogException:
+            risk_indicators = []
         supply_stats = as_dicts(
             conn,
             """
@@ -127,6 +132,7 @@ def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
         "risk_scores": risk_scores,
         "supply_stats": supply_stats,
         "export_countries": export_countries,
+        "risk_indicators": risk_indicators,
     }
 
 
@@ -150,6 +156,7 @@ def create_constraints(tx: ManagedTransaction) -> None:
         "CREATE CONSTRAINT hs_code IF NOT EXISTS FOR (n:HsCode) REQUIRE n.code IS UNIQUE",
         "CREATE CONSTRAINT broker_name IF NOT EXISTS FOR (n:Broker) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT related_company_name IF NOT EXISTS FOR (n:RelatedCompany) REQUIRE n.name IS UNIQUE",
+        "CREATE CONSTRAINT risk_indicator_code IF NOT EXISTS FOR (n:RiskIndicator) REQUIRE n.code IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
@@ -162,6 +169,7 @@ def clear_company_graph(tx: ManagedTransaction) -> None:
         "MATCH (:Company)-[r:USES_BROKER]->() DELETE r",
         "MATCH (:Company)-[r:HAS_RELATED_COMPANY]->() DELETE r",
         "MATCH (:Company)-[r:EXPORTS_TO]->() DELETE r",
+        "MATCH (:Company)-[r:HAS_RISK_INDICATOR]->() DELETE r",
     ]
     for statement in delete_statements:
         tx.run(statement)
@@ -171,7 +179,7 @@ def clear_company_graph(tx: ManagedTransaction) -> None:
         """
         MATCH (n)
         WHERE n.updated_from = $source_tag
-          AND (n:Company OR n:HsCode OR n:Broker OR n:RelatedCompany)
+          AND (n:Company OR n:HsCode OR n:Broker OR n:RelatedCompany OR n:RiskIndicator)
         DETACH DELETE n
         """,
         {"source_tag": SOURCE_TAG},
@@ -289,6 +297,31 @@ def merge_supply_stat(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     )
 
 
+def merge_risk_indicator(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    """위험지표 1건 → (:Company)-[:HAS_RISK_INDICATOR {score, reason, ...}]->(:RiskIndicator).
+
+    지표 유형(indicator_code)은 분류 엔티티인 RiskIndicator 노드(6종 공유)로 두고,
+    기업별 점수·근거는 엣지 속성으로 표현(우범자 그래프의 근거=엣지 철학과 일관).
+    """
+    if not row.get("company_id") or not row.get("indicator_code"):
+        return
+    tx.run(
+        """
+        MATCH (c:Company {company_id: $company_id})
+        MERGE (ri:RiskIndicator {code: $indicator_code})
+        SET ri.name = $indicator_name, ri.updated_from = $source_tag
+        MERGE (c)-[r:HAS_RISK_INDICATOR]->(ri)
+        SET r.score = $score,
+            r.reason = $reason,
+            r.recommendation = $recommendation,
+            r.related_refs = $related_refs,
+            r.calculated_at = $calculated_at,
+            r.updated_from = $source_tag
+        """,
+        {**row, "source_tag": SOURCE_TAG},
+    )
+
+
 def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) -> dict[str, Any]:
     load_dotenv()
     uri = os.getenv("NEO4J_URI", DEFAULT_URI)
@@ -314,6 +347,8 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
                 session.execute_write(merge_declaration, row)
             for row in data["supply_stats"]:
                 session.execute_write(merge_supply_stat, row)
+            for row in data["risk_indicators"]:
+                session.execute_write(merge_risk_indicator, row)
 
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
@@ -330,6 +365,7 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
         "supply_stats_loaded": len(data["supply_stats"]),
         "export_country_links_loaded": len(data["export_countries"]),
         "risk_scores_folded": len(risk_by_company),
+        "risk_indicators_loaded": len(data["risk_indicators"]),
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,
     }
