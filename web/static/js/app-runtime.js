@@ -1520,7 +1520,14 @@ function adminSubtabOptions(){
   return { removeIds: ["templates"], appendIds: isCurrentUserAdmin() ? ["templates"] : [] };
 }
 customsDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "customs", scenarioBuilderConfig, adminSubtabOptions());
-genDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, adminSubtabOptions());
+genDeps.buildSubtabsForPage = page => {
+  const options = adminSubtabOptions();
+  const aCase = genDeps.activeGenInvCase?.();
+  if(aCase?.giSteps?.some(s => s.sourceKey === "network")){
+    if(!options.appendIds.includes("network")) options.appendIds.push("network");
+  }
+  return unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, options);
+};
 specialDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "special", scenarioBuilderConfig, adminSubtabOptions());
 
 const GI_SERVICE_ALIASES = {
