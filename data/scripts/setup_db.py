@@ -31,21 +31,22 @@ try:
         COMPANY_META as PDF_SAMPLE_COMPANY_META,
         EXTRACT_PATH as PDF_SAMPLE_EXTRACT_PATH,
         SYNTHETIC_NAMES,
-        _clean_hs,
-        _origin,
+        HEADER_COLS, ITEM_COLS, SPEC_COLS, TAX_COLS,
+        build_company_rows, build_declaration_rows, build_risk_rows, insert_dicts,
         _origin_name,
-        _tax_no,
     )
 except ImportError:
     from data.scripts.refresh_realistic_sample_data import (
         COMPANY_META as PDF_SAMPLE_COMPANY_META,
         EXTRACT_PATH as PDF_SAMPLE_EXTRACT_PATH,
         SYNTHETIC_NAMES,
-        _clean_hs,
-        _origin,
+        HEADER_COLS, ITEM_COLS, SPEC_COLS, TAX_COLS,
+        build_company_rows, build_declaration_rows, build_risk_rows, insert_dicts,
         _origin_name,
-        _tax_no,
     )
+
+# 기존 소비처 호환용 대표값 10컬럼 (헤더의 앞 10개)
+REP_DECL_COLS = HEADER_COLS[:10]
 
 try:
     from risk_source_schema import create_risk_source_schema, drop_risk_source_schema
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS company_profiles (
 
 DDL_IMPORT_DECLARATIONS = """
 CREATE TABLE IF NOT EXISTS import_declarations (
+    -- 식별 + 대표값 (영역4 첫 란) — 기존 소비처 호환 유지
     id              INTEGER,
     company_id      VARCHAR,
     declaration_no  VARCHAR,
@@ -99,7 +101,80 @@ CREATE TABLE IF NOT EXISTS import_declarations (
     origin_country  VARCHAR,
     origin_country_name VARCHAR,
     import_date     DATE,
-    status          VARCHAR
+    status          VARCHAR,
+    -- 영역1: 기본 신고 및 당사자 정보
+    customs_office_code   VARCHAR,  declaration_type      VARCHAR,  clearance_plan        VARCHAR,
+    filer_name            VARCHAR,  filer_representative  VARCHAR,
+    importer_name         VARCHAR,  importer_person_name  VARCHAR,  importer_customs_code VARCHAR,
+    importer_is_taxpayer  VARCHAR,
+    taxpayer_address      VARCHAR,  taxpayer_name         VARCHAR,  taxpayer_person_name  VARCHAR,
+    taxpayer_phone        VARCHAR,  taxpayer_email        VARCHAR,  taxpayer_customs_code VARCHAR,
+    taxpayer_business_no  VARCHAR,
+    overseas_supplier_name    VARCHAR, overseas_supplier_country VARCHAR, overseas_supplier_code VARCHAR,
+    -- 영역2: 화물 및 운송 정보
+    electronic_invoice_no VARCHAR,  bl_awb_no             VARCHAR,  cargo_control_no      VARCHAR,
+    master_bl_awb_no      VARCHAR,  forwarder_name        VARCHAR,  forwarder_code        VARCHAR,
+    departure_country     VARCHAR,  arrival_port          VARCHAR,  transport_type        VARCHAR,
+    vessel_name           VARCHAR,  vessel_nationality    VARCHAR,  carrier_code          VARCHAR,
+    arrival_date          DATE,     warehousing_date      DATE,     inspection_location   VARCHAR,
+    total_weight          DOUBLE,   total_weight_unit     VARCHAR,  total_packages        INTEGER,
+    package_type          VARCHAR,
+    -- 영역3: 거래 및 결제 / 총 과세 정보
+    transaction_type      VARCHAR,  import_type           VARCHAR,  collection_type       VARCHAR,
+    origin_cert_flag      VARCHAR,  price_declaration_flag VARCHAR,
+    payment_incoterms     VARCHAR,  payment_currency      VARCHAR,  payment_amount        DOUBLE,
+    payment_method        VARCHAR,  exchange_rate         DOUBLE,
+    freight_krw           DOUBLE,   insurance_krw         DOUBLE,   addition_krw          DOUBLE,
+    deduction_krw         DOUBLE,
+    total_customs_value_usd DOUBLE, total_customs_value_krw DOUBLE,
+    -- 영역5: 세액 합계 및 정산 정보
+    tax_customs_duty            DOUBLE, tax_individual_consumption DOUBLE, tax_traffic    DOUBLE,
+    tax_liquor                  DOUBLE, tax_education              DOUBLE, tax_rural_special DOUBLE,
+    tax_vat                     DOUBLE,
+    penalty_late_declaration    DOUBLE, penalty_non_declaration    DOUBLE,
+    total_tax_amount            DOUBLE, total_vat_base             DOUBLE, total_vat_exempt_base DOUBLE
+)
+"""
+
+# 영역4: 품목/란 (반복) — 1신고 N란
+DDL_IMPORT_DECLARATION_ITEMS = """
+CREATE TABLE IF NOT EXISTS import_declaration_items (
+    item_id             INTEGER,
+    declaration_id      INTEGER,
+    line_no             INTEGER,
+    tariff_item_name_en VARCHAR,  trade_item_name_en  VARCHAR,  hsk_code            VARCHAR,
+    simple_tariff_code  VARCHAR,  brand_code          VARCHAR,  brand_name          VARCHAR,
+    net_weight          DOUBLE,   net_weight_unit     VARCHAR,  tariff_quantity     DOUBLE,
+    tariff_quantity_unit VARCHAR, refund_quantity     DOUBLE,   refund_quantity_unit VARCHAR,
+    origin_country      VARCHAR,  origin_criteria     VARCHAR,  origin_marking      VARCHAR,
+    import_requirement_type        VARCHAR, import_requirement_approval_no VARCHAR,
+    import_requirement_doc         VARCHAR, import_requirement_issue_date  DATE,
+    import_requirement_law_code    VARCHAR, post_verification_agency       VARCHAR,
+    item_customs_value_usd DOUBLE, item_customs_value_krw DOUBLE, special_tax_basis VARCHAR
+)
+"""
+
+# 영역4 하위: 모델·규격별 (품목 내 반복)
+DDL_IMPORT_DECLARATION_ITEM_SPECS = """
+CREATE TABLE IF NOT EXISTS import_declaration_item_specs (
+    spec_id        INTEGER,
+    item_id        INTEGER,
+    seq            INTEGER,
+    model_spec     VARCHAR,  ingredient        VARCHAR,  spec_quantity DOUBLE,
+    spec_quantity_unit VARCHAR, spec_unit_price DOUBLE,  spec_amount   DOUBLE,
+    currency       VARCHAR
+)
+"""
+
+# 영역4 하위: 품목별 세목 (관세 + 내국세, 반복)
+DDL_IMPORT_DECLARATION_ITEM_TAXES = """
+CREATE TABLE IF NOT EXISTS import_declaration_item_taxes (
+    tax_id         INTEGER,
+    item_id        INTEGER,
+    seq            INTEGER,
+    tax_type       VARCHAR,  rate_type       VARCHAR,  tax_rate       DOUBLE,
+    reduction_rate DOUBLE,   tax_amount      DOUBLE,
+    reduction_installment_code VARCHAR, reduction_amount DOUBLE, internal_tax_code VARCHAR
 )
 """
 
@@ -213,8 +288,12 @@ SEED_RISK_SCORES = [
 
 # ── ML 샘플 생성 (agent_ml.py 와 동일한 로직 — 독립 실행을 위해 인라인) ─────────
 
-def build_pdf_sample_seed_rows() -> tuple[list[tuple], list[tuple], list[tuple]]:
-    """13개 수입신고서 PDF 추출 캐시를 초기 DB 시드 행으로 변환한다."""
+def build_pdf_sample_seed_rows() -> tuple[list[tuple], list[dict], list[dict], list[dict], list[dict], list[tuple]]:
+    """13개 수입신고서 PDF 추출 캐시를 초기 DB 시드 행으로 변환한다.
+
+    반환: (company_rows, header_rows, item_rows, spec_rows, tax_rows, risk_rows)
+    company/risk는 (?,?,...) 위치 INSERT용 튜플, 신고 4-테이블은 컬럼 명시 INSERT용 dict.
+    """
     if not PDF_SAMPLE_EXTRACT_PATH.exists():
         raise FileNotFoundError(
             f"PDF 샘플 추출 캐시가 없습니다: {PDF_SAMPLE_EXTRACT_PATH}. "
@@ -227,64 +306,10 @@ def build_pdf_sample_seed_rows() -> tuple[list[tuple], list[tuple], list[tuple]]
             f"PDF 샘플 회사 메타 {len(PDF_SAMPLE_COMPANY_META)}건과 추출 결과 {len(extracts)}건이 일치하지 않습니다."
         )
 
-    companies: list[tuple] = []
-    declarations: list[tuple] = []
-    risks: list[tuple] = []
-
-    for idx, (meta, ext) in enumerate(zip(PDF_SAMPLE_COMPANY_META, extracts), 1):
-        declared_value = int(ext.get("declared_value_krw") or 0)
-        annual_import = round(declared_value * meta["annual_multiplier"])
-        annual_revenue = round(annual_import * 1.65)
-        duty = round(annual_import * meta["duty_rate"])
-        refund = round(annual_import * meta["refund_rate"])
-
-        companies.append((
-            meta["company_id"],
-            meta["company_name"],
-            _tax_no(idx),
-            meta["industry_code"],
-            meta["founded_year"],
-            meta["risk_level"],
-            meta["risk_score"],
-            "2026-04-15",
-            meta["address_postal_code"],
-            meta["address"],
-            meta["address_detail"],
-            meta["employee_count"],
-            meta["major_export_countries"],
-            meta["customs_broker_firm"],
-            meta["related_companies"],
-            annual_revenue,
-            annual_import,
-            duty,
-            refund,
-            meta["fta_reduction_rate"],
-        ))
-
-        origin_code = _origin(ext.get("origin_country"))
-        declarations.append((
-            2000 + idx,
-            meta["company_id"],
-            ext.get("declaration_no"),
-            _clean_hs(ext.get("hs_code")),
-            ext.get("item_name"),
-            declared_value,
-            origin_code,
-            _origin_name(origin_code),
-            ext.get("import_date"),
-            meta["status"],
-        ))
-
-        risks.append((
-            2000 + idx,
-            meta["company_id"],
-            meta["risk_level"],
-            meta["risk_score"],
-            *meta["risk"],
-            "2026-08-05 09:00:00",
-        ))
-
-    return companies, declarations, risks
+    companies = build_company_rows(PDF_SAMPLE_COMPANY_META, extracts)
+    headers, items, specs, taxes = build_declaration_rows(PDF_SAMPLE_COMPANY_META, extracts)
+    risks = build_risk_rows(PDF_SAMPLE_COMPANY_META)
+    return companies, headers, items, specs, taxes, risks
 
 
 def _company_seed(company_id: str) -> int:
@@ -383,7 +408,7 @@ def seed_ml_samples(conn: duckdb.DuckDBPyConnection) -> None:
     """모든 기본 기업에 대해 ML 통계 분석용 샘플 데이터를 삽입한다."""
     import pandas as pd
 
-    pdf_companies, _, _ = build_pdf_sample_seed_rows()
+    pdf_companies = build_pdf_sample_seed_rows()[0]
     base_company_ids = [c[0] for c in SEED_COMPANIES] + [c[0] for c in pdf_companies]
     total_new_companies = 0
     total_new_decls     = 0
@@ -442,7 +467,11 @@ def seed_ml_samples(conn: duckdb.DuckDBPyConnection) -> None:
             if new_decls:
                 new_decl_df = pd.DataFrame(new_decls)
                 conn.register("_nd", new_decl_df)
-                conn.execute("INSERT INTO import_declarations SELECT * FROM _nd")
+                # 비교군 신고는 대표값 10컬럼만 보유 → 컬럼 명시 INSERT (나머지 헤더 필드 NULL)
+                rep_cols = ",".join(REP_DECL_COLS)
+                conn.execute(
+                    f"INSERT INTO import_declarations ({rep_cols}) SELECT {rep_cols} FROM _nd"
+                )
                 total_new_decls += len(new_decls)
 
         print(f"  [{company_id}] ML 샘플 생성 완료")
@@ -467,6 +496,10 @@ def main() -> None:
             print("\n[1/5] 기존 테이블 삭제 (--reset)")
             drop_risk_source_schema(conn)
             conn.execute("DROP TABLE IF EXISTS import_risk_scores")
+            # 자식 → 부모 순으로 삭제
+            conn.execute("DROP TABLE IF EXISTS import_declaration_item_taxes")
+            conn.execute("DROP TABLE IF EXISTS import_declaration_item_specs")
+            conn.execute("DROP TABLE IF EXISTS import_declaration_items")
             conn.execute("DROP TABLE IF EXISTS import_declarations")
             conn.execute("DROP TABLE IF EXISTS company_profiles")
 
@@ -474,6 +507,9 @@ def main() -> None:
             print("\n[2/5] 스키마 생성")
             conn.execute(DDL_COMPANY_PROFILES)
             conn.execute(DDL_IMPORT_DECLARATIONS)
+            conn.execute(DDL_IMPORT_DECLARATION_ITEMS)
+            conn.execute(DDL_IMPORT_DECLARATION_ITEM_SPECS)
+            conn.execute(DDL_IMPORT_DECLARATION_ITEM_TAXES)
             conn.execute(DDL_IMPORT_RISK_SCORES)
 
             existing = conn.execute("SELECT COUNT(*) FROM company_profiles").fetchone()[0]
@@ -481,28 +517,33 @@ def main() -> None:
                 print(f"  기본 데이터 이미 존재 ({existing}개 기업) — 건너뜀")
             else:
                 print("\n[3/5] 기본 시드 데이터 삽입")
-                pdf_companies, pdf_declarations, pdf_risk_scores = build_pdf_sample_seed_rows()
+                (pdf_companies, pdf_headers, pdf_items,
+                 pdf_specs, pdf_taxes, pdf_risk_scores) = build_pdf_sample_seed_rows()
                 seed_companies = SEED_COMPANIES + pdf_companies
-                # SEED_DECLARATIONS는 코드만 가진 9-튜플 → origin_country_name 주입(10-튜플)
-                seed_declarations = [
-                    (*row[:7], _origin_name(row[6]), *row[7:]) for row in SEED_DECLARATIONS
-                ] + pdf_declarations
+                # 레거시 SEED_DECLARATIONS: 코드만 가진 9-튜플 → origin_country_name 주입(10-튜플 dict)
+                legacy_decls = [
+                    dict(zip(REP_DECL_COLS, (*row[:7], _origin_name(row[6]), *row[7:])))
+                    for row in SEED_DECLARATIONS
+                ]
                 seed_risk_scores = SEED_RISK_SCORES + pdf_risk_scores
                 conn.executemany(
                     "INSERT INTO company_profiles VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     seed_companies,
                 )
-                conn.executemany(
-                    "INSERT INTO import_declarations VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    seed_declarations,
-                )
+                # 레거시 신고(대표값 10컬럼) + PDF샘플 신고(헤더 전체) 컬럼 명시 INSERT
+                insert_dicts(conn, "import_declarations", REP_DECL_COLS, legacy_decls)
+                insert_dicts(conn, "import_declarations", HEADER_COLS, pdf_headers)
+                insert_dicts(conn, "import_declaration_items", ITEM_COLS, pdf_items)
+                insert_dicts(conn, "import_declaration_item_specs", SPEC_COLS, pdf_specs)
+                insert_dicts(conn, "import_declaration_item_taxes", TAX_COLS, pdf_taxes)
                 conn.executemany(
                     "INSERT INTO import_risk_scores VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                     seed_risk_scores,
                 )
                 c_cnt = conn.execute("SELECT COUNT(*) FROM company_profiles").fetchone()[0]
                 d_cnt = conn.execute("SELECT COUNT(*) FROM import_declarations").fetchone()[0]
-                print(f"  기업 {c_cnt}개 / 신고 {d_cnt}건 / 위험점수 {len(seed_risk_scores)}건 삽입")
+                i_cnt = conn.execute("SELECT COUNT(*) FROM import_declaration_items").fetchone()[0]
+                print(f"  기업 {c_cnt}개 / 신고 {d_cnt}건 / 품목 {i_cnt}란 / 위험점수 {len(seed_risk_scores)}건 삽입")
 
         print("\n[4/5] ML 통계 샘플 데이터 보강")
         seed_ml_samples(conn)

@@ -26,11 +26,40 @@ DuckDB 데이터베이스 스키마 (관세청 CDW):
    annual_import_amount (BIGINT),  declared_duty_amount (BIGINT),
    recent_customs_refund (BIGINT), fta_reduction_rate (FLOAT)
 
-2. import_declarations — 수입신고 이력
+2. import_declarations — 수입신고서 헤더 (신고 1건, 수입신고서 영역1·2·3·5)
    id (INT PK),  company_id (TEXT FK),  declaration_no (TEXT),
-   hs_code (TEXT),  item_name (TEXT),  declared_value (BIGINT),
-   origin_country (TEXT),  import_date (DATE),
-   status (TEXT: NORMAL/REVIEW/INSPECT/HOLD)
+   hs_code/item_name/declared_value/origin_country/origin_country_name (대표 품목값=첫 란),
+   import_date (DATE),  status (TEXT: NORMAL/REVIEW/INSPECT/HOLD),
+   [영역1 당사자] customs_office_code, declaration_type, clearance_plan, filer_name,
+     importer_name, importer_customs_code, taxpayer_name, taxpayer_address,
+     taxpayer_business_no, taxpayer_phone, taxpayer_email, overseas_supplier_name,
+     overseas_supplier_country,
+   [영역2 화물·운송] bl_awb_no, cargo_control_no, master_bl_awb_no, forwarder_name,
+     departure_country, arrival_port, transport_type, vessel_name, arrival_date,
+     warehousing_date, inspection_location, total_weight, total_packages, package_type,
+   [영역3 거래·결제] transaction_type, import_type, collection_type, origin_cert_flag,
+     price_declaration_flag, payment_incoterms, payment_currency, payment_amount,
+     exchange_rate, freight_krw, insurance_krw, total_customs_value_usd, total_customs_value_krw,
+   [영역5 세액합계] tax_customs_duty, tax_individual_consumption, tax_traffic, tax_liquor,
+     tax_education, tax_rural_special, tax_vat, penalty_late_declaration,
+     penalty_non_declaration, total_tax_amount, total_vat_base, total_vat_exempt_base
+
+2-1. import_declaration_items — 수입신고서 품목/란 (1신고 N란, 영역4)
+   item_id (INT PK),  declaration_id (INT FK→import_declarations.id),  line_no (INT 란번호),
+   tariff_item_name_en, trade_item_name_en, hsk_code (HSK10), brand_name,
+   net_weight, tariff_quantity, tariff_quantity_unit, refund_quantity,
+   origin_country, origin_criteria, origin_marking,
+   import_requirement_type, import_requirement_doc, import_requirement_law_code,
+   post_verification_agency, item_customs_value_usd, item_customs_value_krw, special_tax_basis
+
+2-2. import_declaration_item_specs — 품목 모델·규격별 (영역4 하위 반복)
+   spec_id (PK), item_id (FK→import_declaration_items.item_id), seq,
+   model_spec, ingredient, spec_quantity, spec_unit_price, spec_amount, currency
+
+2-3. import_declaration_item_taxes — 품목별 세목 (관세+내국세, 영역4 하위 반복)
+   tax_id (PK), item_id (FK→import_declaration_items.item_id), seq,
+   tax_type (관세/부가가치세 등), rate_type, tax_rate, reduction_rate, tax_amount,
+   reduction_amount, internal_tax_code
 
 3. import_risk_scores — 위험점수 지표
    id (INT PK),  company_id (TEXT FK),
