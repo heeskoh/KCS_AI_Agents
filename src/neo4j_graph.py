@@ -172,42 +172,43 @@ def build_company_network_report(company_id: str) -> str | None:
     company = company_rows[0]["company"]
     connected_count = company_rows[0]["connected_count"]
 
+    # 2026 관계망 재구성: 적출국(수입/출국)은 (:Company)-[:TRADES_WITH_COUNTRY]->(:Country)
     suppliers = _read(
         """
-        MATCH (country:Country)-[r:SUPPLIES_TO]->(c:Company {company_id: $company_id})
+        MATCH (c:Company {company_id: $company_id})-[r:TRADES_WITH_COUNTRY]->(country:Country)
         RETURN country.code AS country,
-               r.declaration_count AS declaration_count,
-               r.total_declared_value AS total_declared_value,
-               r.review_count AS review_count,
-               r.inspect_count AS inspect_count,
-               r.hold_count AS hold_count
-        ORDER BY total_declared_value DESC
+               country.name AS country_name,
+               sum(r.count) AS declaration_count,
+               count(*) AS item_kinds
+        ORDER BY declaration_count DESC
         LIMIT 8
         """,
         company_id=company_id,
     )
-    # 수입신고는 (:Company)-[:IMPORTED]->(:HsCode) 관계로 모델링됨 (Declaration 노드 폐지)
+    # 수입 품목은 (:Company)-[:DECLARES_ITEM]->(:Item) 관계 (해외거래처별 분리, count=건수)
     declarations = _read(
         """
-        MATCH (c:Company {company_id: $company_id})-[r:IMPORTED]->(h:HsCode)
+        MATCH (c:Company {company_id: $company_id})-[r:DECLARES_ITEM]->(it:Item)
         RETURN r.declaration_no AS declaration_no,
-               h.code AS hs_code,
-               r.item_name AS item_name,
-               r.status AS status,
-               r.declared_value AS declared_value,
+               it.code AS hs_code,
+               it.name AS item_name,
+               r.overseas_supplier AS supplier,
+               r.departure_country AS origin,
                r.import_date AS import_date,
-               r.origin_country AS origin
-        ORDER BY r.import_date DESC
+               r.spec AS spec,
+               r.count AS count
+        ORDER BY r.count DESC, it.code
         LIMIT 10
         """,
         company_id=company_id,
     )
     related = _read(
         """
-        MATCH (c:Company {company_id: $company_id})-[r:USES_BROKER|HAS_RELATED_COMPANY|EXPORTS_TO]->(n)
+        MATCH (c:Company {company_id: $company_id})-[r:SUPPLIED_BY|AFFILIATED_WITH|RELATED_PARTY]->(n)
         RETURN type(r) AS relation,
                labels(n)[0] AS label,
-               coalesce(n.name, n.code, n.org_name, n.company_name) AS value
+               coalesce(n.name, n.code) AS value,
+               r.relation_type AS relation_type
         ORDER BY relation, value
         LIMIT 30
         """,
@@ -215,31 +216,21 @@ def build_company_network_report(company_id: str) -> str | None:
     )
     # 위험점수는 RiskScore 노드 폐지 → Company 노드 속성으로 흡수됨
     risk = company
-    flagged = _read(
-        """
-        MATCH (c:Company {company_id: $company_id})-[r:IMPORTED]->()
-        WHERE r.status IN ['REVIEW', 'INSPECT', 'HOLD']
-        RETURN r.status AS status, count(*) AS count
-        ORDER BY count DESC
-        """,
-        company_id=company_id,
-    )
 
     supplier_lines = [
-        f"- {row['country']}: {row['declaration_count']}건 / {_fmt_number(row['total_declared_value'])}원"
-        f" / REVIEW {row['review_count']} INSPECT {row['inspect_count']} HOLD {row['hold_count']}"
+        f"- {row.get('country_name') or row['country']}: 신고 {row['declaration_count']}건 / 품목 {row['item_kinds']}종"
         for row in suppliers
-    ] or ["- 공급국가 관계 없음"]
+    ] or ["- 수입/출국(적출국) 관계 없음"]
     declaration_lines = [
-        f"- {row['declaration_no']} | {row.get('status')} | HS {row.get('hs_code')} | "
-        f"{row.get('origin')} | {_fmt_number(row.get('declared_value'))}원 | {row.get('item_name')}"
+        f"- {row.get('declaration_no')} | HS {row.get('hs_code')} | {row.get('item_name')} | "
+        f"{row.get('origin')} | {row.get('supplier') or '-'} | {row.get('count')}건"
         for row in declarations
-    ] or ["- 신고 관계 없음"]
+    ] or ["- 품목 신고 관계 없음"]
     related_lines = [
         f"- {row['relation']} -> {row['label']}:{row['value']}"
+        + (f" ({row['relation_type']})" if row.get('relation_type') else "")
         for row in related
     ] or ["- 주변 관계 없음"]
-    flagged_text = ", ".join(f"{row['status']} {row['count']}건" for row in flagged) or "없음"
 
     risk_detail = (
         f"저가신고 {risk.get('undervaluation_suspicion_rate', '-')}, "
@@ -255,13 +246,13 @@ def build_company_network_report(company_id: str) -> str | None:
         f"대상 기업: {company.get('company_name') or company_id} ({company_id})",
         f"그래프 연결 수: {connected_count}",
         f"위험등급/점수: {_risk_text(company.get('risk_score'), company.get('risk_level'))}",
-        f"업종: {company.get('industry_code') or '-'}",
-        f"검사/보류 신고: {flagged_text}",
+        f"업종: {company.get('industry_code') or '-'} / 지역: {company.get('region') or '-'}",
+        f"주요 위험: {company.get('top_risk_name') or '-'} ({company.get('top_risk_score') if company.get('top_risk_score') is not None else '-'})",
         "",
-        "■ 주요 공급국가",
+        "■ 주요 수입/출국(적출국)",
         *supplier_lines,
         "",
-        "■ 최근 수입신고",
+        "■ 주요 수입품목(건수순)",
         *declaration_lines,
         "",
         "■ 주변 관계",

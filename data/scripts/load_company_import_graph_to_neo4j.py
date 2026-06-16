@@ -1,17 +1,28 @@
-"""Load DuckDB company import-risk data into Neo4j (entity-centric model).
+"""Load DuckDB company import data into Neo4j (2026 관계망 재구성).
 
-Modeling principle (2026 재모델링):
-  - 노드 = 엔티티/분류: Company, Country, HsCode, Broker, RelatedCompany
-  - 수입신고(Declaration)는 노드가 아니라 **관계(엣지)**로 표현한다.
-        (:Company)-[:IMPORTED {declaration_no, item_name, declared_value, origin_country,
-                               import_date, status}]->(:HsCode)
-  - 위험점수(RiskScore)·업종(Industry)·품명(Item)은 **노드 속성 또는 엣지 속성**으로 흡수한다.
-        · 위험점수 6개 지표율 → Company 속성
-        · 업종코드 → Company.industry_code 속성
-        · 품명     → IMPORTED 엣지 item_name 속성
-  - 국가/관세사/관계사 관계는 유지: SUPPLIES_TO, EXPORTS_TO, USES_BROKER, HAS_RELATED_COMPANY
+모델 (6 노드 / 5 엣지 — 모든 엣지는 기업 중심):
+  노드
+    - Company         기업 (속성: 위험명/위험지표 값/지역 + 6종 지표율)
+    - OverseasSupplier 해외거래처
+    - RelatedParty    특수관계인 (관계유형·지분율·거래비중·역외여부)
+    - Item            품목 (HSK 품목번호 = code, 거래품명 = name)
+    - Country         수입/출국 (적출국 기준)
+    - AffiliatedCompany 관계사
+  엣지 (건수=count 속성 → 프런트에서 선 굵기)
+    - (Company)-[:SUPPLIED_BY {item/품목별 분리}]->(OverseasSupplier)
+          품목(HSK)이 다르면 다른 엣지. 속성: declaration_no, item_name, hsk_code, spec,
+          departure_country(적출국), import_date, count
+    - (Company)-[:RELATED_PARTY {relation_type, ...}]->(RelatedParty)
+    - (Company)-[:DECLARES_ITEM {supplier별 분리}]->(Item)
+          해외거래처가 다르면 다른 엣지. 속성: declaration_no, overseas_supplier, spec,
+          departure_country, import_date, count
+    - (Company)-[:TRADES_WITH_COUNTRY {item별 분리}]->(Country)
+          품목(HSK)이 다르면 다른 엣지. 속성: declaration_no, overseas_supplier, spec,
+          departure_country, import_date, count   (Country = 적출국)
+    - (Company)-[:AFFILIATED_WITH {declaration_no별 분리}]->(AffiliatedCompany)
+          수입신고 NO가 다르면 다른 엣지. 속성: overseas_supplier, item
 
-DuckDB remains the source of truth. Neo4j is a derived graph store.
+DuckDB는 원천(source of truth), Neo4j는 파생 그래프 저장소.
 
 Usage:
     python data/scripts/load_company_import_graph_to_neo4j.py --clear
@@ -23,6 +34,7 @@ import argparse
 import math
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +64,10 @@ RISK_RATE_FIELDS = (
     "hs_classification_error_rate",
     "offshore_fund_concealment_suspicion_rate",
 )
+
+# 신고 처리상태 → 사건유형(한글). NORMAL(정상)은 사건이 아니므로 제외.
+STATUS_KO = {"REVIEW": "검토", "INSPECT": "검사", "HOLD": "보류", "NORMAL": "정상"}
+CASE_STATUSES = ("REVIEW", "INSPECT", "HOLD")
 
 
 def clean_value(value: Any) -> Any:
@@ -88,56 +104,79 @@ def country_tokens(raw: str | None) -> list[str]:
     return sorted(set(tokens))
 
 
-def fetch_company_import_data() -> dict[str, list[dict[str, Any]]]:
+def region_of(address: str | None) -> str | None:
+    """주소 → 지역(시/도) 추출. 예) '서울특별시 중구 ...' → '서울특별시'."""
+    if not address:
+        return None
+    return str(address).strip().split()[0] or None
+
+
+def _join(values: list[Any], sep: str = ", ", limit: int = 5) -> str | None:
+    items = [str(v) for v in values if v is not None and str(v) != ""]
+    if not items:
+        return None
+    uniq = list(dict.fromkeys(items))
+    if len(uniq) <= limit:
+        return sep.join(uniq)
+    return sep.join(uniq[:limit]) + f" 외 {len(uniq) - limit}"
+
+
+def fetch_company_import_data() -> dict[str, Any]:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         companies = as_dicts(conn, "SELECT * FROM company_profiles ORDER BY company_id")
-        declarations = as_dicts(conn, "SELECT * FROM import_declarations ORDER BY id")
         risk_scores = as_dicts(conn, "SELECT * FROM import_risk_scores ORDER BY id")
-        # 2026 재설계: 근거 기반 위험지표 (테이블 없으면 빈 목록 — 하위호환)
         try:
             risk_indicators = as_dicts(conn, "SELECT * FROM company_risk_indicator ORDER BY id")
         except duckdb.CatalogException:
             risk_indicators = []
-        supply_stats = as_dicts(
+        try:
+            related_parties = as_dicts(conn, "SELECT * FROM related_party ORDER BY company_id, id")
+        except duckdb.CatalogException:
+            related_parties = []
+
+        # 품목 규격(사양) 집계: item_id → "규격A / 규격B"
+        spec_rows = as_dicts(
+            conn,
+            "SELECT item_id, string_agg(model_spec, ' / ') AS spec "
+            "FROM import_declaration_item_specs GROUP BY item_id",
+        )
+        spec_by_item = {r["item_id"]: r["spec"] for r in spec_rows}
+
+        # 신고-품목 라인 (품목 행이 없으면 헤더 대표값으로 폴백)
+        lines = as_dicts(
             conn,
             """
             SELECT
-                company_id,
-                origin_country,
-                MAX(origin_country_name) AS origin_country_name,
-                COUNT(*) AS declaration_count,
-                SUM(declared_value) AS total_declared_value,
-                SUM(CASE WHEN status = 'REVIEW' THEN 1 ELSE 0 END) AS review_count,
-                SUM(CASE WHEN status = 'INSPECT' THEN 1 ELSE 0 END) AS inspect_count,
-                SUM(CASE WHEN status = 'HOLD' THEN 1 ELSE 0 END) AS hold_count
-            FROM import_declarations
-            GROUP BY company_id, origin_country
-            ORDER BY company_id, origin_country
+                d.company_id                                   AS company_id,
+                d.declaration_no                               AS declaration_no,
+                d.status                                       AS status,
+                CAST(d.import_date AS VARCHAR)                 AS import_date,
+                COALESCE(NULLIF(d.departure_country, ''), d.origin_country) AS departure_country,
+                COALESCE(i.origin_country, d.origin_country)   AS origin_country,
+                d.overseas_supplier_name                       AS supplier,
+                COALESCE(i.hsk_code, d.hs_code)                AS hsk_code,
+                COALESCE(i.trade_item_name_en, i.tariff_item_name_en, d.item_name) AS item_name,
+                i.item_id                                      AS item_id
+            FROM import_declarations d
+            LEFT JOIN import_declaration_items i ON i.declaration_id = d.id
+            WHERE COALESCE(i.hsk_code, d.hs_code) IS NOT NULL
+            ORDER BY d.company_id, d.declaration_no
             """,
         )
-
-    export_countries = []
-    for company in companies:
-        for country in country_tokens(company.get("major_export_countries")):
-            code = country_code(country)
-            export_countries.append({
-                "company_id": company["company_id"],
-                "country_code": code,
-                "country_name": country_name(code, default=country),
-            })
+        for ln in lines:
+            ln["spec"] = spec_by_item.get(ln.get("item_id"))
+            ln["origin_name"] = country_name(ln["origin_country"]) if ln.get("origin_country") else None
 
     return {
         "companies": companies,
-        "declarations": declarations,
         "risk_scores": risk_scores,
-        "supply_stats": supply_stats,
-        "export_countries": export_countries,
         "risk_indicators": risk_indicators,
+        "related_parties": related_parties,
+        "lines": lines,
     }
 
 
 def build_risk_by_company(risk_scores: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """company_id → 최신 위험점수 행 (generated_at 기준)."""
     latest: dict[str, dict[str, Any]] = {}
     for row in risk_scores:
         cid = row.get("company_id")
@@ -149,67 +188,185 @@ def build_risk_by_company(risk_scores: list[dict[str, Any]]) -> dict[str, dict[s
     return latest
 
 
+def build_risk_names_by_company(risk_indicators: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """company_id → {top_risk_name, top_risk_score, risk_indicator_summary} (위험명/지표값)."""
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in risk_indicators:
+        cid = row.get("company_id")
+        if cid:
+            grouped[cid].append(row)
+    out: dict[str, dict[str, Any]] = {}
+    for cid, rows in grouped.items():
+        ranked = sorted(rows, key=lambda r: (r.get("score") or 0), reverse=True)
+        summary = _join(
+            [f"{r.get('indicator_name')}({r.get('score')})" for r in ranked],
+            sep=", ", limit=6,
+        )
+        top = ranked[0] if ranked else {}
+        out[cid] = {
+            "top_risk_name": top.get("indicator_name"),
+            "top_risk_score": top.get("score"),
+            "risk_indicator_summary": summary,
+        }
+    return out
+
+
+# ── 엣지 집계 ────────────────────────────────────────────────────────────────
+
+def aggregate_edges(lines: list[dict[str, Any]], affiliate_by_company: dict[str, str]):
+    """신고-품목 라인을 5종 엣지 grain으로 집계한다(건수 포함)."""
+    supplied_by: dict[tuple, dict[str, Any]] = {}   # (company, supplier, hsk)
+    declares_item: dict[tuple, dict[str, Any]] = {}  # (company, hsk, supplier)
+    trades_country: dict[tuple, dict[str, Any]] = {}  # (company, country, hsk)
+    affiliated: dict[tuple, dict[str, Any]] = {}      # (company, affiliate, declaration_no)
+    case: dict[tuple, dict[str, Any]] = {}            # (company, status)
+    case_count: dict[str, int] = defaultdict(int)     # status → 사건건수(전체)
+
+    def acc(bucket: dict, key: tuple, base: dict, ln: dict):
+        agg = bucket.get(key)
+        if agg is None:
+            agg = {**base, "_decl": set(), "_date": set(), "_spec": set(),
+                   "_supplier": set(), "_item": set(), "_country": set(), "_origin": set(), "count": 0}
+            bucket[key] = agg
+        agg["count"] += 1
+        if ln.get("declaration_no"):
+            agg["_decl"].add(ln["declaration_no"])
+        if ln.get("import_date"):
+            agg["_date"].add(ln["import_date"])
+        if ln.get("spec"):
+            agg["_spec"].add(ln["spec"])
+        if ln.get("supplier"):
+            agg["_supplier"].add(ln["supplier"])
+        if ln.get("item_name"):
+            agg["_item"].add(ln["item_name"])
+        if ln.get("departure_country"):
+            agg["_country"].add(ln["departure_country"])
+        if ln.get("origin_name"):
+            agg["_origin"].add(ln["origin_name"])
+
+    for ln in lines:
+        cid = ln.get("company_id")
+        hsk = ln.get("hsk_code")
+        supplier = ln.get("supplier")
+        country = ln.get("departure_country")
+        status = ln.get("status")
+        if not cid or not hsk:
+            continue
+
+        # A. 해외거래처 (품목별 분리) — supplier 있을 때만
+        if supplier:
+            acc(supplied_by, (cid, supplier, hsk),
+                {"company_id": cid, "supplier": supplier, "hsk_code": hsk}, ln)
+
+        # C. 품목 (해외거래처별 분리)
+        acc(declares_item, (cid, hsk, supplier or ""),
+            {"company_id": cid, "hsk_code": hsk, "supplier": supplier}, ln)
+
+        # D. 수입/출국 (품목별 분리) — country 있을 때만
+        if country:
+            acc(trades_country, (cid, country, hsk),
+                {"company_id": cid, "country_token": country, "hsk_code": hsk}, ln)
+
+        # E. 관계사 (수입신고 NO별 분리)
+        affiliate = affiliate_by_company.get(cid)
+        if affiliate and ln.get("declaration_no"):
+            acc(affiliated, (cid, affiliate, ln["declaration_no"]),
+                {"company_id": cid, "affiliate": affiliate, "declaration_no": ln["declaration_no"]}, ln)
+
+        # F. 사건유형 (신고 처리상태별) — 플래그된 상태(검토/검사/보류)만 사건으로 취급
+        if status in CASE_STATUSES:
+            acc(case, (cid, status), {"company_id": cid, "status": status}, ln)
+            case_count[status] += 1
+
+    def finalize(bucket: dict) -> list[dict[str, Any]]:
+        rows = []
+        for agg in bucket.values():
+            rows.append({
+                **{k: v for k, v in agg.items() if not k.startswith("_")},
+                "declaration_no": _join(sorted(agg["_decl"])),
+                "import_date": _join(sorted(agg["_date"])),
+                "spec": _join(sorted(agg["_spec"])),
+                "overseas_supplier": _join(sorted(agg["_supplier"])),
+                "item_name": _join(sorted(agg["_item"])),
+                "departure_country": _join(sorted(agg["_country"])),
+                "origin": _join(sorted(agg["_origin"])),
+            })
+        return rows
+
+    return {
+        "supplied_by": finalize(supplied_by),
+        "declares_item": finalize(declares_item),
+        "trades_country": finalize(trades_country),
+        "affiliated": finalize(affiliated),
+        "case": finalize(case),
+        "case_count": dict(case_count),
+    }
+
+
+# ── Neo4j 적재 ───────────────────────────────────────────────────────────────
+
 def create_constraints(tx: ManagedTransaction) -> None:
+    # 레거시 제약 제거: Item은 HSK 코드(code)로 식별한다. name 유일성은 잘못된 가정이라 제거.
+    tx.run("DROP CONSTRAINT item_name IF EXISTS")
     statements = [
         "CREATE CONSTRAINT company_id IF NOT EXISTS FOR (n:Company) REQUIRE n.company_id IS UNIQUE",
         "CREATE CONSTRAINT country_code IF NOT EXISTS FOR (n:Country) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT hs_code IF NOT EXISTS FOR (n:HsCode) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT broker_name IF NOT EXISTS FOR (n:Broker) REQUIRE n.name IS UNIQUE",
-        "CREATE CONSTRAINT related_company_name IF NOT EXISTS FOR (n:RelatedCompany) REQUIRE n.name IS UNIQUE",
-        "CREATE CONSTRAINT risk_indicator_code IF NOT EXISTS FOR (n:RiskIndicator) REQUIRE n.code IS UNIQUE",
+        "CREATE CONSTRAINT item_code IF NOT EXISTS FOR (n:Item) REQUIRE n.code IS UNIQUE",
+        "CREATE CONSTRAINT supplier_name IF NOT EXISTS FOR (n:OverseasSupplier) REQUIRE n.name IS UNIQUE",
+        "CREATE CONSTRAINT affiliate_name IF NOT EXISTS FOR (n:AffiliatedCompany) REQUIRE n.name IS UNIQUE",
+        "CREATE CONSTRAINT related_party_key IF NOT EXISTS FOR (n:RelatedParty) REQUIRE n.key IS UNIQUE",
+        "CREATE CONSTRAINT case_type_code IF NOT EXISTS FOR (n:CaseType) REQUIRE n.code IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
 
 
 def clear_company_graph(tx: ManagedTransaction) -> None:
-    delete_statements = [
-        "MATCH (:Company)-[r:IMPORTED]->() DELETE r",
-        "MATCH (:Country)-[r:SUPPLIES_TO]->(:Company) DELETE r",
-        "MATCH (:Company)-[r:USES_BROKER]->() DELETE r",
-        "MATCH (:Company)-[r:HAS_RELATED_COMPANY]->() DELETE r",
-        "MATCH (:Company)-[r:EXPORTS_TO]->() DELETE r",
-        "MATCH (:Company)-[r:HAS_RISK_INDICATOR]->() DELETE r",
+    # 신규 + 레거시 엣지 모두 제거 (완전 재구성)
+    edge_types = [
+        "SUPPLIED_BY", "RELATED_PARTY", "DECLARES_ITEM", "TRADES_WITH_COUNTRY", "AFFILIATED_WITH", "CASE",
+        "IMPORTED", "SUPPLIES_TO", "USES_BROKER", "HAS_RELATED_COMPANY", "EXPORTS_TO", "HAS_RISK_INDICATOR",
     ]
-    for statement in delete_statements:
-        tx.run(statement)
-    # 본 로더 전용 노드만 삭제. Country는 우범자 그래프와 공유하므로 제외
-    # (공유 노드를 DETACH DELETE 하면 상대 그래프의 관계까지 사라짐).
+    for et in edge_types:
+        tx.run(f"MATCH ()-[r:{et}]-() DELETE r")
+    # 기업 그래프 전용 분류/엔티티 노드는 라벨 단위 전량 삭제(잔존 레거시 포함).
+    # Country는 우범자 그래프와 공유하므로 제외.
     tx.run(
         """
         MATCH (n)
-        WHERE n.updated_from = $source_tag
-          AND (n:Company OR n:HsCode OR n:Broker OR n:RelatedCompany OR n:RiskIndicator)
+        WHERE n:Item OR n:OverseasSupplier OR n:AffiliatedCompany OR n:RelatedParty OR n:CaseType
+              OR n:HsCode OR n:Broker OR n:RelatedCompany OR n:RiskIndicator
         DETACH DELETE n
-        """,
+        """
+    )
+    # Company는 source_tag 기준 삭제(타 적재분 보호).
+    tx.run(
+        "MATCH (n:Company) WHERE n.updated_from = $source_tag DETACH DELETE n",
         {"source_tag": SOURCE_TAG},
     )
 
 
-def merge_company(tx: ManagedTransaction, row: dict[str, Any], risk: dict[str, Any]) -> None:
+def merge_company(tx: ManagedTransaction, row: dict[str, Any], risk: dict[str, Any],
+                  risk_name: dict[str, Any]) -> None:
     params = {**row, "source_tag": SOURCE_TAG}
+    params["region"] = region_of(row.get("address"))
     for field in RISK_RATE_FIELDS:
         params[field] = risk.get(field)
+    params["top_risk_name"] = risk_name.get("top_risk_name")
+    params["top_risk_score"] = risk_name.get("top_risk_score")
+    params["risk_indicator_summary"] = risk_name.get("risk_indicator_summary")
     tx.run(
         """
         MERGE (c:Company {company_id: $company_id})
         SET c.company_name = $company_name,
             c.business_registration_no = $business_registration_no,
             c.industry_code = $industry_code,
-            c.founded_year = $founded_year,
+            c.region = $region,
             c.risk_level = $risk_level,
             c.risk_score = $risk_score,
-            c.last_audit_date = $last_audit_date,
-            c.address_postal_code = $address_postal_code,
-            c.address = $address,
-            c.address_detail = $address_detail,
-            c.employee_count = $employee_count,
-            c.major_export_countries = $major_export_countries,
-            c.annual_revenue = $annual_revenue,
-            c.annual_import_amount = $annual_import_amount,
-            c.declared_duty_amount = $declared_duty_amount,
-            c.recent_customs_refund = $recent_customs_refund,
-            c.fta_reduction_rate = $fta_reduction_rate,
+            c.top_risk_name = $top_risk_name,
+            c.top_risk_score = $top_risk_score,
+            c.risk_indicator_summary = $risk_indicator_summary,
             c.undervaluation_suspicion_rate = $undervaluation_suspicion_rate,
             c.related_party_anomaly_rate = $related_party_anomaly_rate,
             c.fta_origin_misuse_suspicion_rate = $fta_origin_misuse_suspicion_rate,
@@ -220,109 +377,152 @@ def merge_company(tx: ManagedTransaction, row: dict[str, Any], risk: dict[str, A
         """,
         params,
     )
-    if row.get("customs_broker_firm"):
-        tx.run(
-            """
-            MATCH (c:Company {company_id: $company_id})
-            MERGE (b:Broker {name: $customs_broker_firm})
-            SET b.updated_from = $source_tag
-            MERGE (c)-[:USES_BROKER]->(b)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
-    if row.get("related_companies"):
-        tx.run(
-            """
-            MATCH (c:Company {company_id: $company_id})
-            MERGE (r:RelatedCompany {name: $related_companies})
-            SET r.updated_from = $source_tag
-            MERGE (c)-[:HAS_RELATED_COMPANY]->(r)
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
 
 
-def merge_export_country(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+def merge_related_party(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    if not row.get("company_id") or not row.get("party_name"):
+        return
+    code = country_code(row.get("country")) if row.get("country") else None
+    params = {
+        **row,
+        "key": f"{row['company_id']}:{row['party_name']}",
+        "country_name": country_name(code, default=row.get("country")) if code else row.get("country"),
+        "source_tag": SOURCE_TAG,
+    }
+    tx.run(
+        """
+        MATCH (c:Company {company_id: $company_id})
+        MERGE (p:RelatedParty {key: $key})
+        SET p.name = $party_name,
+            p.country = $country_name,
+            p.is_offshore = $is_offshore,
+            p.updated_from = $source_tag
+        MERGE (c)-[r:RELATED_PARTY {relation_type: $relation_type}]->(p)
+        SET r.shareholding_pct = $shareholding_pct,
+            r.trade_share_pct = $trade_share_pct,
+            r.is_offshore = $is_offshore,
+            r.note = $note,
+            r.updated_from = $source_tag
+        """,
+        params,
+    )
+
+
+def merge_supplied_by(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    tx.run(
+        """
+        MATCH (c:Company {company_id: $company_id})
+        MERGE (s:OverseasSupplier {name: $supplier})
+        SET s.updated_from = $source_tag
+        MERGE (c)-[r:SUPPLIED_BY {hsk_code: $hsk_code}]->(s)
+        SET r.declaration_no = $declaration_no,
+            r.item_name = $item_name,
+            r.spec = $spec,
+            r.departure_country = $departure_country,
+            r.import_date = $import_date,
+            r.count = $count,
+            r.updated_from = $source_tag
+        """,
+        {**row, "source_tag": SOURCE_TAG},
+    )
+
+
+def merge_declares_item(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    tx.run(
+        """
+        MATCH (c:Company {company_id: $company_id})
+        MERGE (it:Item {code: $hsk_code})
+        SET it.name = coalesce($item_name, it.name),
+            it.origin = coalesce($origin, it.origin),
+            it.updated_from = $source_tag
+        MERGE (c)-[r:DECLARES_ITEM {supplier: coalesce($supplier, '(미상)')}]->(it)
+        SET r.declaration_no = $declaration_no,
+            r.overseas_supplier = $supplier,
+            r.spec = $spec,
+            r.departure_country = $departure_country,
+            r.import_date = $import_date,
+            r.count = $count,
+            r.updated_from = $source_tag
+        """,
+        {**row, "source_tag": SOURCE_TAG},
+    )
+
+
+def merge_trades_country(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    code = country_code(row.get("country_token"))
+    params = {
+        **row,
+        "country_code": code,
+        "country_name": country_name(code, default=row.get("country_token")),
+        "source_tag": SOURCE_TAG,
+    }
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
         MERGE (country:Country {code: $country_code})
         SET country.name = $country_name,
             country.updated_from = $source_tag
-        MERGE (c)-[:EXPORTS_TO]->(country)
-        """,
-        {**row, "source_tag": SOURCE_TAG},
-    )
-
-
-def merge_declaration(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    """수입신고 → (:Company)-[:IMPORTED {...}]->(:HsCode). HS 코드 없으면 건너뜀."""
-    if not row.get("hs_code"):
-        return
-    tx.run(
-        """
-        MATCH (c:Company {company_id: $company_id})
-        MERGE (h:HsCode {code: $hs_code})
-        SET h.updated_from = $source_tag
-        MERGE (c)-[r:IMPORTED {declaration_no: $declaration_no}]->(h)
-        SET r.duckdb_id = $id,
+        MERGE (c)-[r:TRADES_WITH_COUNTRY {hsk_code: $hsk_code}]->(country)
+        SET r.declaration_no = $declaration_no,
             r.item_name = $item_name,
-            r.declared_value = $declared_value,
-            r.origin_country = $origin_country,
-            r.origin_country_name = $origin_country_name,
+            r.overseas_supplier = $overseas_supplier,
+            r.spec = $spec,
+            r.departure_country = $departure_country,
             r.import_date = $import_date,
-            r.status = $status,
+            r.count = $count,
             r.updated_from = $source_tag
         """,
-        {**row, "source_tag": SOURCE_TAG},
+        params,
     )
 
 
-def merge_supply_stat(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+def merge_case(tx: ManagedTransaction, row: dict[str, Any], case_count: dict[str, int]) -> None:
+    """신고 처리상태 → (:Company)-[:CASE {신고속성}]->(:CaseType). CaseType.case_count=전체 사건건수."""
+    status = row.get("status")
+    params = {
+        **row,
+        "case_type_code": status,
+        "case_type_name": STATUS_KO.get(status, status),
+        "case_count": case_count.get(status, 0),
+        "source_tag": SOURCE_TAG,
+    }
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
-        MERGE (country:Country {code: $origin_country})
-        SET country.name = $origin_country_name,
-            country.updated_from = $source_tag
-        MERGE (country)-[r:SUPPLIES_TO]->(c)
-        SET r.declaration_count = $declaration_count,
-            r.total_declared_value = $total_declared_value,
-            r.review_count = $review_count,
-            r.inspect_count = $inspect_count,
-            r.hold_count = $hold_count,
+        MERGE (ct:CaseType {code: $case_type_code})
+        SET ct.name = $case_type_name,
+            ct.case_count = $case_count,
+            ct.updated_from = $source_tag
+        MERGE (c)-[r:CASE {status: $case_type_code}]->(ct)
+        SET r.declaration_no = $declaration_no,
+            r.overseas_supplier = $overseas_supplier,
+            r.item = $item_name,
+            r.departure_country = $departure_country,
+            r.import_date = $import_date,
+            r.count = $count,
             r.updated_from = $source_tag
         """,
-        {**row, "source_tag": SOURCE_TAG},
+        params,
     )
 
 
-def merge_risk_indicator(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    """위험지표 1건 → (:Company)-[:HAS_RISK_INDICATOR {score, reason, ...}]->(:RiskIndicator).
-
-    지표 유형(indicator_code)은 분류 엔티티인 RiskIndicator 노드(6종 공유)로 두고,
-    기업별 점수·근거는 엣지 속성으로 표현(우범자 그래프의 근거=엣지 철학과 일관).
-    """
-    if not row.get("company_id") or not row.get("indicator_code"):
-        return
+def merge_affiliated(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
-        MERGE (ri:RiskIndicator {code: $indicator_code})
-        SET ri.name = $indicator_name, ri.updated_from = $source_tag
-        MERGE (c)-[r:HAS_RISK_INDICATOR]->(ri)
-        SET r.score = $score,
-            r.reason = $reason,
-            r.recommendation = $recommendation,
-            r.related_refs = $related_refs,
-            r.calculated_at = $calculated_at,
+        MERGE (a:AffiliatedCompany {name: $affiliate})
+        SET a.updated_from = $source_tag
+        MERGE (c)-[r:AFFILIATED_WITH {declaration_no: $declaration_no}]->(a)
+        SET r.overseas_supplier = $overseas_supplier,
+            r.item = $item_name,
+            r.count = $count,
             r.updated_from = $source_tag
         """,
         {**row, "source_tag": SOURCE_TAG},
     )
 
 
-def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) -> dict[str, Any]:
+def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
     load_dotenv()
     uri = os.getenv("NEO4J_URI", DEFAULT_URI)
     user = os.getenv("NEO4J_USER", DEFAULT_USER)
@@ -330,6 +530,12 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
     database = os.getenv("NEO4J_DATABASE", DEFAULT_DATABASE)
 
     risk_by_company = build_risk_by_company(data["risk_scores"])
+    risk_names = build_risk_names_by_company(data["risk_indicators"])
+    affiliate_by_company = {
+        c["company_id"]: c.get("related_companies")
+        for c in data["companies"] if c.get("related_companies")
+    }
+    edges = aggregate_edges(data["lines"], affiliate_by_company)
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
@@ -340,15 +546,23 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
                 session.execute_write(clear_company_graph)
 
             for row in data["companies"]:
-                session.execute_write(merge_company, row, risk_by_company.get(row["company_id"], {}))
-            for row in data["export_countries"]:
-                session.execute_write(merge_export_country, row)
-            for row in data["declarations"]:
-                session.execute_write(merge_declaration, row)
-            for row in data["supply_stats"]:
-                session.execute_write(merge_supply_stat, row)
-            for row in data["risk_indicators"]:
-                session.execute_write(merge_risk_indicator, row)
+                session.execute_write(
+                    merge_company, row,
+                    risk_by_company.get(row["company_id"], {}),
+                    risk_names.get(row["company_id"], {}),
+                )
+            for row in data["related_parties"]:
+                session.execute_write(merge_related_party, row)
+            for row in edges["supplied_by"]:
+                session.execute_write(merge_supplied_by, row)
+            for row in edges["declares_item"]:
+                session.execute_write(merge_declares_item, row)
+            for row in edges["trades_country"]:
+                session.execute_write(merge_trades_country, row)
+            for row in edges["affiliated"]:
+                session.execute_write(merge_affiliated, row)
+            for row in edges["case"]:
+                session.execute_write(merge_case, row, edges["case_count"])
 
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
@@ -361,18 +575,20 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
 
     return {
         "companies_loaded": len(data["companies"]),
-        "declarations_loaded": len(data["declarations"]),
-        "supply_stats_loaded": len(data["supply_stats"]),
-        "export_country_links_loaded": len(data["export_countries"]),
-        "risk_scores_folded": len(risk_by_company),
-        "risk_indicators_loaded": len(data["risk_indicators"]),
+        "related_parties_loaded": len(data["related_parties"]),
+        "supplied_by_edges": len(edges["supplied_by"]),
+        "declares_item_edges": len(edges["declares_item"]),
+        "trades_country_edges": len(edges["trades_country"]),
+        "affiliated_edges": len(edges["affiliated"]),
+        "case_edges": len(edges["case"]),
+        "case_count_by_status": edges["case_count"],
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load DuckDB company import-risk graph into Neo4j (entity-centric)")
+    parser = argparse.ArgumentParser(description="Load DuckDB company import graph into Neo4j (6노드/5엣지 재구성)")
     parser.add_argument("--clear", action="store_true", help="Clear previously loaded company graph before loading.")
     args = parser.parse_args()
 

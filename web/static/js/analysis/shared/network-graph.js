@@ -40,6 +40,10 @@ const NODE_COLORS = {
   Industry:      "#a16207",
   Region:        "#475569",
   RelatedCompany:"#1d4ed8",
+  OverseasSupplier:"#0369a1",
+  RelatedParty:  "#be123c",
+  AffiliatedCompany:"#1d4ed8",
+  CaseType:      "#dc2626",
   Phone:         "#e11d48",
   Account:       "#0d9488",
   Place:         "#7c3aed",
@@ -53,6 +57,8 @@ const NODE_LABEL_KO = {
   RiskIndicator: "위험지표", RiskScore: "위험점수", AnalysisResult: "분석이력", Agent: "AI 분석서비스",
   Broker: "관세사", HsCode: "HS코드", Item: "품목",
   Industry: "업종", Region: "지역", RelatedCompany: "관계사",
+  OverseasSupplier: "해외거래처", RelatedParty: "특수관계인", AffiliatedCompany: "관계사",
+  CaseType: "사건유형",
   Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
 };
 
@@ -69,11 +75,23 @@ const REL_LABEL_KO = {
   CASE_FROM: "사건·원산지", CASE_VIA: "사건·경유", CASE_TO: "사건·도착지", CASE_LINK: "동일사건 연루",
   IMPORTED: "수입신고", SUPPLIES_TO: "공급", EXPORTS_TO: "수출",
   USES_BROKER: "관세사", HAS_RELATED_COMPANY: "관계사", RELATED_TO: "특수관계",
+  // 2026 관계망 재구성 (기업 수입 그래프 5종 엣지)
+  SUPPLIED_BY: "해외거래처(공급)", RELATED_PARTY: "특수관계", DECLARES_ITEM: "품목신고",
+  TRADES_WITH_COUNTRY: "수입/출국", AFFILIATED_WITH: "관계사", CASE: "사건",
   NETWORK_EDGE: "인적관계", RESIDES_IN: "거주", LOCATED_IN: "소재",
 };
 function relLabelKo(type, props){
   if(type === "NETWORK_EDGE" && props && props.relation_type) return props.relation_type;
   return REL_LABEL_KO[type] || type;
+}
+
+/* 엣지 선 굵기 — 수입 신고 건수(count)에 비례. 건수 없으면 인적관계 가중치(weight) 사용. 기본 2 */
+function edgeWidth(props){
+  const c = Number(props && props.count);
+  if(Number.isFinite(c) && c > 0) return Math.max(1.5, Math.min(11, 1.2 + c * 1.4));
+  const w = Number(props && props.weight);
+  if(Number.isFinite(w) && w > 0) return Math.max(1.5, Math.min(8, 1.5 + w * 5));
+  return 2;
 }
 
 /* 그래프 데이터 캐시 + 패널별 필터 상태 */
@@ -182,6 +200,12 @@ const PROP_LABEL_KO = {
   country: "국가", country_name: "국가명", hs_code: "HS코드", item_name: "품목명",
   broker_name: "관세사", org_name: "조직명", risk_score: "위험점수", risk_level: "위험등급",
   declaration_no: "신고번호", declared_value: "신고금액", import_date: "수입일",
+  // 2026 관계망 재구성: 기업 수입 그래프 노드/엣지 속성
+  region: "지역", top_risk_name: "주요 위험", top_risk_score: "주요 위험점수",
+  risk_indicator_summary: "위험지표", hsk_code: "품목번호(HSK)", spec: "사양/규격",
+  departure_country: "적출국", overseas_supplier: "해외거래처", item: "품목", count: "건수",
+  shareholding_pct: "지분율(%)", trade_share_pct: "거래비중(%)", is_offshore: "역외 여부", note: "비고",
+  origin: "원산지", status: "사건유형", case_count: "사건건수",
   indicator_name: "지표명", code: "코드", value: "값", score: "점수",
   // 인물(우범자) 프로파일 + 흡수된 위험지표 속성
   profile_type: "프로파일 유형", name_aliases: "별칭", birth_date: "생년월일", gender: "성별",
@@ -342,6 +366,7 @@ function cyElements(graph){
     .map((e, i) => ({ data: {
       id: `e${i}`, source: e.source, target: e.target, type: e.type,
       typeKo: relLabelKo(e.type, e.properties), props: e.properties || {},
+      ew: edgeWidth(e.properties),
       onPath: pathMode ? 1 : 0,
       fileEdge: (e.properties && e.properties.source === "file") ? 1 : 0,
     } }));
@@ -388,7 +413,7 @@ const CY_STYLE = [
   { selector: "edge", style: {
       "curve-style": "bezier",
       "line-color": "#9bbcff",
-      "width": 2,
+      "width": "data(ew)",
       "target-arrow-shape": "triangle",
       "target-arrow-color": "#9bbcff",
       "arrow-scale": 1.1,
@@ -603,7 +628,7 @@ function buildGraphSvg(graph, key){
     if(!a || !b) return "";
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     return `
-      <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"></line>
+      <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke-width="${edgeWidth(e.properties).toFixed(1)}"></line>
       <text x="${mx.toFixed(1)}" y="${(my - 3).toFixed(1)}" class="edge-label" text-anchor="middle">${escapeHtml(truncate(relLabelKo(e.type, e.properties), 12))}</text>
     `;
   }).join("");

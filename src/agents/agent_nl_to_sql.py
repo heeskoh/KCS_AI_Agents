@@ -95,28 +95,33 @@ DuckDB 데이터베이스 스키마 (관세청 CDW):
 _NEO4J_SCHEMA = """
 Neo4j 그래프 데이터베이스 스키마 (엔티티 중심 관계망):
 
-설계 원칙: 노드는 엔티티/분류만(기업·사람·조직·지역·국가·HS코드·관세사·관계사).
+설계 원칙: 노드는 엔티티/분류만(기업·사람·조직·지역·국가·품목·해외거래처·특수관계인·관계사).
 사건/수입신고/증거/위험점수/분석결과는 노드가 아니라 관계(엣지) 또는 노드 속성으로 표현한다.
+기업 수입 관계망(2026 재구성): 모든 엣지는 기업 중심이며, 엣지 속성 count = 수입신고 건수(선 굵기).
 
 노드 레이블:
-- Company { company_id, company_name, risk_level, risk_score, industry_code,
+- Company { company_id, company_name, region(지역), risk_level, risk_score,
+            top_risk_name(위험명), top_risk_score, risk_indicator_summary, industry_code,
             undervaluation_suspicion_rate, related_party_anomaly_rate, fta_origin_misuse_suspicion_rate,
             customs_refund_anomaly_rate, hs_classification_error_rate, offshore_fund_concealment_suspicion_rate }
 - Person  { person_id, name, risk_level, risk_score, nationality, risk_tags, watch_status,
             top_indicators, indicator_count, latest_analysis_summary, analysis_count }   -- 위험지표/분석결과 흡수
 - Organization { org_id, org_name, org_type, country, risk_score }
-- Country { code }
-- HsCode { code }
-- Broker { name }
-- RelatedCompany { name }
+- Country { code, name }                 -- 수입/출국 (적출국 기준)
+- Item { code(HSK 품목번호), name(거래품명), origin(원산지) }
+- OverseasSupplier { name }              -- 해외거래처
+- RelatedParty { key, name, country, is_offshore }  -- 특수관계인
+- AffiliatedCompany { name }             -- 관계사
+- CaseType { code(REVIEW/INSPECT/HOLD), name(검토/검사/보류), case_count(사건건수) }  -- 사건유형
 - Region { name }
 
-관계 유형(이벤트는 엣지로):
-- (Company)-[:IMPORTED { declaration_no, hs_code(타깃 노드), item_name, declared_value, origin_country, import_date, status }]->(HsCode)  -- 수입신고
-- (Country)-[:SUPPLIES_TO { declaration_count, total_declared_value, ... }]->(Company)
-- (Company)-[:EXPORTS_TO]->(Country)
-- (Company)-[:USES_BROKER]->(Broker)
-- (Company)-[:HAS_RELATED_COMPANY]->(RelatedCompany)
+관계 유형(기업 수입 관계망 5종 — 모두 기업 중심, count=건수=선굵기):
+- (Company)-[:SUPPLIED_BY { hsk_code, item_name, spec, departure_country, import_date, declaration_no, count }]->(OverseasSupplier)  -- 품목(HSK)이 다르면 다른 엣지
+- (Company)-[:DECLARES_ITEM { overseas_supplier, spec, departure_country, import_date, declaration_no, count }]->(Item)            -- 해외거래처가 다르면 다른 엣지
+- (Company)-[:TRADES_WITH_COUNTRY { hsk_code, overseas_supplier, spec, departure_country, import_date, declaration_no, count }]->(Country)  -- 품목(HSK)이 다르면 다른 엣지(적출국)
+- (Company)-[:AFFILIATED_WITH { declaration_no, overseas_supplier, item }]->(AffiliatedCompany)  -- 수입신고 NO가 다르면 다른 엣지
+- (Company)-[:RELATED_PARTY { relation_type, shareholding_pct, trade_share_pct, is_offshore }]->(RelatedParty)
+- (Company)-[:CASE { declaration_no, overseas_supplier, item, departure_country, import_date, count }]->(CaseType)  -- 신고 처리상태별 사건
 - (Person)-[:NETWORK_EDGE { relation_type, weight, confidence_score }]->(Person|Organization)
 - (Person)-[:CASE_FROM|CASE_VIA { case_id, case_type, contraband_category, role_in_case, evidence_level, ... }]->(Country)  -- 사건 원산지/경유
 - (Person)-[:CASE_TO { 사건속성 }]->(Region)        -- 사건 도착지
