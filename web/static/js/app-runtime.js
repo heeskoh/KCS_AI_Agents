@@ -2707,6 +2707,12 @@ let homeStepStatus = {};   // { label: "running"|"done"|"error" }
 let homeSelectedRagKeys = [];
 let homeSelectedAgentKeys = [];
 let homeShareEmailIds = [];
+// 선택 서비스별 프롬프트 템플릿 구성 상태: { [serviceKey]: { behaviors:[], text:"", edited:bool } }
+let homePromptTemplateState = {};
+// 구조화 전용 입력 패널을 갖는 서비스(별도 UI) — 템플릿 카드 대상에서 제외
+const HOME_TEMPLATE_EXCLUDED = new Set([
+  "translate", "text_summary", "report_standard", "db_cdw", "company_profile", "mail_share",
+]);
 
 const HOME_PICKER_RAG_KEYS = ["rag_customs", "rag_audit", "rag_investigation", "rag_global"];
 const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
@@ -2789,6 +2795,74 @@ function homeServiceInputPayload(){
     payload.report_template = val("homeReportStdTemplate");
   }
   return payload;
+}
+
+// ── 선택 서비스별 프롬프트 템플릿 구성 패널 ──────────────────────────────────
+// 선택된 RAG 소스 + AI 서비스 중 구조화 전용 패널이 없는 서비스마다 카드를 렌더한다.
+// 각 카드: 동작(behavior) 칩 + 미리 정의된 템플릿(composePrompt) 프리필 textarea(개인화 편집).
+function homeTemplateCardKeys(){
+  const { sources, agents } = homeSelectedAnalysisOptions();
+  return [...sources, ...agents].filter(
+    key => !HOME_TEMPLATE_EXCLUDED.has(key) && (AI_SERVICE_REGISTRY[key]?.behaviorOptions?.length || 0) > 0
+  );
+}
+
+function homeTemplateDefaultBehaviors(key){
+  const opts = AI_SERVICE_REGISTRY[key]?.behaviorOptions || [];
+  return opts.length ? [opts[0].value] : [];
+}
+
+// 카드 textarea를 현재 동작 조합 템플릿으로 (편집 전이면) 프리필한다.
+async function homeFillTemplatePrompt(key){
+  const st = homePromptTemplateState[key];
+  if(!st) return;
+  const composed = await composePrompt(key, st.behaviors, "company");
+  const current = homePromptTemplateState[key];
+  if(current && !current.edited){
+    current.text = composed || "";
+    const ta = document.querySelector(`[data-home-tpl-text="${cssString(key)}"]`);
+    if(ta) ta.value = current.text;
+  }
+}
+
+function homeTemplateCardHtml(key){
+  const svc = AI_SERVICE_REGISTRY[key];
+  const st = homePromptTemplateState[key];
+  const opts = svc.behaviorOptions || [];
+  const chips = opts.map(opt => {
+    const on = st.behaviors.includes(opt.value);
+    return `<button type="button" class="home-tpl-chip${on ? " on" : ""}"
+      data-home-tpl-behavior="${escapeHtml(key)}" data-behavior="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</button>`;
+  }).join("");
+  return `
+    <div class="home-svc-panel home-tpl-panel" data-home-tpl-card="${escapeHtml(key)}">
+      <div class="home-svc-panel-head">
+        <strong>${escapeHtml(svc.label)} <span class="home-tpl-edited" data-home-tpl-edited="${escapeHtml(key)}" style="display:${st.edited ? "inline" : "none"}">· 수정됨</span></strong>
+        <span>동작을 선택하면 표준 프롬프트가 채워집니다. 필요 시 개인화 프롬프트로 수정하세요.</span>
+      </div>
+      ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
+      <textarea class="home-tpl-text" data-home-tpl-text="${escapeHtml(key)}" rows="4"
+        placeholder="이 서비스에 사용할 프롬프트(편집 가능)">${escapeHtml(st.text || "")}</textarea>
+    </div>
+  `;
+}
+
+function homeRenderPromptTemplatePanels(){
+  const container = document.getElementById("homePromptTemplatePanels");
+  if(!container) return;
+  const keys = homeTemplateCardKeys();
+  // 선택 해제된 키는 상태에서 제거, 신규 선택은 기본값으로 초기화
+  Object.keys(homePromptTemplateState).forEach(key => {
+    if(!keys.includes(key)) delete homePromptTemplateState[key];
+  });
+  keys.forEach(key => {
+    if(!homePromptTemplateState[key]){
+      homePromptTemplateState[key] = { behaviors: homeTemplateDefaultBehaviors(key), text: "", edited: false };
+    }
+  });
+  container.innerHTML = keys.map(homeTemplateCardHtml).join("");
+  // 미편집 카드는 현재 동작 조합 템플릿으로 비동기 프리필
+  keys.forEach(key => { if(!homePromptTemplateState[key].edited) homeFillTemplatePrompt(key); });
 }
 
 function homeAddShareEmailIds(rawValue){
@@ -3089,6 +3163,7 @@ function homeToggleAnalysisOption(button){
   }
   if(button.dataset.homeAgent === "mail_share") homeRenderShareEmailPanel();
   homeRenderServiceInputPanels();
+  homeRenderPromptTemplatePanels();
 }
 
 function homeSyncPickerStatuses(){
@@ -3284,17 +3359,25 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
   runAgents.forEach(a => { homeStepStatus[a.label] = "wait"; });
   homeRenderDetail();
 
-  const scenarioItems = runAgents.map((a, i) => ({
-    id: `home_${i}`,
-    type: a.type,
-    key: a.key,
-    label: a.label,
-    order: i + 1,
-    behaviors: ["기본"],
-    behavior: "기본",
-    behaviorLabel: "기본",
-    instruction: prompt,
-  }));
+  const scenarioItems = runAgents.map((a, i) => {
+    // 프롬프트 템플릿 카드에서 서비스별 동작·개인화 프롬프트를 구성했으면 우선 적용
+    const tpl = homePromptTemplateState[a.key];
+    const behaviors = tpl && tpl.behaviors.length ? tpl.behaviors : ["기본"];
+    const behaviorLabel = (tpl && tpl.behaviors.length)
+      ? tpl.behaviors.map(v => (AI_SERVICE_REGISTRY[a.key]?.behaviorOptions || []).find(o => o.value === v)?.label || v).join(", ")
+      : "기본";
+    return {
+      id: `home_${i}`,
+      type: a.type,
+      key: a.key,
+      label: a.label,
+      order: i + 1,
+      behaviors,
+      behavior: behaviors[0] || "기본",
+      behaviorLabel,
+      instruction: (tpl && tpl.text.trim()) ? tpl.text.trim() : prompt,
+    };
+  });
 
   const payload = {
     scenario_items: scenarioItems,
@@ -8210,6 +8293,21 @@ document.addEventListener("input", (event) => {
   }
 });
 
+// 프롬프트 템플릿 카드 textarea 편집: 개인화 본문 저장 + '수정됨' 표시
+document.addEventListener("input", (event) => {
+  const tplText = event.target?.closest?.("[data-home-tpl-text]") || (event.target?.dataset?.homeTplText ? event.target : null);
+  if(tplText && tplText.dataset.homeTplText){
+    const key = tplText.dataset.homeTplText;
+    const st = homePromptTemplateState[key];
+    if(st){
+      st.text = tplText.value;
+      st.edited = true;
+      const badge = document.querySelector(`[data-home-tpl-edited="${cssString(key)}"]`);
+      if(badge) badge.style.display = "inline";
+    }
+  }
+});
+
 /* 프롬프트 입력창: 초기 안내문을 보여주다가 사용자가 포커스하면 비우고,
    비운 채로 벗어나면 다시 안내문을 복원한다. */
 document.addEventListener("focusin", (event) => {
@@ -8937,10 +9035,27 @@ document.addEventListener("click", (event)=>{
     homeSetPickerSelectedKeys(kind, next);
     if(kind === "agent" && key === "mail_share") homeRenderShareEmailPanel();
     if(kind === "agent") homeRenderServiceInputPanels();
+    homeRenderPromptTemplatePanels();
     openHomePicker(kind);
     const prompt = coachPromptText();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
+    }
+    return;
+  }
+
+  // 프롬프트 템플릿 카드: 동작(behavior) 칩 토글
+  const tplChip = event.target.closest("[data-home-tpl-behavior]");
+  if(tplChip){
+    const key = tplChip.dataset.homeTplBehavior;
+    const value = tplChip.dataset.behavior;
+    const st = homePromptTemplateState[key];
+    if(st){
+      const has = st.behaviors.includes(value);
+      st.behaviors = has ? st.behaviors.filter(v => v !== value) : [...st.behaviors, value];
+      tplChip.classList.toggle("on", !has);
+      // 편집 전 카드만 새 동작 조합 템플릿으로 재구성
+      if(!st.edited) homeFillTemplatePrompt(key);
     }
     return;
   }

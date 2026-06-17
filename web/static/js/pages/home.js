@@ -219,6 +219,9 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
           <textarea id="homeReportStdTemplate" rows="5" placeholder="표준이 되는 보고서(출력 템플릿)의 전체 형식·구성을 붙여넣으세요."></textarea>
         </div>
 
+        <!-- 선택 서비스별 프롬프트 템플릿 구성 패널 (동적 렌더) -->
+        <div id="homePromptTemplatePanels"></div>
+
         <!-- 컴포저 (프롬프트 입력 + 버튼) -->
         <div class="home-composer">
           <textarea id="coachPrompt" class="home-composer-ta is-initial" rows="3"

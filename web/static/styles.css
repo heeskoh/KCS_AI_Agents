@@ -465,6 +465,13 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-svc-panel-row select{height:32px;border:1px solid #fcd34d;border-radius:8px;padding:0 8px;font-size:13px;background:#fff}
 .home-svc-panel textarea{width:100%;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;resize:vertical;font-family:inherit}
 .home-analysis-card .home-svc-panel{padding:10px 12px}
+.home-tpl-panel{border-color:#bfdbfe;background:#f7faff}
+.home-tpl-panel .home-svc-panel-head strong{color:#0f559c}
+.home-tpl-edited{color:#2563eb;font-weight:700;font-size:12px}
+.home-tpl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.home-tpl-chip{border:1px solid #93c5fd;border-radius:999px;background:#fff;color:#1e3a8a;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer}
+.home-tpl-chip.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.home-tpl-text{width:100%;border:1px solid #93c5fd;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;resize:vertical;font-family:inherit}
 .home-mail-share-chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;min-height:22px}
 .home-share-email-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #93c5fd;border-radius:999px;background:#fff;color:#0f559c;padding:3px 4px 3px 9px;font-size:12px;font-weight:800}
 .home-share-email-chip button{width:18px;height:18px;border:0;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:900;line-height:1;cursor:pointer}
