@@ -487,6 +487,15 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-frame-move-btn:hover:not(:disabled){background:#dbeafe}
 .home-frame-move-btn:disabled{opacity:.35;cursor:default}
 .home-frame-note{margin:0;color:#64748b;font-size:12px;font-style:italic}
+.home-frame-desc{margin:0;color:#475569;font-size:12px;line-height:1.4}
+/* 좌→우 가로 수행 흐름 */
+.home-pipeline-wrap{margin:0 0 8px;display:grid;gap:6px}
+.home-pipeline-flow{display:flex;flex-wrap:nowrap;align-items:stretch;gap:6px;overflow-x:auto;padding:4px 2px 8px}
+.home-pipeline-flow .home-svc-panel{flex:0 0 250px;width:250px;margin:0;align-content:start}
+.home-flow-arrow{flex:0 0 auto;display:flex;align-items:center;color:#94a3b8;font-size:18px;font-weight:800}
+.home-pipeline-flow .home-input-row{flex-direction:column;align-items:stretch;gap:3px}
+.home-pipeline-flow .home-input-label{flex:none}
+.home-pipeline-flow .home-input-source,.home-pipeline-flow .home-input-value,.home-pipeline-flow .home-input-linked{flex:none;width:100%}
 /* 업무지식베이스 소개 카드 */
 .home-source-section{margin-bottom:6px}
 .home-source-card{border-color:#fcd34d;background:#fffdf3}
@@ -502,6 +511,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-input-source{flex:0 0 auto;height:30px;border:1px solid #93c5fd;border-radius:7px;padding:0 6px;font-size:12px;background:#fff;color:#1e3a8a}
 .home-input-value{flex:1 1 160px;min-width:120px;height:30px;border:1px solid #cbd5e1;border-radius:7px;padding:0 8px;font-size:13px;font-family:inherit}
 .home-input-linked{flex:1 1 160px;font-size:12px;color:#0f766e;font-weight:700;background:#ecfeff;border:1px solid #5eead4;border-radius:7px;padding:5px 8px}
+.home-frame-actions{display:flex;justify-content:flex-end;margin-top:2px}
+.home-frame-register-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;padding:5px 12px;cursor:pointer}
+.home-frame-register-btn:hover{background:#2563eb;color:#fff}
 /* 최종 결과 종합 패널 */
 .home-final-result-panel{border-color:#5eead4;background:#f0fdfa}
 .home-final-result-head{display:flex;align-items:flex-start;gap:8px}

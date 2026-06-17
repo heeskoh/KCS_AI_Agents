@@ -479,6 +479,39 @@ def _detect_company_id_from_prompt(prompt: str) -> str | None:
     return None
 
 
+def _resolve_company_id_from_db(text: str) -> str:
+    """텍스트에 등장하는 기업명을 company_profiles에서 조회해 company_id로 해석한다.
+
+    여러 후보가 있으면 (1) 가장 긴(구체적인) 기업명, (2) 수입신고 데이터가 많은 기업을
+    우선한다. 이름 없는 동명 기업 중 데이터가 있는 쪽을 선택해 후속 분석 단계가
+    실제 신고내역을 대상으로 동작하도록 한다.
+    """
+    text = text or ""
+    if not text.strip():
+        return ""
+    try:
+        with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+            rows = conn.execute("SELECT company_id, company_name FROM company_profiles").fetchall()
+            matched = [(cid, name) for cid, name in rows if name and name in text]
+            if not matched:
+                return ""
+            max_len = max(len(name) for _, name in matched)
+            candidates = [cid for cid, name in matched if len(name) == max_len]
+            if len(candidates) == 1:
+                return candidates[0]
+            placeholders = ",".join(["?"] * len(candidates))
+            counts = conn.execute(
+                f"SELECT company_id, COUNT(*) FROM import_declarations "
+                f"WHERE company_id IN ({placeholders}) GROUP BY company_id",
+                candidates,
+            ).fetchall()
+            count_map = {cid: cnt for cid, cnt in counts}
+            candidates.sort(key=lambda cid: count_map.get(cid, 0), reverse=True)
+            return candidates[0]
+    except Exception:
+        return ""
+
+
 _ATTACHMENT_TEXT_LIMIT = 16000
 _ATTACHMENT_TOTAL_LIMIT = 48000
 _ATTACHMENT_TASK_WORDS = (
@@ -1902,9 +1935,22 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             if not scenario.get("target_id"):
                 self._send_json({"error": "target_id is required for person target"}, HTTPStatus.BAD_REQUEST)
                 return
-        elif not company_id:
-            self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
-            return
+        else:
+            # 기업 대상인데 company_id가 없으면(자연어로 기업명만 제시) 프롬프트·입력값에서
+            # 기업명을 해석해 company_id로 스코프를 잡는다. CDW·분석 단계가 동일 기업을 대상으로
+            # 동작하도록 하여 'CDW로 품목 조회 → 품목분류검증' 같은 단계 연계를 가능하게 한다.
+            if company_id in ("", "__NO_COMPANY_SELECTED__"):
+                hint = " ".join([
+                    str(scenario.get("user_prompt") or ""),
+                    *[str(item.get("instruction") or "") for item in (scenario.get("scenario_items") or [])],
+                ])
+                resolved = _resolve_company_id_from_db(hint)
+                if resolved:
+                    company_id = resolved
+                    print(f"[web] 기업명 → company_id 해석: {company_id}")
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")

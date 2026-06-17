@@ -2719,6 +2719,8 @@ const HOME_DEDICATED_PANEL_SERVICES = new Set([
 ]);
 // AI 서비스별 필수 입력값 상태: { [serviceKey]: { [inputKey]: { source:"manual"|<order>, value:"" } } }
 let homeServiceInputState = {};
+// 자동 생성한 통합 프롬프트(사용자 수동 편집 감지용)
+let homeLastGeneratedPrompt = "";
 
 // 업무지식베이스(자연어 조회 대상) 소개문 — 데이터소스 선택 시 안내 카드로 표시
 const DATA_SOURCE_INTRO = {
@@ -2951,6 +2953,86 @@ function homeBuildInputBlock(key){
   return lines.length ? `\n\n[입력 정보]\n${lines.join("\n")}` : "";
 }
 
+// 프롬프트 입력창 등록용 조합 프롬프트 — 본문 + [입력 정보](연계는 읽기 쉬운 표기)
+function homeComposedPromptForFrame(key){
+  const tpl = homePromptTemplateState[key];
+  const base = (tpl && tpl.text.trim()) ? tpl.text.trim() : "";
+  const defs = homeServiceInputDefs(key);
+  const stAll = homeServiceInputState[key] || {};
+  const runtimeSteps = homeRuntimeStepKeys();
+  const lines = [];
+  defs.forEach(def => {
+    const st = stAll[def.key] || { source: "manual", value: "" };
+    if(st.source === "manual"){
+      const v = (st.value || "").trim();
+      if(v) lines.push(`- ${def.label}: ${v}`);
+    } else {
+      const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
+      lines.push(`- ${def.label}: (${st.source}단계 「${refLabel}」 결과 연계)`);
+    }
+  });
+  const block = lines.length ? `\n\n[입력 정보]\n${lines.join("\n")}` : "";
+  const svcLabel = AI_SERVICE_REGISTRY[key]?.label || key;
+  return (base ? base : `[${svcLabel}]`) + block;
+}
+
+// 업무지식베이스+AI서비스+입력값을 통합한 간결 자연어 프롬프트를 생성한다.
+function homeBuildCombinedPrompt(){
+  const { sources } = homeSelectedAnalysisOptions();
+  const aiOrder = homeSyncPipelineOrder();
+  const runtimeSteps = [...sources, ...aiOrder];
+  const segments = [];
+
+  if(sources.length){
+    const names = sources.map(k => AI_SERVICE_REGISTRY[k]?.label || k);
+    segments.push(`${names.join(", ")}에서 관련 자료를 조회하고,`);
+  }
+
+  aiOrder.forEach((key, idx) => {
+    const label = AI_SERVICE_REGISTRY[key]?.label || key;
+    const defs = homeServiceInputDefs(key);
+    const stAll = homeServiceInputState[key] || {};
+    const inputBits = [];
+    defs.forEach(def => {
+      const st = stAll[def.key] || { source: "manual", value: "" };
+      if(st.source !== "manual"){
+        const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
+        inputBits.push(`${def.label}은(는) ${refLabel} 결과 사용`);
+      } else if((st.value || "").trim()){
+        inputBits.push(`${def.label}: ${st.value.trim()}`);
+      } else if(def.required){
+        inputBits.push(`${def.label}: [입력 필요]`);
+      }
+    });
+    const inputStr = inputBits.length ? ` (${inputBits.join(", ")})` : "";
+    const subject = (sources.length || idx > 0) ? "앞에서 조회한 결과를 대상으로 " : "";
+    segments.push(`${subject}'${label}'을(를) 수행해줘${inputStr}.`);
+  });
+
+  return segments.join(" ").trim();
+}
+
+// 통합 프롬프트를 입력창에 자동 반영 (사용자가 직접 편집한 경우 덮어쓰지 않음)
+function homeSyncCombinedPrompt(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta) return;
+  const generated = homeBuildCombinedPrompt();
+  const isInitial = ta.classList.contains("is-initial");
+  const userEdited = !isInitial && ta.value.trim() !== "" && ta.value !== homeLastGeneratedPrompt;
+  if(userEdited) return;
+  if(generated){
+    ta.classList.remove("is-initial");
+    ta.value = generated;
+    homeLastGeneratedPrompt = generated;
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = generated.length + "자";
+  } else if(ta.value === homeLastGeneratedPrompt){
+    // 선택 해제로 통합 프롬프트가 비면 입력창도 초기화
+    ta.value = "";
+    homeLastGeneratedPrompt = "";
+  }
+}
+
 // 필수 입력값 검증 — 직접 입력 필드가 비어 있고 단계 연계도 아니면 오류. {ok, message, key}
 function homeValidateServiceInputs(){
   const aiOrder = homeSyncPipelineOrder();
@@ -3029,7 +3111,7 @@ function homeDataSourceCardHtml(key, order){
   `;
 }
 
-// 단일 AI 서비스 수행 프레임 (순서 배지 + ▲▼ + 필수입력/단계연계 + 동작칩/프롬프트)
+// 단일 AI 서비스 수행 프레임 (순서 배지 + ▲▼ + 기능 설명 + 동작칩 + 필수 입력값)
 function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
   const svc = AI_SERVICE_REGISTRY[key];
   if(!svc) return "";
@@ -3043,26 +3125,23 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
     return `<button type="button" class="home-tpl-chip${on ? " on" : ""}"
       data-home-tpl-behavior="${escapeHtml(key)}" data-behavior="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</button>`;
   }).join("") : "";
-  const editedBadge = inline
-    ? `<span class="home-tpl-edited" data-home-tpl-edited="${escapeHtml(key)}" style="display:${st?.edited ? "inline" : "none"}">· 수정됨</span>`
-    : "";
-  const promptBlock = inline
-    ? `${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
-       <textarea class="home-tpl-text" data-home-tpl-text="${escapeHtml(key)}" rows="4"
-         placeholder="이 서비스에 사용할 프롬프트(편집 가능)">${escapeHtml(st?.text || "")}</textarea>`
+  const desc = svc.defaultInstruction || "";
+  const body = inline
+    ? `${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
+       ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
+       ${homeServiceInputsHtml(key, runtimeSteps, gi)}`
     : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
   return `
     <div class="home-svc-panel home-pipeline-frame" data-home-pipeline-frame="${escapeHtml(key)}">
       <div class="home-frame-head">
         <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
-        <strong class="home-frame-title">${escapeHtml(svc.label)} ${editedBadge}</strong>
+        <strong class="home-frame-title">${escapeHtml(svc.label)}</strong>
         <span class="home-frame-move">
-          <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 위로" title="위로">▲</button>
-          <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 아래로" title="아래로">▼</button>
+          <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
+          <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
         </span>
       </div>
-      ${homeServiceInputsHtml(key, runtimeSteps, gi)}
-      ${promptBlock}
+      ${body}
     </div>
   `;
 }
@@ -3100,32 +3179,29 @@ function homeRenderPromptTemplatePanels(){
     homeEnsureInputState(key);
   });
 
-  if(!sources.length && !aiOrder.length){ container.innerHTML = ""; return; }
+  if(!sources.length && !aiOrder.length){ container.innerHTML = ""; homeSyncCombinedPrompt(); return; }
 
   const runtimeSteps = [...sources, ...aiOrder];
-  const sourceSection = sources.length ? `
-    <div class="home-pipeline home-source-section">
-      <div class="home-pipeline-head">
-        <strong>업무지식베이스 · 자연어 조회 대상</strong>
-        <span>선택한 데이터소스를 자연어로 조회합니다. (분석 단계보다 먼저 수행)</span>
-      </div>
-      ${sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)).join("")}
-    </div>` : "";
-  const aiSection = aiOrder.length ? `
-    <div class="home-pipeline">
-      <div class="home-pipeline-head">
-        <strong>AI 분석서비스 · 수행 순서</strong>
-        <span>${aiOrder.length}개 서비스가 위→아래 순서로 실행됩니다. ▲▼ 로 순서를 조정하고, 입력값은 직접 입력하거나 이전 단계 결과와 연계하세요.</span>
-      </div>
-      ${aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)).join("")}
-    </div>` : "";
+  // 좌→우 가로 흐름: 업무지식베이스(검색) 카드 → AI 분석서비스 프레임, 사이에 화살표
+  const cards = [
+    ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
+    ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
+  ];
+  const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">→</div>`);
   const finalHtml = aiOrder.length >= 2 ? homeFinalResultPanelHtml() : "";
 
-  container.innerHTML = sourceSection + aiSection + finalHtml;
-  // 미편집 인라인 프레임은 현재 동작 조합 템플릿으로 비동기 프리필
-  aiOrder.forEach(key => {
-    if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key].edited) homeFillTemplatePrompt(key);
-  });
+  container.innerHTML = `
+    <div class="home-pipeline-wrap">
+      <div class="home-pipeline-head">
+        <strong>수행 흐름</strong>
+        <span>업무지식베이스(검색)에서 AI 분석서비스로 좌→우 진행됩니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 이전 단계 결과와 연계하세요. 아래 통합 프롬프트는 자동 생성됩니다.</span>
+      </div>
+      <div class="home-pipeline-flow">${flow}</div>
+    </div>
+    ${finalHtml}
+  `;
+  // 선택/입력에 맞춰 통합 프롬프트를 입력창에 자동 생성
+  homeSyncCombinedPrompt();
 }
 
 // 프레임 순서 이동 (▲▼)
@@ -8620,6 +8696,7 @@ document.addEventListener("input", (event) => {
     const svc = el.dataset.svc, field = el.dataset.field;
     homeEnsureInputState(svc);
     homeServiceInputState[svc][field].value = el.value;
+    homeSyncCombinedPrompt();
   }
 });
 
@@ -9377,7 +9454,7 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  // 프롬프트 템플릿 카드: 동작(behavior) 칩 토글
+  // AI 서비스 카드: 동작(behavior) 칩 토글
   const tplChip = event.target.closest("[data-home-tpl-behavior]");
   if(tplChip){
     const key = tplChip.dataset.homeTplBehavior;
@@ -9387,8 +9464,7 @@ document.addEventListener("click", (event)=>{
       const has = st.behaviors.includes(value);
       st.behaviors = has ? st.behaviors.filter(v => v !== value) : [...st.behaviors, value];
       tplChip.classList.toggle("on", !has);
-      // 편집 전 카드만 새 동작 조합 템플릿으로 재구성
-      if(!st.edited) homeFillTemplatePrompt(key);
+      homeSyncCombinedPrompt();
     }
     return;
   }

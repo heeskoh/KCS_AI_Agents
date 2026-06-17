@@ -209,6 +209,12 @@ def execute_duckdb_sql(sql: str) -> list[dict[str, Any]]:
     if not sql_upper.startswith("SELECT") and not sql_upper.startswith("WITH"):
         raise ValueError("SELECT 또는 WITH 문만 실행 가능합니다.")
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        # LLM이 생성한 SQL이 다중행을 반환하는 스칼라 서브쿼리를 포함해도 하드 크래시하지
+        # 않도록 한다(다중행 시 임의 1행 반환). 자연어 질의의 견고성을 우선한다.
+        try:
+            conn.execute("SET scalar_subquery_error_on_multiple_rows=false")
+        except duckdb.Error:
+            pass
         df = conn.execute(sql).df()
     return df.to_dict("records")
 
