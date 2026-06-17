@@ -1463,6 +1463,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
+    WORKSPACE_STATE_DIR = DATA_DIR / "workspace_state"
     ANALYSIS_TEMPLATES_PATH = DATA_DIR / "analysis_templates.json"
     SCENARIO_BUILDER_CONFIG_PATH = DATA_DIR / "scenario_builder_config.json"
     SCENARIO_TEMPLATES_PATH = DATA_DIR / "scenario_templates.json"
@@ -1505,6 +1506,92 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"status": "saved"})
 
+    # ── 진행작업 상태: 사용자별 파일 분리 저장 ────────────────────────────────
+    # data/workspace_state/<userId>.json 으로 사용자별 워크스페이스를 분리한다.
+    # userWorkspaces 외 전역/현재세션 키는 data/workspace_state/_base.json 에 보관.
+    # 클라이언트 계약(GET/POST 시 단일 blob)은 그대로 유지된다.
+    _WS_ID_ALLOWED = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+    )
+
+    @classmethod
+    def _safe_user_id(cls, user_id) -> str:
+        # 파일명 안전성: 허용 문자만 남기고 경로 구분자·상위경로·예약 접두(_)를 차단
+        safe = "".join(ch for ch in str(user_id or "") if ch in cls._WS_ID_ALLOWED)
+        if safe in ("", ".", "..") or safe.startswith("_"):
+            return ""
+        return safe
+
+    def _atomic_write_json(self, path, value) -> None:
+        tmp_path = path.parent / (path.name + ".tmp")
+        tmp_path.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        tmp_path.replace(path)
+
+    def _shard_workspace_blob(self, blob: dict) -> None:
+        self.WORKSPACE_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        user_workspaces = blob.get("userWorkspaces")
+        if not isinstance(user_workspaces, dict):
+            user_workspaces = {}
+        base = {key: value for key, value in blob.items() if key != "userWorkspaces"}
+        self._atomic_write_json(self.WORKSPACE_STATE_DIR / "_base.json", base)
+        for user_id, workspace in user_workspaces.items():
+            safe = self._safe_user_id(user_id)
+            if not safe:
+                continue
+            self._atomic_write_json(self.WORKSPACE_STATE_DIR / f"{safe}.json", workspace)
+
+    def _assemble_workspace_state(self) -> dict:
+        base_path = self.WORKSPACE_STATE_DIR / "_base.json"
+        # 최초 1회: 기존 단일 파일(data/workspace_state.json)을 사용자별 파일로 이행
+        if not base_path.exists() and self.WORKSPACE_STATE_PATH.exists():
+            legacy = json.loads(self.WORKSPACE_STATE_PATH.read_text(encoding="utf-8-sig"))
+            if isinstance(legacy, dict):
+                self._shard_workspace_blob(legacy)
+        if not base_path.exists():
+            return {}
+        state = json.loads(base_path.read_text(encoding="utf-8-sig"))
+        if not isinstance(state, dict):
+            state = {}
+        user_workspaces: dict = {}
+        for path in sorted(self.WORKSPACE_STATE_DIR.glob("*.json")):
+            if path.name == "_base.json":
+                continue
+            try:
+                user_workspaces[path.stem] = json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                continue
+        state["userWorkspaces"] = user_workspaces
+        return state
+
+    def _read_workspace_store(self) -> dict | None:
+        try:
+            with self._workspace_lock:
+                return self._assemble_workspace_state()
+        except (OSError, json.JSONDecodeError) as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+
+    def _write_workspace_store(self) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            state = json.loads(raw)
+        except json.JSONDecodeError:
+            self._send_json({"error": "invalid json"}, HTTPStatus.BAD_REQUEST)
+            return
+        if not isinstance(state, dict):
+            self._send_json({"error": "state must be an object"}, HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            with self._workspace_lock:
+                self._shard_workspace_blob(state)
+        except OSError as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_json({"status": "saved"})
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
 
@@ -1515,8 +1602,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             self._serve_static(parsed.path.removeprefix("/static/"))
             return
         if parsed.path == "/api/workspace_state":
-            # 진행작업(캔버스) 상태 — data/workspace_state.json 파일 저장소
-            state = self._read_json_store(self.WORKSPACE_STATE_PATH)
+            # 진행작업(캔버스) 상태 — data/workspace_state/<userId>.json 사용자별 분리 저장소
+            state = self._read_workspace_store()
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -1648,7 +1735,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/workspace_state":
-            self._write_json_store(self.WORKSPACE_STATE_PATH)
+            self._write_workspace_store()
             return
 
         if parsed.path == "/api/analysis_templates":
