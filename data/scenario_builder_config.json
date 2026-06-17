@@ -1,0 +1,291 @@
+{
+  "version": 1,
+  "analysisButtons": [
+    {
+      "className": "red",
+      "page": "profile",
+      "label": "기업 위험도 대시보드"
+    },
+    {
+      "className": "sky",
+      "page": "investigation",
+      "label": "관세 조사 분석"
+    },
+    {
+      "className": "rose",
+      "page": "generalinv",
+      "label": "일반 수사 분석"
+    },
+    {
+      "className": "purple",
+      "page": "lawsearch",
+      "label": "마약 수사 분석"
+    },
+    {
+      "className": "teal",
+      "page": "fxsearch",
+      "label": "외환 수사 분석"
+    },
+    {
+      "className": "olive",
+      "page": "case",
+      "label": "국제 정보분석"
+    },
+    {
+      "className": "lime",
+      "page": "model",
+      "label": "관세 온톨로지"
+    },
+    {
+      "className": "brown",
+      "page": "report",
+      "label": "Case별 RAG"
+    }
+  ],
+  "analysisScenarios": {
+    "investigation": {
+      "page": "investigation",
+      "title": "관세조사 분석",
+      "template": "customs",
+      "defaultTab": "ongoing",
+      "enabledSubtabs": [
+        "ongoing",
+        "profile",
+        "data",
+        "scenario",
+        "report",
+        "dashboard"
+      ]
+    },
+    "generalinv": {
+      "page": "generalinv",
+      "title": "일반 수사 분석",
+      "template": "general-investigation",
+      "defaultTab": "cases",
+      "enabledSubtabs": [
+        "cases",
+        "profile",
+        "data",
+        "workbench",
+        "report"
+      ]
+    },
+    "lawsearch": {
+      "page": "lawsearch",
+      "title": "마약 수사 분석",
+      "template": "special-investigation",
+      "defaultTab": "ongoing",
+      "enabledSubtabs": [
+        "ongoing",
+        "profile",
+        "data",
+        "scenario",
+        "report",
+        "slang",
+        "dashboard"
+      ]
+    },
+    "fxsearch": {
+      "page": "fxsearch",
+      "title": "외환 수사 분석",
+      "template": "special-investigation",
+      "defaultTab": "ongoing",
+      "enabledSubtabs": [
+        "ongoing",
+        "profile",
+        "data",
+        "scenario",
+        "forensic",
+        "slang",
+        "dashboard"
+      ]
+    }
+  },
+  "customAnalysisScenarios": [],
+  "agentOptionDefaults": {
+    "db_cdw": {
+      "serviceId": "db_cdw",
+      "agentId": "db",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "company_profile": {
+      "serviceId": "company_profile",
+      "agentId": "company",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "rag_customs": {
+      "serviceId": "rag_customs",
+      "agentId": "rag_customs",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "rag_audit": {
+      "serviceId": "rag_audit",
+      "agentId": "rag_audit",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "rag_investigation": {
+      "serviceId": "rag_investigation",
+      "agentId": "rag_investigation",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "rag_global": {
+      "serviceId": "rag_global",
+      "agentId": "rag_global",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "customs_value": {
+      "serviceId": "customs_value",
+      "agentId": "customs_value",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "network": {
+      "serviceId": "network",
+      "agentId": "network",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "proceeds_tracking": {
+      "serviceId": "proceeds_tracking",
+      "agentId": "proceeds_tracking",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "declaration_verify": {
+      "serviceId": "declaration_verify",
+      "agentId": "declaration_verify",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "route_analysis": {
+      "serviceId": "route_analysis",
+      "agentId": "route_analysis",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "origin_analysis": {
+      "serviceId": "origin_analysis",
+      "agentId": "origin_analysis",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "abnormal_trade": {
+      "serviceId": "abnormal_trade",
+      "agentId": "abnormal_trade",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "hs_verify": {
+      "serviceId": "hs_verify",
+      "agentId": "hs_verify",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "ml": {
+      "serviceId": "ml",
+      "agentId": "ml",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "rag_create": {
+      "serviceId": "rag_create",
+      "agentId": "rag_create",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "ocr": {
+      "serviceId": "ocr",
+      "agentId": "ocr",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "law": {
+      "serviceId": "law",
+      "agentId": "law",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "mail_share": {
+      "serviceId": "mail_share",
+      "agentId": "mail_share",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "web_search": {
+      "serviceId": "web_search",
+      "agentId": "web",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "patent": {
+      "serviceId": "patent",
+      "agentId": "patent",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "report_validate": {
+      "serviceId": "report_validate",
+      "agentId": "validation",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "report_generate": {
+      "serviceId": "report_generate",
+      "agentId": "report",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    }
+  }
+}
