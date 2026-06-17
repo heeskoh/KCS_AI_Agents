@@ -82,7 +82,7 @@ export const AI_SERVICE_CATALOG = {
       { value:"valuation_basis", label:"과세가격 근거" },
       { value:"undervaluation", label:"저가신고 탐지" },
     ]),
-  network: cfg("관계망 분석 AI 서비스", "network", ANALYSIS_AI_GROUP,
+  network: cfg("관계망 분석 AI 서비스", "network", LLM_SERVICE_GROUP,
     "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
     "인물·동행자·연락처·주소 관계망을 분석해 공범, 전달책, 반복 연계 가능성을 식별",
     [
@@ -135,7 +135,7 @@ export const AI_SERVICE_CATALOG = {
       { value:"classification_check", label:"분류 적정성" },
       { value:"alternative_hs", label:"대체 HS 후보" },
     ]),
-  ml: cfg("ML 모델 실행 AI 서비스", "ml", ANALYSIS_AI_GROUP,
+  ml: cfg("ML 모델 실행 AI 서비스", "ml", LLM_SERVICE_GROUP,
     "전체 모델을 실행해 기업 위험 패턴을 비교",
     "전체 모델을 실행해 개인 위험 패턴을 비교",
     [
@@ -159,6 +159,30 @@ export const AI_SERVICE_CATALOG = {
     [
       { value:"document_extract", label:"문서 항목 추출" },
       { value:"evidence_parse", label:"증빙 구조화" },
+    ]),
+
+  translate: cfg("문서 번역 AI 서비스", "translate", LLM_SERVICE_GROUP,
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    [
+      { value:"faithful", label:"원문 충실 번역" },
+      { value:"natural", label:"자연스러운 의역" },
+    ]),
+  text_summary: cfg("요약 AI 서비스", "text_summary", LLM_SERVICE_GROUP,
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    [
+      { value:"bullet", label:"핵심 불릿" },
+      { value:"table", label:"표 형식" },
+      { value:"narrative", label:"서술 요약" },
+      { value:"custom", label:"사용자 템플릿" },
+    ]),
+  report_standard: cfg("표준 보고서 생성 AI 서비스", "report_standard", LLM_SERVICE_GROUP,
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    [
+      { value:"match_template", label:"템플릿 형식 적용" },
+      { value:"fill_sections", label:"섹션별 채움" },
     ]),
 
   law: cfg("법령 검토 AI 서비스", "law", EXTERNAL_AI_GROUP,

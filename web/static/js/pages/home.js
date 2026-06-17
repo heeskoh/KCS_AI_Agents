@@ -161,10 +161,68 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
           <div class="home-mail-share-chips" id="homeShareEmailChips"></div>
         </div>
 
+        <!-- 문서 번역 AI 서비스 패널 (숨김) -->
+        <div class="home-svc-panel" id="homeTranslatePanel" style="display:none">
+          <div class="home-svc-panel-head">
+            <strong>문서 번역 AI 서비스</strong>
+            <span>번역할 문서·텍스트와 대상 언어를 지정하세요. (파일을 첨부한 경우 원문 입력은 비워둘 수 있습니다)</span>
+          </div>
+          <div class="home-svc-panel-row">
+            <label>원본 언어
+              <select id="homeTranslateSourceLang">
+                <option value="auto" selected>자동 감지</option>
+                <option value="ko">한국어</option>
+                <option value="en">영어</option>
+                <option value="zh">중국어</option>
+                <option value="ja">일본어</option>
+              </select>
+            </label>
+            <label>대상 언어
+              <select id="homeTranslateTargetLang">
+                <option value="ko" selected>한국어</option>
+                <option value="en">영어</option>
+                <option value="zh">중국어</option>
+                <option value="ja">일본어</option>
+              </select>
+            </label>
+          </div>
+          <textarea id="homeTranslateInput" rows="4" placeholder="번역할 원문을 입력하세요."></textarea>
+        </div>
+
+        <!-- 요약 AI 서비스 패널 (숨김) -->
+        <div class="home-svc-panel" id="homeSummaryPanel" style="display:none">
+          <div class="home-svc-panel-head">
+            <strong>요약 AI 서비스</strong>
+            <span>요약할 문서·텍스트와 결과 형식을 지정하세요. (파일을 첨부한 경우 원문 입력은 비워둘 수 있습니다)</span>
+          </div>
+          <div class="home-svc-panel-row">
+            <label>결과 형식
+              <select id="homeSummaryFormat">
+                <option value="bullet" selected>핵심 불릿</option>
+                <option value="table">표 형식</option>
+                <option value="narrative">서술 요약</option>
+                <option value="custom">사용자 템플릿</option>
+              </select>
+            </label>
+          </div>
+          <textarea id="homeSummaryInput" rows="4" placeholder="요약할 원문을 입력하세요."></textarea>
+          <textarea id="homeSummaryTemplate" rows="3" placeholder="[사용자 템플릿] 원하는 출력 형식/항목을 적으세요. (결과 형식이 '사용자 템플릿'일 때 사용)"></textarea>
+        </div>
+
+        <!-- 표준 보고서 생성 AI 서비스 패널 (숨김) -->
+        <div class="home-svc-panel" id="homeReportStdPanel" style="display:none">
+          <div class="home-svc-panel-head">
+            <strong>표준 보고서 생성 AI 서비스</strong>
+            <span>신규 보고서 내용과 표준 보고서(출력 템플릿)를 입력하면, 템플릿의 형식·구성에 맞춰 신규 보고서를 생성합니다.</span>
+          </div>
+          <textarea id="homeReportStdContent" rows="4" placeholder="신규 보고서에 담을 내용을 입력하세요."></textarea>
+          <textarea id="homeReportStdTemplate" rows="5" placeholder="표준이 되는 보고서(출력 템플릿)의 전체 형식·구성을 붙여넣으세요."></textarea>
+        </div>
+
         <!-- 컴포저 (프롬프트 입력 + 버튼) -->
         <div class="home-composer">
-          <textarea id="coachPrompt" class="home-composer-ta" rows="3"
-            placeholder="${escapeHtml(COACH_PROMPT_PLACEHOLDER)}"></textarea>
+          <textarea id="coachPrompt" class="home-composer-ta is-initial" rows="3"
+            data-initial-text="${escapeHtml(COACH_PROMPT_PLACEHOLDER)}">${escapeHtml(COACH_PROMPT_PLACEHOLDER)}</textarea>
           <div class="home-composer-bar">
             <label class="btn-ghost home-tool-btn file-tool" title="파일 첨부">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -182,6 +240,11 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
               AI 분석 서비스
               <span class="home-select-badge" id="homeAgentBadge" style="display:none"></span>
               <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="btn-soft home-tool-btn home-llm-mode-btn" type="button"
+                    data-home-llm-mode data-llm-mode="ext" title="LLM 사용 모드 전환 (외부 / 내부 / 외부+내부)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+              <span class="home-llm-mode-label">외부LLM only</span>
             </button>
             <div class="home-composer-actions">
               <button class="btn-ghost home-action-btn coach" id="coachAnalyzeBtn" type="button">

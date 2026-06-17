@@ -466,11 +466,14 @@ function permissionApprovePage(){
 const DB_SEARCH_GROUP = "DB 검색";
 const RAG_SEARCH_GROUP = "RAG 검색";
 const ANALYSIS_AI_GROUP = "업무분석 AI서비스";
-const LLM_SERVICE_GROUP = "파일·요약·번역 LLM 기능 서비스";
+const LLM_SERVICE_GROUP = "분석지원 AI 서비스";
 const EXTERNAL_AI_GROUP = "외부연계 AI서비스";
 const REPORT_AI_GROUP = "보고서 생성 및 검증";
 const AI_SERVICE_GROUP = ANALYSIS_AI_GROUP;
 const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
+
+// 모든 사용자 그룹에 기본 granted 처리할 분석지원/공유 서비스 (사건·권한과 무관한 범용 도구)
+const DEFAULT_GRANTED_AGENTS = ["mail_share", "translate", "text_summary", "report_standard"];
 
 const AI_SERVICE_REGISTRY = {
   db_cdw: {
@@ -548,7 +551,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   ml: {
-    label: "ML 모델 실행 AI 서비스", type: "ml", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "ML 모델 실행 AI 서비스", type: "ml", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "전체 모델을 실행해 위험 패턴을 비교",
     behaviorOptions: [
       { value: "all_models", label: "전체 모델 실행" },
@@ -559,7 +562,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   network: {
-    label: "관계망 분석 AI 서비스", type: "network", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "관계망 분석 AI 서비스", type: "network", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
     behaviorOptions: [
       { value: "relationship", label: "관계망 분석" },
@@ -605,7 +608,7 @@ const AI_SERVICE_REGISTRY = {
   // 신규: 범죄자금추적 — 실제 등록된 소스(이체·가상자산·현금 등)에 따라 분석.
   // 동작 선택 = 분석에 사용할 데이터 소스 선택. (범죄수익 추적과는 별개 서비스)
   fund_trace: {
-    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "등록된 자금 소스(계좌이체·가상자산·현금 입출금 등) 중 선택한 항목을 기반으로 범죄자금 흐름을 추적",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름내역" },
@@ -616,7 +619,7 @@ const AI_SERVICE_REGISTRY = {
   },
   // 신규: 통신내역 AI 분석 — 동작 선택 = 분석에 사용할 통신 소스 선택.
   comms_analysis: {
-    label: "통신내역 AI 분석 서비스", type: "comms", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "통신내역 AI 분석 서비스", type: "comms", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "등록된 통신 소스(통화·SMS·SNS·메신저 등) 중 선택한 항목을 분석해 연락 빈도·공범·전달책 관계 단서를 도출",
     behaviorOptions: [
       { value: "call", label: "통화내역" },
@@ -698,6 +701,32 @@ const AI_SERVICE_REGISTRY = {
     behaviorOptions: [
       { value: "knowledge_build", label: "지식 생성" },
       { value: "source_cleanup", label: "자료 정제" },
+    ],
+  },
+  translate: {
+    label: "문서 번역 AI 서비스", type: "translate", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    behaviorOptions: [
+      { value: "faithful", label: "원문 충실 번역" },
+      { value: "natural", label: "자연스러운 의역" },
+    ],
+  },
+  text_summary: {
+    label: "요약 AI 서비스", type: "text_summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    behaviorOptions: [
+      { value: "bullet", label: "핵심 불릿" },
+      { value: "table", label: "표 형식" },
+      { value: "narrative", label: "서술 요약" },
+      { value: "custom", label: "사용자 템플릿" },
+    ],
+  },
+  report_standard: {
+    label: "표준 보고서 생성 AI 서비스", type: "report_standard", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    behaviorOptions: [
+      { value: "match_template", label: "템플릿 형식 적용" },
+      { value: "fill_sections", label: "섹션별 채움" },
     ],
   },
   summary: {
@@ -847,6 +876,18 @@ const AI_SERVICE_TARGET_CONFIG = {
   rag_create: targetConfig(
     "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리"
+  ),
+  translate: targetConfig(
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역"
+  ),
+  text_summary: targetConfig(
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약"
+  ),
+  report_standard: targetConfig(
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성"
   ),
   summary: targetConfig(
     "선행 단계 결과를 조사관용 핵심 요약으로 정리",
@@ -2163,6 +2204,31 @@ const COACH_TYPE_COLORS = {
 
 function coachEl(id){ return document.getElementById(id); }
 
+/* 프롬프트 입력창은 초기 안내문(value + .is-initial)을 보여주다가 사용자가 포커스하면 비워진다.
+   .is-initial 상태(아직 입력 전)는 실제 입력으로 보지 않는다. */
+function coachPromptText(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta || ta.classList.contains("is-initial")) return "";
+  return (ta.value || "").trim();
+}
+
+/* LLM 사용 모드 토글: 외부LLM only / 내부LLM only / 외부+내부 */
+const HOME_LLM_MODES = [
+  { mode: "ext",     label: "외부LLM only" },
+  { mode: "int",     label: "내부LLM only" },
+  { mode: "ext_int", label: "외부LLM+내부LLM" },
+];
+function homeLlmMode(){
+  return document.querySelector("[data-home-llm-mode]")?.dataset.llmMode || "ext";
+}
+function homeLlmModeReasoning(d){
+  const map = { ext: "외부LLM", int: "내부LLM only(시뮬레이션)", ext_int: "외부LLM+내부LLM" };
+  let label = map[(d && d.llm_mode) || homeLlmMode()] || "LLM 자체 답변";
+  if(d && d.llm_model) label += `(${d.llm_model})`;
+  const web = d && d.web_search_used ? "웹검색 반영" : (d && d.web_search_note ? d.web_search_note : "웹검색 미사용");
+  return `${label} · ${web}`;
+}
+
 function coachSetScoreMini(n){
   const el = coachEl("coachScoreMini");
   if(!el) return;
@@ -2257,6 +2323,7 @@ function coachImprove(){
   const ta = coachEl("coachPrompt");
   if(!ta || !coachImprovedPrompt) return;
   ta.value = coachImprovedPrompt;
+  ta.classList.remove("is-initial");
   const cc = coachEl("coachCharCount");
   if(cc) cc.textContent = ta.value.length + "자";
   coachSetScoreMini(95);
@@ -2269,7 +2336,15 @@ function coachImprove(){
 
 function coachReset(){
   const ta = coachEl("coachPrompt");
-  if(ta && coachOriginalPrompt) ta.value = coachOriginalPrompt;
+  if(ta){
+    if(coachOriginalPrompt){
+      ta.value = coachOriginalPrompt;
+      ta.classList.remove("is-initial");
+    } else {
+      ta.value = ta.dataset.initialText || "";
+      ta.classList.add("is-initial");
+    }
+  }
   coachSuggestions = [];
   coachSuggestionsCollapsed = false;
   coachBaseScore = 35;
@@ -2286,7 +2361,7 @@ function coachReset(){
   coachRenderFileChips();
   coachRenderFileLinkChips();
   const cc = coachEl("coachCharCount");
-  if(cc && ta) cc.textContent = ta.value.length + "자";
+  if(cc && ta) cc.textContent = (ta.classList.contains("is-initial") ? 0 : ta.value.length) + "자";
   const improveBtn = coachEl("coachImproveBtn");
   if(improveBtn){
     setHomeActionLabel(improveBtn, "개선 적용");
@@ -2304,7 +2379,7 @@ async function coachRunAnalyze(){
   const analyzeBtn = coachEl("coachAnalyzeBtn");
   if(!ta) return;
 
-  const prompt = ta.value.trim();
+  const prompt = coachPromptText();
   if(!prompt){
     alert("프롬프트를 먼저 입력하세요.");
     return;
@@ -2618,6 +2693,9 @@ const HOME_DEFAULT_AGENTS = [
   { type:"law",                label:"법령 검토 AI 서비스",       key:"law" },
   { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
   { type:"rag_create",         label:"RAG 생성",                 key:"rag_create" },
+  { type:"translate",          label:"문서 번역 AI 서비스",       key:"translate" },
+  { type:"text_summary",       label:"요약 AI 서비스",            key:"text_summary" },
+  { type:"report_standard",    label:"표준 보고서 생성 AI 서비스", key:"report_standard" },
   { type:"report",             label:"보고서 생성 AI 서비스",     key:"report_generate" },
   { type:"validation",         label:"보고서 검증 AI 서비스",     key:"report_validate" },
   { type:"mail_share",         label:"분석결과 공유 AI 서비스",   key:"mail_share" },
@@ -2677,6 +2755,40 @@ function homeRenderShareEmailPanel(){
         </span>
       `).join("")
     : `<span class="home-share-email-empty">등록된 이메일 ID가 없습니다.</span>`;
+}
+
+// 분석지원 서비스(번역·요약·표준보고서)의 형식화 입력 패널 표시/숨김 동기화
+function homeRenderServiceInputPanels(){
+  const agents = homeSelectedAnalysisOptions().agents;
+  const toggle = (id, on) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = on ? "block" : "none";
+  };
+  toggle("homeTranslatePanel", agents.includes("translate"));
+  toggle("homeSummaryPanel", agents.includes("text_summary"));
+  toggle("homeReportStdPanel", agents.includes("report_standard"));
+}
+
+// 선택된 분석지원 서비스의 형식화 입력값을 실행 payload에 첨부할 형태로 수집
+function homeServiceInputPayload(){
+  const agents = homeSelectedAnalysisOptions().agents;
+  const val = id => (document.getElementById(id)?.value || "").trim();
+  const payload = {};
+  if(agents.includes("translate")){
+    payload.translate_source_lang = document.getElementById("homeTranslateSourceLang")?.value || "auto";
+    payload.translate_target_lang = document.getElementById("homeTranslateTargetLang")?.value || "ko";
+    payload.translate_input = val("homeTranslateInput");
+  }
+  if(agents.includes("text_summary")){
+    payload.summary_format = document.getElementById("homeSummaryFormat")?.value || "bullet";
+    payload.summary_template = val("homeSummaryTemplate");
+    payload.summary_input = val("homeSummaryInput");
+  }
+  if(agents.includes("report_standard")){
+    payload.report_content = val("homeReportStdContent");
+    payload.report_template = val("homeReportStdTemplate");
+  }
+  return payload;
 }
 
 function homeAddShareEmailIds(rawValue){
@@ -2976,6 +3088,7 @@ function homeToggleAnalysisOption(button){
     status.textContent = selected ? "✓" : "×";
   }
   if(button.dataset.homeAgent === "mail_share") homeRenderShareEmailPanel();
+  homeRenderServiceInputPanels();
 }
 
 function homeSyncPickerStatuses(){
@@ -3003,8 +3116,8 @@ const HOME_PICKER_GROUPS = {
     { groupKey: RAG_SEARCH_GROUP, label: "RAG 검색",  icon: "📚" },
   ],
   agent: [
-    { groupKey: ANALYSIS_AI_GROUP,  label: "업무분석 AI서비스",           icon: "🔍" },
-    { groupKey: LLM_SERVICE_GROUP,  label: "파일·요약·번역 LLM 서비스",  icon: "📄" },
+    { groupKey: ANALYSIS_AI_GROUP,  label: "업무분석 AI서비스",   icon: "🔍" },
+    { groupKey: LLM_SERVICE_GROUP,  label: "분석지원 AI 서비스",  icon: "🧰" },
     { groupKey: EXTERNAL_AI_GROUP,  label: "외부연계 AI서비스",           icon: "🌐" },
     { groupKey: REPORT_AI_GROUP,    label: "보고서 생성 및 검증",         icon: "📋" },
   ],
@@ -3192,12 +3305,14 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     rag_customs_public: true,
     rag_audit: true,
     bigdata_enabled: false,
+    llm_mode: homeLlmMode(),
     user_prompt: prompt,
     upload_session_id: coachUploadSessionId || undefined,
     uploaded_files: coachAttachedFiles,
     file_links: coachFileLinkSummaries(),
     attached_files_summary: coachAttachedFileSummaries(),
     share_recipients: homeShareEmailIds,
+    ...homeServiceInputPayload(),
   };
 
   const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(payload))}`;
@@ -3429,12 +3544,14 @@ async function homeRunAnalysis(prompt, btn){
 
   if(!hasSelectedInternalTool){
     let answer = "";
+    let reasoning = "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변";
     try {
       const r = await fetch("/api/llm_query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
+          llm_mode: homeLlmMode(),
           upload_session_id: coachUploadSessionId || undefined,
           attached_files: coachAttachedFileSummaries(),
           file_links: coachFileLinkSummaries(),
@@ -3442,10 +3559,11 @@ async function homeRunAnalysis(prompt, btn){
       });
       const d = await r.json();
       answer = d.answer || "결과를 가져올 수 없습니다.";
+      reasoning = homeLlmModeReasoning(d);
     } catch(e) {
       answer = "LLM 호출에 실패했습니다.";
     }
-    homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변", btn);
+    homeShowLlmAnswer(prompt, answer, reasoning, btn);
     return;
   }
 
@@ -3460,6 +3578,7 @@ async function homeRunAnalysis(prompt, btn){
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        llm_mode: homeLlmMode(),
         coach_uses: coachUses,
         selected_sources: selectedOptions.sources,
         selected_agents: selectedOptions.agents,
@@ -3506,6 +3625,7 @@ async function homeRunAnalysis(prompt, btn){
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
+            llm_mode: homeLlmMode(),
             upload_session_id: coachUploadSessionId || undefined,
             attached_files: coachAttachedFileSummaries(),
             file_links: coachFileLinkSummaries(),
@@ -4267,7 +4387,7 @@ function cssString(value){
 function buildGroupPermissions(group){
   const perms = {};
   Object.keys(defaultUserPermissions).forEach(key => {
-    perms[key] = (group.rag.includes(key) || group.agents.includes(key) || key === "mail_share") ? "granted" : "locked";
+    perms[key] = (group.rag.includes(key) || group.agents.includes(key) || DEFAULT_GRANTED_AGENTS.includes(key)) ? "granted" : "locked";
   });
   return perms;
 }
@@ -8070,6 +8190,27 @@ document.addEventListener("input", (event) => {
   }
 });
 
+/* 프롬프트 입력창: 초기 안내문을 보여주다가 사용자가 포커스하면 비우고,
+   비운 채로 벗어나면 다시 안내문을 복원한다. */
+document.addEventListener("focusin", (event) => {
+  const ta = event.target;
+  if(ta?.id === "coachPrompt" && ta.classList.contains("is-initial")){
+    ta.value = "";
+    ta.classList.remove("is-initial");
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = "0자";
+  }
+});
+document.addEventListener("focusout", (event) => {
+  const ta = event.target;
+  if(ta?.id === "coachPrompt" && !(ta.value || "").trim()){
+    ta.value = ta.dataset.initialText || "";
+    ta.classList.add("is-initial");
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = "0자";
+  }
+});
+
 document.addEventListener("change", (event) => {
   if(event.target && event.target.id === "coachFileInput"){
     coachHandleFileSelect(event.target.files);
@@ -8775,11 +8916,24 @@ document.addEventListener("click", (event)=>{
       : [...current, key];
     homeSetPickerSelectedKeys(kind, next);
     if(kind === "agent" && key === "mail_share") homeRenderShareEmailPanel();
+    if(kind === "agent") homeRenderServiceInputPanels();
     openHomePicker(kind);
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
+    return;
+  }
+
+  // LLM 사용 모드 토글 (외부LLM only → 내부LLM only → 외부LLM+내부LLM 순환)
+  const llmModeBtn = event.target.closest("[data-home-llm-mode]");
+  if(llmModeBtn){
+    const cur = llmModeBtn.dataset.llmMode || "ext";
+    const i = HOME_LLM_MODES.findIndex(m => m.mode === cur);
+    const next = HOME_LLM_MODES[(i + 1) % HOME_LLM_MODES.length];
+    llmModeBtn.dataset.llmMode = next.mode;
+    const lbl = llmModeBtn.querySelector(".home-llm-mode-label");
+    if(lbl) lbl.textContent = next.label;
     return;
   }
 
@@ -8801,7 +8955,7 @@ document.addEventListener("click", (event)=>{
   const homeOptionBtn = event.target.closest("[data-home-source], [data-home-agent]");
   if(homeOptionBtn){
     homeToggleAnalysisOption(homeOptionBtn);
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
@@ -8859,7 +9013,7 @@ document.addEventListener("click", (event)=>{
 
   const homeRunBtn = event.target.closest(".home-run-btn");
   if(homeRunBtn){
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(!prompt){ alert("프롬프트를 먼저 입력하세요."); return; }
     homeRunAnalysis(prompt, homeRunBtn);
     return;
@@ -8970,6 +9124,7 @@ document.addEventListener("click", (event)=>{
   if(intlTemplateBtn){
     const input = document.getElementById("coachPrompt");
     if(input){
+      input.classList.remove("is-initial");  // 초기 안내문 상태 해제 (포커스 시 자동 비움 방지)
       input.value = intlTemplateBtn.dataset.intlTemplate;
       input.focus();
       input.dispatchEvent(new Event("input", { bubbles:true }));
@@ -9203,6 +9358,15 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if(event.key !== "Enter") return;
+  // 프롬프트 입력창: Enter → 실행. Shift+Enter는 줄바꿈, 한글 IME 조합 중에는 무시.
+  if(event.target?.id === "coachPrompt"){
+    if(event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    const runBtn = document.querySelector(".home-run-btn");
+    if(!runBtn) return;
+    event.preventDefault();
+    runBtn.click();
+    return;
+  }
   if(event.target?.id === "homeShareEmailInput"){
     event.preventDefault();
     homeAddShareEmailIds(event.target.value || "");

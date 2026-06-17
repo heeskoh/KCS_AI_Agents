@@ -46,3 +46,6 @@ class CustomsState(TypedDict, total=False):
     abnormal_trade_result: Optional[str]    # 이상거래 검증              (agent_abnormal_trade)
     proceeds_tracking_result: Optional[str] # 범죄수익 추적              (agent_proceeds_tracking)
     route_analysis_result: Optional[str]    # 운송경로 분석              (agent_route_analysis)
+    translate_result: Optional[str]         # 문서 번역                  (agent_translate)
+    text_summary_result: Optional[str]      # 요약                       (agent_text_summary)
+    report_standard_result: Optional[str]   # 표준 보고서 생성           (agent_report_standard)

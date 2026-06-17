@@ -418,6 +418,7 @@ _AGENT_ORDER = [
     "declaration_verify", "hs_verify", "customs_value", "ontology",
     "origin_analysis", "abnormal_trade", "proceeds_tracking", "route_analysis",
     "patent", "law",
+    "translate", "text_summary", "report_standard",
     "report", "validate", "mail_share",
 ]
 
@@ -443,6 +444,9 @@ _AGENT_LABEL = {
     "route_analysis":     "운송경로분석",
     "patent":             "특허정보조회",
     "law":                "법령정보조회",
+    "translate":          "문서 번역",
+    "text_summary":       "요약",
+    "report_standard":    "표준 보고서 생성",
     "report":             "보고서 생성",
     "validate":           "보고서 검증",
     "mail_share":         "분석결과 공유",
@@ -743,20 +747,55 @@ def run_db_query_api(body: dict) -> dict:
 
 
 def llm_direct_query(body: dict) -> dict:
-    """에이전트 없이 LLM에 직접 질의한다."""
+    """에이전트 없이 LLM에 직접 질의한다.
+
+    llm_mode 시뮬레이션 (내부 LLM 미보유 → 내부/외부 모두 OpenAI 모델로 처리):
+      - "ext" / "ext_int" (외부LLM): OpenAI 모델 + 웹검색(TAVILY/SERPAPI) 컨텍스트 보강
+      - "int" (내부LLM only): 웹검색 없이 OpenAI 모델만 사용
+    """
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return {"answer": ""}
+
+    llm_mode = (body.get("llm_mode") or "ext").strip()
+    use_web = llm_mode in ("ext", "ext_int")
+
     openai_file_inputs = _build_openai_file_inputs(body)
     attachment_context = _build_attachment_context(body, include_errors=not openai_file_inputs)
-    llm_prompt = prompt
+
+    # 외부 LLM 모드: 웹검색 결과를 컨텍스트로 보강
+    web_context = ""
+    web_used = False
+    web_reason = "내부LLM 모드(웹검색 미사용)" if not use_web else ""
+    if use_web:
+        try:
+            from src.agents.agent_web import web_search_context
+            ws = web_search_context(prompt)
+            web_used = bool(ws.get("available"))
+            web_context = ws.get("text") or ""
+            web_reason = ws.get("reason") or ("웹검색 결과 반영" if web_used else "")
+        except Exception as exc:
+            web_reason = f"웹검색 실패: {exc}"
+            print(f"[llm_direct] 웹검색 실패: {exc}")
+
+    # 프롬프트 구성 (첨부 + 웹검색 컨텍스트)
+    guide = "사용자 요청에 한국어로 답변하세요."
+    if web_context:
+        guide += " 아래 웹검색 결과를 근거로 활용하고, 인용 시 출처 URL을 함께 제시하세요."
     if attachment_context:
-        llm_prompt = (
-            "사용자 요청에 답변하세요. 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하고, "
-            "텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요.\n\n"
-            f"[사용자 요청]\n{prompt}\n\n[첨부 파일 내용]\n{attachment_context}"
-        )
+        guide += " 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하고, 텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요."
+    extra = ""
+    if attachment_context:
+        extra += f"\n\n[첨부 파일 내용]\n{attachment_context}"
+    if web_context:
+        extra += f"\n\n[웹검색 결과]\n{web_context}"
+    llm_prompt = f"{guide}\n\n[사용자 요청]\n{prompt}{extra}" if extra else prompt
+
+    from src.llm import MODEL_NAME
+    meta = {"llm_mode": llm_mode, "web_search_used": web_used,
+            "web_search_note": web_reason, "llm_model": MODEL_NAME}
     try:
+        # 첨부 파일(PDF/이미지)이 있고 OpenAI 프로바이더일 때만 Responses API로 파일 직접 입력
         if openai_file_inputs and os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai":
             from openai import OpenAI
             model = os.getenv("LLM_MODEL") or "gpt-4o"
@@ -768,6 +807,8 @@ def llm_direct_query(body: dict) -> dict:
             )
             if attachment_context:
                 text_prompt += f"\n\n[추출된 첨부 텍스트]\n{attachment_context}"
+            if web_context:
+                text_prompt += f"\n\n[웹검색 결과]\n{web_context}"
             response = client.responses.create(
                 model=model,
                 temperature=temperature,
@@ -776,14 +817,15 @@ def llm_direct_query(body: dict) -> dict:
                     "content": [{"type": "input_text", "text": text_prompt}, *openai_file_inputs],
                 }],
             )
-            return {"answer": response.output_text}
+            return {"answer": response.output_text, **meta}
 
+        # 외부/내부 모두 설정된 LLM_MODEL(전역 llm) 사용. 차이는 웹검색 컨텍스트 유무뿐.
         from src.llm import llm
         if llm:
-            return {"answer": llm.invoke(llm_prompt).content}
+            return {"answer": llm.invoke(llm_prompt).content, **meta}
     except Exception as exc:
         print(f"[llm_direct] 실패: {exc}")
-    return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요."}
+    return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.", **meta}
 
 
 _DATA_SOURCES = {
@@ -810,6 +852,9 @@ _AGENTS = {
     "route_analysis":     "운송경로 분석 — 우회수입 탐지와 공급망 역추적",
     "patent":             "특허정보 조회 — 로열티·기술사용료 과세 영향 분석",
     "rag_create":         "RAG 생성 — 업로드 문서 임베딩 후 검색 가능 컬렉션 생성",
+    "translate":          "문서 번역 — 입력 문서·텍스트를 지정 대상 언어로 번역",
+    "text_summary":       "요약 — 입력 문서·텍스트를 지정 결과 형식(불릿/표/서술/템플릿)으로 요약",
+    "report_standard":    "표준 보고서 생성 — 표준 보고서 템플릿 형식에 맞춰 신규 보고서 작성",
     "law":                "법령 검토 — 관세법·시행령·결정례·판례 검색",
     "summary":            "보고서 요약 — 첨부 문서와 선행 결과 요약",
     "report":             "보고서 생성 — 모든 분석 결과를 5섹션 구조로 통합",
