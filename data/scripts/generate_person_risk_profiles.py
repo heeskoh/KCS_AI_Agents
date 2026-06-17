@@ -317,6 +317,10 @@ def generate_all(conn: duckdb.DuckDBPyConnection, verbose: bool = True) -> dict[
 
 
 def main() -> None:
+    # Windows 콘솔(cp949)에서 한글/em dash(—) 출력 시 UnicodeEncodeError 방지.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     print(f"DuckDB: {DB_PATH}")
     with duckdb.connect(str(DB_PATH)) as conn:
         generate_all(conn, verbose=True)

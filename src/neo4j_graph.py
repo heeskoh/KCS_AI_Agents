@@ -295,36 +295,36 @@ def build_person_network_report(person_id: str) -> str | None:
         """,
         person_id=person_id,
     )
-    # 사건은 Case 노드 폐지 → 대표주체(인물) 중심 CASE_* 관계로 표현됨.
-    # CASE_FROM/CASE_VIA/CASE_TO(본인 사건) + CASE_LINK(타인 사건 연루)를 사건번호로 묶어 대표값 사용.
+    # 사건 = Case 노드 허브. (인물)-[:INVOLVED_IN {역할·분석결과}]->(:Case).
     cases = _read(
         """
-        MATCH (:Person {person_id: $person_id})-[r:CASE_FROM|CASE_VIA|CASE_TO|CASE_LINK]-()
-        WITH r.case_id AS case_id, collect(r)[0] AS r
-        RETURN case_id,
-               r.case_type AS case_type,
-               r.contraband_category AS contraband_category,
-               r.contraband_sub_category AS contraband_sub_category,
-               r.case_status AS case_status,
+        MATCH (:Person {person_id: $person_id})-[r:INVOLVED_IN]->(c:Case)
+        RETURN c.case_id AS case_id,
+               c.case_type AS case_type,
+               c.contraband_category AS contraband_category,
+               c.contraband_sub_category AS contraband_sub_category,
+               c.case_status AS case_status,
                r.role_in_case AS role_in_case,
-               r.confidence_score AS confidence_score
+               r.confidence_score AS confidence_score,
+               r.analysis_summary AS analysis_summary
         ORDER BY r.confidence_score DESC
         LIMIT 12
         """,
         person_id=person_id,
     )
 
-    # 분석은 AnalysisResult 노드 폐지 → (인물)-[:ANALYZED_BY]->(:Agent) 엣지로 표현됨.
-    analyses = _read(
+    # 사건을 통해 연결된 관계인(같은 Case에 연루된 다른 역할의 인물).
+    co_actors = _read(
         """
-        MATCH (:Person {person_id: $person_id})-[r:ANALYZED_BY]->(a:Agent)
-        RETURN r.analysis_type AS analysis_type,
-               a.name AS agent,
-               r.risk_score_after AS risk_score_after,
-               r.output_summary AS output_summary,
-               r.created_at AS created_at
-        ORDER BY r.created_at DESC
-        LIMIT 12
+        MATCH (:Person {person_id: $person_id})-[:INVOLVED_IN]->(c:Case)<-[r2:INVOLVED_IN]-(other:Person)
+        WHERE other.person_id <> $person_id
+        RETURN DISTINCT other.person_id AS person_id,
+               other.name AS name,
+               r2.role_in_case AS role,
+               c.case_id AS case_id,
+               c.case_type AS case_type
+        ORDER BY case_id
+        LIMIT 15
         """,
         person_id=person_id,
     )
@@ -337,16 +337,17 @@ def build_person_network_report(person_id: str) -> str | None:
     case_lines = [
         f"- {row['case_id']} | {row.get('case_type')} | {row.get('contraband_category')}/"
         f"{row.get('contraband_sub_category')} | 역할 {row.get('role_in_case')} | confidence {row.get('confidence_score')}"
+        + (f" | 분석: {row.get('analysis_summary')}" if row.get('analysis_summary') else "")
         for row in cases
     ] or ["- 관여 사건 없음"]
+    # 사건을 통해 연결된 관계인(다자 사건의 다른 역할 인물)
+    co_actor_lines = [
+        f"- {row.get('name') or row['person_id']} ({row['person_id']}) | 역할 {row.get('role')} "
+        f"| 사건 {row['case_id']}({row.get('case_type')})"
+        for row in co_actors
+    ] or ["- 사건 연루 관계인 없음"]
     # 위험지표는 노드 폐지 → Person 노드 속성으로 흡수됨
     indicator_lines = [f"- {person.get('top_indicators') or '위험지표 미산정'} (총 {person.get('indicator_count', 0)}건)"]
-    # 분석이력은 ANALYZED_BY 엣지로 표현됨
-    analysis_lines = [
-        f"- {row.get('analysis_type') or '-'} ({row.get('agent') or '-'}) / "
-        f"after {row.get('risk_score_after')}: {row.get('output_summary') or '-'}"
-        for row in analyses
-    ] or ["- 분석 이력 없음"]
 
     lines = [
         "[Neo4j 우범자 관계망 분석 결과]",
@@ -357,17 +358,17 @@ def build_person_network_report(person_id: str) -> str | None:
         f"위험태그: {person.get('risk_tags') or '-'}",
         f"감시상태: {person.get('watch_status') or '-'}",
         "",
-        "■ 주요 네트워크 관계",
+        "■ 주요 네트워크 관계 (가족·동반여행자·공범 등)",
         *edge_lines,
         "",
-        "■ 관여 사건",
+        "■ 관여 사건 (역할·분석결과)",
         *case_lines,
+        "",
+        "■ 사건 연루 관계인",
+        *co_actor_lines,
         "",
         "■ 위험지표",
         *indicator_lines,
-        "",
-        "■ 분석 이력",
-        *analysis_lines,
     ]
     return "\n".join(lines)
 

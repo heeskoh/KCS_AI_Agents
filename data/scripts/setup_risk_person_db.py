@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import random
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -168,7 +169,8 @@ DDL = [
         explanation VARCHAR,
         review_status VARCHAR,
         seed_batch_id VARCHAR,
-        created_at TIMESTAMP
+        created_at TIMESTAMP,
+        linked_case_id VARCHAR          -- 분석이 다룬 사건(없으면 NULL) → 사건 엣지 연결용
     )
     """,
 ]
@@ -196,6 +198,10 @@ def choose_weighted(rng: random.Random, items: list[tuple[str, int]]) -> str:
 def create_schema(conn: duckdb.DuckDBPyConnection) -> None:
     for statement in DDL:
         conn.execute(statement)
+    # 기존 테이블 마이그레이션: analysis_result.linked_case_id 보강 (IF NOT EXISTS는 컬럼 추가 안 함)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info('analysis_result')").fetchall()}
+    if "linked_case_id" not in cols:
+        conn.execute("ALTER TABLE analysis_result ADD COLUMN linked_case_id VARCHAR")
 
 
 def clear_seed(conn: duckdb.DuckDBPyConnection) -> None:
@@ -247,6 +253,7 @@ def build_seed_rows() -> dict[str, list[tuple]]:
     indicators: list[tuple] = []
     sources: list[tuple] = []
     analyses: list[tuple] = []
+    primary_cases: list[dict] = []  # 2차 패스(다자 사건)용 대표사건 메타
 
     for i in range(1, 26):
         org_id = f"RO-{i:03d}"
@@ -388,6 +395,10 @@ def build_seed_rows() -> dict[str, list[tuple]]:
             SEED_BATCH_ID,
             now,
         ))
+        primary_cases.append({
+            "idx": i, "case_id": case_id, "case_type": case_type, "owner_id": person_id,
+            "owner_role": role, "source_id": source_id, "detection_date": detection_date,
+        })
 
         org_id = f"RO-{((i - 1) % 25) + 1:03d}"
         edges.extend([
@@ -473,6 +484,7 @@ def build_seed_rows() -> dict[str, list[tuple]]:
             rng.choice(["미검토", "검토완료", "보강필요"]),
             SEED_BATCH_ID,
             now,
+            case_id,
         ))
 
         # Add richer investigation history: each risk person ends up with
@@ -592,7 +604,61 @@ def build_seed_rows() -> dict[str, list[tuple]]:
                 rng.choice(["미검토", "검토완료", "보강필요"]),
                 SEED_BATCH_ID,
                 now,
+                hist_case_id,
             ))
+
+    # ── 2차 패스: 다자(多者) 사건 공동연루자 + 가족/동반여행자 관계 ──────────────
+    # 기존 시드는 "사건당 인물 1명"이라 사건 속 다른 역할의 인물이 없었음 → 보강한다.
+    # 대표사건(SC-i)마다 1~3명의 공동연루자를 서로 다른 역할로 추가하고,
+    # 인물↔인물 가족관계·동반여행자 관계를 명시적으로 생성한다.
+    post = random.Random(20260616)
+    for meta in primary_cases:
+        used_roles = {meta["owner_role"]}
+        pool = [f"RP-{j:04d}" for j in range(1, 101) if f"RP-{j:04d}" != meta["owner_id"]]
+        for k, cp in enumerate(post.sample(pool, post.randint(1, 3)), 1):
+            avail = [r for r in roles if r not in used_roles] or roles
+            co_role = post.choice(avail)
+            used_roles.add(co_role)
+            links.append((
+                f"PCL-{meta['idx']:04d}-A{k}", cp, meta["case_id"], co_role,
+                _is_cargo_owner(meta["case_type"], co_role),
+                round(post.uniform(0.50, 0.95), 2), post.choice(["확정", "강함", "중간", "약함"]),
+                meta["source_id"], SEED_BATCH_ID, now,
+            ))
+            edges.append((
+                f"NE-PCASE-{meta['idx']:04d}-A{k}", "person", cp, "case", meta["case_id"],
+                "사건연루", round(post.uniform(0.50, 0.95), 2), round(post.uniform(0.50, 0.95), 2),
+                meta["detection_date"] - timedelta(days=post.randint(0, 60)), meta["detection_date"],
+                meta["source_id"], SEED_BATCH_ID, now,
+            ))
+            edges.append((
+                f"NE-COACT-{meta['idx']:04d}-A{k}", "person", meta["owner_id"], "person", cp,
+                "공범", round(post.uniform(0.50, 0.95), 2), round(post.uniform(0.50, 0.95), 2),
+                meta["detection_date"] - timedelta(days=post.randint(1, 120)), meta["detection_date"],
+                meta["source_id"], SEED_BATCH_ID, now,
+            ))
+
+    # 가족관계 / 동반여행자 (인물↔인물)
+    for i in range(1, 101):
+        pid = f"RP-{i:04d}"
+        src_id = f"EV-{i:04d}"
+        base_dt = today - timedelta(days=post.randint(30, 700))
+        if post.random() < 0.45:
+            fam = f"RP-{post.randint(1, 100):04d}"
+            if fam != pid:
+                edges.append((
+                    f"NE-FAM-{i:04d}", "person", pid, "person", fam, "가족관계",
+                    round(post.uniform(0.60, 0.98), 2), round(post.uniform(0.70, 0.99), 2),
+                    base_dt, base_dt, src_id, SEED_BATCH_ID, now,
+                ))
+        if post.random() < 0.35:
+            comp = f"RP-{post.randint(1, 100):04d}"
+            if comp != pid:
+                edges.append((
+                    f"NE-COMP-{i:04d}", "person", pid, "person", comp, "동반여행자",
+                    round(post.uniform(0.50, 0.95), 2), round(post.uniform(0.60, 0.95), 2),
+                    base_dt, base_dt, src_id, SEED_BATCH_ID, now,
+                ))
 
     return {
         "risk_person_profile": persons,
@@ -620,7 +686,13 @@ def insert_rows(conn: duckdb.DuckDBPyConnection, rows: dict[str, list[tuple]]) -
             "indicator_name, indicator_value, score, weight, reason, calculated_at, seed_batch_id) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)"
         ),
-        "analysis_result": "INSERT INTO analysis_result VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        # 컬럼 명시형: linked_case_id 확장 컬럼 포함(14개).
+        "analysis_result": (
+            "INSERT INTO analysis_result (analysis_id, entity_type, entity_id, analysis_type, "
+            "model_or_agent, input_summary, output_summary, risk_score_before, risk_score_after, "
+            "explanation, review_status, seed_batch_id, created_at, linked_case_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        ),
     }
     for table, table_rows in rows.items():
         conn.executemany(insert_sql[table], table_rows)
@@ -660,6 +732,11 @@ def print_summary(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 def main() -> None:
+    # Windows 콘솔(cp949)에서 한글/em dash(—) 출력 시 UnicodeEncodeError 방지.
+    # 전역 sys.stdout을 바꾸므로 import된 generate_all의 print도 함께 보호된다.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="우범자 프로파일 DuckDB 테이블 생성 및 샘플 적재")
     parser.add_argument("--db", type=Path, default=DB_PATH, help="DuckDB 파일 경로")
     parser.add_argument("--no-clear", action="store_true", help="기존 동일 seed_batch_id 데이터를 삭제하지 않음")

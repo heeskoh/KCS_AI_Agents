@@ -24,50 +24,47 @@ exploration and graph analytics.
 
 Reference checks found no missing person/case/evidence references for the current sample.
 
-## Modeling (2026 재모델링 — 엔티티 중심)
+## Modeling (2026 관계망 재구성 — Case 허브)
 
-노드는 엔티티만 두고, **사건(Case)·증거(Evidence)·위험지표(RiskIndicator)·분석결과(AnalysisResult)는
-관계 또는 노드 속성으로 흡수**한다. 사건은 데이터 특성상 사건당 인물 1명(person_case_link)이므로
-그 인물을 **대표주체(hub)** 로 삼아, 사건 속성을 hub→장소(Country/Region) 관계와
-타인 연루(network_edge person→case) 시 spoke→hub 관계로 표현한다.
+대상 1명(우범자)을 중심으로 연계된 결과를 분석하고, **관련 사건을 통해 연루 관계인들이 함께
+드러나도록** `Case`(사건) 노드를 다자(多者) 허브로 둔다. 한 사건에 여러 인물이 서로 다른 역할로
+`INVOLVED_IN` 연결되며(`person_case_link`가 사건당 2~4명 보유), 분석결과는 그 참여 엣지에 흡수한다.
 
 요약:
-- **사건** = `CASE_*` 엣지 (대표주체 인물 중심)
-- **증거** = 사건(`CASE_*`) 엣지의 `evidence_summary`/`evidence_level`/`evidence_agency` 속성으로 흡수
-- **분석** = `(:Person)-[:ANALYZED_BY]->(:Agent)` 엣지 (수행 주체 model_or_agent는 Agent 노드)
-- **위험지표** = `Person.top_indicators`/`indicator_count` 속성으로 흡수
+- **사건** = `Case` 노드. 여러 인물이 `INVOLVED_IN`(역할별)으로 연결 → "사건 연루 관계인" 표시.
+- **사건 장소** = `(:Case)-[:CASE_FROM/CASE_VIA]->(:Country)`, `(:Case)-[:CASE_TO]->(:Region)`.
+- **증거** = `INVOLVED_IN` 엣지의 `evidence_summary`/`evidence_level`/`evidence_agency` 속성으로 흡수.
+- **분석결과** = `INVOLVED_IN` 엣지의 `analysis_type`/`analysis_summary`/`risk_score_after`/
+  `analysis_review_status` 속성으로 흡수(`analysis_result.linked_case_id`로 인물·사건 매칭).
+- **위험지표** = `Person.top_indicators`/`indicator_count` 속성으로 흡수.
+- **인적관계** = `NETWORK_EDGE`(`relation_type`에 가족관계·동반여행자·공범·송금관계 등 보존).
 
 ## Nodes
 
 | Label | Natural key | Source | Notes |
 | --- | --- | --- | --- |
 | `Person` | `person_id` | `risk_person_profile` | `top_indicators`/`indicator_count`(위험지표 흡수) |
+| `Case` | `case_id` | `smuggling_case` | 사건 허브. 유형·품목·상태·수법·금액 등 속성 |
 | `Organization` | `org_id` | `risk_org_profile` | |
 | `Country` | `code` | `smuggling_case.origin_country`, `transit_country` | |
 | `Region` | `name` | `smuggling_case.destination_region`, profile address region | |
-| `Agent` | `name` | `analysis_result.model_or_agent` | 분석 수행 AI 서비스(분류 엔티티) |
 
 ## Relationships
 
-사건 속성(`case_id, case_no, case_type, contraband_category, contraband_sub_category, case_status,
-detection_date, role_in_case, confidence_score, evidence_level, evidence_summary`)은 아래 CASE_* 관계의 속성으로 평탄화된다.
-
 | Pattern | Meaning |
 | --- | --- |
-| `(:Person hub)-[:CASE_FROM {사건속성}]->(:Country)` | 사건 원산지 (대표주체 기준) |
-| `(:Person hub)-[:CASE_VIA {사건속성}]->(:Country)` | 사건 경유지 |
-| `(:Person hub)-[:CASE_TO {사건속성}]->(:Region)` | 사건 도착지 |
-| `(:Person spoke)-[:CASE_LINK {사건속성}]->(:Person hub)` | 동일 사건 연루(타인) — `network_edge` person→case 기준 |
-| `(:Person)-[:ANALYZED_BY {분석속성}]->(:Agent)` | 정보분석 1건 (분석결과 → 엣지) |
-| `(:Person)-[:NETWORK_EDGE {relation_type, weight, confidence_score}]->(:Person\|:Organization)` | 인적·조직 직접 관계 |
+| `(:Person)-[:INVOLVED_IN {role_in_case, is_cargo_owner, confidence_score, evidence_*, analysis_*}]->(:Case)` | 사건 연루(역할별, 다자). 분석결과 흡수 |
+| `(:Case)-[:CASE_FROM]->(:Country)` | 사건 원산지 |
+| `(:Case)-[:CASE_VIA]->(:Country)` | 사건 경유지 |
+| `(:Case)-[:CASE_TO]->(:Region)` | 사건 도착지 |
+| `(:Person)-[:NETWORK_EDGE {relation_type, weight, confidence_score}]->(:Person\|:Organization)` | 인적·조직 직접 관계(가족·동반여행자·공범 등) |
 | `(:Person)-[:RESIDES_IN]->(:Region)` | Person address region |
 | `(:Organization)-[:LOCATED_IN]->(:Region)` | Organization address region |
 
-`ANALYZED_BY` 속성: `analysis_id, analysis_type, input_summary, output_summary,
-risk_score_before, risk_score_after, explanation, review_status, created_at`.
+사건 연루 관계인 조회: `(:Person {person_id})-[:INVOLVED_IN]->(:Case)<-[:INVOLVED_IN]-(other:Person)`.
 
-> 폐지: `Case`/`Evidence`/`RiskIndicator`/`AnalysisResult` 노드, `INVOLVED_IN`/`SUPPORTED_BY`/
-> `HAS_EVIDENCE`/`HAS_RISK_INDICATOR`/`HAS_ANALYSIS_RESULT`/`ORIGINATED_FROM`/`TRANSITED_THROUGH`/`DESTINED_FOR` 관계.
+> 폐지: `Agent`/`AnalysisResult`/`Evidence`/`RiskIndicator` 노드, `CASE_LINK`(대표주체 spoke→hub)·
+> `ANALYZED_BY` 관계, 인물 중심 `CASE_FROM/VIA/TO`(이제 Case 중심).
 
 ## Relationship Properties
 

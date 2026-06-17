@@ -1,18 +1,26 @@
-"""Load DuckDB risk-person investigation data into Neo4j (entity-centric model).
+"""Load DuckDB risk-person investigation data into Neo4j (2026 관계망 재구성).
 
-Modeling principle (2026 재모델링):
-  - 노드 = 엔티티/분류: Person, Organization, Region, Country, Agent
-  - 사건(Case)·증거(Evidence)·분석결과(AnalysisResult)·위험지표(RiskIndicator)는
-    노드가 아니라 **관계(엣지) 또는 노드 속성**으로 표현한다.
-      · 사건  → 대표주체(사건 소유 인물=hub) 중심의 별(star) 관계
-                 · (참여자)-[:CASE_LINK {사건속성}]->(hub)         (network_edge person→case)
-                 · (hub)-[:CASE_FROM/CASE_VIA {사건속성}]->(:Country)
-                 · (hub)-[:CASE_TO {사건속성}]->(:Region)
-      · 증거  → 사건 엣지의 evidence_summary/evidence_level 속성으로 흡수
-      · 분석  → (인물)-[:ANALYZED_BY {analysis_type, risk_score_before/after,
-                output_summary, explanation, review_status, created_at}]->(:Agent) 엣지.
-                분석 수행 주체(model_or_agent)는 Agent 노드(분류 엔티티)로 둔다.
-      · 위험지표 → Person.top_indicators / indicator_count 속성으로 흡수
+대상 1명(우범자)을 중심으로 연계된 결과를 분석하고, **관련된 사건을 통해
+연루 관계인들이 함께 드러나도록** Case(사건) 노드를 중심 허브로 둔다.
+
+모델 (노드 / 엣지):
+  노드
+    - Person        우범자/인물 (위험등급·점수·태그·위험지표 요약 속성)
+    - Case          사건 (유형·품목·상태·적발일·수법·금액 등). 다자 사건 허브.
+    - Country       관련국가 (원산지/경유)
+    - Region        도착지·거주지
+    - Organization  연계 조직
+  엣지
+    - (Person)-[:INVOLVED_IN {role_in_case, is_cargo_owner, confidence_score,
+          evidence_level, evidence_summary, + 분석결과(analysis_type/analysis_summary/
+          risk_score_after/analysis_review_status)}]->(Case)
+          → 한 사건에 여러 인물이 서로 다른 역할로 연결(관계인 표시). 분석결과 흡수.
+    - (Case)-[:CASE_FROM]->(Country)   원산지
+    - (Case)-[:CASE_VIA]->(Country)    경유지
+    - (Case)-[:CASE_TO]->(Region)      도착지
+    - (Person)-[:NETWORK_EDGE {relation_type(공범/가족관계/동반여행자/송금관계 등),
+          weight, confidence_score}]->(Person|Organization)
+    - (Person)-[:RESIDES_IN]->(Region) / (Organization)-[:LOCATED_IN]->(Region)
 
 DuckDB remains the source of truth. Neo4j is a derived graph store.
 
@@ -92,22 +100,10 @@ def fetch_data() -> dict[str, list[dict[str, Any]]]:
         }
 
 
-# ── 사건/증거/지표/분석 → 속성·엣지 사전 가공 ─────────────────────────────
+# ── 인덱스 사전 가공 ─────────────────────────────────────────────────────
 
 def build_indices(data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    cases_by_id = {c["case_id"]: c for c in data["cases"]}
     evidence_by_id = {e["source_id"]: e for e in data["evidence"]}
-
-    # 사건 대표주체(hub) = person_case_link 의 인물 (사건당 1명).
-    # 동일 사건에 복수 링크가 있으면 evidence_level/confidence 우선.
-    hub_by_case: dict[str, dict[str, Any]] = {}
-    for link in data["person_case_links"]:
-        cid = link.get("case_id")
-        if not cid:
-            continue
-        prev = hub_by_case.get(cid)
-        if prev is None or (link.get("confidence_score") or 0) > (prev.get("confidence_score") or 0):
-            hub_by_case[cid] = link
 
     # 위험지표 → 인물별 요약 (Person 노드 속성으로 흡수)
     ind_by_person: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -115,13 +111,21 @@ def build_indices(data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
         if ri.get("entity_type") == "person" and ri.get("entity_id"):
             ind_by_person[ri["entity_id"]].append(ri)
 
-    # 분석결과는 노드 속성으로 흡수하지 않고 ANALYZED_BY 엣지로 표현한다(merge_analysis 참조).
+    # 분석결과 → (인물, 사건) 키로 매핑 (INVOLVED_IN 엣지 속성으로 흡수)
+    analysis_by_pc: dict[tuple, dict[str, Any]] = {}
+    for ar in data["analysis_results"]:
+        if ar.get("entity_type") != "person" or not ar.get("entity_id"):
+            continue
+        key = (ar["entity_id"], ar.get("linked_case_id"))
+        prev = analysis_by_pc.get(key)
+        # 같은 (인물,사건)에 여러 건이면 최신(created_at) 우선
+        if prev is None or str(ar.get("created_at") or "") >= str(prev.get("created_at") or ""):
+            analysis_by_pc[key] = ar
 
     return {
-        "cases_by_id": cases_by_id,
         "evidence_by_id": evidence_by_id,
-        "hub_by_case": hub_by_case,
         "ind_by_person": ind_by_person,
+        "analysis_by_pc": analysis_by_pc,
     }
 
 
@@ -138,30 +142,6 @@ def person_rollup(person_id: str, idx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def case_edge_props(case: dict[str, Any], link: dict[str, Any] | None,
-                    evidence: dict[str, Any] | None) -> dict[str, Any]:
-    """사건 1건의 핵심 속성 + 대표 링크의 역할/증거를 엣지 속성으로 평탄화."""
-    link = link or {}
-    evidence = evidence or {}
-    return {
-        "case_id": case.get("case_id"),
-        "case_no": case.get("case_no"),
-        "case_type": case.get("case_type"),
-        "contraband_category": case.get("contraband_category"),
-        "contraband_sub_category": case.get("contraband_sub_category"),
-        "case_status": case.get("case_status"),
-        "detection_date": case.get("detection_date"),
-        "detection_channel": case.get("detection_channel"),
-        "modus_operandi": case.get("modus_operandi"),
-        "estimated_value": case.get("estimated_value"),
-        "role_in_case": link.get("role_in_case"),
-        "confidence_score": link.get("confidence_score"),
-        "evidence_level": link.get("evidence_level"),
-        "evidence_summary": evidence.get("source_title") or evidence.get("summary"),
-        "evidence_agency": evidence.get("source_agency"),
-    }
-
-
 # ── 스키마 ─────────────────────────────────────────────────────────────
 
 def create_constraints(tx: ManagedTransaction) -> None:
@@ -170,31 +150,27 @@ def create_constraints(tx: ManagedTransaction) -> None:
         "CREATE CONSTRAINT organization_id IF NOT EXISTS FOR (n:Organization) REQUIRE n.org_id IS UNIQUE",
         "CREATE CONSTRAINT country_code IF NOT EXISTS FOR (n:Country) REQUIRE n.code IS UNIQUE",
         "CREATE CONSTRAINT region_name IF NOT EXISTS FOR (n:Region) REQUIRE n.name IS UNIQUE",
-        "CREATE CONSTRAINT agent_name IF NOT EXISTS FOR (n:Agent) REQUIRE n.name IS UNIQUE",
+        "CREATE CONSTRAINT case_id IF NOT EXISTS FOR (n:Case) REQUIRE n.case_id IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
 
 
 def clear_graph(tx: ManagedTransaction) -> None:
-    # 본 로더가 만드는 관계만 범위 한정 삭제 (업체 그래프와 공존 가능).
-    delete_statements = [
-        "MATCH (s)-[r:NETWORK_EDGE]->() WHERE s:Person OR s:Organization DELETE r",
-        "MATCH (:Person)-[r:CASE_LINK]->() DELETE r",
-        "MATCH (:Person)-[r:CASE_FROM|CASE_VIA|CASE_TO]->() DELETE r",
-        "MATCH (:Person)-[r:ANALYZED_BY]->() DELETE r",
-        "MATCH (:Person)-[r:RESIDES_IN]->() DELETE r",
-        "MATCH (:Organization)-[r:LOCATED_IN]->() DELETE r",
+    # 신규 + 레거시 엣지 모두 범위 한정 삭제 (업체 그래프와 공존).
+    edge_types = [
+        "INVOLVED_IN", "CASE_FROM", "CASE_VIA", "CASE_TO", "NETWORK_EDGE",
+        "RESIDES_IN", "LOCATED_IN",
+        "CASE_LINK", "ANALYZED_BY",  # 레거시
     ]
-    for statement in delete_statements:
-        tx.run(statement)
-    # 본 로더 전용 노드만 삭제. Country는 업체 그래프와 공유하므로 제외
-    # (공유 노드를 DETACH DELETE 하면 상대 그래프의 관계까지 사라짐).
+    for et in edge_types:
+        tx.run(f"MATCH (s)-[r:{et}]->() WHERE s:Person OR s:Organization OR s:Case DELETE r")
+    # 본 로더 전용 노드만 삭제. Country는 업체 그래프와 공유하므로 제외.
     tx.run(
         """
         MATCH (n)
         WHERE n.updated_from = $source_tag
-          AND (n:Person OR n:Organization OR n:Region OR n:Agent)
+          AND (n:Person OR n:Organization OR n:Region OR n:Case OR n:Agent)
         DETACH DELETE n
         """,
         {"source_tag": SOURCE_TAG},
@@ -268,127 +244,136 @@ def merge_org(tx: ManagedTransaction, row: dict[str, Any]) -> None:
         )
 
 
-def merge_case_location(tx: ManagedTransaction, hub_person_id: str, props: dict[str, Any],
-                        case: dict[str, Any]) -> None:
-    """대표주체(hub) → 사건 장소(원산지/경유 Country, 도착 Region) 관계."""
+def merge_case(tx: ManagedTransaction, case: dict[str, Any]) -> None:
+    """사건 노드 + 사건→장소(원산지/경유 Country, 도착 Region) 관계."""
+    name = " · ".join(p for p in [case.get("case_type"), case.get("contraband_category")] if p) \
+        or case.get("case_no") or case.get("case_id")
+    tx.run(
+        """
+        MERGE (c:Case {case_id: $case_id})
+        SET c.case_no = $case_no,
+            c.name = $name,
+            c.case_type = $case_type,
+            c.contraband_category = $contraband_category,
+            c.contraband_sub_category = $contraband_sub_category,
+            c.case_status = $case_status,
+            c.detection_date = $detection_date,
+            c.detection_channel = $detection_channel,
+            c.modus_operandi = $modus_operandi,
+            c.concealment_method = $concealment_method,
+            c.quantity = $quantity,
+            c.quantity_unit = $quantity_unit,
+            c.estimated_value = $estimated_value,
+            c.lead_agency = $lead_agency,
+            c.summary = $summary,
+            c.updated_from = $source_tag
+        """,
+        {**case, "name": name, "source_tag": SOURCE_TAG},
+    )
     if case.get("origin_country"):
         code = country_code(case["origin_country"])
         tx.run(
             """
-            MATCH (p:Person {person_id: $hub})
-            MERGE (c:Country {code: $code})
-            SET c.name = $name, c.updated_from = $source_tag
-            MERGE (p)-[r:CASE_FROM {case_id: $case_id}]->(c)
-            SET r += $props, r.updated_from = $source_tag
+            MATCH (c:Case {case_id: $case_id})
+            MERGE (n:Country {code: $code})
+            SET n.name = $cname, n.updated_from = $source_tag
+            MERGE (c)-[r:CASE_FROM]->(n)
+            SET r.updated_from = $source_tag
             """,
-            {"hub": hub_person_id, "code": code, "name": country_name(code, default=case["origin_country"]),
-             "case_id": props["case_id"], "props": props, "source_tag": SOURCE_TAG},
+            {"case_id": case["case_id"], "code": code,
+             "cname": country_name(code, default=case["origin_country"]), "source_tag": SOURCE_TAG},
         )
     if case.get("transit_country") and case.get("transit_country") != "없음":
         code = country_code(case["transit_country"])
         tx.run(
             """
-            MATCH (p:Person {person_id: $hub})
-            MERGE (c:Country {code: $code})
-            SET c.name = $name, c.updated_from = $source_tag
-            MERGE (p)-[r:CASE_VIA {case_id: $case_id}]->(c)
-            SET r += $props, r.updated_from = $source_tag
+            MATCH (c:Case {case_id: $case_id})
+            MERGE (n:Country {code: $code})
+            SET n.name = $cname, n.updated_from = $source_tag
+            MERGE (c)-[r:CASE_VIA]->(n)
+            SET r.updated_from = $source_tag
             """,
-            {"hub": hub_person_id, "code": code, "name": country_name(code, default=case["transit_country"]),
-             "case_id": props["case_id"], "props": props, "source_tag": SOURCE_TAG},
+            {"case_id": case["case_id"], "code": code,
+             "cname": country_name(code, default=case["transit_country"]), "source_tag": SOURCE_TAG},
         )
     if case.get("destination_region"):
         tx.run(
             """
-            MATCH (p:Person {person_id: $hub})
-            MERGE (r2:Region {name: $name})
+            MATCH (c:Case {case_id: $case_id})
+            MERGE (r2:Region {name: $region})
             SET r2.updated_from = $source_tag
-            MERGE (p)-[r:CASE_TO {case_id: $case_id}]->(r2)
-            SET r += $props, r.updated_from = $source_tag
+            MERGE (c)-[r:CASE_TO]->(r2)
+            SET r.updated_from = $source_tag
             """,
-            {"hub": hub_person_id, "name": case["destination_region"], "case_id": props["case_id"],
-             "props": props, "source_tag": SOURCE_TAG},
+            {"case_id": case["case_id"], "region": case["destination_region"], "source_tag": SOURCE_TAG},
         )
 
 
-def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any], idx: dict[str, Any]) -> None:
+def merge_involved(tx: ManagedTransaction, link: dict[str, Any], idx: dict[str, Any]) -> None:
+    """(Person)-[:INVOLVED_IN {역할 + 증거 + 분석결과}]->(Case). 다자 사건 = 같은 Case에 여러 인물."""
+    if not link.get("person_id") or not link.get("case_id"):
+        return
+    evidence = idx["evidence_by_id"].get(link.get("source_id")) or {}
+    analysis = idx["analysis_by_pc"].get((link["person_id"], link["case_id"])) or {}
+    params = {
+        "person_id": link["person_id"],
+        "case_id": link["case_id"],
+        "link_id": link.get("link_id"),
+        "role_in_case": link.get("role_in_case"),
+        "is_cargo_owner": link.get("is_cargo_owner"),
+        "confidence_score": link.get("confidence_score"),
+        "evidence_level": link.get("evidence_level"),
+        "evidence_summary": evidence.get("source_title") or evidence.get("summary"),
+        "evidence_agency": evidence.get("source_agency"),
+        "analysis_type": analysis.get("analysis_type"),
+        "analysis_summary": analysis.get("output_summary"),
+        "risk_score_after": analysis.get("risk_score_after"),
+        "analysis_review_status": analysis.get("review_status"),
+        "source_tag": SOURCE_TAG,
+    }
+    tx.run(
+        """
+        MATCH (p:Person {person_id: $person_id})
+        MATCH (c:Case {case_id: $case_id})
+        MERGE (p)-[r:INVOLVED_IN {link_id: $link_id}]->(c)
+        SET r.role_in_case = $role_in_case,
+            r.is_cargo_owner = $is_cargo_owner,
+            r.confidence_score = $confidence_score,
+            r.evidence_level = $evidence_level,
+            r.evidence_summary = $evidence_summary,
+            r.evidence_agency = $evidence_agency,
+            r.analysis_type = $analysis_type,
+            r.analysis_summary = $analysis_summary,
+            r.risk_score_after = $risk_score_after,
+            r.analysis_review_status = $analysis_review_status,
+            r.updated_from = $source_tag
+        """,
+        params,
+    )
+
+
+def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    """person → person/org 직접 관계만 NETWORK_EDGE 로 표현.
+    person → case 는 INVOLVED_IN(person_case_link)으로 이미 표현되므로 건너뛴다."""
     if str(row.get("source_type")) != "person":
         return
     target_type = str(row.get("target_type"))
-
-    # 1) person → person/org : 엔티티 간 직접 관계 (NETWORK_EDGE 유지)
-    if target_type in ENTITY_TARGETS:
-        label, key = ENTITY_TARGETS[target_type]
-        tx.run(
-            f"""
-            MATCH (s:Person {{person_id: $source_id}})
-            MATCH (t:{label} {{{key}: $target_id}})
-            MERGE (s)-[r:NETWORK_EDGE {{edge_id: $edge_id}}]->(t)
-            SET r.relation_type = $relation_type,
-                r.weight = $weight,
-                r.confidence_score = $confidence_score,
-                r.first_seen_at = $first_seen_at,
-                r.last_seen_at = $last_seen_at,
-                r.updated_from = $source_tag
-            """,
-            {**row, "source_tag": SOURCE_TAG},
-        )
+    if target_type not in ENTITY_TARGETS:
         return
-
-    # 2) person → case : 사건을 통해 대표주체(hub)와 연결 (CASE_LINK 스포크→허브)
-    if target_type == "case":
-        case = idx["cases_by_id"].get(row.get("target_id"))
-        hub_link = idx["hub_by_case"].get(row.get("target_id"))
-        if not case or not hub_link:
-            return
-        hub_id = hub_link.get("person_id")
-        if not hub_id or hub_id == row.get("source_id"):
-            return  # 대표주체 본인은 사건 장소 엣지로 표현됨
-        evidence = idx["evidence_by_id"].get(hub_link.get("source_id"))
-        props = case_edge_props(case, hub_link, evidence)
-        props.update({
-            "relation_type": row.get("relation_type"),
-            "weight": row.get("weight"),
-            "confidence_score": row.get("confidence_score"),
-        })
-        tx.run(
-            """
-            MATCH (s:Person {person_id: $source_id})
-            MATCH (h:Person {person_id: $hub})
-            MERGE (s)-[r:CASE_LINK {edge_id: $edge_id}]->(h)
-            SET r += $props, r.updated_from = $source_tag
-            """,
-            {"source_id": row.get("source_id"), "hub": hub_id, "edge_id": row.get("edge_id"),
-             "props": props, "source_tag": SOURCE_TAG},
-        )
-
-
-def merge_analysis(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    """분석결과 1건 → (인물)-[:ANALYZED_BY {분석속성}]->(:Agent).
-
-    분석 수행 주체(model_or_agent)는 분류 엔티티인 Agent 노드로 둔다.
-    """
-    if row.get("entity_type") != "person" or not row.get("entity_id"):
-        return
-    agent = row.get("model_or_agent") or "unknown_agent"
+    label, key = ENTITY_TARGETS[target_type]
     tx.run(
-        """
-        MATCH (p:Person {person_id: $entity_id})
-        MERGE (a:Agent {name: $agent})
-        SET a.updated_from = $source_tag
-        MERGE (p)-[r:ANALYZED_BY {analysis_id: $analysis_id}]->(a)
-        SET r.analysis_type = $analysis_type,
-            r.input_summary = $input_summary,
-            r.output_summary = $output_summary,
-            r.risk_score_before = $risk_score_before,
-            r.risk_score_after = $risk_score_after,
-            r.explanation = $explanation,
-            r.review_status = $review_status,
-            r.created_at = $created_at,
-            r.seed_batch_id = $seed_batch_id,
+        f"""
+        MATCH (s:Person {{person_id: $source_id}})
+        MATCH (t:{label} {{{key}: $target_id}})
+        MERGE (s)-[r:NETWORK_EDGE {{edge_id: $edge_id}}]->(t)
+        SET r.relation_type = $relation_type,
+            r.weight = $weight,
+            r.confidence_score = $confidence_score,
+            r.first_seen_at = $first_seen_at,
+            r.last_seen_at = $last_seen_at,
             r.updated_from = $source_tag
         """,
-        {**row, "agent": agent, "source_tag": SOURCE_TAG},
+        {**row, "source_tag": SOURCE_TAG},
     )
 
 
@@ -413,24 +398,12 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
                 session.execute_write(merge_person, row, person_rollup(row["person_id"], idx))
             for row in data["orgs"]:
                 session.execute_write(merge_org, row)
-
-            # 사건 → 대표주체 중심 장소 관계 (사건당 1회)
-            for case_id, hub_link in idx["hub_by_case"].items():
-                case = idx["cases_by_id"].get(case_id)
-                hub_id = hub_link.get("person_id")
-                if not case or not hub_id:
-                    continue
-                evidence = idx["evidence_by_id"].get(hub_link.get("source_id"))
-                props = case_edge_props(case, hub_link, evidence)
-                session.execute_write(merge_case_location, hub_id, props, case)
-
-            # network_edge → 엔티티 직접관계 + 사건 스포크
+            for row in data["cases"]:
+                session.execute_write(merge_case, row)
+            for row in data["person_case_links"]:
+                session.execute_write(merge_involved, row, idx)
             for row in data["network_edges"]:
-                session.execute_write(merge_network_edge, row, idx)
-
-            # 분석결과 → (인물)-[:ANALYZED_BY]->(:Agent) 엣지
-            for row in data["analysis_results"]:
-                session.execute_write(merge_analysis, row)
+                session.execute_write(merge_network_edge, row)
 
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
@@ -444,16 +417,21 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
     return {
         "persons_loaded": len(data["persons"]),
         "orgs_loaded": len(data["orgs"]),
-        "cases_indexed": len(idx["hub_by_case"]),
+        "cases_loaded": len(data["cases"]),
+        "involved_in_loaded": len(data["person_case_links"]),
         "network_edges_loaded": len(data["network_edges"]),
-        "analysis_edges_loaded": len(data["analysis_results"]),
+        "analysis_folded": len(idx["analysis_by_pc"]),
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load DuckDB risk-person graph into Neo4j (entity-centric)")
+    # Windows 콘솔(cp949)에서 한글 출력 시 UnicodeEncodeError 방지.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description="Load DuckDB risk-person graph into Neo4j (Case 허브 재구성)")
     parser.add_argument("--clear", action="store_true", help="Clear previously loaded risk-person graph before loading.")
     args = parser.parse_args()
 

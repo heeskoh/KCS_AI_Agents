@@ -73,6 +73,7 @@ function nodeLabelKo(label){
    NETWORK_EDGE 는 relation_type 속성(예: 송금관계)이 더 구체적이므로 우선 사용. */
 const REL_LABEL_KO = {
   CASE_FROM: "사건·원산지", CASE_VIA: "사건·경유", CASE_TO: "사건·도착지", CASE_LINK: "동일사건 연루",
+  INVOLVED_IN: "사건연루(역할)",
   IMPORTED: "수입신고", SUPPLIES_TO: "공급", EXPORTS_TO: "수출",
   USES_BROKER: "관세사", HAS_RELATED_COMPANY: "관계사", RELATED_TO: "특수관계",
   // 2026 관계망 재구성 (기업 수입 그래프 5종 엣지)
@@ -215,6 +216,8 @@ const PROP_LABEL_KO = {
   indicator_count: "위험지표 수", top_indicators: "주요 위험지표",
   // 정보분석(ANALYZED_BY) 엣지 속성
   analysis_type: "분석유형", input_summary: "분석 입력요약", output_summary: "정보분석 요약",
+  analysis_summary: "분석 요약", analysis_review_status: "분석 검토상태",
+  is_cargo_owner: "화주 여부", linked_case_id: "연계 사건",
   risk_score_before: "분석전 위험점수", risk_score_after: "분석후 위험점수",
   explanation: "분석 설명", review_status: "검토상태", created_at: "생성일시",
   // 사건(CASE_*) 엣지 속성
