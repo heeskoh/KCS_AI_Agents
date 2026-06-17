@@ -323,6 +323,26 @@ def _format_results(results: list[dict[str, str]]) -> str:
     return "\n\n".join(lines)
 
 
+def web_search_context(query: str, *, max_results: int = MAX_RESULTS_PER_TOPIC) -> dict[str, Any]:
+    """단일 자연어 질의에 대한 웹검색 결과를 LLM 컨텍스트용으로 반환한다.
+
+    TAVILY_API_KEY(우선) → SERPAPI_API_KEY(폴백) 순으로 사용한다. (외부 LLM 모드 전용)
+    반환: {available, text, results, reason}
+    """
+    query = (query or "").strip()
+    if not query:
+        return {"available": False, "text": "", "results": [], "reason": "빈 질의"}
+    if httpx is None:
+        return {"available": False, "text": "", "results": [], "reason": "httpx 모듈 없음"}
+    if not (os.getenv("TAVILY_API_KEY") or os.getenv("SERPAPI_API_KEY")):
+        return {"available": False, "text": "", "results": [],
+                "reason": "웹검색 API 키(TAVILY_API_KEY/SERPAPI_API_KEY) 미설정"}
+    results = _dedupe_results(_search_topic(query, "웹검색"))[: max(1, max_results)]
+    if not results:
+        return {"available": False, "text": "", "results": [], "reason": "검색 결과 없음"}
+    return {"available": True, "text": _format_results(results), "results": results, "reason": ""}
+
+
 def agent_web(state: CustomsState) -> CustomsState:
     """Analyze web news as a company outlook analyst."""
     print("[Agent] 웹 검색 시작")
