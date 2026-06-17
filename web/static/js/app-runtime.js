@@ -3380,6 +3380,7 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
       <p class="muted" style="font-size:12px;margin-bottom:8px">
         ${escapeHtml(reasoning || "내부 AI 서비스 없이 LLM이 직접 답변합니다.")}
       </p>
+      ${homePromptEchoHtml(prompt)}
       <div class="markdown-output">${markdownToHtml(answer || "결과 없음")}</div>
     `;
     resultBox.style.display = "block";
@@ -3392,6 +3393,21 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
 function homeToggleGreeting(show){
   const g = document.getElementById("homeGreeting");
   if(g) g.style.display = show ? "" : "none";
+}
+
+// 실행한 프롬프트 입력창을 초기 안내문 상태로 되돌려 다음 입력을 준비한다.
+function homeResetPromptInput(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta) return;
+  ta.value = ta.dataset.initialText || "";
+  ta.classList.add("is-initial");
+  const cc = document.getElementById("coachCharCount");
+  if(cc) cc.textContent = "0자";
+}
+
+// 결과 영역 상단에 실행한 프롬프트 본문을 표시하는 블록.
+function homePromptEchoHtml(prompt){
+  return `<div class="home-running-prompt">${escapeHtml(prompt || "")}</div>`;
 }
 
 // ── DB조회: NL→SQL 실행 후 결과 표시 ─────────────────────────────────────────
@@ -3518,6 +3534,9 @@ async function homeRunAnalysis(prompt, btn){
     btn.disabled = false;
     return;
   }
+
+  // 실행과 동시에 입력창을 초기화하여 다음 입력을 준비한다.
+  homeResetPromptInput();
 
   // 로딩 상태 표시
   if(resultBox){
@@ -3724,6 +3743,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   homePreserveDbResults(resultBox, () => {
     resultBox.innerHTML = `
       <h3>AI 분석 결과</h3>
+      ${homePromptEchoHtml(prompt)}
       <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
       ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
       <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
