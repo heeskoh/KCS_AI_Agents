@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import math
+import re
 import sys
 import threading
 from http import HTTPStatus
@@ -10,6 +11,11 @@ from urllib.parse import parse_qs, urlparse
 
 import duckdb
 from dotenv import load_dotenv
+
+from src.encoding import force_utf8_stdio
+
+# 모든 결과 표시(콘솔/로그)를 UTF-8로 통일 — 다른 모듈 import 전에 적용한다.
+force_utf8_stdio()
 
 from src.neo4j_graph import (
     Neo4jGraphError,
@@ -1930,10 +1936,36 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 "scenario": scenario,
             },
         )
+        # 단계 입력 연계({{STEP_OUTPUT:n}})를 앞 단계 출력으로 치환하기 위한 준비.
+        # build_workflow_steps는 scenario_items를 order로 정렬·필터해 steps를 만들므로 동일 정렬로 정렬한다.
+        scenario_items_sorted = sorted(
+            (scenario.get("scenario_items") or []),
+            key=lambda value: value.get("order", 999),
+        )
+        aligned_items = (
+            scenario_items_sorted if len(scenario_items_sorted) == len(steps) else [None] * len(steps)
+        )
+        outputs_by_order: dict[int, str] = {}
+
         # 단계별 자동실행: 각 runner가 완료된 뒤에만 다음 AI 서비스를 호출한다.
-        for key, label, runner, result_key in steps:
+        for idx, (key, label, runner, result_key) in enumerate(steps):
             label = _normalize_service_label(label)
             try:
+                # 현재 단계 지시문의 단계 연계 토큰을 앞 단계 출력으로 치환 (scenario_items 직접 갱신).
+                item = aligned_items[idx] if idx < len(aligned_items) else None
+                if item is not None and "{{STEP_OUTPUT:" in str(item.get("instruction") or ""):
+                    linked_orders: list[int] = []
+                    def _sub_step_output(match):
+                        n = int(match.group(1))
+                        linked_orders.append(n)
+                        return outputs_by_order.get(n) or f"({n}단계 결과 없음)"
+                    item["instruction"] = re.sub(
+                        r"\{\{STEP_OUTPUT:(\d+)\}\}",
+                        _sub_step_output,
+                        str(item.get("instruction") or ""),
+                    )
+                    if linked_orders:
+                        print(f"[AI서비스] {label} 단계연계 입력 치환: {linked_orders}단계 결과 주입")
                 step_state = {
                     **state,
                     "scenario": {
@@ -1956,6 +1988,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     return
                 print(f"[AI서비스] {label} 실행 완료")
                 output_text = state.get(result_key) or ""
+                # 단계 연계용: 이 단계의 출력을 order 기준으로 저장 (다음 단계 토큰 치환에 사용)
+                if item is not None and item.get("order") is not None:
+                    try:
+                        outputs_by_order[int(item.get("order"))] = str(output_text)
+                    except (TypeError, ValueError):
+                        pass
                 # 호출 측(워크플로 오케스트레이터) 결과 수신 로그
                 _preview = " ".join(str(output_text).split())[:80]
                 print(f"[AI서비스] {label} 결과 수신 ({len(str(output_text))}자): {_preview}")

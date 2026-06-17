@@ -49,3 +49,7 @@ class CustomsState(TypedDict, total=False):
     translate_result: Optional[str]         # 문서 번역                  (agent_translate)
     text_summary_result: Optional[str]      # 요약                       (agent_text_summary)
     report_standard_result: Optional[str]   # 표준 보고서 생성           (agent_report_standard)
+    result_synthesis_result: Optional[str]  # 최종 결과 종합             (agent_result_synthesis)
+
+    # Workflow accumulators
+    step_results: Optional[list]            # 단계별 결과 누적

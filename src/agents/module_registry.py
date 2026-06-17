@@ -31,6 +31,7 @@ from src.agents.agent_rag import agent_rag_source
 from src.agents.agent_rag_create import agent_rag_create
 from src.agents.agent_report import agent_report
 from src.agents.agent_report_standard import agent_report_standard
+from src.agents.agent_result_synthesis import agent_result_synthesis
 from src.agents.agent_risk_profile import agent_risk_profile
 from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_summary import agent_summary
@@ -106,6 +107,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("patent", "특허정보 조회", agent_patent, "patent_result", "patent_agent"),
     AgentModule("rag_create", "RAG 생성", agent_rag_create, "rag_create_result", "rag_create_agent"),
     AgentModule("law", "법령 검토", agent_law, "law_result", "law_agent"),
+    AgentModule("result_synthesis", "최종 결과 종합", agent_result_synthesis, "result_synthesis_result", "result_synthesis_agent", ("final_synthesis",)),
     AgentModule("report", "보고서 생성", agent_report, "final_report", "report_agent", ("report_generate",)),
     AgentModule("validation", "보고서 검증", agent_validate, "validation_result", "validate_agent", ("report_validate", "validate")),
     AgentModule("mail_share", "분석결과 공유", agent_mail_share, "mail_share_result", "mail_share_agent"),

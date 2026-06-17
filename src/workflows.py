@@ -82,6 +82,7 @@ def create_initial_state(company_id: str, scenario: dict[str, Any] | None = None
         "abnormal_trade_result": None,
         "proceeds_tracking_result": None,
         "route_analysis_result": None,
+        "result_synthesis_result": None,
     }
     previous_outputs = scenario.get("previous_step_outputs") or []
     if isinstance(previous_outputs, list):

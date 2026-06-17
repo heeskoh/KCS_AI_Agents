@@ -5,6 +5,7 @@
       "name": "kcs-portal",
       "runtimeExecutable": "venv\\Scripts\\python.exe",
       "runtimeArgs": ["web_server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" },
       "port": 8000,
       "autoPort": false
     },
@@ -12,7 +13,7 @@
       "name": "kcs-portal-verify",
       "runtimeExecutable": "venv\\Scripts\\python.exe",
       "runtimeArgs": ["web_server.py"],
-      "env": { "PORT": "8001" },
+      "env": { "PORT": "8001", "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" },
       "port": 8001,
       "autoPort": false
     }
