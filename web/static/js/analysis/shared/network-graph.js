@@ -49,6 +49,8 @@ const NODE_COLORS = {
   Place:         "#7c3aed",
   Vehicle:       "#b45309",
   Entity:        "#0891b2",
+  DeparturePort: "#0d9488",
+  ArrivalPort:   "#c2410c",
 };
 const NODE_LABEL_KO = {
   Person: "인물", Company: "기업", Declaration: "수입신고",
@@ -60,6 +62,7 @@ const NODE_LABEL_KO = {
   OverseasSupplier: "해외거래처", RelatedParty: "특수관계인", AffiliatedCompany: "관계사",
   CaseType: "사건유형",
   Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
+  DeparturePort: "출발항", ArrivalPort: "도착항",
 };
 
 function nodeColor(label){
@@ -79,6 +82,7 @@ const REL_LABEL_KO = {
   // 2026 관계망 재구성 (기업 수입 그래프 5종 엣지)
   SUPPLIED_BY: "해외거래처(공급)", RELATED_PARTY: "특수관계", DECLARES_ITEM: "품목신고",
   TRADES_WITH_COUNTRY: "수입/출국", AFFILIATED_WITH: "관계사", CASE: "사건",
+  DEPARTS_FROM: "출발항", ARRIVES_AT: "도착항",
   NETWORK_EDGE: "인적관계", RESIDES_IN: "거주", LOCATED_IN: "소재",
 };
 function relLabelKo(type, props){
@@ -122,8 +126,11 @@ function emptyState(){
     evidencePersonId: "",              // 통신/거래내역 등록 대상 인물ID
     evidenceKind: "communication",     // communication | financial
     evidenceResult: null,              // 최근 등록 결과 메시지
-    analysisMode: "", analysisSel: [], // 분석 기법: ""|common|centrality|cluster, 선택 노드
+    analysisMode: "", analysisSel: [], // 분석 기법: ""|common|centrality|cluster|shared_hub, 선택 노드
     analysisResult: null,              // 분석 산출물(메시지/하이라이트 대상)
+    scenarioName: "",                  // 등록할 시나리오 이름(작성 중)
+    activeScenarioId: "",              // 선택/적용된 시나리오 id
+    _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
   };
 }
 function filterStateFor(key){
@@ -205,6 +212,7 @@ const PROP_LABEL_KO = {
   region: "지역", top_risk_name: "주요 위험", top_risk_score: "주요 위험점수",
   risk_indicator_summary: "위험지표", hsk_code: "품목번호(HSK)", spec: "사양/규격",
   departure_country: "적출국", overseas_supplier: "해외거래처", item: "품목", count: "건수",
+  transport_type: "운송수단", trade_flow: "수출입 구분", port_code: "항만코드", trade_date: "신고일자",
   shareholding_pct: "지분율(%)", trade_share_pct: "거래비중(%)", is_offshore: "역외 여부", note: "비고",
   origin: "원산지", status: "사건유형", case_count: "사건건수",
   indicator_name: "지표명", code: "코드", value: "값", score: "점수",
@@ -892,7 +900,156 @@ const ANALYSIS_METHODS = [
   { id: "common", label: "공통 이웃" },
   { id: "centrality", label: "중심성(연결도)" },
   { id: "cluster", label: "군집(연결요소)" },
+  { id: "shared_hub", label: "공유 출발항·운송수단 군집" },
 ];
+
+/* shared_hub 시범 분석에서 허브로 보는 노드 라벨(출발항·도착항) */
+const HUB_LABELS = new Set(["DeparturePort", "ArrivalPort"]);
+
+/* ── 분석 시나리오 (B 방식: 시작 요건을 미리 정의 → 질의시점에 적용) ──
+   시나리오 = { id, name, builtin, description, spec }
+   spec = { hops, analysisMode, analysisSel, hiddenLabels:[], conditions:[{focusIds:[],targetLabel,relType}] } */
+const BUILTIN_SCENARIOS = [
+  {
+    id: "builtin:shared_port_cluster",
+    name: "공유 출발항·운송수단 군집",
+    builtin: true,
+    description: "같은 출발항·운송수단을 공유하는 기업 군집을 탐지합니다(이웃 2단계 + 항만 허브 패턴).",
+    spec: { hops: 2, analysisMode: "shared_hub", analysisSel: [], hiddenLabels: [], conditions: [] },
+  },
+];
+let _userScenarios = [];        // 서버 저장 사용자 시나리오
+let _scenariosLoaded = false;
+
+function allScenarios(){ return [...BUILTIN_SCENARIOS, ..._userScenarios]; }
+
+function scenarioSpecSummary(s){
+  const sp = s.spec || {};
+  const parts = [];
+  if(sp.hops) parts.push(`이웃 ${sp.hops}단계`);
+  if(sp.analysisMode){
+    const m = ANALYSIS_METHODS.find(x => x.id === sp.analysisMode);
+    parts.push(`기법: ${m ? m.label : sp.analysisMode}`);
+  }
+  if((sp.conditions || []).length) parts.push(`필터 조건 ${sp.conditions.length}개`);
+  if((sp.hiddenLabels || []).length) parts.push(`숨김 ${sp.hiddenLabels.length}유형`);
+  return parts.join(" · ") || "설정 없음";
+}
+
+async function loadScenarios(){
+  if(_scenariosLoaded) return;
+  _scenariosLoaded = true;
+  try {
+    const r = await fetch("/api/network_scenarios");
+    if(r.ok){
+      const d = await r.json();
+      if(d.state && Array.isArray(d.state.scenarios)) _userScenarios = d.state.scenarios;
+    }
+  } catch { /* noop */ }
+  // 로드 완료 후 이미 열려 있는 패널을 갱신해 시나리오 목록을 반영
+  _filterState.forEach((_s, key) => rerenderPanelByKey(key));
+}
+
+function saveScenarios(){
+  return fetch("/api/network_scenarios", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenarios: _userScenarios }),
+  }).catch(error => console.warn("분석 시나리오 저장 실패", error));
+}
+
+/* 시나리오 적용: 저장된 spec을 현재 패널 상태로 복원하고 필요 시 그래프를 재조회한다. */
+function applyScenario(key, scenarioId){
+  const sc = allScenarios().find(s => String(s.id) === String(scenarioId));
+  if(!sc) return;
+  const state = filterStateFor(key);
+  const spec = sc.spec || {};
+  const prevHops = state.hops;
+  state.hiddenLabels = new Set(spec.hiddenLabels || []);
+  state.conditions = (spec.conditions || []).map(c => ({
+    id: ++state.condSeq,
+    focusIds: [...(c.focusIds || [])],
+    targetLabel: c.targetLabel || "",
+    relType: c.relType || "",
+    enabled: true,
+  }));
+  state.draft = emptyDraft();
+  state.pathResult = null;
+  state.analysisMode = spec.analysisMode || "";
+  state.analysisSel = spec.analysisSel || [];
+  state.activeScenarioId = String(sc.id);
+  state.hops = spec.hops || state.hops;
+  state._autorun = state.analysisMode || null;   // 적용 직후 분석 자동 실행
+  const [tt, ...rest] = key.split(":");
+  if(state.hops !== prevHops) reloadGraph(tt, rest.join(":"));
+  else rerenderPanelByKey(key);
+}
+
+/* 현재 패널 설정(필터 조건·이웃 확장·분석 기법)을 시나리오로 등록한다. */
+function registerScenario(key){
+  const state = filterStateFor(key);
+  const name = (state.scenarioName || "").trim();
+  if(!name){ alert("시나리오 이름을 입력하세요."); return; }
+  const id = "user:" + Date.now();
+  _userScenarios.push({
+    id, name, builtin: false,
+    spec: {
+      hops: state.hops,
+      analysisMode: state.analysisMode || "",
+      analysisSel: state.analysisSel || [],
+      hiddenLabels: [...state.hiddenLabels],
+      conditions: state.conditions.map(c => ({
+        focusIds: [...c.focusIds], targetLabel: c.targetLabel, relType: c.relType,
+      })),
+    },
+  });
+  state.scenarioName = "";
+  state.activeScenarioId = id;
+  saveScenarios();
+  rerenderPanelByKey(key);
+}
+
+function deleteScenario(key, id){
+  _userScenarios = _userScenarios.filter(s => String(s.id) !== String(id));
+  const state = filterStateFor(key);
+  if(state.activeScenarioId === String(id)) state.activeScenarioId = "";
+  saveScenarios();
+  rerenderPanelByKey(key);
+}
+
+function buildScenarioSection(state, key){
+  const scenarios = allScenarios();
+  const sel = state.activeScenarioId || "";
+  const options = [`<option value="">시나리오 선택...</option>`]
+    .concat(scenarios.map(s =>
+      `<option value="${escapeHtml(String(s.id))}" ${String(s.id) === sel ? "selected" : ""}>`
+      + `${s.builtin ? "★ " : ""}${escapeHtml(s.name)}</option>`)).join("");
+  const active = scenarios.find(s => String(s.id) === sel);
+  const desc = active
+    ? `<p class="net-ws-hint">${escapeHtml(active.description || scenarioSpecSummary(active))}</p>` : "";
+  const delBtn = (active && !active.builtin)
+    ? `<button type="button" class="net-ws-clear" data-net-scenario-del="${escapeHtml(key)}::${escapeHtml(String(active.id))}">이 시나리오 삭제</button>`
+    : "";
+  return `
+    <div class="net-ws-sect">
+      <div class="net-ws-sect-title">분석 시나리오</div>
+      <div class="net-ws-field">
+        <span>등록 시나리오</span>
+        <select class="net-ws-select" data-net-scenario-select="${escapeHtml(key)}">${options}</select>
+      </div>
+      <button type="button" class="btn net-ws-btn" data-net-scenario-apply="${escapeHtml(key)}" ${sel ? "" : "disabled"}>시나리오 적용</button>
+      ${desc}
+      ${delBtn}
+      <label class="net-ws-sub" style="margin-top:8px">현재 설정을 시나리오로 등록</label>
+      <div class="net-ws-field">
+        <input type="text" class="net-ws-select" data-net-scenario-name="${escapeHtml(key)}"
+          value="${escapeHtml(state.scenarioName || "")}" placeholder="예) 공유 항만 군집 점검">
+      </div>
+      <button type="button" class="btn net-ws-btn" data-net-scenario-save="${escapeHtml(key)}">현재 설정 저장</button>
+      <p class="net-ws-hint">필터 조건·이웃 확장·분석 기법을 묶어 재사용 가능한 시나리오로 저장합니다.</p>
+    </div>
+  `;
+}
 
 /* ── 통신/거래내역 xlsx·csv 등록 → 표준 압수정보 JSON 변환 ── */
 const _stagedEvidenceFile = new Map(); // key → {name,mime,encoding,content,size}
@@ -1004,6 +1161,8 @@ function buildWorkbenchControls(raw, state, key){
       ${commonPickers}
       ${state.analysisMode ? `<button type="button" class="btn net-ws-btn" data-net-analysis-run="${escapeHtml(key)}">분석 실행</button>` : ""}
     </div>
+
+    ${buildScenarioSection(state, key)}
   `;
 }
 
@@ -1064,6 +1223,39 @@ function computeAnalysis(mode, graph, sel){
     })();
     return { text: `군집 ${compCount}개 · 최대 군집 ${largest.length}개 노드 강조`, hitIds: new Set(largest) };
   }
+  if(mode === "shared_hub"){
+    // B 방식 시범: 같은 출발항/도착항 + 운송수단을 공유하는 기업 군집을 질의시점에 탐지.
+    // (2단계 이웃 그래프에서 항만 허브에 2개 이상의 기업이 연결된 경우)
+    const hubs = [];
+    nodes.forEach(n => {
+      if(!HUB_LABELS.has(n.label)) return;
+      const companies = [...(adj.get(n.id) || [])]
+        .map(id => nodeById.get(id))
+        .filter(m => m && m.label === "Company");
+      if(companies.length >= 2){
+        hubs.push({ hub: n, companies });
+      }
+    });
+    if(!hubs.length){
+      return {
+        text: "공유 출발항·운송수단 군집 없음 — 이웃 확장(hops)을 2단계 이상으로 두면 같은 항만을 쓰는 다른 기업이 함께 조회됩니다.",
+        hitIds: new Set(),
+      };
+    }
+    hubs.sort((a, b) => b.companies.length - a.companies.length);
+    const hitIds = new Set();
+    hubs.forEach(h => { hitIds.add(h.hub.id); h.companies.forEach(c => hitIds.add(c.id)); });
+    const lines = hubs.slice(0, 4).map(h => {
+      const tt = h.hub.properties?.transport_type || "운송수단 미상";
+      const kind = nodeLabelKo(h.hub.label);
+      const names = h.companies.map(c => truncate(c.name, 10)).slice(0, 5).join(", ");
+      return `${h.hub.name}(${kind}·${tt}) ← 기업 ${h.companies.length}: ${names}`;
+    });
+    return {
+      text: `공유 항만 군집 ${hubs.length}개 — ${lines.join(" / ")}`,
+      hitIds,
+    };
+  }
   return null;
 }
 
@@ -1114,6 +1306,12 @@ function renderPanelContent(targetType, targetId){
     return state.workbench ? wrapWorkbench(null, state, key, body) : body;
   }
   const filtered = applyFilter(raw, state);
+  // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
+  if(state._autorun && filtered.nodes.length){
+    state.analysisMode = state._autorun;
+    state.analysisResult = computeAnalysis(state._autorun, filtered, state.analysisSel);
+    state._autorun = null;
+  }
   const graphArea = filtered.nodes.length
     ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
     : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">필터 조건·데이터 소스를 확인하세요.</span></div>`;
@@ -1353,6 +1551,7 @@ let _handlerBound = false;
 function bindHandlers(){
   if(_handlerBound) return;
   _handlerBound = true;
+  loadScenarios();   // 서버 저장 시나리오 1회 로드
 
   // A1: 검색 입력 — 재렌더 없이 cy에 직접 강조(입력 포커스 유지)
   document.addEventListener("input", event => {
@@ -1367,6 +1566,12 @@ function bindHandlers(){
     if(evidencePerson){
       const key = evidencePerson.dataset.netEvidencePerson;
       filterStateFor(key).evidencePersonId = evidencePerson.value;
+      return;
+    }
+    // 시나리오 이름 입력 — 재렌더 없이 상태만 갱신(입력 포커스 유지)
+    const scenarioName = event.target.closest("[data-net-scenario-name]");
+    if(scenarioName){
+      filterStateFor(scenarioName.dataset.netScenarioName).scenarioName = scenarioName.value;
     }
   });
 
@@ -1498,6 +1703,23 @@ function bindHandlers(){
       rerenderPanelByKey(analysisClear.dataset.netAnalysisClear);
       return;
     }
+    // 분석 시나리오: 적용 / 저장 / 삭제
+    const scenarioApply = event.target.closest("[data-net-scenario-apply]");
+    if(scenarioApply){
+      const key = scenarioApply.dataset.netScenarioApply;
+      const state = filterStateFor(key);
+      if(state.activeScenarioId) applyScenario(key, state.activeScenarioId);
+      return;
+    }
+    const scenarioSave = event.target.closest("[data-net-scenario-save]");
+    if(scenarioSave){ registerScenario(scenarioSave.dataset.netScenarioSave); return; }
+    const scenarioDel = event.target.closest("[data-net-scenario-del]");
+    if(scenarioDel){
+      const [key, scId] = scenarioDel.dataset.netScenarioDel.split("::");
+      deleteScenario(key, scId);
+      return;
+    }
+
     const nodeEl = event.target.closest("[data-net-node]");
     if(nodeEl){
       const [key, ...idParts] = nodeEl.dataset.netNode.split("::");
@@ -1510,6 +1732,13 @@ function bindHandlers(){
   });
 
   document.addEventListener("change", event => {
+    const scenarioSelect = event.target.closest("[data-net-scenario-select]");
+    if(scenarioSelect){
+      const key = scenarioSelect.dataset.netScenarioSelect;
+      filterStateFor(key).activeScenarioId = scenarioSelect.value || "";
+      rerenderPanelByKey(key);
+      return;
+    }
     const condToggle = event.target.closest("[data-net-cond-toggle]");
     if(condToggle){
       const [key, condId] = condToggle.dataset.netCondToggle.split("::");

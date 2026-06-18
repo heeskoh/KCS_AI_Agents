@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS import_declarations (
     -- 영역2: 화물 및 운송 정보
     electronic_invoice_no VARCHAR,  bl_awb_no             VARCHAR,  cargo_control_no      VARCHAR,
     master_bl_awb_no      VARCHAR,  forwarder_name        VARCHAR,  forwarder_code        VARCHAR,
-    departure_country     VARCHAR,  arrival_port          VARCHAR,  transport_type        VARCHAR,
+    departure_country     VARCHAR,  departure_port        VARCHAR,  arrival_port          VARCHAR,
+    transport_type        VARCHAR,
     vessel_name           VARCHAR,  vessel_nationality    VARCHAR,  carrier_code          VARCHAR,
     arrival_date          DATE,     warehousing_date      DATE,     inspection_location   VARCHAR,
     total_weight          DOUBLE,   total_weight_unit     VARCHAR,  total_packages        INTEGER,

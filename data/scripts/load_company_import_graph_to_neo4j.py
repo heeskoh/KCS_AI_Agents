@@ -303,6 +303,108 @@ def aggregate_edges(lines: list[dict[str, Any]], affiliate_by_company: dict[str,
     }
 
 
+# ── 항만(출발항·도착항) 경로 집계 ────────────────────────────────────────────
+
+KR_COUNTRY = "대한민국"
+
+
+def parse_port(label: str | None) -> tuple[str, str]:
+    """'부산항(KRPUS)' → ('부산항', 'KRPUS'). 코드 없으면 라벨 자체를 코드로."""
+    if label and label.endswith(")") and "(" in label:
+        name, _, code = label.rpartition("(")
+        return name.strip(), code[:-1].strip()
+    return (label or ""), (label or "")
+
+
+def fetch_port_routes() -> list[dict[str, Any]]:
+    """수입·수출 신고서에서 출발항·도착항 엣지를 집계한다.
+
+    수입: 출발항(해외, 출발지국가) + 도착항(한국)
+    수출: 출발항(한국) + 도착항(해외, 도착지국가)
+    role(departure/arrival) → 노드 라벨(DeparturePort/ArrivalPort) 결정.
+    """
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        imports = as_dicts(
+            conn,
+            """
+            SELECT company_id, declaration_no,
+                   CAST(import_date AS VARCHAR) AS trade_date,
+                   departure_port, arrival_port, transport_type,
+                   COALESCE(NULLIF(departure_country, ''),
+                            NULLIF(origin_country_name, ''),
+                            origin_country) AS country
+            FROM import_declarations
+            WHERE company_id IS NOT NULL
+              AND (departure_port IS NOT NULL OR arrival_port IS NOT NULL)
+            """,
+        )
+        exports = as_dicts(
+            conn,
+            """
+            SELECT company_id, declaration_no,
+                   CAST(export_date AS VARCHAR) AS trade_date,
+                   departure_port, arrival_port, transport_type,
+                   dest_country AS country
+            FROM export_declaration
+            WHERE company_id IS NOT NULL
+              AND (departure_port IS NOT NULL OR arrival_port IS NOT NULL)
+            """,
+        )
+
+    agg: dict[tuple, dict[str, Any]] = {}
+
+    def add(cid, role, label, transport, country, decl, date, flow):
+        if not cid or not label:
+            return
+        name, code = parse_port(label)
+        country_name_ = country_name(country_code(country), default=country) if country else None
+        key = (cid, role, code, flow)
+        cur = agg.get(key)
+        if cur is None:
+            cur = {
+                "company_id": cid,
+                "role": role,
+                "node_label": "DeparturePort" if role == "departure" else "ArrivalPort",
+                "rel_type": "DEPARTS_FROM" if role == "departure" else "ARRIVES_AT",
+                "port_code": code,
+                "port_name": name,
+                "transport_type": transport,
+                "country": country_name_,
+                "trade_flow": flow,
+                "_decl": set(),
+                "_date": set(),
+                "count": 0,
+            }
+            agg[key] = cur
+        cur["count"] += 1
+        if decl:
+            cur["_decl"].add(decl)
+        if date:
+            cur["_date"].add(date)
+
+    for r in imports:
+        # 수입: 출발항=해외(출발지국가), 도착항=한국
+        add(r["company_id"], "departure", r.get("departure_port"), r.get("transport_type"),
+            r.get("country"), r.get("declaration_no"), r.get("trade_date"), "수입")
+        add(r["company_id"], "arrival", r.get("arrival_port"), r.get("transport_type"),
+            KR_COUNTRY, r.get("declaration_no"), r.get("trade_date"), "수입")
+    for r in exports:
+        # 수출: 출발항=한국, 도착항=해외(도착지국가)
+        add(r["company_id"], "departure", r.get("departure_port"), r.get("transport_type"),
+            KR_COUNTRY, r.get("declaration_no"), r.get("trade_date"), "수출")
+        add(r["company_id"], "arrival", r.get("arrival_port"), r.get("transport_type"),
+            r.get("country"), r.get("declaration_no"), r.get("trade_date"), "수출")
+
+    rows = []
+    for cur in agg.values():
+        rows.append({
+            **{k: v for k, v in cur.items() if not k.startswith("_")},
+            "declaration_no": _join(sorted(cur["_decl"])),
+            "trade_date": _join(sorted(cur["_date"])),
+        })
+    return rows
+
+
 # ── Neo4j 적재 ───────────────────────────────────────────────────────────────
 
 def create_constraints(tx: ManagedTransaction) -> None:
@@ -316,6 +418,8 @@ def create_constraints(tx: ManagedTransaction) -> None:
         "CREATE CONSTRAINT affiliate_name IF NOT EXISTS FOR (n:AffiliatedCompany) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT related_party_key IF NOT EXISTS FOR (n:RelatedParty) REQUIRE n.key IS UNIQUE",
         "CREATE CONSTRAINT case_type_code IF NOT EXISTS FOR (n:CaseType) REQUIRE n.code IS UNIQUE",
+        "CREATE CONSTRAINT departure_port_code IF NOT EXISTS FOR (n:DeparturePort) REQUIRE n.code IS UNIQUE",
+        "CREATE CONSTRAINT arrival_port_code IF NOT EXISTS FOR (n:ArrivalPort) REQUIRE n.code IS UNIQUE",
     ]
     for statement in statements:
         tx.run(statement)
@@ -325,6 +429,7 @@ def clear_company_graph(tx: ManagedTransaction) -> None:
     # 신규 + 레거시 엣지 모두 제거 (완전 재구성)
     edge_types = [
         "SUPPLIED_BY", "RELATED_PARTY", "DECLARES_ITEM", "TRADES_WITH_COUNTRY", "AFFILIATED_WITH", "CASE",
+        "DEPARTS_FROM", "ARRIVES_AT",
         "IMPORTED", "SUPPLIES_TO", "USES_BROKER", "HAS_RELATED_COMPANY", "EXPORTS_TO", "HAS_RISK_INDICATOR",
     ]
     for et in edge_types:
@@ -336,6 +441,7 @@ def clear_company_graph(tx: ManagedTransaction) -> None:
         MATCH (n)
         WHERE n:Item OR n:OverseasSupplier OR n:AffiliatedCompany OR n:RelatedParty OR n:CaseType
               OR n:HsCode OR n:Broker OR n:RelatedCompany OR n:RiskIndicator
+              OR n:DeparturePort OR n:ArrivalPort
         DETACH DELETE n
         """
     )
@@ -476,6 +582,34 @@ def merge_trades_country(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     )
 
 
+def merge_port(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+    """출발항(DeparturePort)·도착항(ArrivalPort) 노드 + DEPARTS_FROM/ARRIVES_AT 엣지.
+
+    노드 속성: name, code, transport_type(운송수단), country(출발지/도착지국가).
+    엣지 속성: trade_flow(수입/수출), transport_type, declaration_no, trade_date, count.
+    """
+    label = "DeparturePort" if row.get("role") == "departure" else "ArrivalPort"
+    rel = "DEPARTS_FROM" if row.get("role") == "departure" else "ARRIVES_AT"
+    tx.run(
+        f"""
+        MATCH (c:Company {{company_id: $company_id}})
+        MERGE (p:{label} {{code: $port_code}})
+        SET p.name = $port_name,
+            p.transport_type = coalesce($transport_type, p.transport_type),
+            p.country = coalesce($country, p.country),
+            p.updated_from = $source_tag
+        MERGE (c)-[r:{rel} {{trade_flow: $trade_flow, port_code: $port_code}}]->(p)
+        SET r.transport_type = $transport_type,
+            r.country = $country,
+            r.declaration_no = $declaration_no,
+            r.trade_date = $trade_date,
+            r.count = $count,
+            r.updated_from = $source_tag
+        """,
+        {**row, "source_tag": SOURCE_TAG},
+    )
+
+
 def merge_case(tx: ManagedTransaction, row: dict[str, Any], case_count: dict[str, int]) -> None:
     """신고 처리상태 → (:Company)-[:CASE {신고속성}]->(:CaseType). CaseType.case_count=전체 사건건수."""
     status = row.get("status")
@@ -536,6 +670,7 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
         for c in data["companies"] if c.get("related_companies")
     }
     edges = aggregate_edges(data["lines"], affiliate_by_company)
+    port_routes = fetch_port_routes()
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
@@ -563,6 +698,8 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
                 session.execute_write(merge_affiliated, row)
             for row in edges["case"]:
                 session.execute_write(merge_case, row, edges["case_count"])
+            for row in port_routes:
+                session.execute_write(merge_port, row)
 
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
@@ -581,6 +718,7 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
         "trades_country_edges": len(edges["trades_country"]),
         "affiliated_edges": len(edges["affiliated"]),
         "case_edges": len(edges["case"]),
+        "port_edges": len(port_routes),
         "case_count_by_status": edges["case_count"],
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,

@@ -121,7 +121,11 @@ CREATE TABLE IF NOT EXISTS export_declaration (
     export_value    DOUBLE,
     dest_country    VARCHAR,
     export_date     DATE,
-    status          VARCHAR
+    status          VARCHAR,
+    -- 화물·운송 (수출: 출발항=한국, 도착항=해외)
+    departure_port  VARCHAR,
+    arrival_port    VARCHAR,
+    transport_type  VARCHAR
 )
 """
 
