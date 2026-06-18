@@ -11,7 +11,3 @@ chroma_db/
 node_modules/
 dist/
 .env
-data/workspace_state.json
-data/scenario_builder_config.json
-data/scenario_templates.json
-data/prompt_overrides.json

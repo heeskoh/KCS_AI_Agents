@@ -323,71 +323,24 @@ def _format_results(results: list[dict[str, str]]) -> str:
     return "\n\n".join(lines)
 
 
-def _external_llm():
-    """외부 AI 모델(설정형) — .env의 EXTERNAL_LLM_PROVIDER/MODEL 로 별도 제공자를 지정할 수 있다.
-    미설정 시 내부 LLM(src.llm.llm)으로 폴백한다."""
-    provider = (os.getenv("EXTERNAL_LLM_PROVIDER") or "").lower().strip()
-    if not provider:
-        return llm
-    model = os.getenv("EXTERNAL_LLM_MODEL") or ""
-    temperature = float(os.getenv("EXTERNAL_LLM_TEMPERATURE", "0"))
-    try:
-        if provider == "anthropic":
-            from langchain_anthropic import ChatAnthropic
-            return ChatAnthropic(model=model or "claude-sonnet-4-6", temperature=temperature)
-        if provider == "gemini":
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            return ChatGoogleGenerativeAI(model=model or "gemini-2.0-flash", temperature=temperature)
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(model=model or "gpt-4o", temperature=temperature)
-    except Exception as exc:  # pragma: no cover - 환경 의존
-        print(f"[Agent] 외부 LLM 초기화 실패, 내부 LLM으로 폴백: {exc}")
-        return llm
+def web_search_context(query: str, *, max_results: int = MAX_RESULTS_PER_TOPIC) -> dict[str, Any]:
+    """단일 자연어 질의에 대한 웹검색 결과를 LLM 컨텍스트용으로 반환한다.
 
-
-def web_browse_answer(query: str) -> dict:
-    """프롬프트를 직접 웹검색(Tavily/SerpAPI)하여 외부 AI 모델이 요약·답변한다.
-
-    'My AI 분석'의 외부 AI 모델(웹브라우징) 모드에서 사용한다.
-    반환: {"answer": str, "available": bool, "sources": [{"title","url"}, ...]}
+    TAVILY_API_KEY(우선) → SERPAPI_API_KEY(폴백) 순으로 사용한다. (외부 LLM 모드 전용)
+    반환: {available, text, results, reason}
     """
     query = (query or "").strip()
     if not query:
-        return {"answer": "", "available": False, "sources": []}
-
-    results = _dedupe_results(_search_topic(query, "웹검색"))
-    sources = [
-        {"title": r.get("title") or r.get("url"), "url": r.get("url")}
-        for r in results if r.get("url")
-    ]
-    raw_results = _format_results(results)
-
-    if raw_results == "검색 결과 없음" or not sources:
-        return {
-            "answer": (
-                "외부 AI 모델(웹브라우징)을 사용하려면 웹검색 API 키(TAVILY_API_KEY 또는 "
-                "SERPAPI_API_KEY)가 필요합니다. 현재 검색 결과가 없거나 검색 API가 설정되지 않았습니다."
-            ),
-            "available": False,
-            "sources": [],
-        }
-
-    model = _external_llm()
-    if model is None:
-        return {"answer": f"웹검색 결과:\n{raw_results}", "available": True, "sources": sources}
-
-    prompt = (
-        "당신은 웹 정보를 검토해 한국어로 답변하는 분석가입니다. "
-        "아래 웹검색 결과만을 근거로 사용자 질문에 정확하게 답하세요. "
-        "추측은 피하고, 근거가 된 출처는 본문 끝에 'URL'과 함께 정리하세요.\n\n"
-        f"[사용자 질문]\n{query}\n\n[웹검색 결과]\n{raw_results}"
-    )
-    try:
-        answer = model.invoke(prompt).content
-    except Exception as exc:
-        return {"answer": f"웹검색 결과 요약 실패: {exc}\n\n{raw_results}", "available": True, "sources": sources}
-
-    return {"answer": answer, "available": True, "sources": sources}
+        return {"available": False, "text": "", "results": [], "reason": "빈 질의"}
+    if httpx is None:
+        return {"available": False, "text": "", "results": [], "reason": "httpx 모듈 없음"}
+    if not (os.getenv("TAVILY_API_KEY") or os.getenv("SERPAPI_API_KEY")):
+        return {"available": False, "text": "", "results": [],
+                "reason": "웹검색 API 키(TAVILY_API_KEY/SERPAPI_API_KEY) 미설정"}
+    results = _dedupe_results(_search_topic(query, "웹검색"))[: max(1, max_results)]
+    if not results:
+        return {"available": False, "text": "", "results": [], "reason": "검색 결과 없음"}
+    return {"available": True, "text": _format_results(results), "results": results, "reason": ""}
 
 
 def agent_web(state: CustomsState) -> CustomsState:

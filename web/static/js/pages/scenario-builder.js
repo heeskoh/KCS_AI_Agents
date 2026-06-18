@@ -470,7 +470,7 @@ function agentDefaultsSection(config, editingServiceId = null){
     db:       { label:"DB 검색", color:"#ea580c", bg:"#fff7ed", border:"#fed7aa" },
     rag:      { label:"RAG 검색", color:"#16a34a", bg:"#f0fdf4", border:"#86efac" },
     analysis: { label:"업무분석 AI서비스", color:"#7c3aed", bg:"#faf5ff", border:"#ddd6fe" },
-    llm:      { label:"파일·요약·번역 LLM 기능 서비스", color:"#ca8a04", bg:"#fefce8", border:"#fde68a" },
+    llm:      { label:"분석지원 AI 서비스", color:"#ca8a04", bg:"#fefce8", border:"#fde68a" },
     external: { label:"외부연계 AI서비스", color:"#0f766e", bg:"#f0fdfa", border:"#99f6e4" },
     report:   { label:"보고서 생성 및 검증", color:"#2563eb", bg:"#eff6ff", border:"#bfdbfe" },
   };

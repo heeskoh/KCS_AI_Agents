@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import math
+import re
 import sys
 import threading
 from http import HTTPStatus
@@ -10,6 +11,11 @@ from urllib.parse import parse_qs, urlparse
 
 import duckdb
 from dotenv import load_dotenv
+
+from src.encoding import force_utf8_stdio
+
+# 모든 결과 표시(콘솔/로그)를 UTF-8로 통일 — 다른 모듈 import 전에 적용한다.
+force_utf8_stdio()
 
 from src.neo4j_graph import (
     Neo4jGraphError,
@@ -418,6 +424,7 @@ _AGENT_ORDER = [
     "declaration_verify", "hs_verify", "customs_value", "ontology",
     "origin_analysis", "abnormal_trade", "proceeds_tracking", "route_analysis",
     "patent", "law",
+    "translate", "text_summary", "report_standard",
     "report", "validate", "mail_share",
 ]
 
@@ -443,6 +450,9 @@ _AGENT_LABEL = {
     "route_analysis":     "운송경로분석",
     "patent":             "특허정보조회",
     "law":                "법령정보조회",
+    "translate":          "문서 번역",
+    "text_summary":       "요약",
+    "report_standard":    "표준 보고서 생성",
     "report":             "보고서 생성",
     "validate":           "보고서 검증",
     "mail_share":         "분석결과 공유",
@@ -467,6 +477,39 @@ def _detect_company_id_from_prompt(prompt: str) -> str | None:
         if name in prompt:
             return cid
     return None
+
+
+def _resolve_company_id_from_db(text: str) -> str:
+    """텍스트에 등장하는 기업명을 company_profiles에서 조회해 company_id로 해석한다.
+
+    여러 후보가 있으면 (1) 가장 긴(구체적인) 기업명, (2) 수입신고 데이터가 많은 기업을
+    우선한다. 이름 없는 동명 기업 중 데이터가 있는 쪽을 선택해 후속 분석 단계가
+    실제 신고내역을 대상으로 동작하도록 한다.
+    """
+    text = text or ""
+    if not text.strip():
+        return ""
+    try:
+        with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+            rows = conn.execute("SELECT company_id, company_name FROM company_profiles").fetchall()
+            matched = [(cid, name) for cid, name in rows if name and name in text]
+            if not matched:
+                return ""
+            max_len = max(len(name) for _, name in matched)
+            candidates = [cid for cid, name in matched if len(name) == max_len]
+            if len(candidates) == 1:
+                return candidates[0]
+            placeholders = ",".join(["?"] * len(candidates))
+            counts = conn.execute(
+                f"SELECT company_id, COUNT(*) FROM import_declarations "
+                f"WHERE company_id IN ({placeholders}) GROUP BY company_id",
+                candidates,
+            ).fetchall()
+            count_map = {cid: cnt for cid, cnt in counts}
+            candidates.sort(key=lambda cid: count_map.get(cid, 0), reverse=True)
+            return candidates[0]
+    except Exception:
+        return ""
 
 
 _ATTACHMENT_TEXT_LIMIT = 16000
@@ -742,58 +785,56 @@ def run_db_query_api(body: dict) -> dict:
         return {"error": str(exc), "service": service}
 
 
-def _web_browse_section(prompt: str) -> dict:
-    """외부 AI 모델(웹브라우징) 답변을 생성한다. agent_web 의존."""
-    try:
-        from src.agents.agent_web import web_browse_answer
-        return web_browse_answer(prompt)
-    except Exception as exc:
-        print(f"[llm_direct] 웹브라우징 실패: {exc}")
-        return {"answer": f"웹브라우징 중 오류가 발생했습니다: {exc}", "available": False, "sources": []}
-
-
 def llm_direct_query(body: dict) -> dict:
     """에이전트 없이 LLM에 직접 질의한다.
 
-    model_mode: "internal"(내부 LLM only) | "external"(외부 AI 모델 only) | "both"(둘 다, 기본)
+    llm_mode 시뮬레이션 (내부 LLM 미보유 → 내부/외부 모두 OpenAI 모델로 처리):
+      - "ext" / "ext_int" (외부LLM): OpenAI 모델 + 웹검색(TAVILY/SERPAPI) 컨텍스트 보강
+      - "int" (내부LLM only): 웹검색 없이 OpenAI 모델만 사용
     """
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return {"answer": ""}
 
-    model_mode = (body.get("model_mode") or "both").strip().lower()
-    if model_mode not in ("internal", "external", "both"):
-        model_mode = "both"
-
-    # 외부 AI 모델(웹브라우징) only — 내부 LLM 답변 없이 웹검색 결과만 반환
-    if model_mode == "external":
-        web = _web_browse_section(prompt)
-        return {"answer": web.get("answer", ""), "sources": web.get("sources", [])}
+    llm_mode = (body.get("llm_mode") or "ext").strip()
+    use_web = llm_mode in ("ext", "ext_int")
 
     openai_file_inputs = _build_openai_file_inputs(body)
     attachment_context = _build_attachment_context(body, include_errors=not openai_file_inputs)
-    llm_prompt = prompt
-    if attachment_context:
-        llm_prompt = (
-            "사용자 요청에 답변하세요. 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하고, "
-            "텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요.\n\n"
-            f"[사용자 요청]\n{prompt}\n\n[첨부 파일 내용]\n{attachment_context}"
-        )
-    # 내부 LLM 답변에 외부 AI 모델(웹브라우징) 결과를 덧붙인다(both 모드).
-    def _finalize(internal_answer: str) -> dict:
-        if model_mode != "both":
-            return {"answer": internal_answer}
-        web = _web_browse_section(prompt)
-        web_answer = (web.get("answer") or "").strip()
-        if not web_answer:
-            return {"answer": internal_answer}
-        merged = (
-            f"## 내부 LLM 답변\n{internal_answer}\n\n"
-            f"## 외부 AI 모델(웹브라우징)\n{web_answer}"
-        )
-        return {"answer": merged, "sources": web.get("sources", [])}
 
+    # 외부 LLM 모드: 웹검색 결과를 컨텍스트로 보강
+    web_context = ""
+    web_used = False
+    web_reason = "내부LLM 모드(웹검색 미사용)" if not use_web else ""
+    if use_web:
+        try:
+            from src.agents.agent_web import web_search_context
+            ws = web_search_context(prompt)
+            web_used = bool(ws.get("available"))
+            web_context = ws.get("text") or ""
+            web_reason = ws.get("reason") or ("웹검색 결과 반영" if web_used else "")
+        except Exception as exc:
+            web_reason = f"웹검색 실패: {exc}"
+            print(f"[llm_direct] 웹검색 실패: {exc}")
+
+    # 프롬프트 구성 (첨부 + 웹검색 컨텍스트)
+    guide = "사용자 요청에 한국어로 답변하세요."
+    if web_context:
+        guide += " 아래 웹검색 결과를 근거로 활용하고, 인용 시 출처 URL을 함께 제시하세요."
+    if attachment_context:
+        guide += " 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하고, 텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요."
+    extra = ""
+    if attachment_context:
+        extra += f"\n\n[첨부 파일 내용]\n{attachment_context}"
+    if web_context:
+        extra += f"\n\n[웹검색 결과]\n{web_context}"
+    llm_prompt = f"{guide}\n\n[사용자 요청]\n{prompt}{extra}" if extra else prompt
+
+    from src.llm import MODEL_NAME
+    meta = {"llm_mode": llm_mode, "web_search_used": web_used,
+            "web_search_note": web_reason, "llm_model": MODEL_NAME}
     try:
+        # 첨부 파일(PDF/이미지)이 있고 OpenAI 프로바이더일 때만 Responses API로 파일 직접 입력
         if openai_file_inputs and os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai":
             from openai import OpenAI
             model = os.getenv("LLM_MODEL") or "gpt-4o"
@@ -805,6 +846,8 @@ def llm_direct_query(body: dict) -> dict:
             )
             if attachment_context:
                 text_prompt += f"\n\n[추출된 첨부 텍스트]\n{attachment_context}"
+            if web_context:
+                text_prompt += f"\n\n[웹검색 결과]\n{web_context}"
             response = client.responses.create(
                 model=model,
                 temperature=temperature,
@@ -813,14 +856,15 @@ def llm_direct_query(body: dict) -> dict:
                     "content": [{"type": "input_text", "text": text_prompt}, *openai_file_inputs],
                 }],
             )
-            return _finalize(response.output_text)
+            return {"answer": response.output_text, **meta}
 
+        # 외부/내부 모두 설정된 LLM_MODEL(전역 llm) 사용. 차이는 웹검색 컨텍스트 유무뿐.
         from src.llm import llm
         if llm:
-            return _finalize(llm.invoke(llm_prompt).content)
+            return {"answer": llm.invoke(llm_prompt).content, **meta}
     except Exception as exc:
         print(f"[llm_direct] 실패: {exc}")
-    return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요."}
+    return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.", **meta}
 
 
 _DATA_SOURCES = {
@@ -847,6 +891,9 @@ _AGENTS = {
     "route_analysis":     "운송경로 분석 — 우회수입 탐지와 공급망 역추적",
     "patent":             "특허정보 조회 — 로열티·기술사용료 과세 영향 분석",
     "rag_create":         "RAG 생성 — 업로드 문서 임베딩 후 검색 가능 컬렉션 생성",
+    "translate":          "문서 번역 — 입력 문서·텍스트를 지정 대상 언어로 번역",
+    "text_summary":       "요약 — 입력 문서·텍스트를 지정 결과 형식(불릿/표/서술/템플릿)으로 요약",
+    "report_standard":    "표준 보고서 생성 — 표준 보고서 템플릿 형식에 맞춰 신규 보고서 작성",
     "law":                "법령 검토 — 관세법·시행령·결정례·판례 검색",
     "summary":            "보고서 요약 — 첨부 문서와 선행 결과 요약",
     "report":             "보고서 생성 — 모든 분석 결과를 5섹션 구조로 통합",
@@ -1455,6 +1502,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     WORKSPACE_STATE_PATH = DATA_DIR / "workspace_state.json"
+    WORKSPACE_STATE_DIR = DATA_DIR / "workspace_state"
     ANALYSIS_TEMPLATES_PATH = DATA_DIR / "analysis_templates.json"
     SCENARIO_BUILDER_CONFIG_PATH = DATA_DIR / "scenario_builder_config.json"
     SCENARIO_TEMPLATES_PATH = DATA_DIR / "scenario_templates.json"
@@ -1498,6 +1546,92 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"status": "saved"})
 
+    # ── 진행작업 상태: 사용자별 파일 분리 저장 ────────────────────────────────
+    # data/workspace_state/<userId>.json 으로 사용자별 워크스페이스를 분리한다.
+    # userWorkspaces 외 전역/현재세션 키는 data/workspace_state/_base.json 에 보관.
+    # 클라이언트 계약(GET/POST 시 단일 blob)은 그대로 유지된다.
+    _WS_ID_ALLOWED = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+    )
+
+    @classmethod
+    def _safe_user_id(cls, user_id) -> str:
+        # 파일명 안전성: 허용 문자만 남기고 경로 구분자·상위경로·예약 접두(_)를 차단
+        safe = "".join(ch for ch in str(user_id or "") if ch in cls._WS_ID_ALLOWED)
+        if safe in ("", ".", "..") or safe.startswith("_"):
+            return ""
+        return safe
+
+    def _atomic_write_json(self, path, value) -> None:
+        tmp_path = path.parent / (path.name + ".tmp")
+        tmp_path.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        tmp_path.replace(path)
+
+    def _shard_workspace_blob(self, blob: dict) -> None:
+        self.WORKSPACE_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        user_workspaces = blob.get("userWorkspaces")
+        if not isinstance(user_workspaces, dict):
+            user_workspaces = {}
+        base = {key: value for key, value in blob.items() if key != "userWorkspaces"}
+        self._atomic_write_json(self.WORKSPACE_STATE_DIR / "_base.json", base)
+        for user_id, workspace in user_workspaces.items():
+            safe = self._safe_user_id(user_id)
+            if not safe:
+                continue
+            self._atomic_write_json(self.WORKSPACE_STATE_DIR / f"{safe}.json", workspace)
+
+    def _assemble_workspace_state(self) -> dict:
+        base_path = self.WORKSPACE_STATE_DIR / "_base.json"
+        # 최초 1회: 기존 단일 파일(data/workspace_state.json)을 사용자별 파일로 이행
+        if not base_path.exists() and self.WORKSPACE_STATE_PATH.exists():
+            legacy = json.loads(self.WORKSPACE_STATE_PATH.read_text(encoding="utf-8-sig"))
+            if isinstance(legacy, dict):
+                self._shard_workspace_blob(legacy)
+        if not base_path.exists():
+            return {}
+        state = json.loads(base_path.read_text(encoding="utf-8-sig"))
+        if not isinstance(state, dict):
+            state = {}
+        user_workspaces: dict = {}
+        for path in sorted(self.WORKSPACE_STATE_DIR.glob("*.json")):
+            if path.name == "_base.json":
+                continue
+            try:
+                user_workspaces[path.stem] = json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                continue
+        state["userWorkspaces"] = user_workspaces
+        return state
+
+    def _read_workspace_store(self) -> dict | None:
+        try:
+            with self._workspace_lock:
+                return self._assemble_workspace_state()
+        except (OSError, json.JSONDecodeError) as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+
+    def _write_workspace_store(self) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            state = json.loads(raw)
+        except json.JSONDecodeError:
+            self._send_json({"error": "invalid json"}, HTTPStatus.BAD_REQUEST)
+            return
+        if not isinstance(state, dict):
+            self._send_json({"error": "state must be an object"}, HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            with self._workspace_lock:
+                self._shard_workspace_blob(state)
+        except OSError as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_json({"status": "saved"})
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
 
@@ -1508,8 +1642,8 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             self._serve_static(parsed.path.removeprefix("/static/"))
             return
         if parsed.path == "/api/workspace_state":
-            # 진행작업(캔버스) 상태 — data/workspace_state.json 파일 저장소
-            state = self._read_json_store(self.WORKSPACE_STATE_PATH)
+            # 진행작업(캔버스) 상태 — data/workspace_state/<userId>.json 사용자별 분리 저장소
+            state = self._read_workspace_store()
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -1647,7 +1781,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/workspace_state":
-            self._write_json_store(self.WORKSPACE_STATE_PATH)
+            self._write_workspace_store()
             return
 
         if parsed.path == "/api/analysis_templates":
@@ -1812,9 +1946,22 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             if not scenario.get("target_id"):
                 self._send_json({"error": "target_id is required for person target"}, HTTPStatus.BAD_REQUEST)
                 return
-        elif not company_id:
-            self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
-            return
+        else:
+            # 기업 대상인데 company_id가 없으면(자연어로 기업명만 제시) 프롬프트·입력값에서
+            # 기업명을 해석해 company_id로 스코프를 잡는다. CDW·분석 단계가 동일 기업을 대상으로
+            # 동작하도록 하여 'CDW로 품목 조회 → 품목분류검증' 같은 단계 연계를 가능하게 한다.
+            if company_id in ("", "__NO_COMPANY_SELECTED__"):
+                hint = " ".join([
+                    str(scenario.get("user_prompt") or ""),
+                    *[str(item.get("instruction") or "") for item in (scenario.get("scenario_items") or [])],
+                ])
+                resolved = _resolve_company_id_from_db(hint)
+                if resolved:
+                    company_id = resolved
+                    print(f"[web] 기업명 → company_id 해석: {company_id}")
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -1846,10 +1993,36 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 "scenario": scenario,
             },
         )
+        # 단계 입력 연계({{STEP_OUTPUT:n}})를 앞 단계 출력으로 치환하기 위한 준비.
+        # build_workflow_steps는 scenario_items를 order로 정렬·필터해 steps를 만들므로 동일 정렬로 정렬한다.
+        scenario_items_sorted = sorted(
+            (scenario.get("scenario_items") or []),
+            key=lambda value: value.get("order", 999),
+        )
+        aligned_items = (
+            scenario_items_sorted if len(scenario_items_sorted) == len(steps) else [None] * len(steps)
+        )
+        outputs_by_order: dict[int, str] = {}
+
         # 단계별 자동실행: 각 runner가 완료된 뒤에만 다음 AI 서비스를 호출한다.
-        for key, label, runner, result_key in steps:
+        for idx, (key, label, runner, result_key) in enumerate(steps):
             label = _normalize_service_label(label)
             try:
+                # 현재 단계 지시문의 단계 연계 토큰을 앞 단계 출력으로 치환 (scenario_items 직접 갱신).
+                item = aligned_items[idx] if idx < len(aligned_items) else None
+                if item is not None and "{{STEP_OUTPUT:" in str(item.get("instruction") or ""):
+                    linked_orders: list[int] = []
+                    def _sub_step_output(match):
+                        n = int(match.group(1))
+                        linked_orders.append(n)
+                        return outputs_by_order.get(n) or f"({n}단계 결과 없음)"
+                    item["instruction"] = re.sub(
+                        r"\{\{STEP_OUTPUT:(\d+)\}\}",
+                        _sub_step_output,
+                        str(item.get("instruction") or ""),
+                    )
+                    if linked_orders:
+                        print(f"[AI서비스] {label} 단계연계 입력 치환: {linked_orders}단계 결과 주입")
                 step_state = {
                     **state,
                     "scenario": {
@@ -1872,6 +2045,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     return
                 print(f"[AI서비스] {label} 실행 완료")
                 output_text = state.get(result_key) or ""
+                # 단계 연계용: 이 단계의 출력을 order 기준으로 저장 (다음 단계 토큰 치환에 사용)
+                if item is not None and item.get("order") is not None:
+                    try:
+                        outputs_by_order[int(item.get("order"))] = str(output_text)
+                    except (TypeError, ValueError):
+                        pass
                 # 호출 측(워크플로 오케스트레이터) 결과 수신 로그
                 _preview = " ".join(str(output_text).split())[:80]
                 print(f"[AI서비스] {label} 결과 수신 ({len(str(output_text))}자): {_preview}")

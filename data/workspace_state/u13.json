@@ -1,0 +1,79 @@
+{
+  "activeCanvasCompanyId": "C-2002",
+  "activeScenarioTemplateId": "customs-basic",
+  "investigationTab": "ongoing",
+  "canvasTab": "overview",
+  "generalInvTab": "cases",
+  "activeGenInvCaseId": null,
+  "drugInvTab": "ongoing",
+  "activeDrugCaseId": null,
+  "drugDataSubTab": "profile",
+  "drugNetworkSubTab": "graph",
+  "drugForensicSubTab": "dashboard",
+  "drugReportSubTab": "draft",
+  "latestReport": "보고서가 아직 생성되지 않았습니다.",
+  "latestValidation": "검증 결과가 아직 없습니다.",
+  "customCanvasJobs": [],
+  "customGenInvCases": [],
+  "defaultGenInvCasesState": [
+    {
+      "caseId": "GI-2026-001",
+      "targetName": "한국소재무역(주)",
+      "invTypeId": "t1",
+      "targetType": "company",
+      "companyId": "C-1001",
+      "status": {
+        "label": "진행중",
+        "tone": "running",
+        "pct": 65,
+        "done": 4,
+        "total": 7
+      },
+      "investigator": "임조사",
+      "team": "조사국 조사1과",
+      "created": "2026-05-10",
+      "updated": "방금"
+    },
+    {
+      "caseId": "GI-2026-002",
+      "targetName": "샘플우범자001 (개인)",
+      "invTypeId": "t2",
+      "targetType": "person",
+      "personId": "RP-0001",
+      "status": {
+        "label": "대기",
+        "tone": "wait",
+        "pct": 10,
+        "done": 1,
+        "total": 7
+      },
+      "investigator": "권조사",
+      "team": "세관 조사분야",
+      "created": "2026-05-15",
+      "updated": "오늘 09:30"
+    },
+    {
+      "caseId": "GI-2026-003",
+      "targetName": "글로벌패션코리아",
+      "invTypeId": "t5",
+      "targetType": "company",
+      "companyId": "C-1003",
+      "status": {
+        "label": "검토중",
+        "tone": "review",
+        "pct": 85,
+        "done": 6,
+        "total": 7
+      },
+      "investigator": "임조사",
+      "team": "조사국 조사1과",
+      "created": "2026-04-28",
+      "updated": "어제"
+    }
+  ],
+  "companyScenarios": {},
+  "canvasJobOverrides": {},
+  "canvasRunArchives": {},
+  "hiddenCanvasJobIds": [],
+  "updatedAt": "2026-06-12T03:48:35.346Z"
+}

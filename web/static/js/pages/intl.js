@@ -86,8 +86,8 @@ export function intlInfoPageHtml(){
 
         <!-- 컴포저 (프롬프트 입력 + 버튼) -->
         <div class="home-composer">
-          <textarea id="coachPrompt" class="home-composer-ta" rows="3"
-            placeholder="${escapeHtml(INTL_PROMPT_PLACEHOLDER)}"></textarea>
+          <textarea id="coachPrompt" class="home-composer-ta is-initial" rows="3"
+            data-initial-text="${escapeHtml(INTL_PROMPT_PLACEHOLDER)}">${escapeHtml(INTL_PROMPT_PLACEHOLDER)}</textarea>
           <div class="home-composer-bar">
             <label class="btn-ghost home-tool-btn file-tool" title="파일 첨부">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -105,6 +105,11 @@ export function intlInfoPageHtml(){
               AI 분석 서비스
               <span class="home-select-badge" id="homeAgentBadge" style="display:none"></span>
               <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="btn-soft home-tool-btn home-llm-mode-btn" type="button"
+                    data-home-llm-mode data-llm-mode="ext" title="LLM 사용 모드 전환 (외부 / 내부 / 외부+내부)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+              <span class="home-llm-mode-label">외부LLM only</span>
             </button>
             <div class="home-composer-actions">
               <button class="btn-ghost home-action-btn coach" id="coachAnalyzeBtn" type="button">

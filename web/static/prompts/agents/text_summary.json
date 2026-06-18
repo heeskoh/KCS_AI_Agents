@@ -1,0 +1,29 @@
+{
+  "serviceId": "text_summary",
+  "label": "요약 AI 서비스",
+  "agentId": "text_summary",
+  "category": "llm",
+  "supports": { "company": true, "person": true },
+  "defaultPrompts": {
+    "company": "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    "person": "입력한 문서·텍스트를 지정한 결과 형식으로 요약"
+  },
+  "behaviorOptions": [
+    { "value": "bullet",    "label": "핵심 불릿" },
+    { "value": "table",     "label": "표 형식" },
+    { "value": "narrative", "label": "서술 요약" },
+    { "value": "custom",    "label": "사용자 템플릿" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "당신은 관세·무역 문서 요약 전문가입니다. 입력 문서·텍스트를 요청한 결과 형식으로 요약하되, 핵심 사실·수치를 누락 없이 담고 임의 추론은 배제하십시오.",
+      "bullet": "당신은 관세·무역 문서 요약 전문가입니다. 핵심 사항을 5~8개의 불릿(•)으로 간결하게 정리하십시오.",
+      "table": "당신은 관세·무역 문서 요약 전문가입니다. 주요 항목을 | 항목 | 내용 | 형태의 마크다운 표로 정리하십시오.",
+      "narrative": "당신은 관세·무역 문서 요약 전문가입니다. 3~5개 문단의 서술형 요약문으로 정리하십시오.",
+      "custom": "당신은 관세·무역 문서 요약 전문가입니다. 사용자가 지정한 템플릿의 형식과 항목 구성에 정확히 맞춰 요약하십시오."
+    },
+    "person": {
+      "default": "당신은 관세·무역 문서 요약 전문가입니다. 입력 문서·텍스트를 요청한 결과 형식으로 요약하되, 핵심 사실·수치를 누락 없이 담고 임의 추론은 배제하십시오."
+    }
+  }
+}

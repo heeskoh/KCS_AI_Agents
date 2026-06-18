@@ -30,9 +30,13 @@ from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
 from src.agents.agent_rag import agent_rag_source
 from src.agents.agent_rag_create import agent_rag_create
 from src.agents.agent_report import agent_report
+from src.agents.agent_report_standard import agent_report_standard
+from src.agents.agent_result_synthesis import agent_result_synthesis
 from src.agents.agent_risk_profile import agent_risk_profile
 from src.agents.agent_route_analysis import agent_route_analysis
 from src.agents.agent_summary import agent_summary
+from src.agents.agent_text_summary import agent_text_summary
+from src.agents.agent_translate import agent_translate
 from src.agents.agent_validate import agent_validate
 from src.agents.agent_web import agent_web
 from src.agents.state import CustomsState
@@ -97,9 +101,13 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("customs_value", "과세가격 평가", agent_customs_value, "customs_value_result", "customs_value_agent"),
     AgentModule("risk_profile", "위험지표 프로파일", agent_risk_profile, "risk_profile_result", "risk_profile_agent", ("company_risk_profile", "risk_indicator_profile")),
     AgentModule("summary", "요약", agent_summary, "summary_result", "summary_agent"),
+    AgentModule("translate", "문서 번역", agent_translate, "translate_result", "translate_agent"),
+    AgentModule("text_summary", "요약", agent_text_summary, "text_summary_result", "text_summary_agent"),
+    AgentModule("report_standard", "표준 보고서 생성", agent_report_standard, "report_standard_result", "report_standard_agent"),
     AgentModule("patent", "특허정보 조회", agent_patent, "patent_result", "patent_agent"),
     AgentModule("rag_create", "RAG 생성", agent_rag_create, "rag_create_result", "rag_create_agent"),
     AgentModule("law", "법령 검토", agent_law, "law_result", "law_agent"),
+    AgentModule("result_synthesis", "최종 결과 종합", agent_result_synthesis, "result_synthesis_result", "result_synthesis_agent", ("final_synthesis",)),
     AgentModule("report", "보고서 생성", agent_report, "final_report", "report_agent", ("report_generate",)),
     AgentModule("validation", "보고서 검증", agent_validate, "validation_result", "validate_agent", ("report_validate", "validate")),
     AgentModule("mail_share", "분석결과 공유", agent_mail_share, "mail_share_result", "mail_share_agent"),

@@ -466,11 +466,14 @@ function permissionApprovePage(){
 const DB_SEARCH_GROUP = "DB 검색";
 const RAG_SEARCH_GROUP = "RAG 검색";
 const ANALYSIS_AI_GROUP = "업무분석 AI서비스";
-const LLM_SERVICE_GROUP = "파일·요약·번역 LLM 기능 서비스";
+const LLM_SERVICE_GROUP = "분석지원 AI 서비스";
 const EXTERNAL_AI_GROUP = "외부연계 AI서비스";
 const REPORT_AI_GROUP = "보고서 생성 및 검증";
 const AI_SERVICE_GROUP = ANALYSIS_AI_GROUP;
 const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
+
+// 모든 사용자 그룹에 기본 granted 처리할 분석지원/공유 서비스 (사건·권한과 무관한 범용 도구)
+const DEFAULT_GRANTED_AGENTS = ["mail_share", "translate", "text_summary", "report_standard"];
 
 const AI_SERVICE_REGISTRY = {
   db_cdw: {
@@ -548,7 +551,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   ml: {
-    label: "ML 모델 실행 AI 서비스", type: "ml", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "ML 모델 실행 AI 서비스", type: "ml", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "전체 모델을 실행해 위험 패턴을 비교",
     behaviorOptions: [
       { value: "all_models", label: "전체 모델 실행" },
@@ -559,7 +562,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   network: {
-    label: "관계망 분석 AI 서비스", type: "network", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "관계망 분석 AI 서비스", type: "network", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
     behaviorOptions: [
       { value: "relationship", label: "관계망 분석" },
@@ -605,7 +608,7 @@ const AI_SERVICE_REGISTRY = {
   // 신규: 범죄자금추적 — 실제 등록된 소스(이체·가상자산·현금 등)에 따라 분석.
   // 동작 선택 = 분석에 사용할 데이터 소스 선택. (범죄수익 추적과는 별개 서비스)
   fund_trace: {
-    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "등록된 자금 소스(계좌이체·가상자산·현금 입출금 등) 중 선택한 항목을 기반으로 범죄자금 흐름을 추적",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름내역" },
@@ -616,7 +619,7 @@ const AI_SERVICE_REGISTRY = {
   },
   // 신규: 통신내역 AI 분석 — 동작 선택 = 분석에 사용할 통신 소스 선택.
   comms_analysis: {
-    label: "통신내역 AI 분석 서비스", type: "comms", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "통신내역 AI 분석 서비스", type: "comms", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "등록된 통신 소스(통화·SMS·SNS·메신저 등) 중 선택한 항목을 분석해 연락 빈도·공범·전달책 관계 단서를 도출",
     behaviorOptions: [
       { value: "call", label: "통화내역" },
@@ -698,6 +701,32 @@ const AI_SERVICE_REGISTRY = {
     behaviorOptions: [
       { value: "knowledge_build", label: "지식 생성" },
       { value: "source_cleanup", label: "자료 정제" },
+    ],
+  },
+  translate: {
+    label: "문서 번역 AI 서비스", type: "translate", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    behaviorOptions: [
+      { value: "faithful", label: "원문 충실 번역" },
+      { value: "natural", label: "자연스러운 의역" },
+    ],
+  },
+  text_summary: {
+    label: "요약 AI 서비스", type: "text_summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    behaviorOptions: [
+      { value: "bullet", label: "핵심 불릿" },
+      { value: "table", label: "표 형식" },
+      { value: "narrative", label: "서술 요약" },
+      { value: "custom", label: "사용자 템플릿" },
+    ],
+  },
+  report_standard: {
+    label: "표준 보고서 생성 AI 서비스", type: "report_standard", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    behaviorOptions: [
+      { value: "match_template", label: "템플릿 형식 적용" },
+      { value: "fill_sections", label: "섹션별 채움" },
     ],
   },
   summary: {
@@ -847,6 +876,18 @@ const AI_SERVICE_TARGET_CONFIG = {
   rag_create: targetConfig(
     "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리"
+  ),
+  translate: targetConfig(
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역",
+    "입력한 문서·텍스트를 지정한 대상 언어로 번역"
+  ),
+  text_summary: targetConfig(
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
+    "입력한 문서·텍스트를 지정한 결과 형식으로 요약"
+  ),
+  report_standard: targetConfig(
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성"
   ),
   summary: targetConfig(
     "선행 단계 결과를 조사관용 핵심 요약으로 정리",
@@ -2163,6 +2204,31 @@ const COACH_TYPE_COLORS = {
 
 function coachEl(id){ return document.getElementById(id); }
 
+/* 프롬프트 입력창은 초기 안내문(value + .is-initial)을 보여주다가 사용자가 포커스하면 비워진다.
+   .is-initial 상태(아직 입력 전)는 실제 입력으로 보지 않는다. */
+function coachPromptText(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta || ta.classList.contains("is-initial")) return "";
+  return (ta.value || "").trim();
+}
+
+/* LLM 사용 모드 토글: 외부LLM only / 내부LLM only / 외부+내부 */
+const HOME_LLM_MODES = [
+  { mode: "ext",     label: "외부LLM only" },
+  { mode: "int",     label: "내부LLM only" },
+  { mode: "ext_int", label: "외부LLM+내부LLM" },
+];
+function homeLlmMode(){
+  return document.querySelector("[data-home-llm-mode]")?.dataset.llmMode || "ext";
+}
+function homeLlmModeReasoning(d){
+  const map = { ext: "외부LLM", int: "내부LLM only(시뮬레이션)", ext_int: "외부LLM+내부LLM" };
+  let label = map[(d && d.llm_mode) || homeLlmMode()] || "LLM 자체 답변";
+  if(d && d.llm_model) label += `(${d.llm_model})`;
+  const web = d && d.web_search_used ? "웹검색 반영" : (d && d.web_search_note ? d.web_search_note : "웹검색 미사용");
+  return `${label} · ${web}`;
+}
+
 function coachSetScoreMini(n){
   const el = coachEl("coachScoreMini");
   if(!el) return;
@@ -2257,6 +2323,7 @@ function coachImprove(){
   const ta = coachEl("coachPrompt");
   if(!ta || !coachImprovedPrompt) return;
   ta.value = coachImprovedPrompt;
+  ta.classList.remove("is-initial");
   const cc = coachEl("coachCharCount");
   if(cc) cc.textContent = ta.value.length + "자";
   coachSetScoreMini(95);
@@ -2269,7 +2336,15 @@ function coachImprove(){
 
 function coachReset(){
   const ta = coachEl("coachPrompt");
-  if(ta && coachOriginalPrompt) ta.value = coachOriginalPrompt;
+  if(ta){
+    if(coachOriginalPrompt){
+      ta.value = coachOriginalPrompt;
+      ta.classList.remove("is-initial");
+    } else {
+      ta.value = ta.dataset.initialText || "";
+      ta.classList.add("is-initial");
+    }
+  }
   coachSuggestions = [];
   coachSuggestionsCollapsed = false;
   coachBaseScore = 35;
@@ -2286,7 +2361,7 @@ function coachReset(){
   coachRenderFileChips();
   coachRenderFileLinkChips();
   const cc = coachEl("coachCharCount");
-  if(cc && ta) cc.textContent = ta.value.length + "자";
+  if(cc && ta) cc.textContent = (ta.classList.contains("is-initial") ? 0 : ta.value.length) + "자";
   const improveBtn = coachEl("coachImproveBtn");
   if(improveBtn){
     setHomeActionLabel(improveBtn, "개선 적용");
@@ -2304,7 +2379,7 @@ async function coachRunAnalyze(){
   const analyzeBtn = coachEl("coachAnalyzeBtn");
   if(!ta) return;
 
-  const prompt = ta.value.trim();
+  const prompt = coachPromptText();
   if(!prompt){
     alert("프롬프트를 먼저 입력하세요.");
     return;
@@ -2570,7 +2645,6 @@ function coachInitHome(){
   coachRenderFileChips();
   coachRenderFileLinkChips();
   homeSyncPickerStatuses();
-  homeSyncModelToggle();
   // 인사말 이름 설정
   const nameEl = document.getElementById("homeGreetingText");
   if(nameEl){
@@ -2619,53 +2693,125 @@ const HOME_DEFAULT_AGENTS = [
   { type:"law",                label:"법령 검토 AI 서비스",       key:"law" },
   { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
   { type:"rag_create",         label:"RAG 생성",                 key:"rag_create" },
+  { type:"translate",          label:"문서 번역 AI 서비스",       key:"translate" },
+  { type:"text_summary",       label:"요약 AI 서비스",            key:"text_summary" },
+  { type:"report_standard",    label:"표준 보고서 생성 AI 서비스", key:"report_standard" },
   { type:"report",             label:"보고서 생성 AI 서비스",     key:"report_generate" },
   { type:"validation",         label:"보고서 검증 AI 서비스",     key:"report_validate" },
   { type:"mail_share",         label:"분석결과 공유 AI 서비스",   key:"mail_share" },
 ];
 
 let homeEventSource = null;
-let homePromptRunDirty = false;  // 실행 후 true → 프롬프트 입력창을 다시 클릭하면 1회 초기화
-let homeModelMode = "both";      // "internal" | "external" | "both" — 응답 생성 모델 토글
 let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
 let homeSelectedRagKeys = [];
 let homeSelectedAgentKeys = [];
 let homeShareEmailIds = [];
+// 선택 서비스별 프롬프트 템플릿 구성 상태: { [serviceKey]: { behaviors:[], text:"", edited:bool } }
+let homePromptTemplateState = {};
+// 선택된 모든 서비스의 수행 순서(위→아래 = 실행 순서). 선택 변경 시 동기화된다.
+let homePipelineOrder = [];
+// 최종 결과 종합 단계 지시문(여러 서비스 결과를 어떻게 받을지)
+let homeFinalResultState = { text: "", edited: false };
+// 구조화 전용 입력 패널(별도 UI)을 갖는 서비스 — 순서 프레임엔 포함하되 인라인 프롬프트 편집기는 생략
+const HOME_DEDICATED_PANEL_SERVICES = new Set([
+  "translate", "text_summary", "report_standard", "mail_share",
+]);
+// AI 서비스별 필수 입력값 상태: { [serviceKey]: { [inputKey]: { source:"manual"|<order>, value:"" } } }
+let homeServiceInputState = {};
+// 자동 생성한 통합 프롬프트(사용자 수동 편집 감지용)
+let homeLastGeneratedPrompt = "";
+
+// 업무지식베이스(자연어 조회 대상) 소개문 — 데이터소스 선택 시 안내 카드로 표시
+const DATA_SOURCE_INTRO = {
+  db_cdw: "관세·무역 전 분야 데이터가 적재된 관세데이터웨어하우스(CDW)입니다. 자연어로 기업·수입신고·위험지표 등 통관 데이터를 조회합니다.",
+  company_profile: "CDW의 기업 기본정보·위험등급·수입실적·신고/검사 이력을 자연어로 조회합니다.",
+  rag_customs: "관세정보 영역의 결과보고서를 보유하여, 유사사례 검색과 실무 중심 관세 업무정보를 자연어로 조회합니다.",
+  rag_audit: "심사정보 영역의 결과보고서를 보유하여, 유사 심사사례 검색과 추징 관점의 실무정보를 자연어로 조회합니다.",
+  rag_investigation: "조사정보 영역의 결과보고서를 보유하여, 유사 조사사례 검색과 조사 실무정보를 자연어로 조회합니다.",
+  rag_global: "국제협력 영역의 결과보고서를 보유하여, 유사 국제공조 사례와 해외거래 실무정보를 자연어로 조회합니다.",
+};
+function homeDataSourceIntro(key){
+  return DATA_SOURCE_INTRO[key]
+    || `${AI_SERVICE_REGISTRY[key]?.label || "데이터소스"} — 해당 영역의 결과보고서를 보유하여 유사사례와 실무 정보를 자연어로 조회합니다.`;
+}
+
+// AI 서비스별 필수 입력 필드 정의 (key: 서비스키, value: [{key,label,placeholder,required}])
+const AI_SERVICE_INPUTS = {
+  customs_value: [
+    { key:"target", label:"대상 기업/신고", placeholder:"예: C-1002 또는 신고번호", required:true },
+    { key:"period", label:"조사기간", placeholder:"예: 2023.01~2025.03" },
+    { key:"hs", label:"대상 HS", placeholder:"예: 8471.30" },
+  ],
+  hs_verify: [
+    { key:"declared_hs", label:"신고 HS", placeholder:"예: 8471.30", required:true },
+    { key:"item", label:"품명/규격", placeholder:"예: 노트북 컴퓨터" },
+  ],
+  declaration_verify: [
+    { key:"target", label:"대상 기업/신고", placeholder:"예: C-1002 또는 신고번호", required:true },
+    { key:"doc", label:"대조 문서", placeholder:"첨부파일/참조 문서" },
+  ],
+  origin_analysis: [
+    { key:"target", label:"대상 기업/품목", placeholder:"예: C-1002 / 품목", required:true },
+    { key:"origin", label:"신고 원산지", placeholder:"예: CN" },
+    { key:"fta", label:"FTA 협정", placeholder:"예: 한-중 FTA" },
+  ],
+  abnormal_trade: [
+    { key:"target", label:"대상 기업", placeholder:"예: C-1002", required:true },
+    { key:"focus", label:"점검 관점", placeholder:"가격/거래상대방/신고패턴" },
+  ],
+  network: [
+    { key:"target", label:"분석 대상(기업/인물)", placeholder:"예: C-1002 / P-2003", required:true },
+    { key:"hops", label:"탐색 단계(hop)", placeholder:"예: 2" },
+  ],
+  ml: [
+    { key:"target", label:"대상 기업", placeholder:"예: C-1002", required:true },
+    { key:"models", label:"실행 모델", placeholder:"전체 또는 특정 모델" },
+  ],
+  ontology: [
+    { key:"target", label:"분석 대상", placeholder:"예: 우범여행자/화물", required:true },
+  ],
+  proceeds_tracking: [
+    { key:"target", label:"대상(기업/인물)", placeholder:"예: C-1002 / P-2003", required:true },
+    { key:"period", label:"추적 기간", placeholder:"예: 2023~2025" },
+  ],
+  route_analysis: [
+    { key:"target", label:"대상(화물/인물)", placeholder:"예: 화물번호/대상자", required:true },
+    { key:"route", label:"경로 단서", placeholder:"경유지/운송수단" },
+  ],
+  patent: [
+    { key:"keyword", label:"검색 품목/키워드", placeholder:"예: 무선이어폰 상표", required:true },
+  ],
+  law: [
+    { key:"issue", label:"검토 쟁점/법령", placeholder:"예: 과세가격 로열티 포함 여부", required:true },
+  ],
+  ocr: [
+    { key:"doc", label:"대상 문서", placeholder:"첨부 파일을 지정하세요", required:true },
+  ],
+  rag_create: [
+    { key:"source", label:"대상 자료", placeholder:"지식화할 자료/문서", required:true },
+  ],
+  summary: [
+    { key:"scope", label:"요약 대상", placeholder:"이전 단계 결과 연계 권장" },
+  ],
+  report_generate: [
+    { key:"title", label:"보고서 제목", placeholder:"예: C-1002 과세가격 조사 보고" },
+    { key:"scope", label:"보고서 대상 자료", placeholder:"이전 단계 결과 연계 권장" },
+  ],
+  report_validate: [
+    { key:"target_report", label:"검증 대상 보고서", placeholder:"이전 단계 결과 연계 권장" },
+  ],
+  web_search: [
+    { key:"query", label:"검색어", placeholder:"예: 업체명 + 제재" , required:true },
+  ],
+};
+function homeServiceInputDefs(key){
+  return AI_SERVICE_INPUTS[key]
+    || [{ key:"target", label:"분석 대상/지시", placeholder:"이 서비스의 분석 대상이나 지시를 입력하세요", required:true }];
+}
 
 const HOME_PICKER_RAG_KEYS = ["rag_customs", "rag_audit", "rag_investigation", "rag_global"];
 const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
-
-/* 응답 생성 모델 토글 — 내부 LLM / 외부 AI 모델(웹브라우징) / 둘 다 */
-const HOME_MODEL_MODES = ["internal", "external", "both"];
-const HOME_MODEL_MODE_META = {
-  internal: { label: "내부 LLM only",            cls: "model-internal" },
-  external: { label: "외부 AI 모델 only",        cls: "model-external" },
-  both:     { label: "내부 LLM + 외부 AI 모델",  cls: "model-both" },
-};
-
-function homeSyncModelToggle(){
-  const btn = document.querySelector("[data-home-model-toggle]");
-  if(!btn) return;
-  const meta = HOME_MODEL_MODE_META[homeModelMode] || HOME_MODEL_MODE_META.both;
-  const labelEl = btn.querySelector(".home-model-toggle-label");
-  if(labelEl) labelEl.textContent = meta.label;
-  Object.values(HOME_MODEL_MODE_META).forEach(m => btn.classList.remove(m.cls));
-  btn.classList.add(meta.cls, "selected");
-}
-
-function homeCycleModelMode(){
-  const idx = HOME_MODEL_MODES.indexOf(homeModelMode);
-  homeModelMode = HOME_MODEL_MODES[(idx + 1) % HOME_MODEL_MODES.length];
-  homeSyncModelToggle();
-}
-
-/* 결과 헤더에 표시할 "판단 근거" 문구에 현재 모델 모드를 덧붙인다. */
-function homeModelModeReasoning(base){
-  const meta = HOME_MODEL_MODE_META[homeModelMode] || HOME_MODEL_MODE_META.both;
-  const tag = `응답 모델: ${meta.label}`;
-  return base ? `${base} · ${tag}` : tag;
-}
 
 function homeSelectedAnalysisOptions(){
   const sources = Array.from(document.querySelectorAll("[data-home-source].selected:not(.home-picker-trigger)"))
@@ -2711,6 +2857,361 @@ function homeRenderShareEmailPanel(){
         </span>
       `).join("")
     : `<span class="home-share-email-empty">등록된 이메일 ID가 없습니다.</span>`;
+}
+
+// 분석지원 서비스(번역·요약·표준보고서)의 형식화 입력 패널 표시/숨김 동기화
+function homeRenderServiceInputPanels(){
+  const agents = homeSelectedAnalysisOptions().agents;
+  const toggle = (id, on) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = on ? "block" : "none";
+  };
+  toggle("homeTranslatePanel", agents.includes("translate"));
+  toggle("homeSummaryPanel", agents.includes("text_summary"));
+  toggle("homeReportStdPanel", agents.includes("report_standard"));
+}
+
+// 선택된 분석지원 서비스의 형식화 입력값을 실행 payload에 첨부할 형태로 수집
+function homeServiceInputPayload(){
+  const agents = homeSelectedAnalysisOptions().agents;
+  const val = id => (document.getElementById(id)?.value || "").trim();
+  const payload = {};
+  if(agents.includes("translate")){
+    payload.translate_source_lang = document.getElementById("homeTranslateSourceLang")?.value || "auto";
+    payload.translate_target_lang = document.getElementById("homeTranslateTargetLang")?.value || "ko";
+    payload.translate_input = val("homeTranslateInput");
+  }
+  if(agents.includes("text_summary")){
+    payload.summary_format = document.getElementById("homeSummaryFormat")?.value || "bullet";
+    payload.summary_template = val("homeSummaryTemplate");
+    payload.summary_input = val("homeSummaryInput");
+  }
+  if(agents.includes("report_standard")){
+    payload.report_content = val("homeReportStdContent");
+    payload.report_template = val("homeReportStdTemplate");
+  }
+  return payload;
+}
+
+// ── 선택 서비스별 프롬프트 템플릿 구성 패널 ──────────────────────────────────
+// 선택된 RAG 소스 + AI 서비스 중 구조화 전용 패널이 없는 서비스마다 카드를 렌더한다.
+// 각 카드: 동작(behavior) 칩 + 미리 정의된 템플릿(composePrompt) 프리필 textarea(개인화 편집).
+// 데이터소스(업무지식베이스) 키 판정
+function homeIsDataSourceKey(key){
+  const g = AI_SERVICE_REGISTRY[key]?.group;
+  return g === DB_SEARCH_GROUP || g === RAG_SEARCH_GROUP;
+}
+
+// AI 분석서비스(데이터소스 제외)의 수행 순서. 기존 순서 유지 + 신규는 끝에 추가.
+function homeSyncPipelineOrder(){
+  const { agents } = homeSelectedAnalysisOptions();
+  const aiKeys = agents.filter(key => !homeIsDataSourceKey(key));
+  homePipelineOrder = homePipelineOrder.filter(key => aiKeys.includes(key));
+  aiKeys.forEach(key => { if(!homePipelineOrder.includes(key)) homePipelineOrder.push(key); });
+  return homePipelineOrder;
+}
+
+// 실행 순서대로의 전체 단계 키(데이터소스 먼저 → AI 분석서비스)
+function homeRuntimeStepKeys(){
+  const { sources } = homeSelectedAnalysisOptions();
+  return [...sources, ...homeSyncPipelineOrder()];
+}
+
+// 인라인 프롬프트 편집기(동작칩+textarea)를 제공할 서비스인지 판정.
+function homeServiceHasInlineTemplate(key){
+  const svc = AI_SERVICE_REGISTRY[key];
+  return !!svc && !HOME_DEDICATED_PANEL_SERVICES.has(key) && (svc.behaviorOptions?.length || 0) > 0;
+}
+
+function homeTemplateDefaultBehaviors(key){
+  const opts = AI_SERVICE_REGISTRY[key]?.behaviorOptions || [];
+  return opts.length ? [opts[0].value] : [];
+}
+
+// 서비스 입력값 상태 초기화 (필드별 기본 source=manual)
+function homeEnsureInputState(key){
+  if(!homeServiceInputState[key]) homeServiceInputState[key] = {};
+  homeServiceInputDefs(key).forEach(def => {
+    if(!homeServiceInputState[key][def.key]) homeServiceInputState[key][def.key] = { source: "manual", value: "" };
+  });
+}
+
+// 서비스 입력값을 지시문에 첨부할 [입력 정보] 블록으로 구성. 연계는 {{STEP_OUTPUT:n}} 토큰.
+function homeBuildInputBlock(key){
+  const defs = homeServiceInputDefs(key);
+  const stAll = homeServiceInputState[key] || {};
+  const lines = [];
+  defs.forEach(def => {
+    const st = stAll[def.key] || { source: "manual", value: "" };
+    if(st.source === "manual"){
+      const v = (st.value || "").trim();
+      if(v) lines.push(`- ${def.label}: ${v}`);
+    } else {
+      lines.push(`- ${def.label}: {{STEP_OUTPUT:${st.source}}}`);
+    }
+  });
+  return lines.length ? `\n\n[입력 정보]\n${lines.join("\n")}` : "";
+}
+
+// 프롬프트 입력창 등록용 조합 프롬프트 — 본문 + [입력 정보](연계는 읽기 쉬운 표기)
+function homeComposedPromptForFrame(key){
+  const tpl = homePromptTemplateState[key];
+  const base = (tpl && tpl.text.trim()) ? tpl.text.trim() : "";
+  const defs = homeServiceInputDefs(key);
+  const stAll = homeServiceInputState[key] || {};
+  const runtimeSteps = homeRuntimeStepKeys();
+  const lines = [];
+  defs.forEach(def => {
+    const st = stAll[def.key] || { source: "manual", value: "" };
+    if(st.source === "manual"){
+      const v = (st.value || "").trim();
+      if(v) lines.push(`- ${def.label}: ${v}`);
+    } else {
+      const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
+      lines.push(`- ${def.label}: (${st.source}단계 「${refLabel}」 결과 연계)`);
+    }
+  });
+  const block = lines.length ? `\n\n[입력 정보]\n${lines.join("\n")}` : "";
+  const svcLabel = AI_SERVICE_REGISTRY[key]?.label || key;
+  return (base ? base : `[${svcLabel}]`) + block;
+}
+
+// 업무지식베이스+AI서비스+입력값을 통합한 간결 자연어 프롬프트를 생성한다.
+function homeBuildCombinedPrompt(){
+  const { sources } = homeSelectedAnalysisOptions();
+  const aiOrder = homeSyncPipelineOrder();
+  const runtimeSteps = [...sources, ...aiOrder];
+  const segments = [];
+
+  if(sources.length){
+    const names = sources.map(k => AI_SERVICE_REGISTRY[k]?.label || k);
+    segments.push(`${names.join(", ")}에서 관련 자료를 조회하고,`);
+  }
+
+  aiOrder.forEach((key, idx) => {
+    const label = AI_SERVICE_REGISTRY[key]?.label || key;
+    const defs = homeServiceInputDefs(key);
+    const stAll = homeServiceInputState[key] || {};
+    const inputBits = [];
+    defs.forEach(def => {
+      const st = stAll[def.key] || { source: "manual", value: "" };
+      if(st.source !== "manual"){
+        const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
+        inputBits.push(`${def.label}은(는) ${refLabel} 결과 사용`);
+      } else if((st.value || "").trim()){
+        inputBits.push(`${def.label}: ${st.value.trim()}`);
+      } else if(def.required){
+        inputBits.push(`${def.label}: [입력 필요]`);
+      }
+    });
+    const inputStr = inputBits.length ? ` (${inputBits.join(", ")})` : "";
+    const subject = (sources.length || idx > 0) ? "앞에서 조회한 결과를 대상으로 " : "";
+    segments.push(`${subject}'${label}'을(를) 수행해줘${inputStr}.`);
+  });
+
+  return segments.join(" ").trim();
+}
+
+// 통합 프롬프트를 입력창에 자동 반영 (사용자가 직접 편집한 경우 덮어쓰지 않음)
+function homeSyncCombinedPrompt(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta) return;
+  const generated = homeBuildCombinedPrompt();
+  const isInitial = ta.classList.contains("is-initial");
+  const userEdited = !isInitial && ta.value.trim() !== "" && ta.value !== homeLastGeneratedPrompt;
+  if(userEdited) return;
+  if(generated){
+    ta.classList.remove("is-initial");
+    ta.value = generated;
+    homeLastGeneratedPrompt = generated;
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = generated.length + "자";
+  } else if(ta.value === homeLastGeneratedPrompt){
+    // 선택 해제로 통합 프롬프트가 비면 입력창도 초기화
+    ta.value = "";
+    homeLastGeneratedPrompt = "";
+  }
+}
+
+// 필수 입력값 검증 — 직접 입력 필드가 비어 있고 단계 연계도 아니면 오류. {ok, message, key}
+function homeValidateServiceInputs(){
+  const aiOrder = homeSyncPipelineOrder();
+  for(const key of aiOrder){
+    const defs = homeServiceInputDefs(key);
+    const stAll = homeServiceInputState[key] || {};
+    for(const def of defs){
+      if(!def.required) continue;
+      const st = stAll[def.key] || { source: "manual", value: "" };
+      if(st.source === "manual" && !(st.value || "").trim()){
+        return { ok: false, key, message: `'${AI_SERVICE_REGISTRY[key]?.label || key}'의 필수 입력값 '${def.label}'을(를) 입력하거나 이전 단계 결과와 연계하세요.` };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+// 프레임 textarea를 현재 동작 조합 템플릿으로 (편집 전이면) 프리필한다.
+async function homeFillTemplatePrompt(key){
+  const st = homePromptTemplateState[key];
+  if(!st) return;
+  const composed = await composePrompt(key, st.behaviors, "company");
+  const current = homePromptTemplateState[key];
+  if(current && !current.edited){
+    current.text = composed || "";
+    const ta = document.querySelector(`[data-home-tpl-text="${cssString(key)}"]`);
+    if(ta) ta.value = current.text;
+  }
+}
+
+// 입력값 소스(직접 입력 / 이전 단계 결과 연계) 옵션 — gi: 현재 단계의 전역 인덱스(0-base)
+function homeInputSourceOptions(svcKey, fieldKey, runtimeSteps, gi){
+  const cur = homeServiceInputState[svcKey]?.[fieldKey]?.source ?? "manual";
+  let html = `<option value="manual"${cur === "manual" ? " selected" : ""}>직접 입력</option>`;
+  for(let i = 0; i < gi; i++){
+    const k = runtimeSteps[i];
+    const label = AI_SERVICE_REGISTRY[k]?.label || k;
+    const order = i + 1;
+    html += `<option value="${order}"${String(cur) === String(order) ? " selected" : ""}>${order}단계: ${escapeHtml(label)} 결과 연계</option>`;
+  }
+  return html;
+}
+
+// 서비스 필수 입력값 + 단계 연계 UI
+function homeServiceInputsHtml(key, runtimeSteps, gi){
+  const defs = homeServiceInputDefs(key);
+  const rows = defs.map(def => {
+    const st = homeServiceInputState[key]?.[def.key] || { source: "manual", value: "" };
+    const linked = st.source !== "manual";
+    return `
+      <div class="home-input-row">
+        <span class="home-input-label">${escapeHtml(def.label)}${def.required ? ` <span class="home-input-req" title="필수">*</span>` : ""}</span>
+        <select class="home-input-source" data-home-input-source data-svc="${escapeHtml(key)}" data-field="${escapeHtml(def.key)}">
+          ${homeInputSourceOptions(key, def.key, runtimeSteps, gi)}
+        </select>
+        <input type="text" class="home-input-value" data-home-input-value data-svc="${escapeHtml(key)}" data-field="${escapeHtml(def.key)}"
+          placeholder="${escapeHtml(def.placeholder || "")}" value="${escapeHtml(st.value || "")}" style="display:${linked ? "none" : "block"}">
+        <span class="home-input-linked" style="display:${linked ? "inline" : "none"}">${linked ? `${escapeHtml(String(st.source))}단계 결과를 입력으로 사용` : ""}</span>
+      </div>`;
+  }).join("");
+  return `<div class="home-input-fields"><div class="home-input-fields-hd">필수 입력값</div>${rows}</div>`;
+}
+
+// 데이터소스 소개 카드 (자연어 조회 대상)
+function homeDataSourceCardHtml(key, order){
+  const svc = AI_SERVICE_REGISTRY[key];
+  return `
+    <div class="home-svc-panel home-source-card" data-home-source-card="${escapeHtml(key)}">
+      <div class="home-frame-head">
+        <span class="home-frame-order src" title="실행 순서">${order}</span>
+        <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
+        <span class="home-source-badge">업무지식베이스</span>
+      </div>
+      <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))}</p>
+    </div>
+  `;
+}
+
+// 단일 AI 서비스 수행 프레임 (순서 배지 + ▲▼ + 기능 설명 + 동작칩 + 필수 입력값)
+function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
+  const svc = AI_SERVICE_REGISTRY[key];
+  if(!svc) return "";
+  const inline = homeServiceHasInlineTemplate(key);
+  const st = homePromptTemplateState[key];
+  const opts = svc.behaviorOptions || [];
+  const globalOrder = srcCount + idx + 1;
+  const gi = srcCount + idx;
+  const chips = (inline && opts.length) ? opts.map(opt => {
+    const on = (st?.behaviors || []).includes(opt.value);
+    return `<button type="button" class="home-tpl-chip${on ? " on" : ""}"
+      data-home-tpl-behavior="${escapeHtml(key)}" data-behavior="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</button>`;
+  }).join("") : "";
+  const desc = svc.defaultInstruction || "";
+  const body = inline
+    ? `${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
+       ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
+       ${homeServiceInputsHtml(key, runtimeSteps, gi)}`
+    : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
+  return `
+    <div class="home-svc-panel home-pipeline-frame" data-home-pipeline-frame="${escapeHtml(key)}">
+      <div class="home-frame-head">
+        <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
+        <strong class="home-frame-title">${escapeHtml(svc.label)}</strong>
+        <span class="home-frame-move">
+          <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
+          <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
+        </span>
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+// 최종 결과 종합 단계 입력 패널
+function homeFinalResultPanelHtml(){
+  return `
+    <div class="home-svc-panel home-final-result-panel" id="homeFinalResultPanel">
+      <div class="home-final-result-head">
+        <span class="home-frame-order final">∑</span>
+        <div class="home-svc-panel-head">
+          <strong>최종 결과 종합</strong>
+          <span>위 서비스 결과를 어떻게 종합해 받을지 지정하세요. 모든 단계 실행 후 마지막에 1회 수행됩니다.</span>
+        </div>
+      </div>
+      <textarea id="homeFinalResultText" rows="3"
+        placeholder="예: 각 단계 결과를 종합해 ①핵심 위험 ②근거 ③권고 조치 순의 표 형식 보고로 정리">${escapeHtml(homeFinalResultState.text || "")}</textarea>
+    </div>
+  `;
+}
+
+function homeRenderPromptTemplatePanels(){
+  const container = document.getElementById("homePromptTemplatePanels");
+  if(!container) return;
+  const { sources } = homeSelectedAnalysisOptions();
+  const aiOrder = homeSyncPipelineOrder();
+  // 선택 해제된 AI 서비스는 상태에서 제거
+  Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
+  Object.keys(homeServiceInputState).forEach(key => { if(!aiOrder.includes(key)) delete homeServiceInputState[key]; });
+  // 신규 AI 서비스 상태 초기화
+  aiOrder.forEach(key => {
+    if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key]){
+      homePromptTemplateState[key] = { behaviors: homeTemplateDefaultBehaviors(key), text: "", edited: false };
+    }
+    homeEnsureInputState(key);
+  });
+
+  if(!sources.length && !aiOrder.length){ container.innerHTML = ""; homeSyncCombinedPrompt(); return; }
+
+  const runtimeSteps = [...sources, ...aiOrder];
+  // 좌→우 가로 흐름: 업무지식베이스(검색) 카드 → AI 분석서비스 프레임, 사이에 화살표
+  const cards = [
+    ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
+    ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
+  ];
+  const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">→</div>`);
+  const finalHtml = aiOrder.length >= 2 ? homeFinalResultPanelHtml() : "";
+
+  container.innerHTML = `
+    <div class="home-pipeline-wrap">
+      <div class="home-pipeline-head">
+        <strong>수행 흐름</strong>
+        <span>업무지식베이스(검색)에서 AI 분석서비스로 좌→우 진행됩니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 이전 단계 결과와 연계하세요. 아래 통합 프롬프트는 자동 생성됩니다.</span>
+      </div>
+      <div class="home-pipeline-flow">${flow}</div>
+    </div>
+    ${finalHtml}
+  `;
+  // 선택/입력에 맞춰 통합 프롬프트를 입력창에 자동 생성
+  homeSyncCombinedPrompt();
+}
+
+// 프레임 순서 이동 (▲▼)
+function homeMovePipelineFrame(key, dir){
+  const idx = homePipelineOrder.indexOf(key);
+  if(idx < 0) return;
+  const swap = dir === "up" ? idx - 1 : idx + 1;
+  if(swap < 0 || swap >= homePipelineOrder.length) return;
+  [homePipelineOrder[idx], homePipelineOrder[swap]] = [homePipelineOrder[swap], homePipelineOrder[idx]];
+  homeRenderPromptTemplatePanels();
 }
 
 function homeAddShareEmailIds(rawValue){
@@ -2973,18 +3474,11 @@ function homeAgentDefForKey(key){
 }
 
 function homeRunAgentsFromSelection(selection){
-  const keys = [...(selection.sources || []), ...(selection.agents || [])];
-  const agents = keys.map(homeAgentDefForKey).filter(Boolean);
-  let shareIndex = agents.findIndex(agent => agent.key === "mail_share");
-  let reportIndex = agents.findIndex(agent => agent.key === "report_generate");
-  if(shareIndex >= 0 && reportIndex < 0){
-    const reportAgent = homeAgentDefForKey("report_generate");
-    if(reportAgent) agents.splice(shareIndex, 0, reportAgent);
-  } else if(shareIndex >= 0 && reportIndex > shareIndex){
-    const [reportAgent] = agents.splice(reportIndex, 1);
-    agents.splice(shareIndex, 0, reportAgent);
-  }
-  return uniqueByKey(agents);
+  // 실행 순서: 업무지식베이스(데이터소스, 선택 순서) 먼저 → AI 분석서비스(사용자 정의 순서)
+  const sources = (selection.sources || []);
+  const aiOrder = homeSyncPipelineOrder();
+  const keys = [...sources, ...aiOrder];
+  return uniqueByKey(keys.map(homeAgentDefForKey).filter(Boolean));
 }
 
 function homeResultByLabel(...needles){
@@ -3010,6 +3504,8 @@ function homeToggleAnalysisOption(button){
     status.textContent = selected ? "✓" : "×";
   }
   if(button.dataset.homeAgent === "mail_share") homeRenderShareEmailPanel();
+  homeRenderServiceInputPanels();
+  homeRenderPromptTemplatePanels();
 }
 
 function homeSyncPickerStatuses(){
@@ -3037,8 +3533,8 @@ const HOME_PICKER_GROUPS = {
     { groupKey: RAG_SEARCH_GROUP, label: "RAG 검색",  icon: "📚" },
   ],
   agent: [
-    { groupKey: ANALYSIS_AI_GROUP,  label: "업무분석 AI서비스",           icon: "🔍" },
-    { groupKey: LLM_SERVICE_GROUP,  label: "파일·요약·번역 LLM 서비스",  icon: "📄" },
+    { groupKey: ANALYSIS_AI_GROUP,  label: "업무분석 AI서비스",   icon: "🔍" },
+    { groupKey: LLM_SERVICE_GROUP,  label: "분석지원 AI 서비스",  icon: "🧰" },
     { groupKey: EXTERNAL_AI_GROUP,  label: "외부연계 AI서비스",           icon: "🌐" },
     { groupKey: REPORT_AI_GROUP,    label: "보고서 생성 및 검증",         icon: "📋" },
   ],
@@ -3201,21 +3697,48 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
 
   const resultBox = document.getElementById("homeResultBox");
 
+  // 최종 결과 종합 단계 주입: 사용자가 최종 결과 프롬프트를 입력했고 2개 이상 서비스를 실행할 때,
+  // 모든 단계 뒤(공유가 있으면 공유 직전)에 '최종 결과 종합' 단계를 1회 추가한다.
+  const finalText = (homeFinalResultState.text || "").trim();
+  let effectiveAgents = runAgents;
+  if(finalText && runAgents.length >= 2 && !runAgents.some(a => a.key === "result_synthesis")){
+    const synthesisDef = { type: "result_synthesis", key: "result_synthesis", label: "최종 결과 종합" };
+    const shareIdx = runAgents.findIndex(a => a.key === "mail_share");
+    effectiveAgents = [...runAgents];
+    if(shareIdx >= 0) effectiveAgents.splice(shareIdx, 0, synthesisDef);
+    else effectiveAgents.push(synthesisDef);
+  }
+
   homeStepStatus = {};
-  runAgents.forEach(a => { homeStepStatus[a.label] = "wait"; });
+  effectiveAgents.forEach(a => { homeStepStatus[a.label] = "wait"; });
   homeRenderDetail();
 
-  const scenarioItems = runAgents.map((a, i) => ({
-    id: `home_${i}`,
-    type: a.type,
-    key: a.key,
-    label: a.label,
-    order: i + 1,
-    behaviors: ["기본"],
-    behavior: "기본",
-    behaviorLabel: "기본",
-    instruction: prompt,
-  }));
+  const scenarioItems = effectiveAgents.map((a, i) => {
+    // 프롬프트 템플릿 카드에서 서비스별 동작·개인화 프롬프트를 구성했으면 우선 적용
+    const tpl = homePromptTemplateState[a.key];
+    const behaviors = tpl && tpl.behaviors.length ? tpl.behaviors : ["기본"];
+    const behaviorLabel = (tpl && tpl.behaviors.length)
+      ? tpl.behaviors.map(v => (AI_SERVICE_REGISTRY[a.key]?.behaviorOptions || []).find(o => o.value === v)?.label || v).join(", ")
+      : "기본";
+    const baseInstruction = a.key === "result_synthesis"
+      ? finalText
+      : ((tpl && tpl.text.trim()) ? tpl.text.trim() : prompt);
+    // 필수 입력값/단계 연계 블록을 지시문에 첨부 (연계는 {{STEP_OUTPUT:n}} 토큰 → 서버에서 치환)
+    const instruction = (a.key === "result_synthesis")
+      ? baseInstruction
+      : baseInstruction + homeBuildInputBlock(a.key);
+    return {
+      id: `home_${i}`,
+      type: a.type,
+      key: a.key,
+      label: a.label,
+      order: i + 1,
+      behaviors,
+      behavior: behaviors[0] || "기본",
+      behaviorLabel,
+      instruction,
+    };
+  });
 
   const payload = {
     scenario_items: scenarioItems,
@@ -3226,20 +3749,22 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     rag_customs_public: true,
     rag_audit: true,
     bigdata_enabled: false,
+    llm_mode: homeLlmMode(),
     user_prompt: prompt,
     upload_session_id: coachUploadSessionId || undefined,
     uploaded_files: coachAttachedFiles,
     file_links: coachFileLinkSummaries(),
     attached_files_summary: coachAttachedFileSummaries(),
     share_recipients: homeShareEmailIds,
+    ...homeServiceInputPayload(),
   };
 
   const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(payload))}`;
   homeEventSource = new EventSource(url);
   let completed = 0;
-  const total = runAgents.length;
+  const total = effectiveAgents.length;
 
-  console.info(`[MyAI분석] AI서비스 호출: ${runAgents.map(a => a.label).join(", ")}`);
+  console.info(`[MyAI분석] AI서비스 호출: ${effectiveAgents.map(a => a.label).join(", ")}`);
 
   homeEventSource.addEventListener("step", event => {
     const data = JSON.parse(event.data);
@@ -3299,6 +3824,7 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
       <p class="muted" style="font-size:12px;margin-bottom:8px">
         ${escapeHtml(reasoning || "내부 AI 서비스 없이 LLM이 직접 답변합니다.")}
       </p>
+      ${homePromptEchoHtml(prompt)}
       <div class="markdown-output">${markdownToHtml(answer || "결과 없음")}</div>
     `;
     resultBox.style.display = "block";
@@ -3311,6 +3837,21 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
 function homeToggleGreeting(show){
   const g = document.getElementById("homeGreeting");
   if(g) g.style.display = show ? "" : "none";
+}
+
+// 실행한 프롬프트 입력창을 초기 안내문 상태로 되돌려 다음 입력을 준비한다.
+function homeResetPromptInput(){
+  const ta = document.getElementById("coachPrompt");
+  if(!ta) return;
+  ta.value = ta.dataset.initialText || "";
+  ta.classList.add("is-initial");
+  const cc = document.getElementById("coachCharCount");
+  if(cc) cc.textContent = "0자";
+}
+
+// 결과 영역 상단에 실행한 프롬프트 본문을 표시하는 블록.
+function homePromptEchoHtml(prompt){
+  return `<div class="home-running-prompt">${escapeHtml(prompt || "")}</div>`;
 }
 
 // ── DB조회: NL→SQL 실행 후 결과 표시 ─────────────────────────────────────────
@@ -3415,6 +3956,17 @@ async function homeRunAnalysis(prompt, btn){
   const selectedOptions = homeSelectedAnalysisOptions();
   const selectedRunAgents = homeRunAgentsFromSelection(selectedOptions);
   const hasSelectedInternalTool = selectedRunAgents.length > 0;
+  // AI 분석서비스 필수 입력값 검증
+  if(hasSelectedInternalTool){
+    const inputCheck = homeValidateServiceInputs();
+    if(!inputCheck.ok){
+      alert(inputCheck.message);
+      document.querySelector(`[data-home-pipeline-frame="${cssString(inputCheck.key)}"]`)?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+      setHomeActionLabel(btn, "AI실행");
+      btn.disabled = false;
+      return;
+    }
+  }
   if(selectedOptions.agents.includes("mail_share")){
     const pendingEmail = document.getElementById("homeShareEmailInput")?.value || "";
     if(pendingEmail.trim() && !homeAddShareEmailIds(pendingEmail)){
@@ -3437,6 +3989,9 @@ async function homeRunAnalysis(prompt, btn){
     btn.disabled = false;
     return;
   }
+
+  // 실행과 동시에 입력창을 초기화하여 다음 입력을 준비한다.
+  homeResetPromptInput();
 
   // 로딩 상태 표시
   if(resultBox){
@@ -3463,13 +4018,14 @@ async function homeRunAnalysis(prompt, btn){
 
   if(!hasSelectedInternalTool){
     let answer = "";
+    let reasoning = "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변";
     try {
       const r = await fetch("/api/llm_query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          model_mode: homeModelMode,
+          llm_mode: homeLlmMode(),
           upload_session_id: coachUploadSessionId || undefined,
           attached_files: coachAttachedFileSummaries(),
           file_links: coachFileLinkSummaries(),
@@ -3477,10 +4033,11 @@ async function homeRunAnalysis(prompt, btn){
       });
       const d = await r.json();
       answer = d.answer || "결과를 가져올 수 없습니다.";
+      reasoning = homeLlmModeReasoning(d);
     } catch(e) {
       answer = "LLM 호출에 실패했습니다.";
     }
-    homeShowLlmAnswer(prompt, answer, homeModelModeReasoning("선택된 데이터소스/AI 서비스 없음"), btn);
+    homeShowLlmAnswer(prompt, answer, reasoning, btn);
     return;
   }
 
@@ -3495,6 +4052,7 @@ async function homeRunAnalysis(prompt, btn){
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        llm_mode: homeLlmMode(),
         coach_uses: coachUses,
         selected_sources: selectedOptions.sources,
         selected_agents: selectedOptions.agents,
@@ -3541,7 +4099,7 @@ async function homeRunAnalysis(prompt, btn){
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
-            model_mode: homeModelMode,
+            llm_mode: homeLlmMode(),
             upload_session_id: coachUploadSessionId || undefined,
             attached_files: coachAttachedFileSummaries(),
             file_links: coachFileLinkSummaries(),
@@ -3553,7 +4111,7 @@ async function homeRunAnalysis(prompt, btn){
         answer = "LLM 호출에 실패했습니다.";
       }
     }
-    homeShowLlmAnswer(prompt, answer, homeModelModeReasoning(reasoning), btn);
+    homeShowLlmAnswer(prompt, answer, reasoning, btn);
     return;
   }
 
@@ -3619,8 +4177,9 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   const priority = riskHigh ? "1순위" : "2순위";
   const recommend = riskHigh ? "추가자료 요청" : "정기 모니터링";
 
-  // 보고서 or 가장 긴 결과 텍스트에서 요약 추출
-  const summarySource = reportText ||
+  // 최종 결과 종합 > 보고서 > 가장 긴 결과 텍스트 순으로 요약 추출
+  const synthesisText = homeResultByLabel("최종 결과 종합");
+  const summarySource = synthesisText || reportText ||
     Object.values(homeRunResults).sort((a, b) => b.length - a.length)[0] || "";
   const summaryLines = summarySource
     .split("\n")
@@ -3640,6 +4199,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   homePreserveDbResults(resultBox, () => {
     resultBox.innerHTML = `
       <h3>AI 분석 결과</h3>
+      ${homePromptEchoHtml(prompt)}
       <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
       ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
       <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
@@ -4303,7 +4863,7 @@ function cssString(value){
 function buildGroupPermissions(group){
   const perms = {};
   Object.keys(defaultUserPermissions).forEach(key => {
-    perms[key] = (group.rag.includes(key) || group.agents.includes(key) || key === "mail_share") ? "granted" : "locked";
+    perms[key] = (group.rag.includes(key) || group.agents.includes(key) || DEFAULT_GRANTED_AGENTS.includes(key)) ? "granted" : "locked";
   });
   return perms;
 }
@@ -8106,22 +8666,69 @@ document.addEventListener("input", (event) => {
   }
 });
 
-/* 실행 후 입력창을 다시 클릭(포커스)하면 이전 내용을 1회 초기화한다. */
+// 프롬프트 템플릿 카드 textarea 편집: 개인화 본문 저장 + '수정됨' 표시
+document.addEventListener("input", (event) => {
+  const tplText = event.target?.closest?.("[data-home-tpl-text]") || (event.target?.dataset?.homeTplText ? event.target : null);
+  if(tplText && tplText.dataset.homeTplText){
+    const key = tplText.dataset.homeTplText;
+    const st = homePromptTemplateState[key];
+    if(st){
+      st.text = tplText.value;
+      st.edited = true;
+      const badge = document.querySelector(`[data-home-tpl-edited="${cssString(key)}"]`);
+      if(badge) badge.style.display = "inline";
+    }
+  }
+});
+
+// 최종 결과 종합 지시문 편집
+document.addEventListener("input", (event) => {
+  if(event.target && event.target.id === "homeFinalResultText"){
+    homeFinalResultState.text = event.target.value;
+    homeFinalResultState.edited = true;
+  }
+});
+
+// 서비스 필수 입력값: 직접 입력 텍스트 저장
+document.addEventListener("input", (event) => {
+  const el = event.target?.closest?.("[data-home-input-value]");
+  if(el){
+    const svc = el.dataset.svc, field = el.dataset.field;
+    homeEnsureInputState(svc);
+    homeServiceInputState[svc][field].value = el.value;
+    homeSyncCombinedPrompt();
+  }
+});
+
+// 서비스 필수 입력값: 소스(직접 입력 / N단계 결과 연계) 변경
+document.addEventListener("change", (event) => {
+  const sel = event.target?.closest?.("[data-home-input-source]");
+  if(sel){
+    const svc = sel.dataset.svc, field = sel.dataset.field;
+    homeEnsureInputState(svc);
+    homeServiceInputState[svc][field].source = sel.value; // "manual" 또는 단계 번호 문자열
+    homeRenderPromptTemplatePanels();
+  }
+});
+
+/* 프롬프트 입력창: 초기 안내문을 보여주다가 사용자가 포커스하면 비우고,
+   비운 채로 벗어나면 다시 안내문을 복원한다. */
 document.addEventListener("focusin", (event) => {
-  if(event.target && event.target.id === "coachPrompt" && homePromptRunDirty){
-    homePromptRunDirty = false;
-    event.target.value = "";
+  const ta = event.target;
+  if(ta?.id === "coachPrompt" && ta.classList.contains("is-initial")){
+    ta.value = "";
+    ta.classList.remove("is-initial");
     const cc = document.getElementById("coachCharCount");
     if(cc) cc.textContent = "0자";
   }
 });
-
-/* 프롬프트 입력창에서 Enter → 실행 버튼 클릭 (Shift+Enter는 줄바꿈). */
-document.addEventListener("keydown", (event) => {
-  if(event.target && event.target.id === "coachPrompt"
-     && event.key === "Enter" && !event.shiftKey && !event.isComposing){
-    event.preventDefault();
-    document.querySelector(".home-run-btn")?.click();
+document.addEventListener("focusout", (event) => {
+  const ta = event.target;
+  if(ta?.id === "coachPrompt" && !(ta.value || "").trim()){
+    ta.value = ta.dataset.initialText || "";
+    ta.classList.add("is-initial");
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = "0자";
   }
 });
 
@@ -8830,11 +9437,47 @@ document.addEventListener("click", (event)=>{
       : [...current, key];
     homeSetPickerSelectedKeys(kind, next);
     if(kind === "agent" && key === "mail_share") homeRenderShareEmailPanel();
+    if(kind === "agent") homeRenderServiceInputPanels();
+    homeRenderPromptTemplatePanels();
     openHomePicker(kind);
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
+    return;
+  }
+
+  // 수행 순서 프레임: ▲▼ 이동
+  const frameMove = event.target.closest("[data-home-frame-move]");
+  if(frameMove){
+    homeMovePipelineFrame(frameMove.dataset.key, frameMove.dataset.homeFrameMove);
+    return;
+  }
+
+  // AI 서비스 카드: 동작(behavior) 칩 토글
+  const tplChip = event.target.closest("[data-home-tpl-behavior]");
+  if(tplChip){
+    const key = tplChip.dataset.homeTplBehavior;
+    const value = tplChip.dataset.behavior;
+    const st = homePromptTemplateState[key];
+    if(st){
+      const has = st.behaviors.includes(value);
+      st.behaviors = has ? st.behaviors.filter(v => v !== value) : [...st.behaviors, value];
+      tplChip.classList.toggle("on", !has);
+      homeSyncCombinedPrompt();
+    }
+    return;
+  }
+
+  // LLM 사용 모드 토글 (외부LLM only → 내부LLM only → 외부LLM+내부LLM 순환)
+  const llmModeBtn = event.target.closest("[data-home-llm-mode]");
+  if(llmModeBtn){
+    const cur = llmModeBtn.dataset.llmMode || "ext";
+    const i = HOME_LLM_MODES.findIndex(m => m.mode === cur);
+    const next = HOME_LLM_MODES[(i + 1) % HOME_LLM_MODES.length];
+    llmModeBtn.dataset.llmMode = next.mode;
+    const lbl = llmModeBtn.querySelector(".home-llm-mode-label");
+    if(lbl) lbl.textContent = next.label;
     return;
   }
 
@@ -8856,7 +9499,7 @@ document.addEventListener("click", (event)=>{
   const homeOptionBtn = event.target.closest("[data-home-source], [data-home-agent]");
   if(homeOptionBtn){
     homeToggleAnalysisOption(homeOptionBtn);
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
@@ -8912,16 +9555,10 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  if(event.target.closest("[data-home-model-toggle]")){
-    homeCycleModelMode();
-    return;
-  }
-
   const homeRunBtn = event.target.closest(".home-run-btn");
   if(homeRunBtn){
-    const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
+    const prompt = coachPromptText();
     if(!prompt){ alert("프롬프트를 먼저 입력하세요."); return; }
-    homePromptRunDirty = true;  // 실행 완료 → 다음에 입력창을 클릭하면 이전 내용 초기화
     homeRunAnalysis(prompt, homeRunBtn);
     return;
   }
@@ -9031,6 +9668,7 @@ document.addEventListener("click", (event)=>{
   if(intlTemplateBtn){
     const input = document.getElementById("coachPrompt");
     if(input){
+      input.classList.remove("is-initial");  // 초기 안내문 상태 해제 (포커스 시 자동 비움 방지)
       input.value = intlTemplateBtn.dataset.intlTemplate;
       input.focus();
       input.dispatchEvent(new Event("input", { bubbles:true }));
@@ -9264,6 +9902,15 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if(event.key !== "Enter") return;
+  // 프롬프트 입력창: Enter → 실행. Shift+Enter는 줄바꿈, 한글 IME 조합 중에는 무시.
+  if(event.target?.id === "coachPrompt"){
+    if(event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    const runBtn = document.querySelector(".home-run-btn");
+    if(!runBtn) return;
+    event.preventDefault();
+    runBtn.click();
+    return;
+  }
   if(event.target?.id === "homeShareEmailInput"){
     event.preventDefault();
     homeAddShareEmailIds(event.target.value || "");

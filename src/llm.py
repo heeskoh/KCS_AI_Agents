@@ -55,6 +55,11 @@ def get_llm():
         return None
 
 
+# 외부에서 참조 가능한 현재 모델/프로바이더 이름 (llm_mode 결과 표기 등에 사용)
+MODEL_NAME = _MODEL
+PROVIDER_NAME = _PROVIDER
+
+
 # Singleton — imported once per process
 llm = get_llm()
 
