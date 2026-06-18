@@ -183,6 +183,11 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
               <span class="home-select-badge" id="homeAgentBadge" style="display:none"></span>
               <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
+            <button class="btn-soft home-tool-btn home-model-toggle" type="button" data-home-model-toggle
+                    title="응답 생성 모델 선택 — 클릭하여 전환 (내부 LLM only / 외부 AI 모델 only / 내부 LLM + 외부 AI 모델)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span class="home-model-toggle-label" id="homeModelToggleLabel">내부 LLM + 외부 AI 모델</span>
+            </button>
             <div class="home-composer-actions">
               <button class="btn-ghost home-action-btn coach" id="coachAnalyzeBtn" type="button">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

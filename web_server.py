@@ -742,11 +742,34 @@ def run_db_query_api(body: dict) -> dict:
         return {"error": str(exc), "service": service}
 
 
+def _web_browse_section(prompt: str) -> dict:
+    """외부 AI 모델(웹브라우징) 답변을 생성한다. agent_web 의존."""
+    try:
+        from src.agents.agent_web import web_browse_answer
+        return web_browse_answer(prompt)
+    except Exception as exc:
+        print(f"[llm_direct] 웹브라우징 실패: {exc}")
+        return {"answer": f"웹브라우징 중 오류가 발생했습니다: {exc}", "available": False, "sources": []}
+
+
 def llm_direct_query(body: dict) -> dict:
-    """에이전트 없이 LLM에 직접 질의한다."""
+    """에이전트 없이 LLM에 직접 질의한다.
+
+    model_mode: "internal"(내부 LLM only) | "external"(외부 AI 모델 only) | "both"(둘 다, 기본)
+    """
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return {"answer": ""}
+
+    model_mode = (body.get("model_mode") or "both").strip().lower()
+    if model_mode not in ("internal", "external", "both"):
+        model_mode = "both"
+
+    # 외부 AI 모델(웹브라우징) only — 내부 LLM 답변 없이 웹검색 결과만 반환
+    if model_mode == "external":
+        web = _web_browse_section(prompt)
+        return {"answer": web.get("answer", ""), "sources": web.get("sources", [])}
+
     openai_file_inputs = _build_openai_file_inputs(body)
     attachment_context = _build_attachment_context(body, include_errors=not openai_file_inputs)
     llm_prompt = prompt
@@ -756,6 +779,20 @@ def llm_direct_query(body: dict) -> dict:
             "텍스트 추출이 불가능한 파일은 읽을 수 없다고 명확히 말하세요.\n\n"
             f"[사용자 요청]\n{prompt}\n\n[첨부 파일 내용]\n{attachment_context}"
         )
+    # 내부 LLM 답변에 외부 AI 모델(웹브라우징) 결과를 덧붙인다(both 모드).
+    def _finalize(internal_answer: str) -> dict:
+        if model_mode != "both":
+            return {"answer": internal_answer}
+        web = _web_browse_section(prompt)
+        web_answer = (web.get("answer") or "").strip()
+        if not web_answer:
+            return {"answer": internal_answer}
+        merged = (
+            f"## 내부 LLM 답변\n{internal_answer}\n\n"
+            f"## 외부 AI 모델(웹브라우징)\n{web_answer}"
+        )
+        return {"answer": merged, "sources": web.get("sources", [])}
+
     try:
         if openai_file_inputs and os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai":
             from openai import OpenAI
@@ -776,11 +813,11 @@ def llm_direct_query(body: dict) -> dict:
                     "content": [{"type": "input_text", "text": text_prompt}, *openai_file_inputs],
                 }],
             )
-            return {"answer": response.output_text}
+            return _finalize(response.output_text)
 
         from src.llm import llm
         if llm:
-            return {"answer": llm.invoke(llm_prompt).content}
+            return _finalize(llm.invoke(llm_prompt).content)
     except Exception as exc:
         print(f"[llm_direct] 실패: {exc}")
     return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요."}
@@ -1422,6 +1459,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     SCENARIO_BUILDER_CONFIG_PATH = DATA_DIR / "scenario_builder_config.json"
     SCENARIO_TEMPLATES_PATH = DATA_DIR / "scenario_templates.json"
     PROMPT_OVERRIDES_PATH = DATA_DIR / "prompt_overrides.json"
+    NETWORK_SCENARIOS_PATH = DATA_DIR / "network_scenarios.json"
     _workspace_lock = threading.Lock()
 
     def _read_json_store(self, path) -> dict | None:
@@ -1497,6 +1535,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/prompt_overrides":
             # AI 서비스 상세 프롬프트 템플릿 오버라이드 — data/prompt_overrides.json
             state = self._read_json_store(self.PROMPT_OVERRIDES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/network_scenarios":
+            # 관계망 분석 시나리오(사용자 등록) — data/network_scenarios.json
+            state = self._read_json_store(self.NETWORK_SCENARIOS_PATH)
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -1620,6 +1664,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/prompt_overrides":
             self._write_json_store(self.PROMPT_OVERRIDES_PATH)
+            return
+
+        if parsed.path == "/api/network_scenarios":
+            self._write_json_store(self.NETWORK_SCENARIOS_PATH)
             return
 
         if parsed.path == "/api/coach":

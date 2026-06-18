@@ -425,6 +425,11 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
   background:var(--accent);color:#fff;font-size:10px;font-weight:700;
 }
 .home-picker-trigger.active{background:var(--accent-soft);border-color:color-mix(in oklab,var(--accent) 45%,transparent);color:var(--accent-strong)}
+/* 응답 생성 모델 토글 (내부 LLM / 외부 AI 모델 / 둘 다) */
+.home-model-toggle{font-weight:600}
+.home-model-toggle.model-internal{background:color-mix(in oklab,var(--accent) 12%,transparent);border-color:color-mix(in oklab,var(--accent) 40%,transparent);color:var(--accent-strong)}
+.home-model-toggle.model-external{background:color-mix(in oklab,var(--purple,#8b5cf6) 12%,transparent);border-color:color-mix(in oklab,var(--purple,#8b5cf6) 45%,transparent);color:var(--purple,#7c3aed)}
+.home-model-toggle.model-both{background:color-mix(in oklab,var(--teal,#0d9488) 14%,transparent);border-color:color-mix(in oklab,var(--teal,#0d9488) 45%,transparent);color:var(--teal,#0f766e)}
 .home-command-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
 .home-action-btn{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:13px}
 .home-action-btn.coach{color:var(--purple)}

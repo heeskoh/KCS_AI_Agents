@@ -2570,6 +2570,7 @@ function coachInitHome(){
   coachRenderFileChips();
   coachRenderFileLinkChips();
   homeSyncPickerStatuses();
+  homeSyncModelToggle();
   // 인사말 이름 설정
   const nameEl = document.getElementById("homeGreetingText");
   if(nameEl){
@@ -2624,6 +2625,8 @@ const HOME_DEFAULT_AGENTS = [
 ];
 
 let homeEventSource = null;
+let homePromptRunDirty = false;  // 실행 후 true → 프롬프트 입력창을 다시 클릭하면 1회 초기화
+let homeModelMode = "both";      // "internal" | "external" | "both" — 응답 생성 모델 토글
 let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
 let homeSelectedRagKeys = [];
@@ -2632,6 +2635,37 @@ let homeShareEmailIds = [];
 
 const HOME_PICKER_RAG_KEYS = ["rag_customs", "rag_audit", "rag_investigation", "rag_global"];
 const HOME_PICKER_AGENT_KEYS = sidebarPermissionGroups.agents;
+
+/* 응답 생성 모델 토글 — 내부 LLM / 외부 AI 모델(웹브라우징) / 둘 다 */
+const HOME_MODEL_MODES = ["internal", "external", "both"];
+const HOME_MODEL_MODE_META = {
+  internal: { label: "내부 LLM only",            cls: "model-internal" },
+  external: { label: "외부 AI 모델 only",        cls: "model-external" },
+  both:     { label: "내부 LLM + 외부 AI 모델",  cls: "model-both" },
+};
+
+function homeSyncModelToggle(){
+  const btn = document.querySelector("[data-home-model-toggle]");
+  if(!btn) return;
+  const meta = HOME_MODEL_MODE_META[homeModelMode] || HOME_MODEL_MODE_META.both;
+  const labelEl = btn.querySelector(".home-model-toggle-label");
+  if(labelEl) labelEl.textContent = meta.label;
+  Object.values(HOME_MODEL_MODE_META).forEach(m => btn.classList.remove(m.cls));
+  btn.classList.add(meta.cls, "selected");
+}
+
+function homeCycleModelMode(){
+  const idx = HOME_MODEL_MODES.indexOf(homeModelMode);
+  homeModelMode = HOME_MODEL_MODES[(idx + 1) % HOME_MODEL_MODES.length];
+  homeSyncModelToggle();
+}
+
+/* 결과 헤더에 표시할 "판단 근거" 문구에 현재 모델 모드를 덧붙인다. */
+function homeModelModeReasoning(base){
+  const meta = HOME_MODEL_MODE_META[homeModelMode] || HOME_MODEL_MODE_META.both;
+  const tag = `응답 모델: ${meta.label}`;
+  return base ? `${base} · ${tag}` : tag;
+}
 
 function homeSelectedAnalysisOptions(){
   const sources = Array.from(document.querySelectorAll("[data-home-source].selected:not(.home-picker-trigger)"))
@@ -3435,6 +3469,7 @@ async function homeRunAnalysis(prompt, btn){
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
+          model_mode: homeModelMode,
           upload_session_id: coachUploadSessionId || undefined,
           attached_files: coachAttachedFileSummaries(),
           file_links: coachFileLinkSummaries(),
@@ -3445,7 +3480,7 @@ async function homeRunAnalysis(prompt, btn){
     } catch(e) {
       answer = "LLM 호출에 실패했습니다.";
     }
-    homeShowLlmAnswer(prompt, answer, "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변", btn);
+    homeShowLlmAnswer(prompt, answer, homeModelModeReasoning("선택된 데이터소스/AI 서비스 없음"), btn);
     return;
   }
 
@@ -3506,6 +3541,7 @@ async function homeRunAnalysis(prompt, btn){
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
+            model_mode: homeModelMode,
             upload_session_id: coachUploadSessionId || undefined,
             attached_files: coachAttachedFileSummaries(),
             file_links: coachFileLinkSummaries(),
@@ -3517,7 +3553,7 @@ async function homeRunAnalysis(prompt, btn){
         answer = "LLM 호출에 실패했습니다.";
       }
     }
-    homeShowLlmAnswer(prompt, answer, reasoning, btn);
+    homeShowLlmAnswer(prompt, answer, homeModelModeReasoning(reasoning), btn);
     return;
   }
 
@@ -8070,6 +8106,25 @@ document.addEventListener("input", (event) => {
   }
 });
 
+/* 실행 후 입력창을 다시 클릭(포커스)하면 이전 내용을 1회 초기화한다. */
+document.addEventListener("focusin", (event) => {
+  if(event.target && event.target.id === "coachPrompt" && homePromptRunDirty){
+    homePromptRunDirty = false;
+    event.target.value = "";
+    const cc = document.getElementById("coachCharCount");
+    if(cc) cc.textContent = "0자";
+  }
+});
+
+/* 프롬프트 입력창에서 Enter → 실행 버튼 클릭 (Shift+Enter는 줄바꿈). */
+document.addEventListener("keydown", (event) => {
+  if(event.target && event.target.id === "coachPrompt"
+     && event.key === "Enter" && !event.shiftKey && !event.isComposing){
+    event.preventDefault();
+    document.querySelector(".home-run-btn")?.click();
+  }
+});
+
 document.addEventListener("change", (event) => {
   if(event.target && event.target.id === "coachFileInput"){
     coachHandleFileSelect(event.target.files);
@@ -8857,10 +8912,16 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  if(event.target.closest("[data-home-model-toggle]")){
+    homeCycleModelMode();
+    return;
+  }
+
   const homeRunBtn = event.target.closest(".home-run-btn");
   if(homeRunBtn){
     const prompt = (document.getElementById("coachPrompt")?.value || "").trim();
     if(!prompt){ alert("프롬프트를 먼저 입력하세요."); return; }
+    homePromptRunDirty = true;  // 실행 완료 → 다음에 입력창을 클릭하면 이전 내용 초기화
     homeRunAnalysis(prompt, homeRunBtn);
     return;
   }
