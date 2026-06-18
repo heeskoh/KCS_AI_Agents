@@ -2719,6 +2719,8 @@ const HOME_DEDICATED_PANEL_SERVICES = new Set([
 ]);
 // AI 서비스별 필수 입력값 상태: { [serviceKey]: { [inputKey]: { source:"manual"|<order>, value:"" } } }
 let homeServiceInputState = {};
+// 업무지식베이스(검색)별 조건 입력 상태: { [sourceKey]: "검색 조건 자연어" }  (MyAI 직접 입력)
+let homeSourceConditionState = {};
 // 자동 생성한 통합 프롬프트(사용자 수동 편집 감지용)
 let homeLastGeneratedPrompt = "";
 
@@ -2984,8 +2986,13 @@ function homeBuildCombinedPrompt(){
   const segments = [];
 
   if(sources.length){
-    const names = sources.map(k => AI_SERVICE_REGISTRY[k]?.label || k);
-    segments.push(`${names.join(", ")}에서 관련 자료를 조회하고,`);
+    // 업무지식베이스: 조건이 있으면 "{KB}에서 '{조건}'을 조회", 없으면 "{KB}에서 관련 자료를 조회"
+    const srcBits = sources.map(k => {
+      const label = AI_SERVICE_REGISTRY[k]?.label || k;
+      const cond = (homeSourceConditionState[k] || "").trim();
+      return cond ? `${label}에서 '${cond}'을(를) 조회` : `${label}에서 관련 자료를 조회`;
+    });
+    segments.push(`${srcBits.join(", ")}하고,`);
   }
 
   aiOrder.forEach((key, idx) => {
@@ -2997,16 +3004,18 @@ function homeBuildCombinedPrompt(){
       const st = stAll[def.key] || { source: "manual", value: "" };
       if(st.source !== "manual"){
         const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
-        inputBits.push(`${def.label}은(는) ${refLabel} 결과 사용`);
+        inputBits.push(`${def.label}은(는) ${refLabel} 결과`);
       } else if((st.value || "").trim()){
-        inputBits.push(`${def.label}: ${st.value.trim()}`);
+        inputBits.push(`${def.label} ${st.value.trim()}`);
       } else if(def.required){
-        inputBits.push(`${def.label}: [입력 필요]`);
+        inputBits.push(`${def.label} [입력 필요]`);
       }
     });
-    const inputStr = inputBits.length ? ` (${inputBits.join(", ")})` : "";
-    const subject = (sources.length || idx > 0) ? "앞에서 조회한 결과를 대상으로 " : "";
-    segments.push(`${subject}'${label}'을(를) 수행해줘${inputStr}.`);
+    // "{입력값}을 활용하여 '{서비스}'을(를) 수행해줘"
+    const subject = (sources.length || idx > 0) ? "앞 단계 결과를 활용해 " : "";
+    segments.push(inputBits.length
+      ? `${subject}${inputBits.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.`
+      : `${subject}'${label}'을(를) 수행해줘.`);
   });
 
   return segments.join(" ").trim();
@@ -3096,9 +3105,10 @@ function homeServiceInputsHtml(key, runtimeSteps, gi){
   return `<div class="home-input-fields"><div class="home-input-fields-hd">필수 입력값</div>${rows}</div>`;
 }
 
-// 데이터소스 소개 카드 (자연어 조회 대상)
+// 데이터소스 소개 카드 (자연어 조회 대상) — 안내문 + 검색 조건 직접 입력(MyAI)
 function homeDataSourceCardHtml(key, order){
   const svc = AI_SERVICE_REGISTRY[key];
+  const cond = homeSourceConditionState[key] || "";
   return `
     <div class="home-svc-panel home-source-card" data-home-source-card="${escapeHtml(key)}">
       <div class="home-frame-head">
@@ -3106,7 +3116,10 @@ function homeDataSourceCardHtml(key, order){
         <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
         <span class="home-source-badge">업무지식베이스</span>
       </div>
-      <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))}</p>
+      <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 입력하세요.</p>
+      <input type="text" class="home-source-condition" data-home-source-condition data-key="${escapeHtml(key)}"
+        placeholder="검색 조건 예) 품목이 ~인 기업목록, 특정인이 작성한 보고서 중 최신 10건"
+        value="${escapeHtml(cond)}">
     </div>
   `;
 }
@@ -3171,6 +3184,7 @@ function homeRenderPromptTemplatePanels(){
   // 선택 해제된 AI 서비스는 상태에서 제거
   Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
   Object.keys(homeServiceInputState).forEach(key => { if(!aiOrder.includes(key)) delete homeServiceInputState[key]; });
+  Object.keys(homeSourceConditionState).forEach(key => { if(!sources.includes(key)) delete homeSourceConditionState[key]; });
   // 신규 AI 서비스 상태 초기화
   aiOrder.forEach(key => {
     if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key]){
@@ -8696,6 +8710,15 @@ document.addEventListener("input", (event) => {
     const svc = el.dataset.svc, field = el.dataset.field;
     homeEnsureInputState(svc);
     homeServiceInputState[svc][field].value = el.value;
+    homeSyncCombinedPrompt();
+  }
+});
+
+// 업무지식베이스 검색 조건 직접 입력 (MyAI)
+document.addEventListener("input", (event) => {
+  const el = event.target?.closest?.("[data-home-source-condition]");
+  if(el){
+    homeSourceConditionState[el.dataset.key] = el.value;
     homeSyncCombinedPrompt();
   }
 });
