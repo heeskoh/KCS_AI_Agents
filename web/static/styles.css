@@ -495,12 +495,25 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-frame-desc{margin:0;color:#475569;font-size:12px;line-height:1.4}
 /* 좌→우 가로 수행 흐름 */
 .home-pipeline-wrap{margin:0 0 8px;display:grid;gap:6px}
-.home-pipeline-flow{display:flex;flex-wrap:nowrap;align-items:stretch;gap:6px;overflow-x:auto;padding:4px 2px 8px}
-.home-pipeline-flow .home-svc-panel{flex:0 0 250px;width:250px;margin:0;align-content:start}
-.home-flow-arrow{flex:0 0 auto;display:flex;align-items:center;color:#94a3b8;font-size:18px;font-weight:800}
-.home-pipeline-flow .home-input-row{flex-direction:column;align-items:stretch;gap:3px}
-.home-pipeline-flow .home-input-label{flex:none}
-.home-pipeline-flow .home-input-source,.home-pipeline-flow .home-input-value,.home-pipeline-flow .home-input-linked{flex:none;width:100%}
+/* 수직 스택: 업무지식베이스 → AI 분석서비스 카드를 위→아래로 배치 */
+.home-pipeline-flow{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 2px 8px}
+.home-pipeline-flow .home-svc-panel{flex:none;width:auto;margin:0;align-content:start}
+.home-flow-arrow{display:flex;justify-content:center;color:#94a3b8;font-size:16px;font-weight:800}
+.home-card-info .home-input-row{flex-direction:column;align-items:stretch;gap:3px}
+.home-card-info .home-input-label{flex:none}
+.home-card-info .home-input-source,.home-card-info .home-input-value,.home-card-info .home-input-linked{flex:none;width:100%}
+/* 카드 2단 레이아웃: 좌(정보·입력) | 우(프롬프트 및 수행결과) */
+.home-card-row{display:flex;gap:12px;align-items:stretch}
+.home-card-info{flex:0 0 36%;min-width:0;display:grid;gap:8px;align-content:start}
+.home-card-work{flex:1 1 64%;min-width:0;display:flex;flex-direction:column;gap:6px;border-left:1px solid #e5edf7;padding-left:12px}
+.home-card-work-tab{font-size:12px;font-weight:800;color:#0f559c;border-bottom:2px solid #cfe0f5;padding-bottom:4px}
+.home-card-prompt{width:100%;border:1px solid #cfe0f5;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;resize:vertical;font-family:inherit;background:#fff}
+.home-card-result{min-height:0}
+.home-card-result-status{font-size:12px;padding:4px 2px}
+.home-card-result-head{margin-bottom:4px}
+.home-card-result-body{font-size:12px;line-height:1.5;max-height:240px;overflow:auto;background:#f8fbff;border:1px solid #edf2fb;border-radius:8px;padding:8px 10px}
+.home-card-actions{display:flex;justify-content:flex-end}
+.home-run-single{font-size:12px;padding:5px 14px}
 /* 업무지식베이스 소개 카드 */
 .home-source-section{margin-bottom:6px}
 .home-source-card{border-color:#fcd34d;background:#fffdf3}

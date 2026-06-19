@@ -2721,6 +2721,96 @@ const HOME_DEDICATED_PANEL_SERVICES = new Set([
 let homeServiceInputState = {};
 // 업무지식베이스(검색)별 조건 입력 상태: { [sourceKey]: "검색 조건 자연어" }  (MyAI 직접 입력)
 let homeSourceConditionState = {};
+// 카드별 표시 프롬프트(편집 가능) 상태: { [serviceKey]: { text:"", edited:bool } }
+// KB·AI서비스 카드 우측 '프롬프트 및 수행 결과'의 자동등록·수정 프롬프트.
+let homeCardPromptState = {};
+
+// 업무지식베이스(검색) 카드의 기본 프롬프트 — 조건이 있으면 조건 조회, 없으면 관련 자료 조회.
+function homeSourceCardPromptDefault(key){
+  const label = AI_SERVICE_REGISTRY[key]?.label || key;
+  const cond = (homeSourceConditionState[key] || "").trim();
+  return cond ? `${label}에서 '${cond}'을(를) 조회해줘.` : `${label}에서 원하는 조건의 자료를 조회해줘.`;
+}
+
+// AI 분석서비스 카드의 기본 프롬프트 — "{입력값}을 활용하여 '{서비스}'을(를) 수행해줘".
+function homeAgentCardPromptDefault(key){
+  const label = AI_SERVICE_REGISTRY[key]?.label || key;
+  const defs = homeServiceInputDefs(key);
+  const stAll = homeServiceInputState[key] || {};
+  const bits = [];
+  defs.forEach(def => {
+    const st = stAll[def.key] || { source: "manual", value: "" };
+    if(st.source !== "manual") bits.push(`${def.label}은(는) ${st.source}단계 결과`);
+    else if((st.value || "").trim()) bits.push(`${def.label} ${st.value.trim()}`);
+    else if(def.required) bits.push(`${def.label} [입력 필요]`);
+  });
+  return bits.length ? `${bits.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.` : `'${label}'을(를) 수행해줘.`;
+}
+
+function homeCardPromptDefault(key, kind){
+  return kind === "source" ? homeSourceCardPromptDefault(key) : homeAgentCardPromptDefault(key);
+}
+
+// 카드 프롬프트 현재 값(편집본 우선, 없으면 기본 생성문). 미편집 상태면 기본문으로 동기화.
+function homeCardPromptText(key, kind){
+  const st = homeCardPromptState[key];
+  if(st && st.edited) return st.text;
+  const def = homeCardPromptDefault(key, kind);
+  homeCardPromptState[key] = { text: def, edited: false };
+  return def;
+}
+
+// 카드 textarea를 (미편집 상태일 때) 최신 기본문으로 갱신.
+function homeRefreshCardPrompt(key, kind){
+  const st = homeCardPromptState[key];
+  if(st && st.edited) return;
+  const def = homeCardPromptDefault(key, kind);
+  homeCardPromptState[key] = { text: def, edited: false };
+  const ta = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+  if(ta) ta.value = def;
+}
+
+// 단일 수행 결과를 해당 카드의 결과 영역에 반영.
+function homeUpdateCardResult(key, status, output){
+  const box = document.querySelector(`[data-home-card-result="${cssString(key)}"]`);
+  if(!box) return;
+  if(status === "running"){ box.innerHTML = `<div class="home-card-result-status muted">실행 중...</div>`; return; }
+  const badge = status === "error" ? `<span class="home-detail-badge error">오류</span>` : `<span class="home-detail-badge done">완료</span>`;
+  box.innerHTML = `<div class="home-card-result-head">${badge}</div><div class="home-card-result-body markdown-output">${markdownToHtml(output || "결과 없음")}</div>`;
+}
+
+// 업무지식베이스(DB/RAG) 소스 키 여부.
+function isHomeSourceKey(key){
+  const g = AI_SERVICE_REGISTRY[key]?.group;
+  return g === DB_SEARCH_GROUP || g === RAG_SEARCH_GROUP;
+}
+
+// 단일 카드만 실행 — 해당 서비스의 (편집된) 카드 프롬프트로 1건 수행, 결과를 카드에 표시.
+function homeRunSingleService(key, btn){
+  const svc = AI_SERVICE_REGISTRY[key];
+  if(!svc) return;
+  const kind = isHomeSourceKey(key) ? "source" : "agent";
+  const ta = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+  const cardPrompt = ((ta?.value) || homeCardPromptText(key, kind)).trim();
+  // AI 서비스 필수 입력값 검증
+  if(kind === "agent"){
+    const defs = homeServiceInputDefs(key);
+    const stAll = homeServiceInputState[key] || {};
+    for(const def of defs){
+      if(def.required){
+        const st = stAll[def.key] || { source:"manual", value:"" };
+        if(st.source === "manual" && !(st.value || "").trim()){
+          alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하거나 이전 단계 결과와 연계하세요.`);
+          return;
+        }
+      }
+    }
+  }
+  const targetVal = (homeServiceInputState[key]?.target?.value || "").trim();
+  const companyId = (/^C-/i.test(targetVal) ? targetVal : "") || detectCompanyId(cardPrompt) || activeCanvasCompanyId || "";
+  homeUpdateCardResult(key, "running");
+  homeStreamAgents(cardPrompt, companyId, [{ type: svc.type, key, label: svc.label }], btn);
+}
 // 자동 생성한 통합 프롬프트(사용자 수동 편집 감지용)
 let homeLastGeneratedPrompt = "";
 
@@ -3105,21 +3195,40 @@ function homeServiceInputsHtml(key, runtimeSteps, gi){
   return `<div class="home-input-fields"><div class="home-input-fields-hd">필수 입력값</div>${rows}</div>`;
 }
 
-// 데이터소스 소개 카드 (자연어 조회 대상) — 안내문 + 검색 조건 직접 입력(MyAI)
+// 카드 우측 '프롬프트 및 수행 결과' 패널 — 자동등록·수정 가능 프롬프트 + 결과 + 단일 수행.
+function homeCardWorkPanel(key, kind){
+  const promptText = homeCardPromptText(key, kind);
+  return `
+    <div class="home-card-work">
+      <div class="home-card-work-tab">프롬프트 및 수행 결과</div>
+      <textarea class="home-card-prompt" data-home-card-prompt="${escapeHtml(key)}" rows="3"
+        placeholder="자동 등록된 프롬프트입니다. 필요 시 수정하세요.">${escapeHtml(promptText)}</textarea>
+      <div class="home-card-result" data-home-card-result="${escapeHtml(key)}"></div>
+      <div class="home-card-actions">
+        <button type="button" class="btn secondary home-run-single" data-home-run-single="${escapeHtml(key)}">단일 수행</button>
+      </div>
+    </div>
+  `;
+}
+
+// 데이터소스 소개 카드 (자연어 조회 대상) — 좌: 안내+검색조건 / 우: 프롬프트+수행결과
 function homeDataSourceCardHtml(key, order){
   const svc = AI_SERVICE_REGISTRY[key];
   const cond = homeSourceConditionState[key] || "";
   return `
-    <div class="home-svc-panel home-source-card" data-home-source-card="${escapeHtml(key)}">
-      <div class="home-frame-head">
-        <span class="home-frame-order src" title="실행 순서">${order}</span>
-        <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
-        <span class="home-source-badge">업무지식베이스</span>
+    <div class="home-svc-panel home-source-card home-card-row" data-home-source-card="${escapeHtml(key)}">
+      <div class="home-card-info">
+        <div class="home-frame-head">
+          <span class="home-frame-order src" title="실행 순서">${order}</span>
+          <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
+          <span class="home-source-badge">업무지식베이스</span>
+        </div>
+        <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 입력하세요.</p>
+        <input type="text" class="home-source-condition" data-home-source-condition data-key="${escapeHtml(key)}"
+          placeholder="검색 조건 예) 품목이 ~인 기업목록, 특정인이 작성한 보고서 중 최신 10건"
+          value="${escapeHtml(cond)}">
       </div>
-      <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 입력하세요.</p>
-      <input type="text" class="home-source-condition" data-home-source-condition data-key="${escapeHtml(key)}"
-        placeholder="검색 조건 예) 품목이 ~인 기업목록, 특정인이 작성한 보고서 중 최신 10건"
-        value="${escapeHtml(cond)}">
+      ${homeCardWorkPanel(key, "source")}
     </div>
   `;
 }
@@ -3145,16 +3254,19 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
        ${homeServiceInputsHtml(key, runtimeSteps, gi)}`
     : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
   return `
-    <div class="home-svc-panel home-pipeline-frame" data-home-pipeline-frame="${escapeHtml(key)}">
-      <div class="home-frame-head">
-        <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
-        <strong class="home-frame-title">${escapeHtml(svc.label)}</strong>
-        <span class="home-frame-move">
-          <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
-          <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
-        </span>
+    <div class="home-svc-panel home-pipeline-frame home-card-row" data-home-pipeline-frame="${escapeHtml(key)}">
+      <div class="home-card-info">
+        <div class="home-frame-head">
+          <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
+          <strong class="home-frame-title">${escapeHtml(svc.label)}</strong>
+          <span class="home-frame-move">
+            <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
+            <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
+          </span>
+        </div>
+        ${body}
       </div>
-      ${body}
+      ${homeCardWorkPanel(key, "agent")}
     </div>
   `;
 }
@@ -3201,7 +3313,7 @@ function homeRenderPromptTemplatePanels(){
     ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
     ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
   ];
-  const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">→</div>`);
+  const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">↓</div>`);
   const finalHtml = aiOrder.length >= 2 ? homeFinalResultPanelHtml() : "";
 
   container.innerHTML = `
@@ -3725,6 +3837,8 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
 
   homeStepStatus = {};
   effectiveAgents.forEach(a => { homeStepStatus[a.label] = "wait"; });
+  const labelToKey = {};
+  effectiveAgents.forEach(a => { labelToKey[a.label] = a.key; });
   homeRenderDetail();
 
   const scenarioItems = effectiveAgents.map((a, i) => {
@@ -3734,9 +3848,10 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     const behaviorLabel = (tpl && tpl.behaviors.length)
       ? tpl.behaviors.map(v => (AI_SERVICE_REGISTRY[a.key]?.behaviorOptions || []).find(o => o.value === v)?.label || v).join(", ")
       : "기본";
+    const cardText = (homeCardPromptState[a.key]?.text || "").trim();
     const baseInstruction = a.key === "result_synthesis"
       ? finalText
-      : ((tpl && tpl.text.trim()) ? tpl.text.trim() : prompt);
+      : (cardText || ((tpl && tpl.text.trim()) ? tpl.text.trim() : prompt));
     // 필수 입력값/단계 연계 블록을 지시문에 첨부 (연계는 {{STEP_OUTPUT:n}} 토큰 → 서버에서 치환)
     const instruction = (a.key === "result_synthesis")
       ? baseInstruction
@@ -3785,11 +3900,13 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     const label = data.label;
     if(data.status === "running"){
       homeStepStatus[label] = "running";
+      homeUpdateCardResult(labelToKey[label], "running");
       console.info(`[MyAI분석] ${label} 실행 시작`);
     } else if(data.status === "done"){
       completed += 1;
       homeStepStatus[label] = "done";
       homeRunResults[label] = data.output || "결과 없음";
+      homeUpdateCardResult(labelToKey[label], "done", homeRunResults[label]);
       console.info(`[MyAI분석] ${label} 완료 — 결과 ${(data.output || "").length}자 수신`);
       if(resultBox){
         const progressBar = resultBox.querySelector(".home-progress-fill");
@@ -3798,6 +3915,7 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     } else if(data.status === "error"){
       homeStepStatus[label] = "error";
       homeRunResults[label] = data.error || "오류 발생";
+      homeUpdateCardResult(labelToKey[label], "error", homeRunResults[label]);
       console.error(`[MyAI분석] ${label} 오류: ${data.error || "실행 오류"}`);
     }
     homeRenderDetail();
@@ -8710,17 +8828,33 @@ document.addEventListener("input", (event) => {
     const svc = el.dataset.svc, field = el.dataset.field;
     homeEnsureInputState(svc);
     homeServiceInputState[svc][field].value = el.value;
+    homeRefreshCardPrompt(svc, "agent");
     homeSyncCombinedPrompt();
   }
 });
 
-// 업무지식베이스 검색 조건 직접 입력 (MyAI)
+// 업무지식베이스 검색 조건 직접 입력 (MyAI) → 카드 프롬프트·통합 프롬프트 갱신
 document.addEventListener("input", (event) => {
   const el = event.target?.closest?.("[data-home-source-condition]");
   if(el){
     homeSourceConditionState[el.dataset.key] = el.value;
+    homeRefreshCardPrompt(el.dataset.key, "source");
     homeSyncCombinedPrompt();
   }
+});
+
+// 카드별 프롬프트 직접 편집 (자동등록 후 수정)
+document.addEventListener("input", (event) => {
+  const el = event.target?.closest?.("[data-home-card-prompt]");
+  if(el){
+    homeCardPromptState[el.dataset.homeCardPrompt] = { text: el.value, edited: true };
+  }
+});
+
+// 카드별 단일 수행
+document.addEventListener("click", (event) => {
+  const btn = event.target?.closest?.("[data-home-run-single]");
+  if(btn){ homeRunSingleService(btn.dataset.homeRunSingle, btn); }
 });
 
 // 서비스 필수 입력값: 소스(직접 입력 / N단계 결과 연계) 변경
