@@ -224,8 +224,8 @@ export const AI_SERVICE_CATALOG = {
       { value:"risk_review", label:"리스크 리뷰" },
     ]),
   report_generate: cfg("보고서 생성 AI 서비스", "report", REPORT_AI_GROUP,
-    "이전 단계 결과를 공식 조사보고서 초안으로 통합",
-    "이전 단계 결과를 개인 수사보고서 초안으로 통합",
+    "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
+    "보고서 대상 자료를 개인 수사보고서 초안으로 통합",
     [
       { value:"full_report", label:"전체 보고서" },
       { value:"issue_report", label:"쟁점 중심 보고서" },

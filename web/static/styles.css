@@ -480,6 +480,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* 수행 순서 파이프라인 */
 .home-pipeline{margin:0 0 8px;display:grid;gap:8px}
 .home-pipeline-head{display:grid;gap:2px;padding:2px 2px 0}
+.home-pipeline-head-row{display:flex;align-items:center;gap:8px}
+.home-pipeline-head-row strong{flex:1 1 auto}
+.home-pipeline-collapse-all{flex:none;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;cursor:pointer}
+.home-pipeline-collapse-all:hover{background:#eef2f7}
 .home-pipeline-head strong{color:#0f559c;font-size:13px}
 .home-pipeline-head span{color:#475569;font-size:12px;line-height:1.3}
 .home-pipeline-frame{border-color:#bfdbfe;background:#f7faff;position:relative}
@@ -496,8 +500,17 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* 좌→우 가로 수행 흐름 */
 .home-pipeline-wrap{margin:0 0 8px;display:grid;gap:6px}
 /* 수직 스택: 업무지식베이스 → AI 분석서비스 카드를 위→아래로 배치 */
-.home-pipeline-flow{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 2px 8px}
+/* 서비스가 많으면 흐름 영역 자체를 스크롤(헤더는 위에 고정 유지) */
+.home-pipeline-flow{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 2px 8px;max-height:60vh;overflow-y:auto;scrollbar-gutter:stable}
 .home-pipeline-flow .home-svc-panel{flex:none;width:auto;margin:0;align-content:start}
+/* 카드 접기/펴기 토글 버튼 */
+.home-card-collapse{flex:none;width:24px;height:24px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;font-size:12px;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.home-card-collapse:hover{background:#eef2f7}
+.home-source-card .home-card-collapse{border-color:#fcd34d;color:#92400e}
+/* 접힌 카드: 헤더만 남기고 본문·우측 작업 영역 숨김 */
+.home-svc-panel.is-collapsed{padding-top:8px;padding-bottom:8px}
+.home-svc-panel.is-collapsed .home-card-info>*:not(.home-frame-head){display:none}
+.home-svc-panel.is-collapsed .home-card-work{display:none}
 .home-flow-arrow{display:flex;justify-content:center;color:#94a3b8;font-size:16px;font-weight:800}
 .home-card-info .home-input-row{flex-direction:column;align-items:stretch;gap:3px}
 .home-card-info .home-input-label{flex:none}

@@ -731,7 +731,7 @@ const AI_SERVICE_REGISTRY = {
   },
   summary: {
     label: "보고서 요약 AI 서비스", type: "summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
-    defaultInstruction: "선행 단계 결과를 조사관용 핵심 요약으로 정리",
+    defaultInstruction: "요약 대상을 조사관용 핵심 요약으로 정리",
     behaviorOptions: [
       { value: "brief", label: "핵심 요약" },
       { value: "evidence_table", label: "근거 표 정리" },
@@ -739,7 +739,7 @@ const AI_SERVICE_REGISTRY = {
   },
   report_generate: {
     label: "보고서 생성 AI 서비스", type: "report", group: REPORT_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "이전 단계 결과를 공식 조사보고서 초안으로 통합",
+    defaultInstruction: "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
     behaviorOptions: [
       { value: "full_report", label: "전체 보고서" },
       { value: "issue_report", label: "쟁점 중심 보고서" },
@@ -890,12 +890,12 @@ const AI_SERVICE_TARGET_CONFIG = {
     "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성"
   ),
   summary: targetConfig(
-    "선행 단계 결과를 조사관용 핵심 요약으로 정리",
-    "선행 단계 결과를 개인 수사 담당자용 핵심 요약으로 정리"
+    "요약 대상을 조사관용 핵심 요약으로 정리",
+    "요약 대상을 개인 수사 담당자용 핵심 요약으로 정리"
   ),
   report_generate: targetConfig(
-    "이전 단계 결과를 공식 조사보고서 초안으로 통합",
-    "이전 단계 결과를 개인 수사보고서 초안으로 통합"
+    "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
+    "보고서 대상 자료를 개인 수사보고서 초안으로 통합"
   ),
   report_validate: targetConfig(
     "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
@@ -1217,7 +1217,7 @@ const scenarioTemplates = [
       { key:"declaration_verify", type:"declaration_verify", label:"수입신고검증 AI 서비스", behaviors:["declaration_consistency","missing_evidence"], order:4, instruction:"첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인" },
       { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check"], order:5, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
       { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
-      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:7, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
+      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:7, instruction:"보고서 대상 자료를 공식 조사보고서 초안으로 통합" },
       { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:8, instruction:"보고서의 근거 충실성과 누락 증빙 검증" },
     ],
   },
@@ -1249,7 +1249,7 @@ const scenarioTemplates = [
       { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:5, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
       { key:"origin_analysis", type:"origin_analysis", label:"원산지 검증 AI 서비스", behaviors:["origin_certificate","fta_risk"], order:6, instruction:"원산지 증빙과 FTA 적용 적정성 검토" },
       { key:"route_analysis", type:"route_analysis", label:"운송경로 분석 AI 서비스", behaviors:["route_check","transshipment"], order:7, instruction:"운송경로를 역추적해 우회수입 가능성 탐지" },
-      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:8, instruction:"이전 단계 결과를 공식 조사보고서 초안으로 통합" },
+      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:8, instruction:"보고서 대상 자료를 공식 조사보고서 초안으로 통합" },
       { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:9, instruction:"근거 충실성과 누락 증빙 검증" },
     ],
   },
@@ -2724,6 +2724,16 @@ let homeSourceConditionState = {};
 // 카드별 표시 프롬프트(편집 가능) 상태: { [serviceKey]: { text:"", edited:bool } }
 // KB·AI서비스 카드 우측 '프롬프트 및 수행 결과'의 자동등록·수정 프롬프트.
 let homeCardPromptState = {};
+// 카드별 접힘 상태(서비스가 많을 때 개별 카드 접기/펴기): { [serviceKey]: true=접힘 }
+let homeCardCollapsed = {};
+
+// 카드 헤더에 들어가는 접기/펴기 토글 버튼 HTML.
+function homeCardCollapseToggleHtml(key){
+  const collapsed = !!homeCardCollapsed[key];
+  return `<button type="button" class="home-card-collapse" data-home-card-collapse="${escapeHtml(key)}"
+      aria-expanded="${collapsed ? "false" : "true"}" aria-label="${collapsed ? "카드 펼치기" : "카드 접기"}"
+      title="${collapsed ? "펼치기" : "접기"}">${collapsed ? "▸" : "▾"}</button>`;
+}
 
 // 업무지식베이스(검색) 카드의 기본 프롬프트 — 조건이 있으면 조건 조회, 없으면 관련 자료 조회.
 function homeSourceCardPromptDefault(key){
@@ -2739,31 +2749,36 @@ function homeAgentPromptFields(key){
   return defs.filter(d => d.required || (homeServiceInputState[key]?.[d.key]?.value || "").trim());
 }
 
-// 필드의 기본값 — 입력값 → (대상 필드면) 활성 기업 → 이전 단계 결과 → 빈값(플레이스홀더).
-function homeAgentFieldValue(key, def, gi = 0){
-  const v = (homeServiceInputState[key]?.[def.key]?.value || "").trim();
-  if(v) return v;
-  if(/target|대상/.test(def.key) && activeCanvasCompanyId) return activeCanvasCompanyId;
-  if(gi > 0 && def.required) return "[이전 단계 결과]";
-  return "";
+// 필드의 기본값(MyAI) — 각 AI 에이전트는 독립적으로 동작하며, 호출하는 쪽이 입력값을
+// 조건에 맞춰 채운다. 직접 입력값 > (이전 단계 연계 시) 「입력값 이름」을 어느 단계 결과에서
+// 도출할지 명시 > 빈값(호출부에서 [입력값 이름] 플레이스홀더로 표기).
+// MyAI는 프롬프트에 충실하므로 화면의 활성 기업을 임의로 자동 주입하지 않는다.
+function homeAgentFieldValue(key, def){
+  const st = homeServiceInputState[key]?.[def.key] || { source: "manual", value: "" };
+  if(st.source === "manual") return (st.value || "").trim();  // 빈값이면 호출부에서 [입력값 이름] 토큰
+  // 이전 단계 결과 연계: 「입력값 이름」을 어느 단계 결과에서 도출할지 명시한다.
+  const steps = homeRuntimeStepKeys();
+  const refLabel = AI_SERVICE_REGISTRY[steps[Number(st.source) - 1]]?.label || `${st.source}단계`;
+  return `${st.source}단계 「${refLabel}」 결과에서 도출`;
 }
 
 // AI 서비스 카드 프롬프트 — "{필드라벨} {값}, … 을(를) 활용하여 '{서비스}'을(를) 수행해줘".
-function homeAgentPromptPlainText(key, gi = 0){
+// 빈 필수 입력값은 [입력값 이름] 플레이스홀더로 남겨, 실행 시 입력을 요청한다.
+function homeAgentPromptPlainText(key){
   const label = AI_SERVICE_REGISTRY[key]?.label || key;
   const fields = homeAgentPromptFields(key);
   if(!fields.length) return `'${label}'을(를) 수행해줘.`;
-  const segs = fields.map(d => `${d.label} ${homeAgentFieldValue(key, d, gi) || `[${d.label}]`}`);
+  const segs = fields.map(d => `${d.label} ${homeAgentFieldValue(key, d) || `[${d.label}]`}`);
   return `${segs.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.`;
 }
 
 // 입력값을 하이라이트 토큰(span)으로 렌더한 contenteditable 내부 HTML.
-function homeAgentPromptInnerHtml(key, gi = 0){
+function homeAgentPromptInnerHtml(key){
   const label = AI_SERVICE_REGISTRY[key]?.label || key;
   const fields = homeAgentPromptFields(key);
   if(!fields.length) return `'${escapeHtml(label)}'을(를) 수행해줘.`;
   const segs = fields.map(d => {
-    const val = homeAgentFieldValue(key, d, gi);
+    const val = homeAgentFieldValue(key, d);
     const tokenText = val || `[${d.label}]`;
     return `${escapeHtml(d.label)} <span class="home-prompt-token${val ? "" : " empty"}" data-field="${escapeHtml(d.key)}" data-label="${escapeHtml(d.label)}">${escapeHtml(tokenText)}</span>`;
   });
@@ -2828,16 +2843,20 @@ function homeRunSingleService(key, btn){
   const kind = isHomeSourceKey(key) ? "source" : "agent";
   const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
   const cardPrompt = ((el ? (el.isContentEditable ? el.innerText : el.value) : "") || homeCardPromptText(key, kind)).trim();
-  // AI 서비스 필수 입력값 검증 — 프롬프트에 미입력 토큰 [필드라벨]이 남아 있으면 경고
+  // AI 서비스 필수 입력값 검증 — 프롬프트에 미입력 토큰 [입력값 이름]이 남아 있으면 입력을 요청.
+  // 이전 단계 결과에서 도출할 값이면 조건 형태로 적을 수 있다.
+  // (예: "이전 기업프로파일 중 품목분류 오류율이 가장 높은 기업 ID")
   if(kind === "agent"){
     for(const def of homeServiceInputDefs(key)){
       if(def.required && cardPrompt.includes(`[${def.label}]`)){
-        alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하세요. (프롬프트의 [${def.label}] 부분을 실제 값으로 바꾸세요)`);
+        alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하세요.\n프롬프트의 [${def.label}] 부분을 실제 값으로 바꾸거나, 이전 단계 결과에서 도출할 조건을 적으세요.\n예) 이전 기업프로파일 중 품목분류 오류율이 가장 높은 기업 ID`);
         return;
       }
     }
   }
-  const companyId = detectCompanyId(cardPrompt) || activeCanvasCompanyId || "";
+  // MyAI는 프롬프트에 충실 — 프롬프트에서 명시된 기업만 사용하고, 화면의 활성 기업을
+  // 임의로 주입하지 않는다(빈값이면 agent_db가 프롬프트 기반 NL→SQL로 조회).
+  const companyId = detectCompanyId(cardPrompt) || "";
   homeUpdateCardResult(key, "running");
   homeStreamAgents(cardPrompt, companyId, [{ type: svc.type, key, label: svc.label }], btn);
 }
@@ -2914,14 +2933,14 @@ const AI_SERVICE_INPUTS = {
     { key:"source", label:"대상 자료", placeholder:"지식화할 자료/문서", required:true },
   ],
   summary: [
-    { key:"scope", label:"요약 대상", placeholder:"이전 단계 결과 연계 권장" },
+    { key:"scope", label:"요약 대상", placeholder:"예: 이전 분석 결과 전체 / 특정 단계 결과" },
   ],
   report_generate: [
     { key:"title", label:"보고서 제목", placeholder:"예: C-1002 과세가격 조사 보고" },
-    { key:"scope", label:"보고서 대상 자료", placeholder:"이전 단계 결과 연계 권장" },
+    { key:"scope", label:"보고서 대상 자료", placeholder:"예: 이전 단계 결과 중 위반 혐의 항목" },
   ],
   report_validate: [
-    { key:"target_report", label:"검증 대상 보고서", placeholder:"이전 단계 결과 연계 권장" },
+    { key:"target_report", label:"검증 대상 보고서", placeholder:"예: 직전 단계에서 생성한 보고서" },
   ],
   web_search: [
     { key:"query", label:"검색어", placeholder:"예: 업체명 + 제재" , required:true },
@@ -3124,11 +3143,11 @@ function homeBuildCombinedPrompt(){
       const st = stAll[def.key] || { source: "manual", value: "" };
       if(st.source !== "manual"){
         const refLabel = AI_SERVICE_REGISTRY[runtimeSteps[Number(st.source) - 1]]?.label || `${st.source}단계`;
-        inputBits.push(`${def.label}은(는) ${refLabel} 결과`);
+        inputBits.push(`${def.label}은(는) ${st.source}단계 「${refLabel}」 결과에서 도출`);
       } else if((st.value || "").trim()){
         inputBits.push(`${def.label} ${st.value.trim()}`);
       } else if(def.required){
-        inputBits.push(`${def.label} [입력 필요]`);
+        inputBits.push(`${def.label} [${def.label}]`);
       }
     });
     // "{입력값}을 활용하여 '{서비스}'을(를) 수행해줘"
@@ -3219,7 +3238,7 @@ function homeServiceInputsHtml(key, runtimeSteps, gi){
         </select>
         <input type="text" class="home-input-value" data-home-input-value data-svc="${escapeHtml(key)}" data-field="${escapeHtml(def.key)}"
           placeholder="${escapeHtml(def.placeholder || "")}" value="${escapeHtml(st.value || "")}" style="display:${linked ? "none" : "block"}">
-        <span class="home-input-linked" style="display:${linked ? "inline" : "none"}">${linked ? `${escapeHtml(String(st.source))}단계 결과를 입력으로 사용` : ""}</span>
+        <span class="home-input-linked" style="display:${linked ? "inline" : "none"}">${linked ? `「${escapeHtml(def.label)}」 ← ${escapeHtml(String(st.source))}단계 결과에서 도출` : ""}</span>
       </div>`;
   }).join("");
   return `<div class="home-input-fields"><div class="home-input-fields-hd">필수 입력값</div>${rows}</div>`;
@@ -3258,13 +3277,15 @@ function homeCardWorkPanel(key, kind, gi = 0){
 function homeDataSourceCardHtml(key, order){
   const svc = AI_SERVICE_REGISTRY[key];
   const cond = homeSourceConditionState[key] || "";
+  const collapsed = !!homeCardCollapsed[key];
   return `
-    <div class="home-svc-panel home-source-card home-card-row" data-home-source-card="${escapeHtml(key)}">
+    <div class="home-svc-panel home-source-card home-card-row${collapsed ? " is-collapsed" : ""}" data-home-source-card="${escapeHtml(key)}">
       <div class="home-card-info">
         <div class="home-frame-head">
           <span class="home-frame-order src" title="실행 순서">${order}</span>
           <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
           <span class="home-source-badge">업무지식베이스</span>
+          ${homeCardCollapseToggleHtml(key)}
         </div>
         <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 입력하세요.</p>
         <input type="text" class="home-source-condition" data-home-source-condition data-key="${escapeHtml(key)}"
@@ -3296,8 +3317,9 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
        ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
        ${homeInputChipsHtml(key)}`
     : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
+  const collapsed = !!homeCardCollapsed[key];
   return `
-    <div class="home-svc-panel home-pipeline-frame home-card-row" data-home-pipeline-frame="${escapeHtml(key)}">
+    <div class="home-svc-panel home-pipeline-frame home-card-row${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
       <div class="home-card-info">
         <div class="home-frame-head">
           <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
@@ -3306,6 +3328,7 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
             <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
             <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
           </span>
+          ${homeCardCollapseToggleHtml(key)}
         </div>
         ${body}
       </div>
@@ -3340,6 +3363,7 @@ function homeRenderPromptTemplatePanels(){
   Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
   Object.keys(homeServiceInputState).forEach(key => { if(!aiOrder.includes(key)) delete homeServiceInputState[key]; });
   Object.keys(homeSourceConditionState).forEach(key => { if(!sources.includes(key)) delete homeSourceConditionState[key]; });
+  Object.keys(homeCardCollapsed).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
   // 신규 AI 서비스 상태 초기화
   aiOrder.forEach(key => {
     if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key]){
@@ -3359,11 +3383,18 @@ function homeRenderPromptTemplatePanels(){
   const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">↓</div>`);
   const finalHtml = aiOrder.length >= 2 ? homeFinalResultPanelHtml() : "";
 
+  const allCollapsed = runtimeSteps.length > 0 && runtimeSteps.every(key => homeCardCollapsed[key]);
+  const bulkBtn = runtimeSteps.length > 1
+    ? `<button type="button" class="home-pipeline-collapse-all" data-home-collapse-all="${allCollapsed ? "expand" : "collapse"}">${allCollapsed ? "모두 펴기" : "모두 접기"}</button>`
+    : "";
   container.innerHTML = `
     <div class="home-pipeline-wrap">
       <div class="home-pipeline-head">
-        <strong>수행 흐름</strong>
-        <span>업무지식베이스(검색)에서 AI 분석서비스로 좌→우 진행됩니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 이전 단계 결과와 연계하세요. 아래 통합 프롬프트는 자동 생성됩니다.</span>
+        <div class="home-pipeline-head-row">
+          <strong>수행 흐름</strong>
+          ${bulkBtn}
+        </div>
+        <span>각 AI 서비스는 독립적으로 동작하며, [입력값 이름] 자리에 값을 채워 호출합니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 이전 단계 결과에서 도출할 조건(예: "이전 기업프로파일 중 품목분류 오류율이 가장 높은 기업 ID")으로 연계하세요. 아래 통합 프롬프트는 자동 생성됩니다.</span>
       </div>
       <div class="home-pipeline-flow">${flow}</div>
     </div>
@@ -9645,6 +9676,31 @@ document.addEventListener("click", (event)=>{
     if(prompt && (coachSuggestions.length > 0 || coachImprovedPrompt)){
       coachRunAnalyze();
     }
+    return;
+  }
+
+  // 카드 전체 접기/펴기 (수행 흐름 헤더)
+  const collapseAll = event.target.closest("[data-home-collapse-all]");
+  if(collapseAll){
+    const collapse = collapseAll.dataset.homeCollapseAll === "collapse";
+    const { sources } = homeSelectedAnalysisOptions();
+    [...sources, ...homeSyncPipelineOrder()].forEach(key => { homeCardCollapsed[key] = collapse; });
+    homeRenderPromptTemplatePanels();
+    return;
+  }
+
+  // 카드 접기/펴기 토글 (서비스가 많을 때 개별 카드 접기)
+  const cardCollapse = event.target.closest("[data-home-card-collapse]");
+  if(cardCollapse){
+    const key = cardCollapse.dataset.homeCardCollapse;
+    const collapsed = !homeCardCollapsed[key];
+    homeCardCollapsed[key] = collapsed;
+    const panel = cardCollapse.closest(".home-svc-panel");
+    if(panel) panel.classList.toggle("is-collapsed", collapsed);
+    cardCollapse.textContent = collapsed ? "▸" : "▾";
+    cardCollapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    cardCollapse.setAttribute("aria-label", collapsed ? "카드 펼치기" : "카드 접기");
+    cardCollapse.title = collapsed ? "펼치기" : "접기";
     return;
   }
 

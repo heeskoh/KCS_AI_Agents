@@ -75,7 +75,7 @@
             "full_report"
           ],
           "order": 7,
-          "instruction": "이전 단계 결과를 공식 조사보고서 초안으로 통합"
+          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
         },
         {
           "key": "report_validate",
@@ -277,7 +277,7 @@
             "full_report"
           ],
           "order": 8,
-          "instruction": "이전 단계 결과를 공식 조사보고서 초안으로 통합"
+          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
         },
         {
           "key": "report_validate",
