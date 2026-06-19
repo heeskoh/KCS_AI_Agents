@@ -2733,18 +2733,54 @@ function homeSourceCardPromptDefault(key){
 }
 
 // AI 분석서비스 카드의 기본 프롬프트 — "{입력값}을 활용하여 '{서비스}'을(를) 수행해줘".
-function homeAgentCardPromptDefault(key){
-  const label = AI_SERVICE_REGISTRY[key]?.label || key;
+// 프롬프트에 노출할 입력 필드 — 필수 + (값이 있는) 선택 필드.
+function homeAgentPromptFields(key){
   const defs = homeServiceInputDefs(key);
-  const stAll = homeServiceInputState[key] || {};
-  const bits = [];
-  defs.forEach(def => {
-    const st = stAll[def.key] || { source: "manual", value: "" };
-    if(st.source !== "manual") bits.push(`${def.label}은(는) ${st.source}단계 결과`);
-    else if((st.value || "").trim()) bits.push(`${def.label} ${st.value.trim()}`);
-    else if(def.required) bits.push(`${def.label} [입력 필요]`);
+  return defs.filter(d => d.required || (homeServiceInputState[key]?.[d.key]?.value || "").trim());
+}
+
+// 필드의 기본값 — 입력값 → (대상 필드면) 활성 기업 → 이전 단계 결과 → 빈값(플레이스홀더).
+function homeAgentFieldValue(key, def, gi = 0){
+  const v = (homeServiceInputState[key]?.[def.key]?.value || "").trim();
+  if(v) return v;
+  if(/target|대상/.test(def.key) && activeCanvasCompanyId) return activeCanvasCompanyId;
+  if(gi > 0 && def.required) return "[이전 단계 결과]";
+  return "";
+}
+
+// AI 서비스 카드 프롬프트 — "{필드라벨} {값}, … 을(를) 활용하여 '{서비스}'을(를) 수행해줘".
+function homeAgentPromptPlainText(key, gi = 0){
+  const label = AI_SERVICE_REGISTRY[key]?.label || key;
+  const fields = homeAgentPromptFields(key);
+  if(!fields.length) return `'${label}'을(를) 수행해줘.`;
+  const segs = fields.map(d => `${d.label} ${homeAgentFieldValue(key, d, gi) || `[${d.label}]`}`);
+  return `${segs.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.`;
+}
+
+// 입력값을 하이라이트 토큰(span)으로 렌더한 contenteditable 내부 HTML.
+function homeAgentPromptInnerHtml(key, gi = 0){
+  const label = AI_SERVICE_REGISTRY[key]?.label || key;
+  const fields = homeAgentPromptFields(key);
+  if(!fields.length) return `'${escapeHtml(label)}'을(를) 수행해줘.`;
+  const segs = fields.map(d => {
+    const val = homeAgentFieldValue(key, d, gi);
+    const tokenText = val || `[${d.label}]`;
+    return `${escapeHtml(d.label)} <span class="home-prompt-token${val ? "" : " empty"}" data-field="${escapeHtml(d.key)}" data-label="${escapeHtml(d.label)}">${escapeHtml(tokenText)}</span>`;
   });
-  return bits.length ? `${bits.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.` : `'${label}'을(를) 수행해줘.`;
+  return `${segs.join(", ")}을(를) 활용하여 '${escapeHtml(label)}'을(를) 수행해줘.`;
+}
+
+function homeAgentCardPromptDefault(key){
+  return homeAgentPromptPlainText(key, 0);
+}
+
+// AI 서비스 입력값 칩(필수 표시) — 실제 값은 프롬프트의 하이라이트 토큰에서 직접 수정한다.
+function homeInputChipsHtml(key){
+  const defs = homeServiceInputDefs(key);
+  const chips = defs.map(d =>
+    `<span class="home-input-chip${d.required ? " req" : ""}">${escapeHtml(d.label)}${d.required ? `<i class="home-chip-req">필수</i>` : ""}</span>`
+  ).join("");
+  return `<div class="home-input-chips"><span class="home-input-chips-hd">입력값</span>${chips}</div>`;
 }
 
 function homeCardPromptDefault(key, kind){
@@ -2790,24 +2826,18 @@ function homeRunSingleService(key, btn){
   const svc = AI_SERVICE_REGISTRY[key];
   if(!svc) return;
   const kind = isHomeSourceKey(key) ? "source" : "agent";
-  const ta = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
-  const cardPrompt = ((ta?.value) || homeCardPromptText(key, kind)).trim();
-  // AI 서비스 필수 입력값 검증
+  const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+  const cardPrompt = ((el ? (el.isContentEditable ? el.innerText : el.value) : "") || homeCardPromptText(key, kind)).trim();
+  // AI 서비스 필수 입력값 검증 — 프롬프트에 미입력 토큰 [필드라벨]이 남아 있으면 경고
   if(kind === "agent"){
-    const defs = homeServiceInputDefs(key);
-    const stAll = homeServiceInputState[key] || {};
-    for(const def of defs){
-      if(def.required){
-        const st = stAll[def.key] || { source:"manual", value:"" };
-        if(st.source === "manual" && !(st.value || "").trim()){
-          alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하거나 이전 단계 결과와 연계하세요.`);
-          return;
-        }
+    for(const def of homeServiceInputDefs(key)){
+      if(def.required && cardPrompt.includes(`[${def.label}]`)){
+        alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하세요. (프롬프트의 [${def.label}] 부분을 실제 값으로 바꾸세요)`);
+        return;
       }
     }
   }
-  const targetVal = (homeServiceInputState[key]?.target?.value || "").trim();
-  const companyId = (/^C-/i.test(targetVal) ? targetVal : "") || detectCompanyId(cardPrompt) || activeCanvasCompanyId || "";
+  const companyId = detectCompanyId(cardPrompt) || activeCanvasCompanyId || "";
   homeUpdateCardResult(key, "running");
   homeStreamAgents(cardPrompt, companyId, [{ type: svc.type, key, label: svc.label }], btn);
 }
@@ -3196,13 +3226,26 @@ function homeServiceInputsHtml(key, runtimeSteps, gi){
 }
 
 // 카드 우측 '프롬프트 및 수행 결과' 패널 — 자동등록·수정 가능 프롬프트 + 결과 + 단일 수행.
-function homeCardWorkPanel(key, kind){
-  const promptText = homeCardPromptText(key, kind);
+function homeCardWorkPanel(key, kind, gi = 0){
+  let promptEl;
+  if(kind === "agent"){
+    const st = homeCardPromptState[key];
+    // 미편집이면 입력값 토큰을 하이라이트한 contenteditable, 편집본이면 텍스트 그대로.
+    const edited = st && st.edited;
+    if(!edited) homeCardPromptState[key] = { text: homeAgentPromptPlainText(key, gi), edited: false };
+    const inner = edited ? escapeHtml(st.text) : homeAgentPromptInnerHtml(key, gi);
+    promptEl = `<div class="home-card-prompt home-card-prompt-rich" contenteditable="true"
+        data-home-card-prompt="${escapeHtml(key)}" data-kind="agent"
+        title="입력값(하이라이트)과 프롬프트를 직접 수정할 수 있습니다.">${inner}</div>`;
+  } else {
+    const promptText = homeCardPromptText(key, kind);
+    promptEl = `<textarea class="home-card-prompt" data-home-card-prompt="${escapeHtml(key)}" data-kind="source" rows="3"
+        placeholder="자동 등록된 프롬프트입니다. 필요 시 수정하세요.">${escapeHtml(promptText)}</textarea>`;
+  }
   return `
     <div class="home-card-work">
       <div class="home-card-work-tab">프롬프트 및 수행 결과</div>
-      <textarea class="home-card-prompt" data-home-card-prompt="${escapeHtml(key)}" rows="3"
-        placeholder="자동 등록된 프롬프트입니다. 필요 시 수정하세요.">${escapeHtml(promptText)}</textarea>
+      ${promptEl}
       <div class="home-card-result" data-home-card-result="${escapeHtml(key)}"></div>
       <div class="home-card-actions">
         <button type="button" class="btn secondary home-run-single" data-home-run-single="${escapeHtml(key)}">단일 수행</button>
@@ -3251,7 +3294,7 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
   const body = inline
     ? `${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
        ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
-       ${homeServiceInputsHtml(key, runtimeSteps, gi)}`
+       ${homeInputChipsHtml(key)}`
     : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
   return `
     <div class="home-svc-panel home-pipeline-frame home-card-row" data-home-pipeline-frame="${escapeHtml(key)}">
@@ -3266,7 +3309,7 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
         </div>
         ${body}
       </div>
-      ${homeCardWorkPanel(key, "agent")}
+      ${homeCardWorkPanel(key, "agent", gi)}
     </div>
   `;
 }
@@ -8843,11 +8886,12 @@ document.addEventListener("input", (event) => {
   }
 });
 
-// 카드별 프롬프트 직접 편집 (자동등록 후 수정)
+// 카드별 프롬프트 직접 편집 (자동등록 후 수정) — contenteditable(AI)·textarea(KB) 모두 지원
 document.addEventListener("input", (event) => {
   const el = event.target?.closest?.("[data-home-card-prompt]");
   if(el){
-    homeCardPromptState[el.dataset.homeCardPrompt] = { text: el.value, edited: true };
+    const text = el.isContentEditable ? el.innerText : el.value;
+    homeCardPromptState[el.dataset.homeCardPrompt] = { text, edited: true };
   }
 });
 
