@@ -2713,10 +2713,16 @@ let homePromptTemplateState = {};
 let homePipelineOrder = [];
 // 최종 결과 종합 단계 지시문(여러 서비스 결과를 어떻게 받을지)
 let homeFinalResultState = { text: "", edited: false };
-// 구조화 전용 입력 패널(별도 UI)을 갖는 서비스 — 순서 프레임엔 포함하되 인라인 프롬프트 편집기는 생략
+// 구조화 전용 입력 패널을 갖는 서비스 — 인라인 프롬프트 편집기 대신 카드 안에 전용 입력 폼을 렌더한다.
 const HOME_DEDICATED_PANEL_SERVICES = new Set([
   "translate", "text_summary", "report_standard", "mail_share",
 ]);
+// 전용 입력 패널(번역·요약·표준보고서)의 카드 인라인 입력 상태 — 카드 재렌더 시 값 보존용.
+const homeDedicatedInputState = {
+  translate: { source_lang: "auto", target_lang: "ko", input: "" },
+  text_summary: { format: "bullet", template: "", input: "" },
+  report_standard: { content: "", template: "" },
+};
 // AI 서비스별 필수 입력값 상태: { [serviceKey]: { [inputKey]: { source:"manual"|<order>, value:"" } } }
 let homeServiceInputState = {};
 // 업무지식베이스(검색)별 조건 입력 상태: { [sourceKey]: "검색 조건 자연어" }  (MyAI 직접 입력)
@@ -2947,6 +2953,8 @@ const AI_SERVICE_INPUTS = {
   ],
 };
 function homeServiceInputDefs(key){
+  // 전용 입력 폼(번역·요약·표준보고서·공유)은 일반 입력값을 두지 않는다(폼이 입력 담당).
+  if(HOME_DEDICATED_PANEL_SERVICES.has(key)) return [];
   return AI_SERVICE_INPUTS[key]
     || [{ key:"target", label:"분석 대상/지시", placeholder:"이 서비스의 분석 대상이나 지시를 입력하세요", required:true }];
 }
@@ -2985,12 +2993,79 @@ function isValidEmailId(value){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+// 공유 이메일 패널/칩 갱신.
+// - MyAI(홈): 이메일 폼·칩은 mail_share 카드 안에 인라인 렌더됨(#homeShareEmailChips 갱신).
+// - intl 등 정적 패널 페이지: #homeMailSharePanel 표시/숨김 토글(존재할 때만).
 function homeRenderShareEmailPanel(){
   const panel = document.getElementById("homeMailSharePanel");
   if(panel) panel.style.display = homeMailShareSelected() ? "grid" : "none";
   const chips = document.getElementById("homeShareEmailChips");
-  if(!chips) return;
-  chips.innerHTML = homeShareEmailIds.length
+  if(chips) chips.innerHTML = homeShareEmailChipsHtml();
+}
+
+// 전용 입력 폼은 이제 각 서비스 카드 안에 인라인 렌더되므로 별도 패널 토글은 불필요(no-op 유지).
+function homeRenderServiceInputPanels(){ /* 전용 입력은 homeDedicatedPanelInnerHtml 로 카드 내부에 렌더 */ }
+
+// <select> 옵션 선택 상태 헬퍼
+function homeDedSelected(key, field, optValue){
+  return String(homeDedicatedInputState[key]?.[field] ?? "") === String(optValue) ? " selected" : "";
+}
+
+// 전용 입력 패널(번역·요약·표준보고서·공유)을 서비스 카드 본문에 인라인 렌더. 값은 상태에서 프리필.
+function homeDedicatedPanelInnerHtml(key){
+  if(key === "translate"){
+    const langOpts = (field, opts) => opts.map(([v, l]) => `<option value="${v}"${homeDedSelected("translate", field, v)}>${l}</option>`).join("");
+    return `
+      <div class="home-svc-panel-row">
+        <label>원본 언어
+          <select data-home-ded="translate" data-field="source_lang">
+            ${langOpts("source_lang", [["auto","자동 감지"],["ko","한국어"],["en","영어"],["zh","중국어"],["ja","일본어"]])}
+          </select>
+        </label>
+        <label>대상 언어
+          <select data-home-ded="translate" data-field="target_lang">
+            ${langOpts("target_lang", [["ko","한국어"],["en","영어"],["zh","중국어"],["ja","일본어"]])}
+          </select>
+        </label>
+      </div>
+      <textarea data-home-ded="translate" data-field="input" rows="4" placeholder="번역할 원문을 입력하세요. (파일 첨부 시 비워둘 수 있습니다)">${escapeHtml(homeDedicatedInputState.translate.input)}</textarea>`;
+  }
+  if(key === "text_summary"){
+    const fmtOpts = [["bullet","핵심 불릿"],["table","표 형식"],["narrative","서술 요약"],["custom","사용자 템플릿"]]
+      .map(([v, l]) => `<option value="${v}"${homeDedSelected("text_summary", "format", v)}>${l}</option>`).join("");
+    return `
+      <div class="home-svc-panel-row">
+        <label>결과 형식
+          <select data-home-ded="text_summary" data-field="format">${fmtOpts}</select>
+        </label>
+      </div>
+      <textarea data-home-ded="text_summary" data-field="input" rows="4" placeholder="요약할 원문을 입력하세요. (파일 첨부 시 비워둘 수 있습니다)">${escapeHtml(homeDedicatedInputState.text_summary.input)}</textarea>
+      <textarea data-home-ded="text_summary" data-field="template" rows="3" placeholder="[사용자 템플릿] 원하는 출력 형식/항목을 적으세요. (결과 형식이 '사용자 템플릿'일 때 사용)">${escapeHtml(homeDedicatedInputState.text_summary.template)}</textarea>`;
+  }
+  if(key === "report_standard"){
+    return `
+      <textarea data-home-ded="report_standard" data-field="content" rows="4" placeholder="신규 보고서에 담을 내용을 입력하세요.">${escapeHtml(homeDedicatedInputState.report_standard.content)}</textarea>
+      <textarea data-home-ded="report_standard" data-field="template" rows="5" placeholder="표준이 되는 보고서(출력 템플릿)의 전체 형식·구성을 붙여넣으세요.">${escapeHtml(homeDedicatedInputState.report_standard.template)}</textarea>`;
+  }
+  if(key === "mail_share"){
+    return `
+      <div class="home-mail-share-panel">
+        <div class="home-mail-share-copy">
+          <span>분석결과 보고서를 이메일로 공유합니다. 수신 이메일 ID를 1개 이상 등록하세요.</span>
+        </div>
+        <div class="home-mail-share-form">
+          <input id="homeShareEmailInput" type="email" placeholder="예: officer@customs.go.kr">
+          <button class="btn secondary" type="button" data-home-share-email-add>등록</button>
+        </div>
+        <div class="home-mail-share-chips" id="homeShareEmailChips">${homeShareEmailChipsHtml()}</div>
+      </div>`;
+  }
+  return "";
+}
+
+// 공유 이메일 칩 HTML (카드 인라인 렌더 + 갱신 공용)
+function homeShareEmailChipsHtml(){
+  return homeShareEmailIds.length
     ? homeShareEmailIds.map(email => `
         <span class="home-share-email-chip">
           ${escapeHtml(email)}
@@ -3000,36 +3075,26 @@ function homeRenderShareEmailPanel(){
     : `<span class="home-share-email-empty">등록된 이메일 ID가 없습니다.</span>`;
 }
 
-// 분석지원 서비스(번역·요약·표준보고서)의 형식화 입력 패널 표시/숨김 동기화
-function homeRenderServiceInputPanels(){
-  const agents = homeSelectedAnalysisOptions().agents;
-  const toggle = (id, on) => {
-    const el = document.getElementById(id);
-    if(el) el.style.display = on ? "block" : "none";
-  };
-  toggle("homeTranslatePanel", agents.includes("translate"));
-  toggle("homeSummaryPanel", agents.includes("text_summary"));
-  toggle("homeReportStdPanel", agents.includes("report_standard"));
-}
-
-// 선택된 분석지원 서비스의 형식화 입력값을 실행 payload에 첨부할 형태로 수집
+// 선택된 분석지원 서비스의 형식화 입력값을 실행 payload에 첨부할 형태로 수집 (상태 기반)
 function homeServiceInputPayload(){
   const agents = homeSelectedAnalysisOptions().agents;
-  const val = id => (document.getElementById(id)?.value || "").trim();
   const payload = {};
   if(agents.includes("translate")){
-    payload.translate_source_lang = document.getElementById("homeTranslateSourceLang")?.value || "auto";
-    payload.translate_target_lang = document.getElementById("homeTranslateTargetLang")?.value || "ko";
-    payload.translate_input = val("homeTranslateInput");
+    const st = homeDedicatedInputState.translate;
+    payload.translate_source_lang = st.source_lang || "auto";
+    payload.translate_target_lang = st.target_lang || "ko";
+    payload.translate_input = (st.input || "").trim();
   }
   if(agents.includes("text_summary")){
-    payload.summary_format = document.getElementById("homeSummaryFormat")?.value || "bullet";
-    payload.summary_template = val("homeSummaryTemplate");
-    payload.summary_input = val("homeSummaryInput");
+    const st = homeDedicatedInputState.text_summary;
+    payload.summary_format = st.format || "bullet";
+    payload.summary_template = (st.template || "").trim();
+    payload.summary_input = (st.input || "").trim();
   }
   if(agents.includes("report_standard")){
-    payload.report_content = val("homeReportStdContent");
-    payload.report_template = val("homeReportStdTemplate");
+    const st = homeDedicatedInputState.report_standard;
+    payload.report_content = (st.content || "").trim();
+    payload.report_template = (st.template || "").trim();
   }
   return payload;
 }
@@ -3312,15 +3377,8 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
       data-home-tpl-behavior="${escapeHtml(key)}" data-behavior="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</button>`;
   }).join("") : "";
   const desc = svc.defaultInstruction || "";
-  const body = inline
-    ? `${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
-       ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
-       ${homeInputChipsHtml(key)}`
-    : (HOME_DEDICATED_PANEL_SERVICES.has(key) ? `<p class="home-frame-note">전용 입력 패널에서 세부 항목을 설정합니다.</p>` : "");
   const collapsed = !!homeCardCollapsed[key];
-  return `
-    <div class="home-svc-panel home-pipeline-frame home-card-row${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
-      <div class="home-card-info">
+  const head = `
         <div class="home-frame-head">
           <span class="home-frame-order" title="실행 순서">${globalOrder}</span>
           <strong class="home-frame-title">${escapeHtml(svc.label)}</strong>
@@ -3329,7 +3387,28 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
             <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
           </span>
           ${homeCardCollapseToggleHtml(key)}
-        </div>
+        </div>`;
+
+  // 전용 입력 서비스(번역·요약·표준보고서·공유): 폼을 카드 본문에 전폭으로 인라인 렌더(2단 분할 없음)
+  if(HOME_DEDICATED_PANEL_SERVICES.has(key)){
+    return `
+    <div class="home-svc-panel home-pipeline-frame home-ded-frame${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
+      ${head}
+      ${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
+      <div class="home-ded-body">${homeDedicatedPanelInnerHtml(key)}</div>
+    </div>
+  `;
+  }
+
+  const body = inline
+    ? `${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
+       ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
+       ${homeInputChipsHtml(key)}`
+    : "";
+  return `
+    <div class="home-svc-panel home-pipeline-frame home-card-row${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
+      <div class="home-card-info">
+        ${head}
         ${body}
       </div>
       ${homeCardWorkPanel(key, "agent", gi)}
@@ -4190,7 +4269,9 @@ async function homeRunAnalysis(prompt, btn){
         <p class="high">분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.</p>
       `;
     }
-    document.getElementById("homeMailSharePanel")?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+    (document.getElementById("homeMailSharePanel")
+      || document.querySelector('[data-home-pipeline-frame="mail_share"]'))
+      ?.scrollIntoView({ behavior:"smooth", block:"nearest" });
     setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     return;
@@ -8923,6 +9004,12 @@ document.addEventListener("input", (event) => {
   if(el){
     const text = el.isContentEditable ? el.innerText : el.value;
     homeCardPromptState[el.dataset.homeCardPrompt] = { text, edited: true };
+  }
+  // 전용 입력 폼(번역·요약·표준보고서) — 값을 상태에 보존(카드 재렌더 대비)
+  const ded = event.target?.closest?.("[data-home-ded]");
+  if(ded){
+    const st = homeDedicatedInputState[ded.dataset.homeDed];
+    if(st) st[ded.dataset.field] = ded.value;
   }
 });
 

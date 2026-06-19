@@ -148,79 +148,11 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
         <!-- 첨부 파일 칩 -->
         <div class="home-file-chips coach-file-chips" id="coachFileChips"></div>
 
-        <!-- 이메일 공유 패널 (숨김) -->
-        <div class="home-mail-share-panel" id="homeMailSharePanel" style="display:none">
-          <div class="home-mail-share-copy">
-            <strong>분석결과 공유 AI 서비스</strong>
-            <span>분석결과 보고서를 이메일로 공유합니다. 수신 이메일 ID를 1개 이상 등록하세요.</span>
-          </div>
-          <div class="home-mail-share-form">
-            <input id="homeShareEmailInput" type="email" placeholder="예: officer@customs.go.kr">
-            <button class="btn secondary" type="button" data-home-share-email-add>등록</button>
-          </div>
-          <div class="home-mail-share-chips" id="homeShareEmailChips"></div>
+        <!-- 동적 영역(스크롤): 수행 흐름(각 서비스 카드에 전용 입력 폼 인라인 포함). 하단 컴포저는 항상 고정 -->
+        <div class="home-dynamic-area">
+          <!-- 선택 서비스별 프롬프트 템플릿 구성 패널 (동적 렌더) -->
+          <div id="homePromptTemplatePanels"></div>
         </div>
-
-        <!-- 문서 번역 AI 서비스 패널 (숨김) -->
-        <div class="home-svc-panel" id="homeTranslatePanel" style="display:none">
-          <div class="home-svc-panel-head">
-            <strong>문서 번역 AI 서비스</strong>
-            <span>번역할 문서·텍스트와 대상 언어를 지정하세요. (파일을 첨부한 경우 원문 입력은 비워둘 수 있습니다)</span>
-          </div>
-          <div class="home-svc-panel-row">
-            <label>원본 언어
-              <select id="homeTranslateSourceLang">
-                <option value="auto" selected>자동 감지</option>
-                <option value="ko">한국어</option>
-                <option value="en">영어</option>
-                <option value="zh">중국어</option>
-                <option value="ja">일본어</option>
-              </select>
-            </label>
-            <label>대상 언어
-              <select id="homeTranslateTargetLang">
-                <option value="ko" selected>한국어</option>
-                <option value="en">영어</option>
-                <option value="zh">중국어</option>
-                <option value="ja">일본어</option>
-              </select>
-            </label>
-          </div>
-          <textarea id="homeTranslateInput" rows="4" placeholder="번역할 원문을 입력하세요."></textarea>
-        </div>
-
-        <!-- 요약 AI 서비스 패널 (숨김) -->
-        <div class="home-svc-panel" id="homeSummaryPanel" style="display:none">
-          <div class="home-svc-panel-head">
-            <strong>요약 AI 서비스</strong>
-            <span>요약할 문서·텍스트와 결과 형식을 지정하세요. (파일을 첨부한 경우 원문 입력은 비워둘 수 있습니다)</span>
-          </div>
-          <div class="home-svc-panel-row">
-            <label>결과 형식
-              <select id="homeSummaryFormat">
-                <option value="bullet" selected>핵심 불릿</option>
-                <option value="table">표 형식</option>
-                <option value="narrative">서술 요약</option>
-                <option value="custom">사용자 템플릿</option>
-              </select>
-            </label>
-          </div>
-          <textarea id="homeSummaryInput" rows="4" placeholder="요약할 원문을 입력하세요."></textarea>
-          <textarea id="homeSummaryTemplate" rows="3" placeholder="[사용자 템플릿] 원하는 출력 형식/항목을 적으세요. (결과 형식이 '사용자 템플릿'일 때 사용)"></textarea>
-        </div>
-
-        <!-- 표준 보고서 생성 AI 서비스 패널 (숨김) -->
-        <div class="home-svc-panel" id="homeReportStdPanel" style="display:none">
-          <div class="home-svc-panel-head">
-            <strong>표준 보고서 생성 AI 서비스</strong>
-            <span>신규 보고서 내용과 표준 보고서(출력 템플릿)를 입력하면, 템플릿의 형식·구성에 맞춰 신규 보고서를 생성합니다.</span>
-          </div>
-          <textarea id="homeReportStdContent" rows="4" placeholder="신규 보고서에 담을 내용을 입력하세요."></textarea>
-          <textarea id="homeReportStdTemplate" rows="5" placeholder="표준이 되는 보고서(출력 템플릿)의 전체 형식·구성을 붙여넣으세요."></textarea>
-        </div>
-
-        <!-- 선택 서비스별 프롬프트 템플릿 구성 패널 (동적 렌더) -->
-        <div id="homePromptTemplatePanels"></div>
 
         <!-- 컴포저 (프롬프트 입력 + 버튼) -->
         <div class="home-composer">
