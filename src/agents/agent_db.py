@@ -194,6 +194,26 @@ def _fallback_summary(company, declarations, risk) -> str:
     )
 
 
+# 동작방식(behavior)별 요약 초점 — 분석 시나리오의 CDW 동작칩 선택 시 적용.
+_DB_BEHAVIOR_FOCUS = {
+    "risk_focus": "위험지표(저가신고·특수관계·FTA 오용·환급 이상·품목분류 오류·역외은닉 의심율)와 위험등급 변화 추이에 집중해 보고하세요.",
+    "declaration_focus": "최근 수입신고 내역(품목·금액·원산지·처리상태)의 패턴과 검토/검사 비중, 이상 징후에 집중해 보고하세요.",
+    "profile_summary": "기업 기본 프로파일과 최근 신고·위험지표를 균형 있게 요약하세요.",
+}
+
+
+def _db_behaviors(state: CustomsState) -> list[str]:
+    """현재 단계에 선택된 동작방식(behavior) 목록을 반환한다."""
+    scenario = state.get("scenario") or {}
+    behaviors = scenario.get("current_agent_behaviors") or []
+    if isinstance(behaviors, str):
+        behaviors = [behaviors]
+    single = str(scenario.get("current_agent_behavior") or "").strip()
+    if single and single not in behaviors:
+        behaviors = [single, *behaviors]
+    return [str(b).strip() for b in behaviors if str(b).strip()]
+
+
 def _agent_nl_db(state: CustomsState, prompt: str) -> CustomsState:
     """기업 미지정 시 자연어 → SQL(NL→SQL) 방식으로 CDW를 조회한다.
 
@@ -243,6 +263,10 @@ def agent_db(state: CustomsState) -> CustomsState:
             "- CDW에 연관정보 없음: 임의 기업의 일반 위험정보를 대신 조회하지 않습니다."
         )
         return _error_state(state, "db_result", "CDW 조회 대상 기업이 확인되지 않았습니다.", result)
+
+    behaviors = _db_behaviors(state)
+    risk_history = None
+    declaration_breakdown = None
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -305,6 +329,35 @@ def agent_db(state: CustomsState) -> CustomsState:
             [company_id],
         ).df()
 
+        # 동작방식 조건화: 선택 behavior에 따라 조회 데이터를 추가한다.
+        if "risk_focus" in behaviors:
+            risk_history = conn.execute(
+                """
+                SELECT generated_at, risk_level, risk_score,
+                       undervaluation_suspicion_rate, related_party_anomaly_rate,
+                       fta_origin_misuse_suspicion_rate, customs_refund_anomaly_rate,
+                       hs_classification_error_rate, offshore_fund_concealment_suspicion_rate
+                FROM import_risk_scores
+                WHERE company_id = ?
+                ORDER BY generated_at DESC
+                LIMIT 5
+                """,
+                [company_id],
+            ).df()
+        if "declaration_focus" in behaviors:
+            declaration_breakdown = conn.execute(
+                """
+                SELECT status,
+                       COUNT(*) AS declaration_count,
+                       SUM(declared_value) AS total_declared_value
+                FROM import_declarations
+                WHERE company_id = ?
+                GROUP BY status
+                ORDER BY declaration_count DESC
+                """,
+                [company_id],
+            ).df()
+
     raw_data = f"""
 [기업 프로파일]
 {company.to_string(index=False) if not company.empty else "정보 없음"}
@@ -315,6 +368,10 @@ def agent_db(state: CustomsState) -> CustomsState:
 [위험 지표]
 {risk.to_string(index=False) if not risk.empty else "지표 없음"}
 """
+    if risk_history is not None and not risk_history.empty:
+        raw_data += f"\n[위험지표 추이(최근 5)]\n{risk_history.to_string(index=False)}\n"
+    if declaration_breakdown is not None and not declaration_breakdown.empty:
+        raw_data += f"\n[신고 처리상태 분포]\n{declaration_breakdown.to_string(index=False)}\n"
 
     if company.empty:
         result = (
@@ -339,12 +396,19 @@ def agent_db(state: CustomsState) -> CustomsState:
         "'DB 조회 결과 없음' 또는 'DB에 근거 없음'이라고 명확히 표시하세요.\n\n"
     )
 
+    focus_lines = [_DB_BEHAVIOR_FOCUS[b] for b in behaviors if b in _DB_BEHAVIOR_FOCUS]
+    focus_instruction = (
+        "\n[동작방식 초점]\n" + "\n".join(f"- {line}" for line in focus_lines) + "\n"
+        if focus_lines else ""
+    )
+
     if llm:
         summary = llm.invoke(
             db_only_instruction +
             "아래 업체 프로파일, 수입신고, 위험지표를 관세 조사 담당자에게 보고하듯 "
-            "핵심 위험 신호와 확인 필요 사항 중심으로 한국어로 요약하세요.\n"
-            f"{raw_data}"
+            "핵심 위험 신호와 확인 필요 사항 중심으로 한국어로 요약하세요."
+            + focus_instruction +
+            f"\n{raw_data}"
         ).content
     else:
         summary = _fallback_summary(company, declarations, risk)

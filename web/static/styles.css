@@ -509,14 +509,17 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* 스크롤은 상위 .home-dynamic-area 가 담당(컴포저는 하단 고정) */
 .home-pipeline-flow{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:4px 2px 8px}
 .home-pipeline-flow .home-svc-panel{flex:none;width:auto;margin:0;align-content:start}
-/* 카드 접기/펴기 토글 버튼 */
-.home-card-collapse{flex:none;width:24px;height:24px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;font-size:12px;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center}
-.home-card-collapse:hover{background:#eef2f7}
-.home-source-card .home-card-collapse{border-color:#fcd34d;color:#92400e}
-/* 접힌 카드: 헤더만 남기고 본문·우측 작업 영역 숨김 */
+/* 작은 액션 버튼(단일 수행·접기) — '프롬프트 및 수행 결과' 헤더 라인 오른쪽 끝에 배치 */
+.home-mini-btn{flex:none;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;cursor:pointer;white-space:nowrap}
+.home-mini-btn:hover{background:#eef2f7}
+.home-mini-btn.home-run-single{border-color:#93c5fd;color:#1d4ed8}
+.home-mini-btn.home-run-single:hover{background:#dbeafe}
+/* 접힌 카드: 헤더 + 작업패널 헤더(접기/펴기 버튼)만 남기고 본문·프롬프트·결과 숨김 */
 .home-svc-panel.is-collapsed{padding-top:8px;padding-bottom:8px}
 .home-svc-panel.is-collapsed .home-card-info>*:not(.home-frame-head){display:none}
-.home-svc-panel.is-collapsed .home-card-work{display:none}
+.home-svc-panel.is-collapsed .home-card-work>*:not(.home-card-work-head){display:none}
+.home-svc-panel.is-collapsed .home-card-work{border-left:0;padding-left:0}
+.home-svc-panel.is-collapsed .home-run-single{display:none}
 /* 전용 입력 서비스 카드: 전폭 단일 컬럼(2단 분할 없음), 폼을 카드 본문에 인라인 */
 .home-ded-frame{display:grid;gap:8px}
 .home-ded-body{display:grid;gap:8px}
@@ -524,7 +527,6 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* mail_share 카드 인라인: 카드가 테두리/배경을 제공하므로 패널은 단순 스택 */
 .home-ded-frame .home-mail-share-panel{display:flex;flex-direction:column;align-items:stretch;gap:8px;border:0;background:transparent;margin:0;padding:0}
 .home-ded-frame .home-mail-share-copy span{color:#475569;font-size:12px;line-height:1.4}
-.home-flow-arrow{display:flex;justify-content:center;color:#94a3b8;font-size:16px;font-weight:800}
 .home-card-info .home-input-row{flex-direction:column;align-items:stretch;gap:3px}
 .home-card-info .home-input-label{flex:none}
 .home-card-info .home-input-source,.home-card-info .home-input-value,.home-card-info .home-input-linked{flex:none;width:100%}
@@ -532,13 +534,27 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-card-row{display:flex;gap:12px;align-items:stretch}
 .home-card-info{flex:0 0 36%;min-width:0;display:grid;gap:8px;align-content:start}
 .home-card-work{flex:1 1 64%;min-width:0;display:flex;flex-direction:column;gap:6px;border-left:1px solid #e5edf7;padding-left:12px}
-.home-card-work-tab{font-size:12px;font-weight:800;color:#0f559c;border-bottom:2px solid #cfe0f5;padding-bottom:4px}
+/* '프롬프트 및 수행 결과' 헤더 라인: 좌측 라벨 + 우측 끝 작은 액션 버튼 */
+.home-card-work-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid #cfe0f5;padding-bottom:4px}
+.home-card-work-tab{font-size:12px;font-weight:800;color:#0f559c}
+.home-card-work-head .home-card-actions{display:flex;align-items:center;gap:6px;flex:none}
 .home-card-prompt{width:100%;border:1px solid #cfe0f5;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;resize:vertical;font-family:inherit;background:#fff}
 .home-card-result{min-height:0}
 .home-card-result-status{font-size:12px;padding:4px 2px}
 .home-card-result-head{margin-bottom:4px}
 .home-card-result-body{font-size:12px;line-height:1.5;max-height:240px;overflow:auto;background:#f8fbff;border:1px solid #edf2fb;border-radius:8px;padding:8px 10px}
-.home-card-actions{display:flex;justify-content:flex-end}
+/* 선제적 되묻기(clarify) 대화 카드 */
+.home-clarify{border:1px solid #fcd34d;background:#fffdf3;border-radius:10px;padding:12px;display:grid;gap:8px}
+.home-clarify-q{display:grid;gap:3px}
+.home-clarify-q strong{color:#92400e;font-size:13px}
+.home-clarify-q span{font-size:13px;color:#475569;line-height:1.4}
+.home-clarify-hint{font-size:12px;color:#94a3b8}
+.home-clarify-row{display:flex;gap:8px;align-items:center}
+.home-clarify-input{flex:1;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit}
+.home-clarify-submit{flex:none;height:34px;padding:0 14px;font-size:13px}
+.scenario-clarify-slot:empty{display:none}
+.scenario-clarify-slot{margin:0 0 8px}
+.home-card-actions{display:flex;justify-content:flex-end;gap:6px;align-items:center}
 .home-run-single{font-size:12px;padding:5px 14px}
 /* AI 서비스 입력값 칩(필수 표시) */
 .home-input-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;border:1px dashed #bfdbfe;border-radius:8px;background:#fbfdff}

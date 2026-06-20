@@ -2733,12 +2733,12 @@ let homeCardPromptState = {};
 // 카드별 접힘 상태(서비스가 많을 때 개별 카드 접기/펴기): { [serviceKey]: true=접힘 }
 let homeCardCollapsed = {};
 
-// 카드 헤더에 들어가는 접기/펴기 토글 버튼 HTML.
+// 카드 접기/펴기 토글 버튼 HTML (단일 수행 버튼 옆 액션 영역에 배치).
 function homeCardCollapseToggleHtml(key){
   const collapsed = !!homeCardCollapsed[key];
-  return `<button type="button" class="home-card-collapse" data-home-card-collapse="${escapeHtml(key)}"
+  return `<button type="button" class="home-mini-btn home-card-collapse" data-home-card-collapse="${escapeHtml(key)}"
       aria-expanded="${collapsed ? "false" : "true"}" aria-label="${collapsed ? "카드 펼치기" : "카드 접기"}"
-      title="${collapsed ? "펼치기" : "접기"}">${collapsed ? "▸" : "▾"}</button>`;
+      title="${collapsed ? "펼치기" : "접기"}">${collapsed ? "▸ 펴기" : "▾ 접기"}</button>`;
 }
 
 // 업무지식베이스(검색) 카드의 기본 프롬프트 — 조건이 있으면 조건 조회, 없으면 관련 자료 조회.
@@ -2855,14 +2855,26 @@ function homeRunSingleService(key, btn){
   if(kind === "agent"){
     for(const def of homeServiceInputDefs(key)){
       if(def.required && cardPrompt.includes(`[${def.label}]`)){
-        alert(`'${svc.label}'의 필수 입력값 '${def.label}'을(를) 입력하세요.\n프롬프트의 [${def.label}] 부분을 실제 값으로 바꾸거나, 이전 단계 결과에서 도출할 조건을 적으세요.\n예) 이전 기업프로파일 중 품목분류 오류율이 가장 높은 기업 ID`);
+        // alert 대신 카드 결과영역에서 대화형으로 값을 되묻고, 받은 값으로 토큰을 치환해 재실행
+        const target = document.querySelector(`[data-home-card-result="${cssString(key)}"]`);
+        homeMountClarify(target, svc.label, def, (val) => {
+          const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+          if(el){
+            const cur = el.isContentEditable ? el.innerText : el.value;
+            const next = cur.replace(`[${def.label}]`, val);
+            if(el.isContentEditable) el.innerText = next; else el.value = next;
+            homeCardPromptState[key] = { text: next, edited: true };
+          }
+          homeRunSingleService(key, btn);
+        });
         return;
       }
     }
   }
   // MyAI는 프롬프트에 충실 — 프롬프트에서 명시된 기업만 사용하고, 화면의 활성 기업을
-  // 임의로 주입하지 않는다(빈값이면 agent_db가 프롬프트 기반 NL→SQL로 조회).
-  const companyId = detectCompanyId(cardPrompt) || "";
+  // 임의로 주입하지 않는다. 특정 기업이 없으면 빈값이 아니라 메인 실행과 동일한 센티넬을 보내
+  // (빈 company_id는 서버가 400으로 반려 → SSE 끊김 → '실행 중' 멈춤), agent_db가 NL→SQL로 조회한다.
+  const companyId = detectCompanyId(cardPrompt) || "__NO_COMPANY_SELECTED__";
   homeUpdateCardResult(key, "running");
   homeStreamAgents(cardPrompt, companyId, [{ type: svc.type, key, label: svc.label }], btn);
 }
@@ -3212,15 +3224,21 @@ function homeBuildCombinedPrompt(){
       } else if((st.value || "").trim()){
         inputBits.push(`${def.label} ${st.value.trim()}`);
       } else if(def.required){
-        inputBits.push(`${def.label} [${def.label}]`);
+        inputBits.push(`[${def.label}]`);  // 미입력 — 실행 시 입력 요청용 [입력값 이름] 토큰
       }
     });
-    // "{입력값}을 활용하여 '{서비스}'을(를) 수행해줘"
-    const subject = (sources.length || idx > 0) ? "앞 단계 결과를 활용해 " : "";
+    // "'{서비스}'을(를) 수행해줘 (입력값: …)". 입력값이 없으면 앞 단계 맥락을 쓰라고만 안내.
+    const subject = (!inputBits.length && (sources.length || idx > 0)) ? "앞 단계 결과를 활용해 " : "";
     segments.push(inputBits.length
-      ? `${subject}${inputBits.join(", ")}을(를) 활용하여 '${label}'을(를) 수행해줘.`
+      ? `${subject}'${label}'을(를) 수행해줘 (입력값: ${inputBits.join(", ")}).`
       : `${subject}'${label}'을(를) 수행해줘.`);
   });
+
+  // 최종 결과 종합: 2개 이상 AI 서비스 + 사용자가 종합 지시를 입력한 경우에만 마지막에 1회 추가
+  const finalText = (homeFinalResultState.text || "").trim();
+  if(finalText && aiOrder.length >= 2){
+    segments.push(`마지막으로 모든 단계 결과를 종합해 ${finalText}`);
+  }
 
   return segments.join(" ").trim();
 }
@@ -3261,6 +3279,46 @@ function homeValidateServiceInputs(){
     }
   }
   return { ok: true };
+}
+
+// ── 선제적 되묻기(clarify) 게이트 — 실행 전 결정적 입력검증, 부족하면 대화형으로 되묻기(LLM 미사용) ──
+// 통합 실행용: 첫 미입력 필수 항목 {key, def} 반환(직접 입력이 비었고 단계 연계도 아님).
+function homeFirstMissingRequired(){
+  const aiOrder = homeSyncPipelineOrder();
+  for(const key of aiOrder){
+    for(const def of homeServiceInputDefs(key)){
+      if(!def.required) continue;
+      const st = homeServiceInputState[key]?.[def.key] || { source: "manual", value: "" };
+      if(st.source === "manual" && !(st.value || "").trim()) return { key, def };
+    }
+  }
+  return null;
+}
+
+// 되묻기 UI를 targetEl에 렌더하고, 값 제출 시 onSubmit(value)를 호출한다.
+function homeMountClarify(targetEl, svcLabel, def, onSubmit){
+  if(!targetEl) return;
+  targetEl.innerHTML = `
+    <div class="home-clarify" data-home-clarify>
+      <div class="home-clarify-q">
+        <strong>추가 정보가 필요합니다</strong>
+        <span>'${escapeHtml(svcLabel)}' 수행에 <b>${escapeHtml(def.label)}</b> 값이 필요합니다. 어떤 값으로 진행할까요?</span>
+        <span class="home-clarify-hint">예: 기업명 또는 ID(C-1002) · "이전 단계 중 품목분류 오류율이 가장 높은 기업"</span>
+      </div>
+      <div class="home-clarify-row">
+        <input type="text" class="home-clarify-input" placeholder="${escapeHtml(def.placeholder || def.label)}">
+        <button type="button" class="btn home-clarify-submit">이 값으로 계속</button>
+      </div>
+    </div>`;
+  const input = targetEl.querySelector(".home-clarify-input");
+  const go = () => {
+    const val = (input?.value || "").trim();
+    if(!val){ input?.focus(); return; }
+    onSubmit(val);
+  };
+  targetEl.querySelector(".home-clarify-submit")?.addEventListener("click", go);
+  input?.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); go(); } });
+  input?.focus();
 }
 
 // 프레임 textarea를 현재 동작 조합 템플릿으로 (편집 전이면) 프리필한다.
@@ -3328,12 +3386,15 @@ function homeCardWorkPanel(key, kind, gi = 0){
   }
   return `
     <div class="home-card-work">
-      <div class="home-card-work-tab">프롬프트 및 수행 결과</div>
+      <div class="home-card-work-head">
+        <div class="home-card-work-tab">프롬프트 및 수행 결과</div>
+        <div class="home-card-actions">
+          <button type="button" class="home-mini-btn home-run-single" data-home-run-single="${escapeHtml(key)}">단일 수행</button>
+          ${homeCardCollapseToggleHtml(key)}
+        </div>
+      </div>
       ${promptEl}
       <div class="home-card-result" data-home-card-result="${escapeHtml(key)}"></div>
-      <div class="home-card-actions">
-        <button type="button" class="btn secondary home-run-single" data-home-run-single="${escapeHtml(key)}">단일 수행</button>
-      </div>
     </div>
   `;
 }
@@ -3350,7 +3411,6 @@ function homeDataSourceCardHtml(key, order){
           <span class="home-frame-order src" title="실행 순서">${order}</span>
           <strong class="home-frame-title">${escapeHtml(svc?.label || key)}</strong>
           <span class="home-source-badge">업무지식베이스</span>
-          ${homeCardCollapseToggleHtml(key)}
         </div>
         <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 입력하세요.</p>
         <input type="text" class="home-source-condition" data-home-source-condition data-key="${escapeHtml(key)}"
@@ -3386,14 +3446,15 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
             <button type="button" class="home-frame-move-btn" data-home-frame-move="up" data-key="${escapeHtml(key)}" ${idx === 0 ? "disabled" : ""} aria-label="순서 앞으로" title="앞으로">◀</button>
             <button type="button" class="home-frame-move-btn" data-home-frame-move="down" data-key="${escapeHtml(key)}" ${idx === total - 1 ? "disabled" : ""} aria-label="순서 뒤로" title="뒤로">▶</button>
           </span>
-          ${homeCardCollapseToggleHtml(key)}
         </div>`;
 
-  // 전용 입력 서비스(번역·요약·표준보고서·공유): 폼을 카드 본문에 전폭으로 인라인 렌더(2단 분할 없음)
+  // 전용 입력 서비스(번역·요약·표준보고서·공유): 폼을 카드 본문에 전폭으로 인라인 렌더(2단 분할 없음).
+  // 작업 패널이 없으므로 접기 버튼은 카드 헤더 오른쪽 끝에 둔다.
   if(HOME_DEDICATED_PANEL_SERVICES.has(key)){
+    const dedHead = head.replace("</div>", `  ${homeCardCollapseToggleHtml(key)}\n        </div>`);
     return `
     <div class="home-svc-panel home-pipeline-frame home-ded-frame${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
-      ${head}
+      ${dedHead}
       ${desc ? `<p class="home-frame-desc">${escapeHtml(desc)}</p>` : ""}
       <div class="home-ded-body">${homeDedicatedPanelInnerHtml(key)}</div>
     </div>
@@ -3459,7 +3520,7 @@ function homeRenderPromptTemplatePanels(){
     ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
     ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
   ];
-  const flow = cards.join(`<div class="home-flow-arrow" aria-hidden="true">↓</div>`);
+  const flow = cards.join("");
   const finalHtml = aiOrder.length >= 2 ? homeFinalResultPanelHtml() : "";
 
   const allCollapsed = runtimeSteps.length > 0 && runtimeSteps.every(key => homeCardCollapsed[key]);
@@ -3606,14 +3667,29 @@ function removeShareEmailFromScope(scope, email){
   renderShareEmailPanel(scope);
 }
 
-function ensureMailShareRecipients(items){
+function ensureMailShareRecipients(items, rerun){
   const missing = items.find(item => item.key === "mail_share" && !scenarioItemShareRecipients(item).length);
   if(!missing) return true;
   selectedScenarioId = missing.id;
   renderScenarioList();
   syncScenarioEditor();
-  alert("분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.");
-  document.getElementById("scenarioShareEmailInput")?.focus();
+  // alert 대신 실행 로그 영역에서 대화형으로 수신자를 되묻고, 등록 후 재실행한다.
+  const slot = document.getElementById("scenarioClarify");
+  if(slot){
+    homeMountClarify(slot, "분석결과 공유 AI 서비스",
+      { label: "수신 이메일 ID", placeholder: "예: officer@customs.go.kr" },
+      (val) => {
+        if(addShareEmailsToScope("scenario", val)){
+          slot.innerHTML = "";
+          if(rerun) rerun();
+          else setScenarioStatus("수신자 등록됨 — 다시 실행하세요");
+        }
+      });
+  } else {
+    // clarify 컨테이너가 없는 화면: 전용 입력창 포커스 + 안내
+    document.getElementById("scenarioShareEmailInput")?.focus();
+    setScenarioStatus("수신 이메일 ID를 1개 이상 등록 후 다시 실행하세요");
+  }
   return false;
 }
 
@@ -3732,7 +3808,7 @@ function addPendingScenarioWebTarget(){
   return addWebTargetToScope("scenario");
 }
 
-function ensureDirectUrlTargets(items){
+function ensureDirectUrlTargets(items, rerun){
   const missing = items.find(item =>
     item.key === "web_search"
     && Array.isArray(item.behaviors)
@@ -3743,8 +3819,24 @@ function ensureDirectUrlTargets(items){
   selectedScenarioId = missing.id;
   renderScenarioList();
   syncScenarioEditor();
-  alert("웹검색 AI 서비스에서 URL 직접 등록을 선택한 경우 확인할 URL을 1개 이상 등록하세요.");
-  document.getElementById("scenarioWebTargetUrl")?.focus();
+  // alert 대신 대화형으로 확인할 URL을 되묻고, 등록 후 재실행한다.
+  const slot = document.getElementById("scenarioClarify");
+  if(slot){
+    homeMountClarify(slot, "웹검색 AI 서비스(URL 직접 등록)",
+      { label: "확인할 URL", placeholder: "예: https://example.com/notice" },
+      (val) => {
+        const urlInput = document.getElementById("scenarioWebTargetUrl");
+        if(urlInput) urlInput.value = val;
+        if(addWebTargetToScope("scenario")){
+          slot.innerHTML = "";
+          if(rerun) rerun();
+          else setScenarioStatus("URL 등록됨 — 다시 실행하세요");
+        }
+      });
+  } else {
+    document.getElementById("scenarioWebTargetUrl")?.focus();
+    setScenarioStatus("확인할 URL을 1개 이상 등록 후 다시 실행하세요");
+  }
   return false;
 }
 
@@ -3976,11 +4068,13 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
 
   const resultBox = document.getElementById("homeResultBox");
 
-  // 최종 결과 종합 단계 주입: 사용자가 최종 결과 프롬프트를 입력했고 2개 이상 서비스를 실행할 때,
+  // 최종 결과 종합 단계 주입: 사용자가 종합 지시문을 입력했고 AI 분석 서비스가 2개 이상일 때,
   // 모든 단계 뒤(공유가 있으면 공유 직전)에 '최종 결과 종합' 단계를 1회 추가한다.
+  // (카드 노출 조건 aiOrder.length >= 2 과 동일하게 데이터소스는 제외하고 카운트)
   const finalText = (homeFinalResultState.text || "").trim();
+  const aiServiceCount = runAgents.filter(a => !homeIsDataSourceKey(a.key)).length;
   let effectiveAgents = runAgents;
-  if(finalText && runAgents.length >= 2 && !runAgents.some(a => a.key === "result_synthesis")){
+  if(finalText && aiServiceCount >= 2 && !runAgents.some(a => a.key === "result_synthesis")){
     const synthesisDef = { type: "result_synthesis", key: "result_synthesis", label: "최종 결과 종합" };
     const shareIdx = runAgents.findIndex(a => a.key === "mail_share");
     effectiveAgents = [...runAgents];
@@ -4068,7 +4162,10 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     } else if(data.status === "error"){
       homeStepStatus[label] = "error";
       homeRunResults[label] = data.error || "오류 발생";
-      homeUpdateCardResult(labelToKey[label], "error", homeRunResults[label]);
+      homeUpdateCardResult(labelToKey[label], "error",
+        `${homeRunResults[label]}\n\n조건을 더 구체적으로 보완해 다시 시도하세요. ` +
+        `특정 기업이 대상이면 기업명 또는 ID(예: C-1002)를 함께 적고, ` +
+        `전체 기업 집계라면 원하는 지표·정렬·개수를 명시하세요.`);
       console.error(`[MyAI분석] ${label} 오류: ${data.error || "실행 오류"}`);
     }
     homeRenderDetail();
@@ -4092,6 +4189,20 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
   });
 
   homeEventSource.onerror = () => {
+    // 스트림이 끊겼는데(예: 서버가 4xx로 반려) 아직 완료되지 않은 카드는 '오류'로 표시해
+    // 무한 '실행 중...' 멈춤을 방지하고, 보완 방향을 대화형 안내로 제시한다.
+    effectiveAgents.forEach(a => {
+      const stt = homeStepStatus[a.label];
+      if(stt === "wait" || stt === "running"){
+        homeStepStatus[a.label] = "error";
+        homeUpdateCardResult(a.key, "error",
+          "수행을 완료하지 못했습니다. 아래를 확인해 조건을 보완한 뒤 다시 시도하세요.\n\n" +
+          "- 조회 조건이 구체적인가요? (대상 기업·품목·기간 등)\n" +
+          "- 특정 기업이 대상이면 기업명 또는 ID(예: C-1002)를 함께 적었나요?\n" +
+          "- 전체 기업 대상 집계(예: 오류율 상위 10개)라면 그대로 다시 시도하면 됩니다.");
+      }
+    });
+    homeRenderDetail();
     setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
@@ -4241,14 +4352,21 @@ async function homeRunAnalysis(prompt, btn){
   const selectedOptions = homeSelectedAnalysisOptions();
   const selectedRunAgents = homeRunAgentsFromSelection(selectedOptions);
   const hasSelectedInternalTool = selectedRunAgents.length > 0;
-  // AI 분석서비스 필수 입력값 검증
+  // AI 분석서비스 필수 입력값 검증 — 부족하면 실행 전에 대화형으로 되묻는다(선제적 clarify)
   if(hasSelectedInternalTool){
-    const inputCheck = homeValidateServiceInputs();
-    if(!inputCheck.ok){
-      alert(inputCheck.message);
-      document.querySelector(`[data-home-pipeline-frame="${cssString(inputCheck.key)}"]`)?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+    const missing = homeFirstMissingRequired();
+    if(missing){
       setHomeActionLabel(btn, "AI실행");
       btn.disabled = false;
+      const svcLabel = AI_SERVICE_REGISTRY[missing.key]?.label || missing.key;
+      if(resultBox){ resultBox.style.display = "block"; homeToggleGreeting(false); }
+      document.querySelector(`[data-home-pipeline-frame="${cssString(missing.key)}"]`)?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+      homeMountClarify(resultBox, svcLabel, missing.def, (val) => {
+        homeEnsureInputState(missing.key);
+        homeServiceInputState[missing.key][missing.def.key] = { source: "manual", value: val };
+        homeRenderPromptTemplatePanels();          // 토큰·통합 프롬프트 갱신
+        homeRunAnalysis(coachPromptText(), btn);   // 보완 후 재실행(나머지 미입력은 다시 되묻기)
+      });
       return;
     }
   }
@@ -7331,6 +7449,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
                 ${archived ? "disabled" : ""}>결과 지우기</button>
             </div>
           </div>
+          <div id="scenarioClarify" class="scenario-clarify-slot"></div>
           <div id="scenarioStepAccordion" class="scenario-step-accordion"></div>
         </section>
       </div>
@@ -8623,8 +8742,11 @@ function runScenarioWorkflow(startIndex = 0){
   const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
   if(!addPendingScenarioWebTarget()) return;
   if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
-  if(!ensureMailShareRecipients(runnableItems)) return;
-  if(!ensureDirectUrlTargets(runnableItems)) return;
+  const resumeRun = () => runScenarioWorkflow(runStartIndex);
+  if(!ensureMailShareRecipients(runnableItems, resumeRun)) return;
+  if(!ensureDirectUrlTargets(runnableItems, resumeRun)) return;
+  const clarifySlot = document.getElementById("scenarioClarify");
+  if(clarifySlot) clarifySlot.innerHTML = "";
 
   if(scenarioEventSource) scenarioEventSource.close();
   if(runStartIndex === 0){
@@ -8759,8 +8881,9 @@ function runSingleScenarioItem(item){
     alert(`이 AI 서비스를 실행할 권한이 없습니다. (${permissionLabel(permissionStatus(item.key))})`);
     return;
   }
-  if(!ensureMailShareRecipients([item])) return;
-  if(!ensureDirectUrlTargets([item])) return;
+  const resumeSingle = () => runSingleScenarioItem(item);
+  if(!ensureMailShareRecipients([item], resumeSingle)) return;
+  if(!ensureDirectUrlTargets([item], resumeSingle)) return;
 
   if(scenarioSingleEventSource){ try{ scenarioSingleEventSource.close(); }catch(e){} scenarioSingleEventSource = null; }
 
@@ -8968,11 +9091,12 @@ document.addEventListener("input", (event) => {
   }
 });
 
-// 최종 결과 종합 지시문 편집
+// 최종 결과 종합 지시문 편집 — 통합 프롬프트에도 즉시 반영
 document.addEventListener("input", (event) => {
   if(event.target && event.target.id === "homeFinalResultText"){
     homeFinalResultState.text = event.target.value;
     homeFinalResultState.edited = true;
+    homeSyncCombinedPrompt();
   }
 });
 
@@ -9784,7 +9908,7 @@ document.addEventListener("click", (event)=>{
     homeCardCollapsed[key] = collapsed;
     const panel = cardCollapse.closest(".home-svc-panel");
     if(panel) panel.classList.toggle("is-collapsed", collapsed);
-    cardCollapse.textContent = collapsed ? "▸" : "▾";
+    cardCollapse.textContent = collapsed ? "▸ 펴기" : "▾ 접기";
     cardCollapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
     cardCollapse.setAttribute("aria-label", collapsed ? "카드 펼치기" : "카드 접기");
     cardCollapse.title = collapsed ? "펼치기" : "접기";

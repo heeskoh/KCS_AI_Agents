@@ -2023,12 +2023,19 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                     )
                     if linked_orders:
                         print(f"[AI서비스] {label} 단계연계 입력 치환: {linked_orders}단계 결과 주입")
+                # 현재 단계의 동작방식(behavior)·지시문을 state에 전달 — 에이전트가
+                # 동작조건에 따라 조회/요약을 달리할 수 있도록 한다(예: CDW 위험지표 중심).
+                item_behaviors = list((item or {}).get("behaviors") or [])
+                item_behavior = str((item or {}).get("behavior") or (item_behaviors[0] if item_behaviors else ""))
                 step_state = {
                     **state,
                     "scenario": {
                         **(state.get("scenario") or {}),
                         "current_agent_key": key,
                         "current_agent_label": label,
+                        "current_agent_behaviors": item_behaviors,
+                        "current_agent_behavior": item_behavior,
+                        "current_agent_instruction": str((item or {}).get("instruction") or ""),
                     },
                 }
                 print(f"\n[AI서비스] {label} 실행 시작")
