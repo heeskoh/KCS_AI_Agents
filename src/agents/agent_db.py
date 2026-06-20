@@ -249,9 +249,17 @@ def agent_db(state: CustomsState) -> CustomsState:
     if target_type(state) == "person":
         return _agent_person_db(state)
 
+    scenario = state.get("scenario") or {}
     company_id = (state.get("company_id") or "").strip()
     prompt = prompt_text(state)
     print(f"[Agent] CDW DB 조회 시작: {company_id}")
+
+    # MyAI 분석: 자연어→SQL 변환이 최우선 기능. 기업이 프롬프트에서 해석되어 company_id가
+    # 잡혔더라도, 사용자 질의를 정형 위험요약으로 대체하지 않고 NL→SQL로 직접 수행한다.
+    if scenario.get("myai_mode"):
+        nl_query = (str(scenario.get("current_agent_instruction") or "").strip() or prompt.strip())
+        if nl_query:
+            return _agent_nl_db(state, nl_query)
 
     if company_id in NO_COMPANY_SENTINELS:
         # 대상 기업이 지정되지 않아도 사용자 프롬프트가 있으면 NL→SQL로 직접 조회

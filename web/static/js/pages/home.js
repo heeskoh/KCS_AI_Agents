@@ -8,7 +8,7 @@ const WORK_SHORTCUTS = [
   { className: "purple", page: "lawsearch", label: "마약수사", image: "Drug_Inv.png" },
   { className: "teal", page: "fxsearch", label: "외환수사", image: "Foreigncash.png" },
   { className: "olive", page: "case", label: "국제정보", image: "Global.png" },
-  { className: "lime", page: "model", label: "온톨로지", image: "Ontology.png" },
+  { className: "lime", page: "model", label: "관계망 분석", image: "Ontology.png" },
 ];
 
 const DASHBOARD_SHORTCUTS = [
