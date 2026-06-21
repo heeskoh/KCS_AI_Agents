@@ -1838,8 +1838,6 @@ let customsInfoDateTo    = "";
 
 /* ── 국제정보분석 상태 ─────────────────────────────────────── */
 
-/* ── 관세온톨로지 상태 ─────────────────────────────────────── */
-let ontologyTab          = "graph";    // "graph"|"rules"|"inference"
 
 /* ── 일반수사분석 상태 ─────────────────────────────────────── */
 let riskPersons          = [];
@@ -6248,10 +6246,9 @@ function intlInfoPage(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   관세 온톨로지 페이지
+   관계망 분석 페이지 (구 관세 온톨로지) — 관계망분석을 메인으로 단일 구성
    ═══════════════════════════════════════════════════════════════ */
 function customsOntologyPage(){
-  const tab = ontologyTab;
   const ontologyNodes = [
     {id:"traveler",label:"우범여행자",type:"person",x:50,y:20,desc:"마약·밀수 관련 위험 여행자"},
     {id:"associate",label:"관계자",type:"person",x:20,y:45,desc:"우범여행자와 연관된 인물"},
@@ -6269,121 +6266,63 @@ function customsOntologyPage(){
     {from:"cargo_a",to:"declaration",label:"신고대상",type:"event"},
     {from:"cargo_b",to:"declaration",label:"신고대상",type:"event"},
   ];
-  const rules = [
-    { id:"R01", name:"우범여행자 화물 감시", condition:"우범여행자 = 화물.화주 OR 우범여행자.관계자 = 화물.화주", action:"위험도 +30, 검사지시", category:"화물감시" },
-    { id:"R02", name:"우범여행자 기업 연계", condition:"우범여행자 = 기업.대표자 OR 우범여행자.관계자 = 기업.대표자", action:"기업 위험도 상향, 통관 강화심사", category:"기업감시" },
-    { id:"R03", name:"관계자 화물 추적", condition:"우범여행자.관계자 = 화물.화주 AND 화물.원산지 IN 우범국가", action:"위험도 +20, 심층검사", category:"화물감시" },
-    { id:"R04", name:"고빈도 입국 패턴", condition:"여행자.최근30일입국횟수 >= 3 AND 여행자.입국경로 IN 마약경로", action:"우범여행자 등록 검토", category:"입국감시" },
-    { id:"R05", name:"저가신고 연계기업 감시", condition:"기업.저가신고건수 >= 3 AND 기업.대표자 = 우범여행자.관계자", action:"전수 검사, 조사국 통보", category:"가격심사" },
-  ];
-  const inferences = [
-    { id:"INF-001", subject:"(주)위장무역", conclusion:"고위험 기업 분류", path:"박공범(관계자) → 대표자 → (주)위장무역 → 화물 3건 → 마약전구물질 포함", confidence:92 },
-    { id:"INF-002", subject:"화물 202605300001", conclusion:"심층검사 대상", path:"김우범(우범여행자) → 화주 → 화물 202605300001 → R01 적용", confidence:95 },
-    { id:"INF-003", subject:"최연락", conclusion:"우범여행자 등록 검토", path:"최연락 → 최근30일 4회 입국 → 방콕 경유 → R04 적용", confidence:78 },
-  ];
   const nodeColors = {person:"#7c3aed",org:"#0284c7",cargo:"#d97706",event:"#16a34a"};
   const nodeLabels = {person:"인물",org:"기관/기업",cargo:"화물",event:"사건/신고"};
   return `
     <section class="card gi-hub">
       <div class="gi-page-head">
         <div>
-          <h2>관세 온톨로지</h2>
-          <p class="muted">지식그래프 기반 의미론적 온톨로지 — 우범여행자 감시 온톨로지, 관계망 그래프, 룰 및 추론 엔진을 제공합니다.</p>
+          <h2>관계망 분석</h2>
+          <p class="muted">관계망(그래프) 기반 분석 — 우범여행자·기업·화물 관계망을 제공합니다.</p>
         </div>
       </div>
-      <div class="gi-tab-nav">
-        <button class="gi-tab${tab==="graph"?" active":""}" data-ont-tab="graph">관계망 그래프</button>
-        <button class="gi-tab${tab==="rules"?" active":""}" data-ont-tab="rules">온톨로지 룰</button>
-        <button class="gi-tab${tab==="inference"?" active":""}" data-ont-tab="inference">추론 엔진 결과</button>
-      </div>
       <div class="gi-tab-body">
-        ${tab === "rules" ? `
-          <div style="margin-bottom:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e">
-            룰(Rule) 기반 추론 엔진이 아래 조건을 평가하여 우범여행자 관련 화물·기업에 자동으로 위험등급을 부여하고 조치를 취합니다.
-          </div>
-          <div style="overflow-x:auto">
-            <table class="data-table">
-              <thead><tr><th>규칙ID</th><th>규칙명</th><th>조건(IF)</th><th>조치(THEN)</th><th>분류</th></tr></thead>
-              <tbody>
-                ${rules.map(r=>`
-                  <tr>
-                    <td style="font-family:monospace;color:#1e40af">${escapeHtml(r.id)}</td>
-                    <td><strong>${escapeHtml(r.name)}</strong></td>
-                    <td style="font-family:monospace;font-size:11px;color:#7c3aed">${escapeHtml(r.condition)}</td>
-                    <td style="font-size:12px;color:#dc2626">${escapeHtml(r.action)}</td>
-                    <td><span style="background:#eef4ff;color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px">${escapeHtml(r.category)}</span></td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        ` : tab === "inference" ? `
-          <div style="margin-bottom:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534">
-            추론 엔진이 온톨로지 룰을 적용하여 도출한 결론입니다. 추론 경로를 통해 판단 근거를 투명하게 확인할 수 있습니다.
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${inferences.map(inf=>`
-              <div style="background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;padding:14px 16px">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                  <span style="font-family:monospace;color:#1e40af;font-size:12px">${escapeHtml(inf.id)}</span>
-                  <strong style="font-size:14px">${escapeHtml(inf.subject)}</strong>
-                  <span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:auto">${escapeHtml(inf.conclusion)}</span>
-                  <span style="font-size:12px;color:${inf.confidence>=90?"#16a34a":"#d97706"}">신뢰도 ${inf.confidence}%</span>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div class="panel-section-hdr" style="margin-bottom:8px"><span>우범여행자 감시 관계망 그래프</span></div>
+            <div style="position:relative;height:480px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
+              <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
+                ${ontologyEdges.map(e=>{
+                  const from = ontologyNodes.find(n=>n.id===e.from);
+                  const to   = ontologyNodes.find(n=>n.id===e.to);
+                  if(!from||!to) return "";
+                  const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
+                  const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
+                  const color = e.type==="relation"?"#7c3aed":e.type==="role"?"#0284c7":"#16a34a";
+                  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${e.type==="event"?"4,3":""}"/>
+                          <text x="${mx}" y="${my}" font-size="10" fill="${color}" text-anchor="middle" dy="-3">${escapeHtml(e.label)}</text>`;
+                }).join("")}
+              </svg>
+              ${ontologyNodes.map(n=>`
+                <div style="position:absolute;left:calc(${n.x}% - 40px);top:calc(${n.y}% - 28px);text-align:center;width:80px">
+                  <div style="background:${nodeColors[n.type]};color:#fff;border-radius:8px;padding:6px 4px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);border:2px solid #fff;cursor:default" title="${escapeHtml(n.desc)}">${escapeHtml(n.label)}</div>
+                  <div style="font-size:10px;color:#6b7f9e;margin-top:2px">${escapeHtml(nodeLabels[n.type])}</div>
                 </div>
-                <div style="font-size:12px;color:#6b7f9e;background:#fff;border:1px solid #e5edff;border-radius:6px;padding:8px 10px;font-family:monospace">
-                  추론 경로: ${escapeHtml(inf.path)}
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        ` : `
-          <div style="display:flex;gap:16px">
-            <div style="flex:1;min-width:0">
-              <div class="panel-section-hdr" style="margin-bottom:8px"><span>우범여행자 감시 온톨로지 그래프</span></div>
-              <div style="position:relative;height:480px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
-                <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
-                  ${ontologyEdges.map(e=>{
-                    const from = ontologyNodes.find(n=>n.id===e.from);
-                    const to   = ontologyNodes.find(n=>n.id===e.to);
-                    if(!from||!to) return "";
-                    const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
-                    const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
-                    const color = e.type==="relation"?"#7c3aed":e.type==="role"?"#0284c7":"#16a34a";
-                    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${e.type==="event"?"4,3":""}"/>
-                            <text x="${mx}" y="${my}" font-size="10" fill="${color}" text-anchor="middle" dy="-3">${escapeHtml(e.label)}</text>`;
-                  }).join("")}
-                </svg>
-                ${ontologyNodes.map(n=>`
-                  <div style="position:absolute;left:calc(${n.x}% - 40px);top:calc(${n.y}% - 28px);text-align:center;width:80px">
-                    <div style="background:${nodeColors[n.type]};color:#fff;border-radius:8px;padding:6px 4px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);border:2px solid #fff;cursor:default" title="${escapeHtml(n.desc)}">${escapeHtml(n.label)}</div>
-                    <div style="font-size:10px;color:#6b7f9e;margin-top:2px">${escapeHtml(nodeLabels[n.type])}</div>
-                  </div>
-                `).join("")}
-              </div>
-              <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
-                ${Object.entries(nodeColors).map(([type,color])=>`
-                  <span style="display:flex;align-items:center;gap:4px;font-size:12px">
-                    <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block"></span>${nodeLabels[type]}
-                  </span>
-                `).join("")}
-              </div>
+              `).join("")}
             </div>
-            <div style="width:280px;flex:none">
-              <div class="panel-section-hdr" style="margin-bottom:8px"><span>온톨로지 클래스 정의</span></div>
-              <div style="display:flex;flex-direction:column;gap:6px">
-                ${ontologyNodes.map(n=>`
-                  <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:10px 12px;border-left:3px solid ${nodeColors[n.type]}">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <strong style="font-size:13px;color:${nodeColors[n.type]}">${escapeHtml(n.label)}</strong>
-                      <span style="font-size:10px;color:#6b7f9e;border:1px solid #dde8ff;border-radius:3px;padding:1px 5px">${escapeHtml(nodeLabels[n.type])}</span>
-                    </div>
-                    <div style="font-size:12px;color:#6b7f9e;margin-top:3px">${escapeHtml(n.desc)}</div>
-                  </div>
-                `).join("")}
-              </div>
+            <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+              ${Object.entries(nodeColors).map(([type,color])=>`
+                <span style="display:flex;align-items:center;gap:4px;font-size:12px">
+                  <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block"></span>${nodeLabels[type]}
+                </span>
+              `).join("")}
             </div>
           </div>
-        `}
+          <div style="width:280px;flex:none">
+            <div class="panel-section-hdr" style="margin-bottom:8px"><span>관계망 클래스 정의</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${ontologyNodes.map(n=>`
+                <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:10px 12px;border-left:3px solid ${nodeColors[n.type]}">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <strong style="font-size:13px;color:${nodeColors[n.type]}">${escapeHtml(n.label)}</strong>
+                    <span style="font-size:10px;color:#6b7f9e;border:1px solid #dde8ff;border-radius:3px;padding:1px 5px">${escapeHtml(nodeLabels[n.type])}</span>
+                  </div>
+                  <div style="font-size:12px;color:#6b7f9e;margin-top:3px">${escapeHtml(n.desc)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   `;
@@ -10599,13 +10538,6 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  const ontologyTabBtn = event.target.closest("[data-ont-tab]");
-  if(ontologyTabBtn){
-    ontologyTab = ontologyTabBtn.dataset.ontTab;
-    render("model");
-    return;
-  }
-
   const intlTemplateBtn = event.target.closest("[data-intl-template]");
   if(intlTemplateBtn){
     const input = document.getElementById("coachPrompt");
@@ -10672,9 +10604,6 @@ document.addEventListener("click", (event)=>{
       }
       if(page === "rag"){
         customsInfoTab = "today";
-      }
-      if(page === "model"){
-        ontologyTab = "graph";
       }
     }
     render(pageButton.dataset.page);

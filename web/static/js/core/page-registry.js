@@ -13,7 +13,7 @@ export const pageNames = {
   fxsearch:"외환수사분석",
   document:"문서검증",
   dw:"위험선별 분석",
-  model:"관세 온톨로지",
+  model:"관계망 분석",
   rag:"통관정보 분석",
   case:"국제정보 분석",
   report:"보고서",

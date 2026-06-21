@@ -10,7 +10,7 @@ export const DEFAULT_ANALYSIS_BUTTONS = [
   { className: "purple", page: "lawsearch", label: "마약 수사 분석" },
   { className: "teal", page: "fxsearch", label: "외환 수사 분석" },
   { className: "olive", page: "case", label: "국제 정보분석" },
-  { className: "lime", page: "model", label: "관세 온톨로지" },
+  { className: "lime", page: "model", label: "관계망 분석" },
   { className: "brown", page: "report", label: "Case별 RAG" },
 ];
 
