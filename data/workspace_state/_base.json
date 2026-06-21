@@ -1152,7 +1152,9 @@
                       "query": "",
                       "includeHistory": true,
                       "model": "KCS_LLM",
-                      "tools": [],
+                      "tools": [
+                        "HS 품목분류"
+                      ],
                       "outputFormat": "text",
                       "note": "",
                       "condition": "",
@@ -1485,7 +1487,7 @@
     }
   },
   "currentUserId": "u01",
-  "generalInvTab": "cases",
+  "generalInvTab": "profile",
   "activeGenInvCaseId": "GI-2026-004",
   "drugInvTab": "templates",
   "activeDrugCaseId": null,

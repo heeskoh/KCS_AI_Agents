@@ -1762,9 +1762,17 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* ── 수사 프로파일: 좌측 대시보드(60%) + 우측 관계망 그래프(40%), 좌우 독립 스크롤 ── */
 .gi-tab-body:has(> .profile-net-layout),
 .ci-tab-body:has(> .profile-net-layout){overflow:hidden;display:flex;flex-direction:column}
-.profile-net-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch;flex:1;min-height:0;height:100%}
-.profile-net-left{min-width:0;min-height:0;overflow-y:auto;padding-right:4px}
-.profile-net-right{min-width:0;min-height:0;height:100%;display:flex;flex-direction:column}
+.profile-net-layout{display:flex;align-items:stretch;flex:1;min-height:0;height:100%}
+.profile-net-left{flex:0 0 50%;min-width:220px;min-height:0;overflow-y:auto;padding-right:4px}
+.profile-net-right{flex:1 1 0;min-width:220px;min-height:0;height:100%;display:flex;flex-direction:column}
+/* 프레임 동적 크기 조절 거터 — 경계를 끌어 좌우(.x)·상하(.y) 크기 변경 */
+.resize-gutter{flex:none;position:relative;z-index:3;background:transparent}
+.resize-gutter.x{width:12px;cursor:col-resize;align-self:stretch}
+.resize-gutter.y{height:12px;cursor:row-resize}
+.resize-gutter::before{content:"";position:absolute;background:#cbd5e1;border-radius:2px;transition:background .12s}
+.resize-gutter.x::before{left:50%;top:10px;bottom:10px;width:3px;transform:translateX(-50%)}
+.resize-gutter.y::before{top:50%;left:24px;right:24px;height:3px;transform:translateY(-50%)}
+.resize-gutter:hover::before,.resize-gutter:active::before{background:#3b82f6}
 .profile-net-frame{flex:1;min-height:0;border:1px solid #dbe7f6;border-radius:12px;background:#fff;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)}
 .profile-net-frame-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid #edf2fb;background:#f8fbff;flex:none}
 .profile-net-frame-head h4{margin:0;font-size:14px;color:#123c85}
@@ -1901,9 +1909,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .profile-net-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;font-weight:700}
 .profile-net-legend-item i{width:10px;height:10px;border-radius:50%;display:inline-block}
 @media(max-width:1200px){
-  .profile-net-layout{grid-template-columns:1fr;height:auto}
-  .profile-net-left{overflow-y:visible}
-  .profile-net-right{height:auto;min-height:560px}
+  .profile-net-layout{flex-direction:column;height:auto}
+  .profile-net-left{flex:none;width:auto !important;overflow-y:visible}
+  .profile-net-right{flex:none;width:auto !important;height:auto;min-height:560px}
+  .resize-gutter.x{display:none}
 }
 
 /* ── 워크벤치 프롬프트 영역: 마지막 입력 필드가 남은 공간 채우고 자체 스크롤 ── */

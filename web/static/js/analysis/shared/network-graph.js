@@ -1319,6 +1319,7 @@ function renderPanelContent(targetType, targetId){
     ${buildFilterBar(raw, state, key)}
     ${buildPathBanner(state, key)}
     <div class="profile-net-graph-area">${graphArea}</div>
+    <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>
     <div class="profile-net-bottom">
       ${buildAnalysisResult(state, key)}
       ${buildPathFinder(raw, state, key)}
@@ -1873,6 +1874,7 @@ export function profileNetworkLayout(leftHtml, targetType, targetId, title){
   return `
     <div class="profile-net-layout">
       <div class="profile-net-left">${leftHtml}</div>
+      <div class="resize-gutter x" data-resize-min="220" title="드래그하여 좌·우 프레임 크기 조절"></div>
       <aside class="profile-net-right">
         ${networkGraphPanelHtml(targetType, targetId, title)}
       </aside>
