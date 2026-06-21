@@ -3,6 +3,7 @@ import { homePage } from "../pages/home.js";
 
 export const pageNames = {
   home:"My AI 분석",
+  agentic:"AI Agentic 서비스",
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
   generalinv:"일반수사분석",
@@ -24,6 +25,7 @@ export const pageNames = {
 
 export function createPageRegistry({
   activeAnalysisJobs,
+  agenticServicePage,
   analysisButtons,
   canvasPage,
   customsInfoPage,
@@ -51,6 +53,8 @@ export function createPageRegistry({
     }),
 
     canvas: () => canvasPage(),
+
+    agentic: () => agenticServicePage(),
 
     investigation: () => investigationPage(),
 

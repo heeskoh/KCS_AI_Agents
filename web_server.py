@@ -867,6 +867,100 @@ def llm_direct_query(body: dict) -> dict:
     return {"answer": "현재 LLM을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.", **meta}
 
 
+def _build_llm_text_prompt(body: dict) -> str:
+    """llm_direct_query와 동일한 규칙으로 (웹검색·첨부 컨텍스트 포함) 텍스트 프롬프트를 구성한다.
+    스트리밍 엔드포인트가 동일 품질의 프롬프트를 재사용하도록 분리한 헬퍼."""
+    prompt = (body.get("prompt") or "").strip()
+    llm_mode = (body.get("llm_mode") or "ext").strip()
+    use_web = llm_mode in ("ext", "ext_int")
+    attachment_context = _build_attachment_context(body, include_errors=True)
+    web_context = ""
+    if use_web:
+        try:
+            from src.agents.agent_web import web_search_context
+            ws = web_search_context(prompt)
+            if ws.get("available"):
+                web_context = ws.get("text") or ""
+        except Exception as exc:
+            print(f"[llm_stream] 웹검색 실패: {exc}")
+    guide = "사용자 요청에 한국어로 답변하세요."
+    if web_context:
+        guide += " 아래 웹검색 결과를 근거로 활용하고, 인용 시 출처 URL을 함께 제시하세요."
+    if attachment_context:
+        guide += " 첨부 파일 내용이 제공된 경우 반드시 그 내용을 근거로 답변하세요."
+    extra = ""
+    if attachment_context:
+        extra += f"\n\n[첨부 파일 내용]\n{attachment_context}"
+    if web_context:
+        extra += f"\n\n[웹검색 결과]\n{web_context}"
+    return f"{guide}\n\n[사용자 요청]\n{prompt}{extra}" if extra else prompt
+
+
+def send_message_api(body: dict) -> dict:
+    """메일(SMTP) / 메신저(웹훅) 실제 발송. 미설정 시 graceful 시뮬레이션."""
+    channel = (body.get("channel") or "email").strip()
+    recipients = (body.get("recipients") or "").strip()
+    subject = (body.get("subject") or "[AI Agentic] 워크플로 결과").strip()
+    content = (body.get("body") or "").strip()
+    if channel == "messenger":
+        return _send_via_webhook(body, recipients, subject, content)
+    return _send_via_smtp(recipients, subject, content)
+
+
+def _send_via_smtp(recipients: str, subject: str, content: str) -> dict:
+    to_list = [r.strip() for r in recipients.replace(";", ",").split(",") if r.strip()]
+    if not to_list:
+        return {"status": "simulated", "channel": "email", "recipients": [],
+                "subject": subject, "detail": "수신자 미지정 — 발송 생략"}
+    host = os.getenv("SMTP_HOST", "").strip()
+    if not host:
+        return {"status": "simulated", "channel": "email", "recipients": to_list,
+                "subject": subject, "detail": "SMTP 미설정 — 발송 시뮬레이션"}
+    try:
+        import smtplib
+        import ssl
+        from email.mime.text import MIMEText
+        port = int(os.getenv("SMTP_PORT", "587"))
+        user = os.getenv("SMTP_USER", "").strip() or None
+        password = os.getenv("SMTP_PASS", "").strip() or None
+        sender = os.getenv("MAIL_FROM", "").strip() or user or "noreply@kcs.local"
+        msg = MIMEText(content or "(본문 없음)", "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = sender
+        msg["To"] = ", ".join(to_list)
+        if os.getenv("SMTP_SSL", "").lower() in ("1", "true", "yes"):
+            with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context(), timeout=15) as srv:
+                if user:
+                    srv.login(user, password)
+                srv.sendmail(sender, to_list, msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as srv:
+                srv.starttls(context=ssl.create_default_context())
+                if user:
+                    srv.login(user, password)
+                srv.sendmail(sender, to_list, msg.as_string())
+        return {"status": "sent", "channel": "email", "recipients": to_list,
+                "subject": subject, "detail": f"{len(to_list)}명에게 발송 완료"}
+    except Exception as exc:
+        return {"status": "error", "channel": "email", "detail": str(exc)}
+
+
+def _send_via_webhook(body: dict, recipients: str, subject: str, content: str) -> dict:
+    url = (body.get("webhook_url") or os.getenv("MESSENGER_WEBHOOK") or "").strip()
+    text = f"*{subject}*\n수신: {recipients or '(채널 기본)'}\n\n{content or '(본문 없음)'}"
+    if not url:
+        return {"status": "simulated", "channel": "messenger", "recipients": recipients,
+                "detail": "웹훅 미설정 — 발송 시뮬레이션"}
+    try:
+        import urllib.request
+        data = json.dumps({"text": text}).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return {"status": "sent", "channel": "messenger", "detail": f"웹훅 전송 완료(HTTP {resp.status})"}
+    except Exception as exc:
+        return {"status": "error", "channel": "messenger", "detail": str(exc)}
+
+
 _DATA_SOURCES = {
     "db_cdw":          "CDW 조회 — agent_db.py, DuckDB 내 정보만 제공",
     "rag_customs":     "관세정보 RAG — agent_rag.py의 rag_customs 컬렉션 검색",
@@ -1884,6 +1978,26 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             self._send_json(run_db_query_api(body))
             return
 
+        if parsed.path == "/api/send":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(send_message_api(body))
+            return
+
+        if parsed.path == "/api/llm_stream":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._stream_llm(body)
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def log_message(self, fmt: str, *args: object) -> None:
@@ -1927,6 +2041,44 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         frame = f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
         self.wfile.write(frame.encode("utf-8"))
         self.wfile.flush()
+
+    def _stream_llm(self, body: dict) -> None:
+        """에이전트 노드용 LLM 토큰 스트리밍 (SSE 프레임을 POST 응답으로 전송).
+        프런트는 fetch + ReadableStream으로 토큰을 실시간 누적 표시한다."""
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        try:
+            prompt = _build_llm_text_prompt(body)
+            if not prompt.strip():
+                self._sse("done", {"text": ""})
+                return
+            from src.llm import llm
+            if not llm:
+                self._sse("token", {"text": "현재 LLM을 사용할 수 없습니다."})
+                self._sse("done", {"text": "현재 LLM을 사용할 수 없습니다."})
+                return
+            acc = ""
+            try:
+                for chunk in llm.stream(prompt):
+                    piece = getattr(chunk, "content", "") or ""
+                    if piece:
+                        acc += piece
+                        self._sse("token", {"text": piece})
+            except Exception:
+                # 스트리밍 미지원 프로바이더 → 단발 호출로 폴백
+                acc = llm.invoke(prompt).content
+                self._sse("token", {"text": acc})
+            self._sse("done", {"text": acc})
+        except (BrokenPipeError, ConnectionError):
+            return
+        except Exception as exc:
+            try:
+                self._sse("error", {"detail": str(exc)})
+            except Exception:
+                pass
 
     def _stream_workflow(self, company_id: str, scenario: dict[str, object]) -> None:
         scenario["target_type"] = _normalize_target_type(

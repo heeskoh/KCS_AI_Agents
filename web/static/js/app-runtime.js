@@ -23,9 +23,12 @@ import { createUnifiedSubtabRegistry } from "./analysis/shared/subtab-registry.j
 import { isSuperAdminUser } from "./core/super-admin.js";
 import { scenarioBuilderPage as renderScenarioBuilderPage } from "./pages/scenario-builder.js";
 import { intlInfoPageHtml } from "./pages/intl.js";
+import { agenticServicePage as renderAgenticServicePage, agenticInspectorHtml, agenticRunPanelHtml, agenticHistoryHtml, agenticNodeTypeDef } from "./pages/agentic-service.js";
+import { createAgenticFlow, loadDrawflow } from "./pages/agentic-flow.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
+  agenticServicePage,
   analysisButtons: () => analysisButtonsForConfig(scenarioBuilderConfig),
   canvasPage,
   customsInfoPage,
@@ -347,6 +350,365 @@ function scenarioBuilderPage(){
     newDraft: sbNewDraft,
     editingServiceId: sbEditingServiceId,
   });
+}
+
+/* ── AI Agentic 서비스 — 부서 관리자 전용 노드 빌더 ──
+   에이전트 서비스 목록/노드 그래프는 부서(그룹) 단위로 공유 저장한다. */
+let agenticServicesByGroup = {};   // { [groupId]: { services:[], activeServiceId } }
+let agenticListOpen = false;       // 좌측 '서비스 목록' 펼침 여부 (세션 UI 상태)
+
+function agenticGroupStore(){
+  const gid = currentUserGroup().id;
+  if(!agenticServicesByGroup[gid] || typeof agenticServicesByGroup[gid] !== "object"){
+    agenticServicesByGroup[gid] = { services: [], activeServiceId: null };
+  }
+  const store = agenticServicesByGroup[gid];
+  if(!Array.isArray(store.services)) store.services = [];
+  return store;
+}
+
+function activeAgenticService(){
+  const store = agenticGroupStore();
+  return store.services.find(s => s.id === store.activeServiceId) || store.services[0] || null;
+}
+
+function agenticUid(prefix){
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/* 서비스의 노드 그래프는 Drawflow export JSON(service.drawflow)을 단일 진실원으로 한다.
+   새 서비스는 drawflow:null로 만들고, 캔버스 첫 마운트 시 기본 흐름을 시드한다. */
+function createAgenticService(){
+  const store = agenticGroupStore();
+  const seq = store.services.length + 1;
+  return {
+    id: agenticUid("svc"),
+    name: `새 Agent 서비스 ${seq}`,
+    drawflow: null,
+  };
+}
+
+/* Drawflow 컨트롤러 인스턴스 & 현재 선택 노드 (세션 상태) */
+let agenticFlow = null;
+let agenticSelectedNodeId = null;
+let agenticLocked = false;  // 기본 이동 가능(드래그로 위치 변경). 필요 시 이동잠금 토글
+
+function agenticPersistFlow(json){
+  const svc = activeAgenticService();
+  if(svc){ svc.drawflow = json; saveCanvasState(); }
+}
+
+/* 캔버스에 Drawflow를 마운트 (render 후 init 훅에서 1회 호출) */
+function initAgenticBuilder(){
+  agenticFlow = null;
+  agenticSelectedNodeId = null;
+  const mount = document.getElementById("agenticDrawflow");
+  if(!mount || !isCurrentUserAdmin()) return;
+  const service = activeAgenticService();
+  if(!service) return;
+  loadDrawflow().then(() => {
+    // 비동기 로드 사이 다른 페이지로 이동했으면 중단
+    if(currentPage !== "agentic" || !document.body.contains(mount)) return;
+    agenticFlow = createAgenticFlow({
+      container: mount,
+      service,
+      persist: agenticPersistFlow,
+      onSelect: (id) => {
+        agenticSelectedNodeId = id;
+        renderAgenticInspector();
+      },
+      onConnectionsChange: () => renderAgenticInspector(),
+      onNodeRemoved: () => { agenticSelectedNodeId = null; renderAgenticInspector(); },
+      locked: agenticLocked,
+    });
+  }).catch(() => {
+    mount.innerHTML = `<div class="empty-state">노드 편집기를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.</div>`;
+  });
+}
+
+/* 우측 인스펙터만 부분 렌더 (전체 재렌더 없이 선택 노드 상세 갱신) */
+function renderAgenticInspector(){
+  const panel = document.getElementById("agenticInspector");
+  if(!panel) return;
+  const node = (agenticFlow && agenticSelectedNodeId != null)
+    ? agenticFlow.getNodeData(agenticSelectedNodeId)
+    : null;
+  // 노드 선택 시에만 팝업 표시
+  panel.hidden = !node;
+  panel.innerHTML = node ? agenticInspectorHtml(node) : "";
+}
+
+function agenticServicePage(){
+  if(!isCurrentUserAdmin()){
+    return `<section class="card" style="text-align:center;padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:16px">🔒</div>
+      <h2 style="color:#991b1b">접근 권한 없음</h2>
+      <p class="muted">AI Agentic 서비스는 부서 관리자만 사용할 수 있습니다.</p>
+    </section>`;
+  }
+  const store = agenticGroupStore();
+  return renderAgenticServicePage({ store, service: activeAgenticService(), listOpen: agenticListOpen, locked: agenticLocked });
+}
+
+/* ── AI Agentic 서비스 실행 (노드 그래프 → 제어 흐름 탐색 실행) ── */
+let agenticRunning = false;
+let agenticRunSteps = [];
+let agenticPanelMode = "run";   // "run" | "history"
+let agenticRunStartedLabel = "";
+let agenticRunAbort = null;     // 실행 중지 시 in-flight 요청 취소
+
+const AGENTIC_LLM_MODE = { "KCS_LLM": "int", "외부 LLM": "ext", "외부+내부 LLM": "ext_int" };
+
+function renderAgenticRunPanel(){
+  const panel = document.getElementById("agenticRunPanel");
+  if(!panel) return;
+  panel.hidden = false;
+  if(agenticPanelMode === "history"){
+    panel.innerHTML = agenticHistoryHtml(activeAgenticService()?.runs || []);
+  }else{
+    panel.innerHTML = agenticRunPanelHtml(agenticRunSteps, { running: agenticRunning });
+  }
+}
+
+function agAddStep(node, status){
+  const step = { id: node.id, type: node.type, label: node.data?.label, status, output: "" };
+  agenticRunSteps.push(step);
+  renderAgenticRunPanel();
+  return step;
+}
+function agSetStep(step, status, output){
+  step.status = status;
+  if(output != null) step.output = output;
+  renderAgenticRunPanel();
+}
+
+async function agenticLlmAnswer(prompt, mode){
+  const res = await fetch("/api/llm_query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, llm_mode: mode }),
+    signal: agenticRunAbort?.signal,
+  }).then(r => r.json());
+  return res.answer || "";
+}
+
+/* 에이전트 노드용 토큰 스트리밍 — /api/llm_stream(SSE) 응답을 읽어 실시간 누적.
+   스트리밍 불가 시 단발 호출로 폴백. */
+async function agenticLlmStream(prompt, mode, onToken){
+  let resp;
+  try{
+    resp = await fetch("/api/llm_stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, llm_mode: mode }),
+      signal: agenticRunAbort?.signal,
+    });
+  }catch(e){ if(e?.name === "AbortError") return ""; return agenticLlmAnswer(prompt, mode); }
+  if(!resp.ok || !resp.body) return agenticLlmAnswer(prompt, mode);
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", acc = "";
+  while(true){
+    let chunk;
+    try{ chunk = await reader.read(); }
+    catch(e){ break; }   // AbortError 등 → 부분 결과 반환
+    const { done, value } = chunk;
+    if(done) break;
+    if(!agenticRunning){ try{ reader.cancel(); }catch(e){ /* noop */ } break; }
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while((idx = buffer.indexOf("\n\n")) >= 0){
+      const frame = buffer.slice(0, idx); buffer = buffer.slice(idx + 2);
+      const ev = /event:\s*(\w+)/.exec(frame)?.[1];
+      const dm = /data:\s*([\s\S]*)/.exec(frame);
+      if(!dm) continue;
+      let data = {}; try{ data = JSON.parse(dm[1]); }catch(e){ continue; }
+      if(ev === "token" && data.text){ acc += data.text; if(onToken) onToken(acc); }
+      else if(ev === "done"){ if(data.text) acc = data.text; }
+      else if(ev === "error"){ throw new Error(data.detail || "스트리밍 오류"); }
+    }
+  }
+  return acc;
+}
+
+/* 분기/반복 조건을 LLM으로 평가 → true/false. 조건 미정의면 null. */
+async function agenticEvalCondition(node, context){
+  const cond = (node.data?.condition || "").trim();
+  if(!cond) return null;
+  const q = `다음 조건이 현재 맥락에서 성립하면 정확히 "TRUE", 성립하지 않으면 "FALSE" 한 단어만 출력하세요. 다른 설명 금지.\n\n[조건]\n${cond}\n\n[맥락]\n${context || "(없음)"}`;
+  const ans = (await agenticLlmAnswer(q, "int")).trim();
+  return /\b(true)\b|참|만족|성립|yes/i.test(ans) && !/\b(false)\b|거짓|불만족|미성립|no/i.test(ans);
+}
+
+/* foreach 반복 대상 목록 추출 — 명시 목록(줄바꿈/콤마) 우선, 없으면 LLM이 맥락에서 JSON 배열로 추출 */
+async function agenticDeriveListItems(node, context){
+  const desc = (node.data?.condition || "").trim();
+  if(desc){
+    const parts = desc.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    if(parts.length > 1) return parts;
+  }
+  const q = `다음 설명에 해당하는 항목들을 JSON 문자열 배열로만 출력하세요. 다른 텍스트 금지. 항목이 없으면 [].\n\n[설명]\n${desc || "맥락에서 반복 대상 목록"}\n\n[맥락]\n${context || "(없음)"}`;
+  try{
+    const ans = await agenticLlmAnswer(q, "int");
+    const m = ans.match(/\[[\s\S]*\]/);
+    if(m){ const arr = JSON.parse(m[0]); if(Array.isArray(arr)) return arr.map(String).filter(Boolean); }
+  }catch(e){ /* noop */ }
+  return desc ? [desc] : [];
+}
+
+/* 단일 노드(에이전트/DB/메일/메신저/기타) 실행 → 출력 문자열 (실패 시 throw) */
+async function executeAgenticNode(node, context, onStream){
+  const d = node.data || {};
+  switch(node.type){
+    case "agent": {
+      const prompt = `${d.query || ""}${context ? `\n\n[이전 단계 결과]\n${context}` : ""}`.trim();
+      if(!prompt) return "(질의가 비어 있어 건너뜀)";
+      return (await agenticLlmStream(prompt, AGENTIC_LLM_MODE[d.model] || "ext", onStream)) || "(응답 없음)";
+    }
+    case "db": {
+      const q = (d.query || d.note || "").trim();
+      if(!q) return "(조회 질의 없음)";
+      const res = await fetch("/api/db_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: q, use_neo4j: !!d.useNeo4j }),
+      }).then(r => r.json());
+      if(res.error) throw new Error(`DB 조회 실패: ${res.error}`);
+      const rowCount = Array.isArray(res.rows) ? res.rows.length : 0;
+      return `${res.summary || "(요약 없음)"}\n\n조회 ${rowCount}건 · ${res.query || ""}`;
+    }
+    case "email":
+    case "messenger": {
+      const ch = node.type === "email" ? "메일" : "메신저";
+      const to = (d.recipients || "").trim();
+      const bodyText = (d.note || "").trim() || (context || "").trim() || "(본문 없음)";
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel: node.type, recipients: to, subject: `[AI Agentic] ${d.label || ch}`, body: bodyText }),
+      }).then(r => r.json());
+      const statusKo = { sent: "발송 완료", simulated: "발송 시뮬레이션", error: "발송 실패" }[res.status] || res.status;
+      if(res.status === "error") throw new Error(`${ch} ${statusKo}: ${res.detail || ""}`);
+      return `[${ch}] ${statusKo}\n수신: ${to || "(미지정)"}\n${res.detail || ""}\n\n${bodyText.slice(0, 300)}`;
+    }
+    case "start": return "워크플로 시작";
+    case "end": return "워크플로 종료";
+    case "note": return d.note || "(메모 없음)";
+    default: return `(시뮬레이션) ${agenticNodeTypeDef(node.type).label} 실행`;
+  }
+}
+
+function saveAgenticRun(stopped){
+  const svc = activeAgenticService();
+  if(!svc) return;
+  svc.runs = Array.isArray(svc.runs) ? svc.runs : [];
+  const status = stopped ? "중지" : (agenticRunSteps.some(s => s.status === "error") ? "오류" : "완료");
+  svc.runs.unshift({
+    startedAtLabel: agenticRunStartedLabel,
+    status,
+    steps: agenticRunSteps.map(s => ({ label: s.label, type: s.type, status: s.status, output: s.output })),
+  });
+  svc.runs = svc.runs.slice(0, 20);
+  saveCanvasState();
+}
+
+async function runActiveAgenticService(){
+  if(agenticRunning || !agenticFlow) return;
+  const graph = agenticFlow.getGraph();
+  if(!graph.nodes.length) return;
+  const startNode = graph.nodes.find(n => n.type === "start");
+  if(!startNode){
+    agenticPanelMode = "run"; agenticRunSteps = [];
+    renderAgenticRunPanel();
+    alert("시작(▶) 노드가 필요합니다.");
+    return;
+  }
+
+  agenticRunning = true;
+  agenticRunAbort = new AbortController();
+  agenticPanelMode = "run";
+  agenticRunSteps = [];
+  agenticRunStartedLabel = new Date().toLocaleString("ko-KR");
+  agenticFlow.clearStatuses();
+  renderAgenticRunPanel();
+
+  const byId = new Map(graph.nodes.map(n => [n.id, n]));
+  const out = (id, port) => graph.edges.filter(e => e.from === id && (!port || e.fromPort === port)).map(e => e.to);
+  const ctx = { text: "" };
+  let stepCount = 0;
+  let lastStreamRender = 0;
+  const MAX_STEPS = 80;   // 폭주 방지 (사이클·과도한 분기)
+
+  async function visit(id, stopSet){
+    if(!agenticRunning || stepCount++ > MAX_STEPS) return;
+    if(stopSet.has(id)) return;          // 반복 본문이 루프 노드로 되돌아오면 정지
+    const node = byId.get(id);
+    if(!node) return;
+    const step = agAddStep(node, "running");
+    agenticFlow.setNodeStatus(id, "running");
+    try{
+      // 분기: 조건 평가 후 한 경로만 진행
+      if(node.type === "branch"){
+        const truth = await agenticEvalCondition(node, ctx.text);
+        const port = (truth !== false) ? "output_1" : "output_2";
+        const label = port === "output_1" ? "참" : "거짓";
+        agSetStep(step, "done", `조건 평가 → ${label}${truth === null ? " (조건 미정의 → 기본 참)" : ""}\n조건: ${node.data?.condition || "(없음)"}`);
+        agenticFlow.setNodeStatus(id, "done");
+        for(const t of out(id, port)){ if(!agenticRunning) break; await visit(t, stopSet); }
+        return;
+      }
+      // 반복: while(조건 참) 또는 foreach(목록 항목) — 본문 반복 후 종료 경로
+      if(node.type === "loop"){
+        const max = Math.max(1, parseInt(node.data?.maxIterations, 10) || 10);
+        const bodyStop = new Set(stopSet); bodyStop.add(id);
+        let iter = 0;
+        if(node.data?.loopMode === "foreach"){
+          let items = await agenticDeriveListItems(node, ctx.text);
+          items = items.slice(0, max);
+          for(const item of items){
+            if(!agenticRunning) break;
+            iter++;
+            ctx.text += `\n[현재 항목 ${iter}/${items.length}] ${item}\n`;
+            for(const b of out(id, "output_1")){ if(!agenticRunning) break; await visit(b, bodyStop); }
+          }
+          agSetStep(step, "done", `목록 반복 ${iter}개 항목 실행 (최대 ${max})\n항목: ${items.join(", ").slice(0, 200) || "(없음)"}`);
+        }else{
+          while(agenticRunning && iter < max){
+            const cond = await agenticEvalCondition(node, ctx.text);
+            if(cond === false) break;
+            iter++;
+            for(const b of out(id, "output_1")){ if(!agenticRunning) break; await visit(b, bodyStop); }
+            if(cond === null) break;     // 조건 미정의 → 본문 1회만
+          }
+          agSetStep(step, "done", `반복 ${iter}회 실행 (최대 ${max})\n${node.data?.condition || "조건 미정의"}`);
+        }
+        agenticFlow.setNodeStatus(id, "done");
+        for(const t of out(id, "output_2")){ if(!agenticRunning) break; await visit(t, stopSet); }
+        return;
+      }
+      // 일반 노드 — 에이전트는 토큰 스트리밍으로 실시간 표시
+      const onStream = node.type === "agent"
+        ? (txt) => { step.output = txt; const now = Date.now(); if(now - lastStreamRender > 150){ lastStreamRender = now; renderAgenticRunPanel(); } }
+        : null;
+      const result = await executeAgenticNode(node, ctx.text, onStream);
+      agSetStep(step, "done", result);
+      if((node.type === "agent" || node.type === "db") && result){
+        ctx.text += `\n[${node.data?.label || node.type} 결과]\n${result}\n`;
+      }
+      agenticFlow.setNodeStatus(id, "done");
+      for(const t of out(id, "output_1")){ if(!agenticRunning) break; await visit(t, stopSet); }
+    }catch(error){
+      agSetStep(step, "error", String((error && error.message) || error));
+      agenticFlow.setNodeStatus(id, "error");
+    }
+  }
+
+  await visit(startNode.id, new Set());
+  const stopped = !agenticRunning;
+  agenticRunning = false;
+  saveAgenticRun(stopped);
+  renderAgenticRunPanel();
 }
 
 function permissionApprovePage(){
@@ -4611,6 +4973,7 @@ async function loadCanvasState(){
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
     if(saved.hiddenCanvasJobsByUser && typeof saved.hiddenCanvasJobsByUser === "object") hiddenCanvasJobsByUser = saved.hiddenCanvasJobsByUser;
     if(saved.userWorkspaces && typeof saved.userWorkspaces === "object") userWorkspaces = saved.userWorkspaces;
+    if(saved.agenticServicesByGroup && typeof saved.agenticServicesByGroup === "object") agenticServicesByGroup = saved.agenticServicesByGroup;
     // 분석 템플릿은 별도 파일(data/analysis_templates.json)에서 로드.
     // 없으면 기존 workspace 상태의 템플릿 키를 1회 이행.
     let templates = await fetchJsonStore("/api/analysis_templates");
@@ -4659,6 +5022,7 @@ function buildWorkspaceStatePayload(){
     canvasRunArchives,
     hiddenCanvasJobsByUser,
     userWorkspaces,
+    agenticServicesByGroup,
     currentUserId,
     generalInvTab: generalInvestigationState.generalInvTab,
     activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
@@ -5220,10 +5584,10 @@ function stopAllRunningWork(){
   });
 }
 
-/* 사용자 전환 시: 열려 있는 업무분석 탭을 현재 상태 그대로 모두 닫는다 (My AI 분석 탭만 유지) */
+/* 사용자 전환 시: 열려 있는 업무분석 탭을 현재 상태 그대로 모두 닫는다 (My AI 분석·AI Agentic 탭은 유지) */
 function closeAllWorkTabs(){
   document.querySelectorAll("#workTabs .work-tab").forEach(tab => {
-    if(tab.dataset.page !== "home") tab.remove();
+    if(tab.dataset.page !== "home" && tab.dataset.page !== "agentic") tab.remove();
   });
 }
 
@@ -5255,6 +5619,9 @@ function updateProfileDisplay(){
 }
 
 function updateAdminMenuVisibility(){
+  // AI Agentic 서비스 탭 — 부서 관리자에게만 노출
+  const agenticTab = document.querySelector('#workTabs .work-tab[data-page="agentic"]');
+  if(agenticTab) agenticTab.style.display = isCurrentUserAdmin() ? "" : "none";
   const permBtn = document.querySelector(".permission-approve-nav");
   if(!permBtn) return;
   permBtn.style.display = isCurrentUserAdmin() ? "" : "none";
@@ -8892,18 +9259,27 @@ function addWorkTab(page){
       close.textContent = "×";
       tab.appendChild(close);
     }
-    tabs.appendChild(tab);
+    // AI Agentic 서비스 탭은 항상 우측 끝에 고정 — 새 업무분석 탭은 그 앞에 삽입한다.
+    const agenticTab = tabs.querySelector('.work-tab[data-page="agentic"]');
+    if(agenticTab && page !== "agentic"){
+      tabs.insertBefore(tab, agenticTab);
+    }else{
+      tabs.appendChild(tab);
+    }
   }
 }
 
 function render(page="home"){
+  // AI Agentic 서비스는 부서 관리자 전용 — 비관리자는 My AI 분석으로 폴백
+  if(page === "agentic" && !isCurrentUserAdmin()) page = "home";
   currentPage = page;
   const pageTemplate = analysisTemplateForPage(page);
   addWorkTab(page);
   document.querySelectorAll(".nav-item,.my-analysis,.work-tab,.quick-card").forEach(b=>b.classList.remove("active"));
   document.querySelectorAll(`[data-page="${page}"]`).forEach(b=>b.classList.add("active"));
   const contentEl = document.getElementById("content");
-  const fillPage = (page === "canvas" && canvasTab === "report") ||
+  const fillPage = page === "agentic" ||
+                   (page === "canvas" && canvasTab === "report") ||
                    ((page === "investigation" || pageTemplate === "customs") && customsState.investigationTab === "scenario") ||
                    ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench")) ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
@@ -8919,6 +9295,9 @@ function render(page="home"){
   if(page === "profile"){
     loadScenarioCompanies();
     initRiskDashboard();
+  }
+  if(page === "agentic"){
+    initAgenticBuilder();
   }
   if(page === "generalinv" || pageTemplate === "general-investigation"){
     initGenInvSearch();
@@ -9617,6 +9996,140 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  /* ── AI Agentic 서비스 빌더 ── */
+  if(event.target.closest("[data-agentic-new]")){
+    if(!isCurrentUserAdmin()) return;
+    const store = agenticGroupStore();
+    const svc = createAgenticService();
+    store.services.push(svc);
+    store.activeServiceId = svc.id;
+    agenticListOpen = false;
+    saveCanvasState();
+    render("agentic");   // 캔버스 재마운트 → 기본 흐름 시드
+    return;
+  }
+  if(event.target.closest("[data-agentic-toggle-list]")){
+    if(!isCurrentUserAdmin()) return;
+    agenticListOpen = !agenticListOpen;
+    render("agentic");
+    return;
+  }
+  const agSelectSvc = event.target.closest("[data-agentic-select-service]");
+  if(agSelectSvc){
+    if(!isCurrentUserAdmin()) return;
+    agenticGroupStore().activeServiceId = agSelectSvc.dataset.agenticSelectService;
+    saveCanvasState();
+    render("agentic");   // 선택 서비스의 그래프로 재마운트
+    return;
+  }
+  const agAddNode = event.target.closest("[data-agentic-add-node]");
+  if(agAddNode){
+    if(!isCurrentUserAdmin()) return;
+    if(!activeAgenticService()){
+      // 서비스가 없으면 먼저 새 서비스를 만든다(기본 흐름 시드 후 마운트)
+      const store = agenticGroupStore();
+      const svc = createAgenticService();
+      store.services.push(svc);
+      store.activeServiceId = svc.id;
+      saveCanvasState();
+      render("agentic");
+      return;
+    }
+    // 캔버스에 노드 추가 (전체 재렌더 없이 Drawflow API로)
+    if(agenticFlow){
+      const id = agenticFlow.addNode(agAddNode.dataset.agenticAddNode);
+      agenticFlow.selectNode(id);
+    }
+    return;
+  }
+  const agZoom = event.target.closest("[data-agentic-zoom]");
+  if(agZoom){
+    if(!agenticFlow) return;
+    const mode = agZoom.dataset.agenticZoom;
+    if(mode === "in") agenticFlow.zoomIn();
+    else if(mode === "out") agenticFlow.zoomOut();
+    else agenticFlow.zoomReset();
+    return;
+  }
+  if(event.target.closest("[data-agentic-layout]")){
+    if(!isCurrentUserAdmin() || !agenticFlow) return;
+    agenticFlow.autoLayout();
+    return;
+  }
+  if(event.target.closest("[data-agentic-fit]")){
+    agenticFlow?.fitView();
+    return;
+  }
+  const agLock = event.target.closest("[data-agentic-lock]");
+  if(agLock){
+    if(!isCurrentUserAdmin() || !agenticFlow) return;
+    agenticLocked = !agenticLocked;
+    agenticFlow.setLocked(agenticLocked);
+    // 전체 재렌더(캔버스 재마운트) 없이 버튼만 갱신
+    agLock.classList.toggle("lock-on", agenticLocked);
+    agLock.textContent = agenticLocked ? "🔒 이동잠금" : "🔓 이동가능";
+    return;
+  }
+  if(event.target.closest("[data-agentic-run]")){
+    if(!isCurrentUserAdmin()) return;
+    runActiveAgenticService();
+    return;
+  }
+  if(event.target.closest("[data-agentic-stop]")){
+    agenticRunning = false;
+    try{ agenticRunAbort?.abort(); }catch(e){ /* noop */ }
+    return;
+  }
+  if(event.target.closest("[data-agentic-history]")){
+    if(!isCurrentUserAdmin()) return;
+    agenticPanelMode = "history";
+    renderAgenticRunPanel();
+    return;
+  }
+  const agHist = event.target.closest("[data-agentic-hist]");
+  if(agHist){
+    const run = (activeAgenticService()?.runs || [])[Number(agHist.dataset.agenticHist)];
+    if(run){
+      agenticPanelMode = "run";
+      agenticRunSteps = (run.steps || []).map(s => ({ ...s }));
+      agenticRunning = false;
+      renderAgenticRunPanel();
+    }
+    return;
+  }
+  if(event.target.closest("[data-agentic-run-close]")){
+    const panel = document.getElementById("agenticRunPanel");
+    if(panel){ panel.hidden = true; }
+    agenticPanelMode = "run";
+    agenticFlow?.clearStatuses();
+    return;
+  }
+  if(event.target.closest("[data-agentic-inspect-close]")){
+    agenticSelectedNodeId = null;
+    document.querySelectorAll("#agenticDrawflow .drawflow-node.selected").forEach(el => el.classList.remove("selected"));
+    renderAgenticInspector();
+    return;
+  }
+  const agDelNode = event.target.closest("[data-agentic-delete-node]");
+  if(agDelNode){
+    if(!isCurrentUserAdmin() || !agenticFlow || agenticSelectedNodeId == null) return;
+    agenticFlow.removeNode(agenticSelectedNodeId);
+    agenticSelectedNodeId = null;
+    renderAgenticInspector();
+    return;
+  }
+  const agRemoveTool = event.target.closest("[data-agentic-remove-tool]");
+  if(agRemoveTool){
+    if(!isCurrentUserAdmin() || !agenticFlow || agenticSelectedNodeId == null) return;
+    const node = agenticFlow.getNodeData(agenticSelectedNodeId);
+    if(node){
+      const tools = (node.tools || []).filter(t => t !== agRemoveTool.dataset.agenticRemoveTool);
+      agenticFlow.updateNodeData(agenticSelectedNodeId, { tools });
+      renderAgenticInspector();
+    }
+    return;
+  }
+
   const closeTabBtn = event.target.closest("[data-close-tab]");
   if(closeTabBtn){
     event.stopPropagation();
@@ -10155,6 +10668,29 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("change", (event)=>{
+  /* ── AI Agentic 노드 필드(셀렉트/체크박스) ── */
+  if(event.target.closest("[data-agentic-add-tool]")){
+    const tool = event.target.value;
+    if(tool && agenticFlow && agenticSelectedNodeId != null){
+      const node = agenticFlow.getNodeData(agenticSelectedNodeId);
+      const tools = node?.tools ? [...node.tools] : [];
+      if(!tools.includes(tool)) tools.push(tool);
+      agenticFlow.updateNodeData(agenticSelectedNodeId, { tools });
+      renderAgenticInspector();
+    }
+    return;
+  }
+  const agField = event.target.dataset?.agenticField;
+  if(agField && (event.target.tagName === "SELECT" || event.target.type === "checkbox")){
+    if(agenticFlow && agenticSelectedNodeId != null){
+      const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+      agenticFlow.updateNodeData(agenticSelectedNodeId, { [agField]: value });
+      // 반복 방식 변경 시 조건 라벨/안내가 바뀌므로 인스펙터를 다시 렌더
+      if(agField === "loopMode") renderAgenticInspector();
+    }
+    return;
+  }
+
   if(event.target && event.target.id === "giRegPersonSelect"){
     const person = riskPersonById(event.target.value);
     const targetInput = document.getElementById("giRegTarget");
@@ -10181,6 +10717,24 @@ document.addEventListener("change", (event)=>{
     scenarioItems = [];
     saveCanvasState();
     render("canvas");
+  }
+});
+
+/* ── AI Agentic 노드/서비스 텍스트 필드 실시간 편집 (재렌더 없이 상태만 갱신) ── */
+document.addEventListener("input", (event) => {
+  if(event.target.matches("[data-agentic-service-name]")){
+    const svc = activeAgenticService();
+    if(svc){ svc.name = event.target.value; saveCanvasState(); }
+    return;
+  }
+  const agField = event.target.dataset?.agenticField;
+  if(agField && event.target.matches("textarea, input:not([type=checkbox])")){
+    if(agenticFlow && agenticSelectedNodeId != null){
+      const raw = event.target.value;
+      const value = event.target.type === "number" ? Math.max(1, parseInt(raw, 10) || 1) : raw;
+      agenticFlow.updateNodeData(agenticSelectedNodeId, { [agField]: value });
+    }
+    return;
   }
 });
 
