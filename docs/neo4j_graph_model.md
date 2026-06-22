@@ -108,6 +108,14 @@ Loaded by `load_company_import_graph_to_neo4j.py` from `company_profiles`,
 > `USES_BROKER`). 신고를 노드로 복원하면서 경로·품목·관세사가 모두 `Declaration` 중심으로 재배치됨.
 > `/api/graph/company_routes`(`build_company_trade_routes`)는 레거시(미사용).
 
+### 자유 관계분석(독립 탭) — 교차 그래프
+
+프로파일과 별개의 독립 "관계망 분석" 탭(page `model`)은 `build_explore_graph(company_ids,
+person_ids, region, risk_level, industry)`(`/api/graph/explore`)로 **다중 시드 + 속성 필터**의
+합집합 교차 그래프를 반환한다. 공유 노드(항만·거래처·관세사·품목분류·위험요인)가 기업을 자연
+교차 연결한다. 프런트(`computeAnalysis`)는 community(라벨전파)·betweenness(Brandes)·
+bridges(Tarjan 단절점)·shared_hub(공유 허브 교차) 알고리즘으로 분석한다.
+
 ## Confirmed Scope
 
 The current confirmed graph scope is:

@@ -471,6 +471,74 @@ def build_company_profile_graph(company_id: str, limit: int = 600) -> dict[str, 
     return graph
 
 
+def _merge_graphs(*graphs: dict[str, Any]) -> dict[str, Any]:
+    nodes: dict[str, Any] = {}
+    edges: dict[str, Any] = {}
+    for g in graphs:
+        for n in g.get("nodes", []):
+            nodes.setdefault(n["id"], n)
+        for e in g.get("edges", []):
+            edges.setdefault(e["id"], e)
+    return {"nodes": list(nodes.values()), "edges": list(edges.values())}
+
+
+def build_explore_graph(company_ids: list[str] | None = None, person_ids: list[str] | None = None,
+                        region: str | None = None, risk_level: str | None = None,
+                        industry: str | None = None, limit: int = 900) -> dict[str, Any]:
+    """자유 관계분석(독립 탭)용 교차 그래프. 다중 시드(기업/인물) + 속성 필터의 합집합.
+
+    공유 노드(출발항·도착항·해외거래처·관세사·품목분류·위험요인)가 여러 기업을
+    자연스럽게 교차 연결한다. 시드/필터가 모두 비면 빈 그래프.
+    """
+    company_ids = list(company_ids or [])
+    person_ids = list(person_ids or [])
+    if region or risk_level or industry:
+        rows = _read(
+            """
+            MATCH (c:Company)
+            WHERE ($region IS NULL OR c.region = $region)
+              AND ($risk IS NULL OR c.risk_level = $risk)
+              AND ($industry IS NULL OR c.industry_code = $industry)
+            RETURN c.company_id AS cid LIMIT 40
+            """,
+            region=region or None, risk=risk_level or None, industry=industry or None,
+        )
+        company_ids = list(dict.fromkeys(company_ids + [r["cid"] for r in rows]))
+    if not company_ids and not person_ids:
+        return {"nodes": [], "edges": [], "center": "", "exploreMode": True, "seedIds": []}
+
+    parts: list[dict[str, Any]] = []
+    if company_ids:
+        parts.append(_read_graph(
+            """
+            MATCH (c:Company) WHERE c.company_id IN $cids
+            OPTIONAL MATCH (c)-[rf:FILED]->(d:Declaration)
+            OPTIONAL MATCH (d)-[ri:OF_ITEM]->(it:ItemClass)
+            OPTIONAL MATCH (d)-[rfp:FROM_PORT]->(dp:DeparturePort)
+            OPTIONAL MATCH (d)-[rtp:TO_PORT]->(ap:ArrivalPort)
+            OPTIONAL MATCH (d)-[rs:SUPPLIED_BY]->(os:OverseasSupplier)
+            OPTIONAL MATCH (d)-[rb:FILED_BY]->(b:Broker)
+            OPTIONAL MATCH (d)-[rc:CONTRIBUTES_TO]->(cf:RiskFactor)
+            OPTIONAL MATCH (c)-[rri:RISK_INDICATORS]->(rsc:RiskScore)
+            OPTIONAL MATCH (rsc)-[rdb:DRIVEN_BY]->(df:RiskFactor)
+            RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf, rri, rsc, rdb, df
+            LIMIT $limit
+            """,
+            cids=company_ids, limit=limit,
+        ))
+    if person_ids:
+        parts.append(_read_graph(
+            "MATCH (p:Person)-[r]-(n) WHERE p.person_id IN $pids RETURN p, r, n LIMIT $limit",
+            pids=person_ids, limit=limit,
+        ))
+    graph = _merge_graphs(*parts)
+    graph["center"] = (f"Company:{company_ids[0]}" if company_ids
+                       else f"Person:{person_ids[0]}" if person_ids else "")
+    graph["exploreMode"] = True
+    graph["seedIds"] = [f"Company:{c}" for c in company_ids] + [f"Person:{p}" for p in person_ids]
+    return graph
+
+
 def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1) -> dict[str, Any] | None:
     """Return a node/edge graph centered on a risk person, or None if no person exists.
 

@@ -22,6 +22,7 @@ from src.neo4j_graph import (
     build_company_network_graph,
     build_company_profile_graph,
     build_company_trade_routes,
+    build_explore_graph,
     build_path_graph,
     build_person_network_graph,
 )
@@ -1829,6 +1830,24 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
             if graph is None:
                 self._send_json({"error": "company not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/explore":
+            q = parse_qs(parsed.query)
+            def _csv(name):
+                raw = q.get(name, [""])[0].strip()
+                return [t.strip() for t in raw.split(",") if t.strip()]
+            try:
+                graph = build_explore_graph(
+                    company_ids=_csv("companies"), person_ids=_csv("persons"),
+                    region=(q.get("region", [""])[0].strip() or None),
+                    risk_level=(q.get("risk_level", [""])[0].strip() or None),
+                    industry=(q.get("industry", [""])[0].strip() or None),
+                )
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return
             self._send_json(graph)
             return

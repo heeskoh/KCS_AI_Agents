@@ -25,6 +25,7 @@ import { scenarioBuilderPage as renderScenarioBuilderPage } from "./pages/scenar
 import { intlInfoPageHtml } from "./pages/intl.js";
 import { agenticServicePage as renderAgenticServicePage, agenticInspectorHtml, agenticRunPanelHtml, agenticHistoryHtml, agenticNodeTypeDef } from "./pages/agentic-service.js";
 import { createAgenticFlow, loadDrawflow } from "./pages/agentic-flow.js";
+import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -6249,80 +6250,18 @@ function intlInfoPage(){
    관계망 분석 페이지 (구 관세 온톨로지) — 관계망분석을 메인으로 단일 구성
    ═══════════════════════════════════════════════════════════════ */
 function customsOntologyPage(){
-  const ontologyNodes = [
-    {id:"traveler",label:"우범여행자",type:"person",x:50,y:20,desc:"마약·밀수 관련 위험 여행자"},
-    {id:"associate",label:"관계자",type:"person",x:20,y:45,desc:"우범여행자와 연관된 인물"},
-    {id:"company",label:"기업",type:"org",x:80,y:45,desc:"우범자/관계자가 대표자인 기업"},
-    {id:"cargo_a",label:"화물(관계자화주)",type:"cargo",x:15,y:75,desc:"우범여행자 관계자가 화주인 화물"},
-    {id:"cargo_b",label:"화물(기업화주)",type:"cargo",x:85,y:75,desc:"우범여행자/관계자 기업의 화물"},
-    {id:"declaration",label:"수입신고",type:"event",x:50,y:90,desc:"화물 관련 수입신고"},
-  ];
-  const ontologyEdges = [
-    {from:"traveler",to:"associate",label:"알고있음",type:"relation"},
-    {from:"traveler",to:"company",label:"대표자",type:"role"},
-    {from:"associate",to:"company",label:"관계자",type:"role"},
-    {from:"associate",to:"cargo_a",label:"화주",type:"role"},
-    {from:"company",to:"cargo_b",label:"화주기업",type:"role"},
-    {from:"cargo_a",to:"declaration",label:"신고대상",type:"event"},
-    {from:"cargo_b",to:"declaration",label:"신고대상",type:"event"},
-  ];
-  const nodeColors = {person:"#7c3aed",org:"#0284c7",cargo:"#d97706",event:"#16a34a"};
-  const nodeLabels = {person:"인물",org:"기관/기업",cargo:"화물",event:"사건/신고"};
+  // 자유 관계분석(독립 탭): 프로파일과 분리. 다중 시드·파일·속성 필터로 교차 관계망을
+  // 구성하고 커뮤니티·중심성·브리지·공유 허브 교차 등 고급 분석을 수행한다.
   return `
-    <section class="card gi-hub">
+    <section class="card gi-hub" style="display:flex;flex-direction:column;min-height:660px">
       <div class="gi-page-head">
         <div>
           <h2>관계망 분석</h2>
-          <p class="muted">관계망(그래프) 기반 분석 — 우범여행자·기업·화물 관계망을 제공합니다.</p>
+          <p class="muted">여러 기업·인물(시드)·파일·속성 필터로 교차 관계망을 자유롭게 구성하고, 커뮤니티·중심성·브리지·공유 허브 교차로 분석합니다. (프로파일 내 관계망과 독립된 자유 분석)</p>
         </div>
       </div>
-      <div class="gi-tab-body">
-        <div style="display:flex;gap:16px">
-          <div style="flex:1;min-width:0">
-            <div class="panel-section-hdr" style="margin-bottom:8px"><span>우범여행자 감시 관계망 그래프</span></div>
-            <div style="position:relative;height:480px;background:#f8fbff;border:1px solid #dde8ff;border-radius:10px;overflow:hidden">
-              <svg width="100%" height="100%" style="position:absolute;top:0;left:0">
-                ${ontologyEdges.map(e=>{
-                  const from = ontologyNodes.find(n=>n.id===e.from);
-                  const to   = ontologyNodes.find(n=>n.id===e.to);
-                  if(!from||!to) return "";
-                  const x1=from.x+"%", y1=from.y+"%", x2=to.x+"%", y2=to.y+"%";
-                  const mx=((from.x+to.x)/2)+"%", my=((from.y+to.y)/2)+"%";
-                  const color = e.type==="relation"?"#7c3aed":e.type==="role"?"#0284c7":"#16a34a";
-                  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${e.type==="event"?"4,3":""}"/>
-                          <text x="${mx}" y="${my}" font-size="10" fill="${color}" text-anchor="middle" dy="-3">${escapeHtml(e.label)}</text>`;
-                }).join("")}
-              </svg>
-              ${ontologyNodes.map(n=>`
-                <div style="position:absolute;left:calc(${n.x}% - 40px);top:calc(${n.y}% - 28px);text-align:center;width:80px">
-                  <div style="background:${nodeColors[n.type]};color:#fff;border-radius:8px;padding:6px 4px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);border:2px solid #fff;cursor:default" title="${escapeHtml(n.desc)}">${escapeHtml(n.label)}</div>
-                  <div style="font-size:10px;color:#6b7f9e;margin-top:2px">${escapeHtml(nodeLabels[n.type])}</div>
-                </div>
-              `).join("")}
-            </div>
-            <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
-              ${Object.entries(nodeColors).map(([type,color])=>`
-                <span style="display:flex;align-items:center;gap:4px;font-size:12px">
-                  <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block"></span>${nodeLabels[type]}
-                </span>
-              `).join("")}
-            </div>
-          </div>
-          <div style="width:280px;flex:none">
-            <div class="panel-section-hdr" style="margin-bottom:8px"><span>관계망 클래스 정의</span></div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              ${ontologyNodes.map(n=>`
-                <div style="background:#fff;border:1px solid #dde8ff;border-radius:8px;padding:10px 12px;border-left:3px solid ${nodeColors[n.type]}">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <strong style="font-size:13px;color:${nodeColors[n.type]}">${escapeHtml(n.label)}</strong>
-                    <span style="font-size:10px;color:#6b7f9e;border:1px solid #dde8ff;border-radius:3px;padding:1px 5px">${escapeHtml(nodeLabels[n.type])}</span>
-                  </div>
-                  <div style="font-size:12px;color:#6b7f9e;margin-top:3px">${escapeHtml(n.desc)}</div>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        </div>
+      <div class="profile-net-right net-right-wb" style="flex:1;min-height:0">
+        ${networkGraphPanelHtml("explore", "main", "자유 관계분석", { workbench: true, explore: true })}
       </div>
     </section>
   `;
