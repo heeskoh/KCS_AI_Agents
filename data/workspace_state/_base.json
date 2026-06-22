@@ -1,7 +1,32 @@
 {
-  "customCanvasJobs": [],
+  "customCanvasJobs": [
+    {
+      "companyId": "C-2009",
+      "companyName": "오토파트코리아 주식회사",
+      "title": "오토파트코리아 주식회사 신규 분석 시나리오",
+      "category": "관세조사 분석",
+      "company": "오토파트코리아 주식회사 (C-2009)",
+      "owner": "신규 분석 작업",
+      "updated": "방금",
+      "status": {
+        "label": "대기",
+        "tone": "wait",
+        "pct": 0,
+        "done": 0,
+        "total": 8
+      },
+      "next": "기업프로파일",
+      "tab": "profile",
+      "isNew": true,
+      "ownerUserId": "u09",
+      "assignees": [
+        "u09"
+      ],
+      "scenarioChanged": false
+    }
+  ],
   "customGenInvCases": [],
-  "activeCanvasCompanyId": "C-2002",
+  "activeCanvasCompanyId": "C-2009",
   "activeScenarioTemplateId": "customs-basic",
   "latestReport": "보고서가 아직 생성되지 않았습니다.",
   "latestValidation": "검증 결과가 아직 없습니다.",
@@ -115,6 +140,170 @@
         "targetType": "person",
         "target_type": "person",
         "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
+      }
+    ],
+    "C-2009": [
+      {
+        "id": "dd2a5a9c-4c9c-4be6-8ad5-1b427178d23d",
+        "key": "db_cdw",
+        "type": "db",
+        "label": "CDW 조회",
+        "behaviors": [
+          "profile_summary"
+        ],
+        "behavior": "profile_summary",
+        "behaviorLabel": "기업/신고 요약",
+        "order": 1,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "5387f087-21c2-4134-a794-e87b9c2aaa50",
+        "key": "rag_customs",
+        "type": "rag_customs",
+        "label": "관세정보 RAG",
+        "behaviors": [
+          "regulation_basis"
+        ],
+        "behavior": "regulation_basis",
+        "behaviorLabel": "관세정보 근거 확인",
+        "order": 2,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "98f462cf-034e-4b8e-88f5-31b92fea8f06",
+        "key": "rag_audit",
+        "type": "rag_audit",
+        "label": "심사정보 RAG",
+        "behaviors": [
+          "audit_case"
+        ],
+        "behavior": "audit_case",
+        "behaviorLabel": "심사사례 비교",
+        "order": 3,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "심사정보와 추징 가능성 관점의 조사 포인트 정리",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "067b079e-c26c-431a-b34e-2b4405ade53b",
+        "key": "declaration_verify",
+        "type": "declaration_verify",
+        "label": "수입신고검증 AI 서비스",
+        "behaviors": [
+          "declaration_consistency",
+          "missing_evidence"
+        ],
+        "behavior": "declaration_consistency",
+        "behaviorLabel": "신고 정합성, 누락 증빙",
+        "order": 4,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "2161b0da-660c-495f-ada7-a30460bbb15f",
+        "key": "hs_verify",
+        "type": "hs_verify",
+        "label": "품목분류검증 AI 서비스",
+        "behaviors": [
+          "classification_check"
+        ],
+        "behavior": "classification_check",
+        "behaviorLabel": "분류 적정성",
+        "order": 5,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "HS 코드 분류 적정성과 대체 후보 검토",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "b4d06e5b-05cb-49d6-8469-8eb33097ab97",
+        "key": "customs_value",
+        "type": "customs_value",
+        "label": "과세가격평가 AI 서비스",
+        "behaviors": [
+          "valuation_basis",
+          "undervaluation"
+        ],
+        "behavior": "valuation_basis",
+        "behaviorLabel": "과세가격 근거, 저가신고 탐지",
+        "order": 6,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "과세가격 결정 요소와 저가신고 가능성 검토",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "38ddf323-be9b-48ff-b4ad-de6e6c5acda4",
+        "key": "report_generate",
+        "type": "report",
+        "label": "보고서 생성 AI 서비스",
+        "behaviors": [
+          "full_report"
+        ],
+        "behavior": "full_report",
+        "behaviorLabel": "전체 보고서",
+        "order": 7,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "6ad58dc7-5239-4c6c-b34d-83e496ef18f9",
+        "key": "report_validate",
+        "type": "validation",
+        "label": "보고서 검증 AI 서비스",
+        "behaviors": [
+          "evidence_validation"
+        ],
+        "behavior": "evidence_validation",
+        "behaviorLabel": "근거 검증",
+        "order": 8,
+        "targetType": "company",
+        "target_type": "company",
+        "instruction": "보고서의 근거 충실성과 누락 증빙 검증",
+        "extraPrompts": [],
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
       }
     ]
   },
@@ -640,10 +829,10 @@
     }
   },
   "currentUserId": "u09",
-  "generalInvTab": "profile",
+  "generalInvTab": "network",
   "activeGenInvCaseId": "GI-2026-001",
   "drugInvTab": "profile",
-  "activeDrugCaseId": "DRUG-2026-001",
+  "activeDrugCaseId": "FX-2026-002",
   "drugDataSubTab": "profile",
   "drugNetworkSubTab": "graph",
   "drugForensicSubTab": "dashboard",
