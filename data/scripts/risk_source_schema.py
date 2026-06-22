@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS valuation_audit (
     audit_date      DATE,
     audit_type      VARCHAR,            -- 정정신고 / 과세가격심사 / 저가신고적발
     hs_code         VARCHAR,
+    declaration_ref VARCHAR,            -- 근거 수입신고 (import_declarations.declaration_no)
     result          VARCHAR,            -- 정정 / 추징 / 정상
     adjusted_amount DOUBLE,             -- 정정·추징 금액(원)
     note            VARCHAR
@@ -89,6 +90,7 @@ CREATE TABLE IF NOT EXISTS fta_claim (
     company_id       VARCHAR,
     agreement        VARCHAR,           -- 한-EU / 한-아세안 / 한-미 등
     hs_code          VARCHAR,
+    declaration_ref  VARCHAR,           -- 근거 수입신고 (import_declarations.declaration_no)
     co_no            VARCHAR,           -- 원산지증명서(C/O) 번호
     co_status        VARCHAR,           -- 정상 / 오류 / 미제출
     reduction_amount DOUBLE,            -- FTA 특혜관세 감면액(원)
@@ -162,6 +164,7 @@ CREATE TABLE IF NOT EXISTS hs_classification_event (
     event_date      DATE,
     event_type      VARCHAR,            -- 정정 / 심사 / AI불일치
     declared_hs     VARCHAR,            -- 신고 HS
+    declaration_ref VARCHAR,            -- 근거 수입신고 (import_declarations.declaration_no)
     ai_suggested_hs VARCHAR,            -- AI 추천 HS (AI불일치 시)
     case_ref        VARCHAR,            -- classification_case_library.case_id 참조
     note            VARCHAR

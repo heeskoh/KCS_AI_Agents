@@ -20,6 +20,8 @@ force_utf8_stdio()
 from src.neo4j_graph import (
     Neo4jGraphError,
     build_company_network_graph,
+    build_company_profile_graph,
+    build_company_trade_routes,
     build_path_graph,
     build_person_network_graph,
 )
@@ -1822,6 +1824,40 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
             try:
                 graph = build_company_network_graph(company_id, hops=hops)
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            if graph is None:
+                self._send_json({"error": "company not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/company_profile":
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                graph = build_company_profile_graph(company_id)
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            if graph is None:
+                self._send_json({"error": "company not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/company_routes":
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                graph = build_company_trade_routes(company_id)
             except Neo4jGraphError as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return

@@ -1869,6 +1869,17 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .profile-net-path-banner{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;background:#fef3c7;border-bottom:1px solid #fde68a;color:#78350f;font-size:12px;font-weight:800}
 .net-path-clear-inline{border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:800;border-radius:8px;padding:3px 10px;cursor:pointer}
 .net-path-clear-inline:hover{background:#fffbeb}
+/* ── 프로파일 4-뷰 토글 + 경로 레인 ── */
+.profile-net-views{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#fbfdff;border-bottom:1px solid #e4edf9}
+.net-view-btn{border:1px solid #dbe7f6;background:#fff;color:#475569;font-size:12px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer;transition:.12s}
+.net-view-btn:hover{border-color:#93c5fd;background:#f0f6ff}
+.net-view-btn.on{border-color:#2563eb;background:#2563eb;color:#fff}
+.net-view-desc{margin-left:6px;font-size:11px;color:#94a3b8}
+.profile-net-filter-chip.net-route-on{border-color:#7dd3fc;background:#f0f9ff;color:#0369a1}
+.net-route-lanes{flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px;background:#f8fbff;border-bottom:1px solid #e4edf9;font-size:12px;font-weight:800;color:#334155}
+.net-route-lane{display:inline-flex;align-items:center;gap:6px}
+.net-route-lane i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.net-route-arrow{color:#94a3b8;font-weight:900}
 /* ── 관계망분석 워크벤치(좌 제어패널 + 우 그래프) ── */
 .net-right-wb{height:auto;min-height:640px}
 .net-ws{display:grid;grid-template-columns:268px minmax(0,1fr);height:100%;min-height:0}

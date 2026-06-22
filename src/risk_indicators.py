@@ -105,6 +105,24 @@ def _rows(ctx: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return list(ctx.get(key) or [])
 
 
+def _decl_nos_for_hs(decls: list[dict[str, Any]], hs_set: set) -> list[str]:
+    """지표 근거 HS 집합과 일치하는 수입신고번호 목록(저가신고 벤치마크 갭 등)."""
+    if not hs_set:
+        return []
+    return sorted({
+        d.get("declaration_no") for d in decls
+        if d.get("declaration_no") and d.get("hs_code") in hs_set
+    })
+
+
+def _refs(records: list[dict[str, Any]]) -> set:
+    """근거 소스레코드가 직접 참조하는 수입신고번호(declaration_ref) 집합.
+
+    원인분석: 근거가 개별 신고와 직결되도록 소스 생성 시 부여한 declaration_ref를 사용.
+    """
+    return {r.get("declaration_ref") for r in records if r.get("declaration_ref")}
+
+
 def _clean_val(v: Any) -> Any:
     """pandas NaN(float)을 None으로 정규화 (DuckDB .df() 읽기 대비)."""
     if isinstance(v, float) and math.isnan(v):
@@ -139,6 +157,7 @@ def _compute_undervaluation(ctx: dict[str, Any]) -> IndicatorResult:
             by_hs.setdefault(hs, []).append(float(d["declared_value"]))
     gap_weighted, weight = 0.0, 0
     worst_gap = 0.0
+    gap_hs: set = set()
     for hs, vals in by_hs.items():
         b = bench.get(hs)
         if not b:
@@ -148,6 +167,8 @@ def _compute_undervaluation(ctx: dict[str, Any]) -> IndicatorResult:
         gap_weighted += below * len(vals)
         weight += len(vals)
         worst_gap = max(worst_gap, below)
+        if below > 0:
+            gap_hs.add(hs)
     below_pct = (gap_weighted / weight) if weight else 0.0
 
     n_corr = sum(1 for a in audits if (a.get("audit_type") == "정정신고" or a.get("result") == "정정"))
@@ -170,9 +191,12 @@ def _compute_undervaluation(ctx: dict[str, Any]) -> IndicatorResult:
     if max_trade >= 1:
         reasons.append(f"특수관계 거래비중 {max_trade:.0f}%")
 
+    # 기여 신고: 감사 근거가 직접 참조한 신고(declaration_ref) ∪ 벤치마크 갭 신고(HS)
+    contrib = _refs(audits) | set(_decl_nos_for_hs(decls, gap_hs))
     return IndicatorResult(
         "undervaluation", INDICATOR_NAMES["undervaluation"], score, reasons,
-        {"valuation_audit": [a.get("id") for a in audits], "worst_gap_pct": round(worst_gap, 1)},
+        {"valuation_audit": [a.get("id") for a in audits], "worst_gap_pct": round(worst_gap, 1),
+         "declarations": sorted(contrib)},
         RECOMMENDATIONS["undervaluation"],
     )
 
@@ -232,10 +256,13 @@ def _compute_fta_origin_misuse(ctx: dict[str, Any]) -> IndicatorResult:
     if recovered > 0:
         reasons.append(f"FTA 추징금 {_won(recovered)}")
 
+    err_claims = [c for c in claims
+                  if c.get("co_status") in ("오류", "미제출") or c.get("is_high_risk_hs")]
     return IndicatorResult(
         "fta_origin_misuse", INDICATOR_NAMES["fta_origin_misuse"], score, reasons,
         {"fta_claim": [c.get("id") for c in claims],
-         "origin_verification": [v.get("id") for v in verifs]},
+         "origin_verification": [v.get("id") for v in verifs],
+         "declarations": sorted(_refs(err_claims))},
         RECOMMENDATIONS["fta_origin_misuse"],
     )
 
@@ -297,7 +324,8 @@ def _compute_hs_classification(ctx: dict[str, Any]) -> IndicatorResult:
     return IndicatorResult(
         "hs_classification", INDICATOR_NAMES["hs_classification"], score, reasons,
         {"hs_classification_event": [e.get("id") for e in events],
-         "case_refs": sorted(c for c in case_refs if c)},
+         "case_refs": sorted(c for c in case_refs if c),
+         "declarations": sorted(_refs(events))},
         RECOMMENDATIONS["hs_classification"],
     )
 

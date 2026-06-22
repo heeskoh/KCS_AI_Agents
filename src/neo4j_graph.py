@@ -402,6 +402,75 @@ def build_company_network_graph(company_id: str, limit: int = 60, hops: int = 1)
     return graph
 
 
+def build_company_trade_routes(company_id: str, limit: int = 200) -> dict[str, Any] | None:
+    """기업 중심 수입통관 체인 서브그래프(경로중심 view).
+
+    기업→출발항→도착항→해외거래처(VIA_SUPPLIER는 수입만)의 체인을 반환한다.
+    공유 항만을 통해 일부 타사 경로가 함께 조회될 수 있으나 중심은 해당 기업이다.
+    기업이 없으면 None.
+    """
+    exists = _read(
+        "MATCH (c:Company {company_id: $company_id}) RETURN c.company_id AS company_id LIMIT 1",
+        company_id=company_id,
+    )
+    if not exists:
+        return None
+    graph = _read_graph(
+        """
+        MATCH (c:Company {company_id: $company_id})-[r1:DEPARTS_FROM]->(dp:DeparturePort)
+        OPTIONAL MATCH (dp)-[r2:PORT_ROUTE {company_id: $company_id}]->(ap:ArrivalPort)
+        OPTIONAL MATCH (ap)-[r3:VIA_SUPPLIER {company_id: $company_id}]->(s:OverseasSupplier)
+        RETURN c, r1, dp, r2, ap, r3, s
+        LIMIT $limit
+        """,
+        company_id=company_id,
+        limit=limit,
+    )
+    graph["center"] = f"Company:{company_id}"
+    graph["routeMode"] = True
+    return graph
+
+
+def build_company_profile_graph(company_id: str, limit: int = 600) -> dict[str, Any] | None:
+    """기업 프로파일 원인분석용 canonical 통합 그래프(수입신고 허브 모델 전체).
+
+    한 번의 조회로 기업의 모든 관계를 반환하고, 프런트가 4개 view(관계분석/원인분석/
+    위험구성/경로분석)로 필터+레이아웃 프로젝션한다. 기업이 없으면 None.
+    """
+    exists = _read(
+        "MATCH (c:Company {company_id: $company_id}) RETURN c.company_id AS company_id LIMIT 1",
+        company_id=company_id,
+    )
+    if not exists:
+        return None
+    graph = _read_graph(
+        """
+        MATCH (c:Company {company_id: $company_id})
+        OPTIONAL MATCH (c)-[rf:FILED]->(d:Declaration)
+        OPTIONAL MATCH (d)-[ri:OF_ITEM]->(it:ItemClass)
+        OPTIONAL MATCH (d)-[rfp:FROM_PORT]->(dp:DeparturePort)
+        OPTIONAL MATCH (d)-[rtp:TO_PORT]->(ap:ArrivalPort)
+        OPTIONAL MATCH (d)-[rs:SUPPLIED_BY]->(os:OverseasSupplier)
+        OPTIONAL MATCH (d)-[rb:FILED_BY]->(b:Broker)
+        OPTIONAL MATCH (d)-[rc:CONTRIBUTES_TO]->(cf:RiskFactor)
+        OPTIONAL MATCH (c)-[rri:RISK_INDICATORS]->(rsc:RiskScore)
+        OPTIONAL MATCH (rsc)-[rdb:DRIVEN_BY]->(df:RiskFactor)
+        OPTIONAL MATCH (c)-[ran:ANALYZED]->(af:RiskFactor)
+        OPTIONAL MATCH (c)-[rrp:RELATED_PARTY]->(rp:RelatedParty)
+        OPTIONAL MATCH (c)-[raf:AFFILIATED_WITH]->(ac:AffiliatedCompany)
+        OPTIONAL MATCH (c)-[rca:CASE]->(ct:CaseType)
+        RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf,
+               rri, rsc, rdb, df, ran, af, rrp, rp, raf, ac, rca, ct
+        LIMIT $limit
+        """,
+        company_id=company_id,
+        limit=limit,
+    )
+    graph["center"] = f"Company:{company_id}"
+    graph["profileMode"] = True
+    return graph
+
+
 def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1) -> dict[str, Any] | None:
     """Return a node/edge graph centered on a risk person, or None if no person exists.
 

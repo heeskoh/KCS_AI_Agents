@@ -44,6 +44,9 @@ const NODE_COLORS = {
   RelatedParty:  "#be123c",
   AffiliatedCompany:"#1d4ed8",
   CaseType:      "#dc2626",
+  // 2026 관계망 재정의: 품목분류(8자리)·종합위험값·위험요인
+  ItemClass:     "#0891b2",
+  RiskFactor:    "#b91c1c",
   Phone:         "#e11d48",
   Account:       "#0d9488",
   Place:         "#7c3aed",
@@ -56,11 +59,12 @@ const NODE_LABEL_KO = {
   Person: "인물", Company: "기업", Declaration: "수입신고",
   Country: "국가", Case: "사건", SmugglingCase: "사건",
   Org: "조직", Organization: "조직", Evidence: "증거",
-  RiskIndicator: "위험지표", RiskScore: "위험점수", AnalysisResult: "분석이력", Agent: "AI 분석서비스",
+  RiskIndicator: "위험지표", RiskScore: "종합위험값", AnalysisResult: "분석이력", Agent: "AI 분석서비스",
   Broker: "관세사", HsCode: "HS코드", Item: "품목",
   Industry: "업종", Region: "지역", RelatedCompany: "관계사",
   OverseasSupplier: "해외거래처", RelatedParty: "특수관계인", AffiliatedCompany: "관계사",
   CaseType: "사건유형",
+  ItemClass: "품목분류", RiskFactor: "위험요인",
   Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
   DeparturePort: "출발항", ArrivalPort: "도착항",
 };
@@ -80,9 +84,15 @@ const REL_LABEL_KO = {
   IMPORTED: "수입신고", SUPPLIES_TO: "공급", EXPORTS_TO: "수출",
   USES_BROKER: "관세사", HAS_RELATED_COMPANY: "관계사", RELATED_TO: "특수관계",
   // 2026 관계망 재구성 (기업 수입 그래프 5종 엣지)
-  SUPPLIED_BY: "해외거래처(공급)", RELATED_PARTY: "특수관계", DECLARES_ITEM: "품목신고",
+  SUPPLIED_BY: "해외거래처(공급)", RELATED_PARTY: "특수관계", DECLARES_ITEM: "품목(10자리)",
   TRADES_WITH_COUNTRY: "수입/출국", AFFILIATED_WITH: "관계사", CASE: "사건",
   DEPARTS_FROM: "출발항", ARRIVES_AT: "도착항",
+  // 2026 관계망 재정의: 수입통관 체인 + 위험/분석
+  PORT_ROUTE: "출발→도착", VIA_SUPPLIER: "도착→거래처",
+  RISK_INDICATORS: "오류지표", DRIVEN_BY: "위험요인", ANALYZED: "분석결과", USES_BROKER: "관세사",
+  // 2026 수입신고 허브 모델
+  FILED: "신고", OF_ITEM: "품목분류", FROM_PORT: "출발항", TO_PORT: "도착항",
+  FILED_BY: "관세사", CONTRIBUTES_TO: "위험기여",
   NETWORK_EDGE: "인적관계", RESIDES_IN: "거주", LOCATED_IN: "소재",
 };
 function relLabelKo(type, props){
@@ -131,6 +141,7 @@ function emptyState(){
     scenarioName: "",                  // 등록할 시나리오 이름(작성 중)
     activeScenarioId: "",              // 선택/적용된 시나리오 id
     _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
+    viewMode: "relation",              // 프로파일 4-뷰: relation|cause|risk|route
   };
 }
 function filterStateFor(key){
@@ -140,9 +151,10 @@ function filterStateFor(key){
 
 function graphUrl(targetType, targetId, hops = 1){
   const h = `&hops=${encodeURIComponent(hops)}`;
+  // 회사 프로파일: canonical 통합 그래프(수입신고 허브) — 4-뷰 프로젝션의 단일 소스
   return targetType === "person"
     ? `/api/graph/person?person_id=${encodeURIComponent(targetId)}${h}`
-    : `/api/graph/company?company_id=${encodeURIComponent(targetId)}${h}`;
+    : `/api/graph/company_profile?company_id=${encodeURIComponent(targetId)}`;
 }
 
 function truncate(text, max = 10){
@@ -213,6 +225,7 @@ const PROP_LABEL_KO = {
   risk_indicator_summary: "위험지표", hsk_code: "품목번호(HSK)", spec: "사양/규격",
   departure_country: "적출국", overseas_supplier: "해외거래처", item: "품목", count: "건수",
   transport_type: "운송수단", trade_flow: "수출입 구분", port_code: "항만코드", trade_date: "신고일자",
+  item_class: "품목분류(8자리)", model_or_agent: "분석 모델/서비스", reason: "근거",
   shareholding_pct: "지분율(%)", trade_share_pct: "거래비중(%)", is_offshore: "역외 여부", note: "비고",
   origin: "원산지", status: "사건유형", case_count: "사건건수",
   indicator_name: "지표명", code: "코드", value: "값", score: "점수",
@@ -380,6 +393,7 @@ function cyElements(graph){
       ew: edgeWidth(e.properties),
       onPath: pathMode ? 1 : 0,
       fileEdge: (e.properties && e.properties.source === "file") ? 1 : 0,
+      exportFlow: (e.properties && e.properties.trade_flow === "수출") ? 1 : 0,
     } }));
   return [...nodeEls, ...edgeEls];
 }
@@ -421,6 +435,10 @@ const CY_STYLE = [
       "line-color": "#db2777", "target-arrow-color": "#db2777",
       "line-style": "dashed", "color": "#9d174d",
   }},
+  // 경로분석: 수출 흐름은 주황색
+  { selector: "edge[exportFlow = 1]", style: {
+      "line-color": "#f59e0b", "target-arrow-color": "#f59e0b", "color": "#b45309",
+  }},
   { selector: "edge", style: {
       "curve-style": "bezier",
       "line-color": "#9bbcff",
@@ -459,16 +477,9 @@ function mountCytoscape(key, filteredGraph){
       container: area,
       elements: cyElements(filteredGraph),
       style: CY_STYLE,
-      layout: {
-        name: "concentric",
-        concentric: node => node.data("ring"),
-        levelWidth: () => 1,
-        minNodeSpacing: 26,
-        padding: 14,
-        animate: false,
-      },
+      layout: viewLayout(filterStateFor(key), filteredGraph),
       wheelSensitivity: .25,
-      maxZoom: 3, minZoom: .3,
+      maxZoom: 3, minZoom: .2,
     });
     /* 마우스 액션 정리:
        - 호버: 해당 노드와 직접 이웃만 강조(나머지 흐림)
@@ -507,6 +518,94 @@ function mountCytoscape(key, filteredGraph){
     // CDN 차단 등으로 cytoscape 로드 실패 → 자체 SVG 렌더러 폴백
     area.outerHTML = `<div class="profile-net-svg-fallback">${buildGraphSvg(filteredGraph, key)}</div>`;
   });
+}
+
+/* ── 프로파일 4-뷰: canonical 그래프를 목적별로 필터+레이아웃+인코딩 프로젝션 ──
+   관계분석(방사형)·원인분석(군집)·위험구성(계층)·경로분석(레인). 회사 프로파일 전용. */
+const VIEW_MODES = [
+  { id: "relation", label: "관계분석", icon: "🕸️", layout: "concentric", desc: "기업 중심 전체 관계(방사형)" },
+  { id: "cause", label: "원인분석", icon: "🧩", layout: "cose", desc: "위험요인별 신고 군집 — 반복 기여 요소(군집형)" },
+  { id: "risk", label: "위험구성", icon: "🏗️", layout: "breadthfirst", desc: "종합위험값→위험요인→신고→요소(계층형)" },
+  { id: "route", label: "경로분석", icon: "🛳️", layout: "preset", desc: "신고별 출발항→도착항→해외거래처(레인)" },
+];
+
+/* 뷰별 표시 라벨/엣지 화이트리스트. null = 전부 표시(관계분석). */
+const VIEW_PROJECTION = {
+  relation: null,
+  cause: {
+    nodes: new Set(["Company", "Declaration", "RiskFactor", "ItemClass", "DeparturePort", "ArrivalPort", "OverseasSupplier", "Broker"]),
+    edges: new Set(["CONTRIBUTES_TO", "FILED", "OF_ITEM", "FROM_PORT", "TO_PORT", "SUPPLIED_BY", "FILED_BY", "ANALYZED"]),
+  },
+  risk: {
+    nodes: new Set(["Company", "RiskScore", "RiskFactor", "Declaration"]),
+    edges: new Set(["RISK_INDICATORS", "DRIVEN_BY", "CONTRIBUTES_TO", "FILED"]),
+  },
+  route: {
+    nodes: new Set(["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"]),
+    edges: new Set(["FILED", "FROM_PORT", "TO_PORT", "SUPPLIED_BY"]),
+  },
+};
+
+function viewModeOf(state){
+  const id = state.viewMode || "relation";
+  return VIEW_MODES.find(v => v.id === id) || VIEW_MODES[0];
+}
+
+/* canonical 그래프 → 현재 뷰 프로젝션(라벨/엣지 필터 + 고립 노드 제거) */
+function projectForView(graph, modeId){
+  const proj = VIEW_PROJECTION[modeId];
+  if(!proj) return graph;
+  const nodes = (graph.nodes || []).filter(n => proj.nodes.has(n.label));
+  const ids = new Set(nodes.map(n => n.id));
+  const edges = (graph.edges || []).filter(e => proj.edges.has(e.type) && ids.has(e.source) && ids.has(e.target));
+  const conn = new Set([graph.center]);
+  edges.forEach(e => { conn.add(e.source); conn.add(e.target); });
+  return { ...graph, nodes: nodes.filter(n => conn.has(n.id)), edges };
+}
+
+/* 경로분석(레인) 좌표: 라벨별 열 배치 */
+const ROUTE_LANES = ["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"];
+const ROUTE_LANE_KO = ["기업", "수입신고", "출발항", "도착항", "해외거래처"];
+function presetPositions(graph){
+  const laneIdx = new Map(ROUTE_LANES.map((l, i) => [l, i]));
+  const byLane = new Map(ROUTE_LANES.map(l => [l, []]));
+  (graph.nodes || []).forEach(n => { if(byLane.has(n.label)) byLane.get(n.label).push(n); });
+  const colW = 200, rowH = 58, pos = {};
+  byLane.forEach((list, lane) => {
+    const x = laneIdx.get(lane) * colW;
+    list.forEach((n, i) => { pos[n.id] = { x, y: (i - (list.length - 1) / 2) * rowH }; });
+  });
+  return pos;
+}
+
+/* 뷰별 cytoscape 레이아웃 */
+function viewLayout(state, graph){
+  const m = viewModeOf(state);
+  if(m.layout === "preset") return { name: "preset", positions: presetPositions(graph), padding: 30, fit: true };
+  if(m.layout === "cose") return { name: "cose", padding: 20, animate: false, nodeRepulsion: 9000, idealEdgeLength: 80, fit: true };
+  if(m.layout === "breadthfirst") return {
+    name: "breadthfirst", directed: false, padding: 24, spacingFactor: 1.05, fit: true,
+    roots: (graph.nodes || []).filter(n => n.label === "RiskScore").map(n => n.id),
+  };
+  return { name: "concentric", concentric: n => n.data("ring"), levelWidth: () => 1, minNodeSpacing: 26, padding: 14, animate: false };
+}
+
+/* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) */
+function buildViewToggle(state, key){
+  if(!key.startsWith("company:")) return "";
+  const cur = viewModeOf(state).id;
+  const btns = VIEW_MODES.map(v =>
+    `<button type="button" class="net-view-btn${v.id === cur ? " on" : ""}" data-net-view="${escapeHtml(key)}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
+  ).join("");
+  const desc = viewModeOf(state).desc;
+  return `<div class="profile-net-views">${btns}<span class="net-view-desc">${escapeHtml(desc)}</span></div>`;
+}
+
+/* 경로분석 레인 헤더 */
+function buildRouteLanes(){
+  return `<div class="net-route-lanes">` + ROUTE_LANE_KO.map((ko, i) =>
+    `<div class="net-route-lane"><i class="net-dot" style="background:${nodeColor(ROUTE_LANES[i])}"></i>${escapeHtml(ko)}</div>`
+  ).join('<span class="net-route-arrow">→</span>') + `</div>`;
 }
 
 /* ── 활성 조건 목록: 등록된 조건(enabled) + 작성 중인 조건(미리보기) ── */
@@ -1305,18 +1404,24 @@ function renderPanelContent(targetType, targetId){
     const body = `<div class="profile-net-empty"><span class="home-running-dot"></span> 관계망 로딩 중...</div>`;
     return state.workbench ? wrapWorkbench(null, state, key, body) : body;
   }
+  const isCompany = targetType === "company";
   const filtered = applyFilter(raw, state);
+  // 회사 프로파일: 현재 4-뷰로 프로젝션(라벨/엣지 필터). 그 외(우범자)는 전체.
+  const projected = isCompany ? projectForView(filtered, state.viewMode) : filtered;
+  const isRoute = isCompany && viewModeOf(state).id === "route";
   // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
-  if(state._autorun && filtered.nodes.length){
+  if(state._autorun && projected.nodes.length){
     state.analysisMode = state._autorun;
-    state.analysisResult = computeAnalysis(state._autorun, filtered, state.analysisSel);
+    state.analysisResult = computeAnalysis(state._autorun, projected, state.analysisSel);
     state._autorun = null;
   }
-  const graphArea = filtered.nodes.length
+  const graphArea = projected.nodes.length
     ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
-    : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">필터 조건·데이터 소스를 확인하세요.</span></div>`;
+    : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`;
   const main = `
+    ${buildViewToggle(state, key)}
     ${buildFilterBar(raw, state, key)}
+    ${isRoute ? buildRouteLanes() : ""}
     ${buildPathBanner(state, key)}
     <div class="profile-net-graph-area">${graphArea}</div>
     <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>
@@ -1326,9 +1431,9 @@ function renderPanelContent(targetType, targetId){
       ${buildConditionBuilder(raw, state, key)}
       <div class="profile-net-list-head">
         <strong>관계 데이터 목록</strong>
-        <span class="muted">노드 ${filtered.nodes.length} · 관계 ${filtered.edges.length}</span>
+        <span class="muted">노드 ${projected.nodes.length} · 관계 ${projected.edges.length}</span>
       </div>
-      ${buildEdgeTable(filtered)}
+      ${buildEdgeTable(projected)}
     </div>
   `;
   return state.workbench ? wrapWorkbench(raw, state, key, main) : main;
@@ -1352,7 +1457,8 @@ function renderPanelInto(el, targetType, targetId){
   const raw = currentRawGraph(key, state);
   if(raw){
     const filtered = applyFilter(raw, state);
-    if(filtered.nodes.length) mountCytoscape(key, filtered);
+    const projected = targetType === "company" ? projectForView(filtered, state.viewMode) : filtered;
+    if(projected.nodes.length) mountCytoscape(key, projected);
   }
 }
 
@@ -1589,6 +1695,14 @@ function bindHandlers(){
     const detailClose = event.target.closest("[data-net-detail-close]");
     if(detailClose){
       hideNetDetail(detailClose.dataset.netDetailClose);
+      return;
+    }
+    // 프로파일 4-뷰 전환 (관계분석/원인분석/위험구성/경로분석)
+    const viewBtn = event.target.closest("[data-net-view]");
+    if(viewBtn){
+      const [key, mode] = viewBtn.dataset.netView.split("::");
+      filterStateFor(key).viewMode = mode;
+      rerenderPanelByKey(key);
       return;
     }
     const detailFocus = event.target.closest("[data-net-detail-focus]");

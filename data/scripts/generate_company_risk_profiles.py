@@ -95,6 +95,15 @@ def _emphasis(rng: random.Random, base: float, boost: float = 0.0) -> float:
     return max(0.0, min(100.0, base * rng.uniform(0.45, 1.20) + rng.uniform(-12, 12) + boost))
 
 
+def _pick_decl(rng: random.Random, decls: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """근거 레코드(저가신고·FTA·HS분류)가 직접 참조할 실제 수입신고 1건(없으면 None).
+
+    원인분석: 위험지표 근거를 개별 신고건과 직결시키기 위해 무작위 HS가 아니라
+    실제 신고를 골라 hs_code·declaration_ref(declaration_no)를 함께 부여한다.
+    """
+    return rng.choice(decls) if decls else None
+
+
 class _Ids:
     """테이블별 자동증가 id 카운터."""
 
@@ -171,13 +180,15 @@ def _generate_company_sources(
     n_claims = {0: 0, 1: 1, 2: 2, 3: 3}[lv_fta]
     co_no_pool: list[str] = []
     for i in range(n_claims):
-        hs = rng.choice(hs_codes)
+        d = _pick_decl(rng, decls)
+        hs = d["hs_code"] if d else rng.choice(hs_codes)
         co_no = f"CO-{cid[-4:]}-{i+1:02d}"
         co_no_pool.append(co_no)
         status = "정상" if lv_fta <= 1 else rng.choice(["오류", "미제출", "정상"])
         out["fta_claim"].append({
             "id": ids.next("fta_claim"), "company_id": cid,
-            "agreement": rng.choice(FTA_AGREEMENTS), "hs_code": hs, "co_no": co_no,
+            "agreement": rng.choice(FTA_AGREEMENTS), "hs_code": hs,
+            "declaration_ref": d["declaration_no"] if d else None, "co_no": co_no,
             "co_status": status, "reduction_amount": round(import_amt * rng.uniform(0.01, 0.06)),
             "claim_date": _d(rng.randint(30, 800)),
             "is_high_risk_hs": hs.replace(".", "").startswith(HIGH_RISK_HS_PREFIX),
@@ -219,26 +230,32 @@ def _generate_company_sources(
     counts = {0: (0, 0, 0), 1: (1, 0, 1), 2: (3, 1, 3), 3: (6, 2, 5)}[lv_hs]
     n_corr, n_review, n_ai = counts
     for _ in range(n_corr):
+        d = _pick_decl(rng, decls)
         out["hs_classification_event"].append({
             "id": ids.next("hs_classification_event"), "company_id": cid,
             "event_date": _d(rng.randint(20, 800)), "event_type": "정정",
-            "declared_hs": rng.choice(hs_codes), "ai_suggested_hs": None,
-            "case_ref": None, "note": "신고 후 품목분류 정정",
+            "declared_hs": d["hs_code"] if d else rng.choice(hs_codes),
+            "declaration_ref": d["declaration_no"] if d else None,
+            "ai_suggested_hs": None, "case_ref": None, "note": "신고 후 품목분류 정정",
         })
     for _ in range(n_review):
+        d = _pick_decl(rng, decls)
         out["hs_classification_event"].append({
             "id": ids.next("hs_classification_event"), "company_id": cid,
             "event_date": _d(rng.randint(20, 800)), "event_type": "심사",
-            "declared_hs": rng.choice(hs_codes), "ai_suggested_hs": None,
-            "case_ref": None, "note": "품목분류 사전심사",
+            "declared_hs": d["hs_code"] if d else rng.choice(hs_codes),
+            "declaration_ref": d["declaration_no"] if d else None,
+            "ai_suggested_hs": None, "case_ref": None, "note": "품목분류 사전심사",
         })
     for _ in range(n_ai):
         case = rng.choice(CASE_LIBRARY)
+        d = _pick_decl(rng, decls)
         out["hs_classification_event"].append({
             "id": ids.next("hs_classification_event"), "company_id": cid,
             "event_date": _d(rng.randint(10, 400)), "event_type": "AI불일치",
-            "declared_hs": rng.choice(hs_codes), "ai_suggested_hs": case[1],
-            "case_ref": case[0], "note": "AI 추천 분류와 신고 불일치",
+            "declared_hs": d["hs_code"] if d else rng.choice(hs_codes),
+            "declaration_ref": d["declaration_no"] if d else None,
+            "ai_suggested_hs": case[1], "case_ref": case[0], "note": "AI 추천 분류와 신고 불일치",
         })
 
     # STEP7: 외환거래 — fx_transaction + offshore_company + forex_investigation
@@ -270,29 +287,23 @@ def _generate_company_sources(
             "agency": "외환조사과", "note": "무역대금 가장 자금유출 의심",
         })
 
-    # STEP8: 조사/수사 — valuation_audit (저가)
-    if lv_under >= 1:
-        out["valuation_audit"].append({
+    # STEP8: 조사/수사 — valuation_audit (저가). 실제 신고건을 참조(declaration_ref).
+    def _val_audit(audit_type: str, result: str, lo: float, hi: float, note: str) -> dict[str, Any]:
+        d = _pick_decl(rng, decls)
+        return {
             "id": ids.next("valuation_audit"), "company_id": cid,
-            "audit_date": _d(rng.randint(40, 700)), "audit_type": "정정신고",
-            "hs_code": rng.choice(hs_codes), "result": "정정",
-            "adjusted_amount": round(import_amt * rng.uniform(0.005, 0.02)), "note": "과세가격 정정",
-        })
+            "audit_date": _d(rng.randint(40, 700)), "audit_type": audit_type,
+            "hs_code": d["hs_code"] if d else rng.choice(hs_codes),
+            "declaration_ref": d["declaration_no"] if d else None,
+            "result": result, "adjusted_amount": round(import_amt * rng.uniform(lo, hi)), "note": note,
+        }
+    if lv_under >= 1:
+        out["valuation_audit"].append(_val_audit("정정신고", "정정", 0.005, 0.02, "과세가격 정정"))
     if lv_under >= 2:
         for _ in range(lv_under - 1):
-            out["valuation_audit"].append({
-                "id": ids.next("valuation_audit"), "company_id": cid,
-                "audit_date": _d(rng.randint(40, 700)), "audit_type": "정정신고",
-                "hs_code": rng.choice(hs_codes), "result": "정정",
-                "adjusted_amount": round(import_amt * rng.uniform(0.005, 0.02)), "note": "과세가격 정정",
-            })
+            out["valuation_audit"].append(_val_audit("정정신고", "정정", 0.005, 0.02, "과세가격 정정"))
     if lv_under >= 3:
-        out["valuation_audit"].append({
-            "id": ids.next("valuation_audit"), "company_id": cid,
-            "audit_date": _d(rng.randint(40, 600)), "audit_type": "저가신고적발",
-            "hs_code": rng.choice(hs_codes), "result": "추징",
-            "adjusted_amount": round(import_amt * rng.uniform(0.02, 0.06)), "note": "저가신고 적발 추징",
-        })
+        out["valuation_audit"].append(_val_audit("저가신고적발", "추징", 0.02, 0.06, "저가신고 적발 추징"))
 
     return out
 
