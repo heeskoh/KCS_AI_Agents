@@ -1,7 +1,7 @@
 {
   "activeCanvasCompanyId": "C-2002",
   "activeScenarioTemplateId": "customs-basic",
-  "investigationTab": "profile",
+  "investigationTab": "ongoing",
   "canvasTab": "overview",
   "generalInvTab": "cases",
   "activeGenInvCaseId": null,
@@ -55,7 +55,7 @@
       "assignees": [
         "u09"
       ],
-      "investigator": "권조사",
+      "investigator": "임조사",
       "team": "세관 조사분야",
       "created": "2026-05-15",
       "updated": "오늘 09:30"
@@ -87,5 +87,5 @@
   "canvasJobOverrides": {},
   "canvasRunArchives": {},
   "hiddenCanvasJobIds": [],
-  "updatedAt": "2026-06-22T09:42:32.816Z"
+  "updatedAt": "2026-06-22T09:34:08.136Z"
 }

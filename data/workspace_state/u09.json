@@ -3,13 +3,13 @@
   "activeScenarioTemplateId": "customs-basic",
   "investigationTab": "ongoing",
   "canvasTab": "overview",
-  "generalInvTab": "data",
-  "activeGenInvCaseId": "GI-2026-002",
+  "generalInvTab": "profile",
+  "activeGenInvCaseId": "GI-2026-001",
   "drugInvTab": "profile",
   "activeDrugCaseId": "DRUG-2026-001",
   "drugDataSubTab": "profile",
   "drugNetworkSubTab": "graph",
-  "drugForensicSubTab": "movement",
+  "drugForensicSubTab": "dashboard",
   "drugReportSubTab": "draft",
   "latestReport": "보고서가 아직 생성되지 않았습니다.",
   "latestValidation": "검증 결과가 아직 없습니다.",
@@ -29,6 +29,10 @@
         "done": 4,
         "total": 7
       },
+      "ownerUserId": "u09",
+      "assignees": [
+        "u09"
+      ],
       "investigator": "임조사",
       "team": "조사국 조사1과",
       "created": "2026-05-10",
@@ -272,10 +276,195 @@
         "done": 1,
         "total": 7
       },
+      "ownerUserId": "u09",
+      "assignees": [
+        "u09"
+      ],
       "investigator": "권조사",
       "team": "세관 조사분야",
       "created": "2026-05-15",
-      "updated": "오늘 09:30"
+      "updated": "오늘 09:30",
+      "giSteps": [
+        {
+          "id": "a6d8f061-6e7b-4756-8d99-37fa92895216",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 조회",
+          "behaviors": [
+            "profile_summary"
+          ],
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업/신고 요약",
+          "order": 1,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "db_cdw",
+          "note": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약"
+        },
+        {
+          "id": "6a7d6f7f-0189-4f43-b719-b60f85f26d5d",
+          "key": "rag_investigation",
+          "type": "rag",
+          "label": "조사정보 RAG",
+          "behaviors": [
+            "investigation_plan"
+          ],
+          "behavior": "investigation_plan",
+          "behaviorLabel": "조사계획 수립",
+          "order": 2,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "rag_investigation",
+          "note": "조사 정보 기반으로 조사 순서와 확인 자료 정리"
+        },
+        {
+          "id": "133d66b9-2dd3-4de7-b842-7a8b16135c43",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "order": 3,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "declaration_verify",
+          "note": "품명·중량·가격 불일치, 화물 이상 패턴"
+        },
+        {
+          "id": "0ea76eda-f145-48b5-8537-bd9557cdc4de",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "order": 4,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "route_analysis",
+          "note": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지"
+        },
+        {
+          "id": "ee589a81-f581-4dcf-bb87-804a1597c240",
+          "key": "proceeds_tracking",
+          "type": "agent",
+          "label": "범죄수익 추적 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름",
+          "order": 5,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "자금흐름, 계좌 추적 연계",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "proceeds_tracking",
+          "note": "자금흐름, 계좌 추적 연계"
+        },
+        {
+          "id": "0001a560-a6cf-401f-917b-ef8ddbfa8cd3",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "order": 6,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "law",
+          "note": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+        },
+        {
+          "id": "dff9c1f9-9021-4463-bfae-b789fefc1302",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "order": 7,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "증거 정리",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "report_generate",
+          "note": "증거 정리"
+        },
+        {
+          "id": "afcb7dad-1427-43c3-857b-abc02d815f31",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "order": 8,
+          "targetType": "person",
+          "target_type": "person",
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "sourceKey": "report_validate",
+          "note": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
+        }
+      ],
+      "stepStates": {},
+      "stepResults": {},
+      "stepExpanded": {}
     },
     {
       "caseId": "GI-2026-003",
@@ -290,15 +479,131 @@
         "done": 6,
         "total": 7
       },
+      "ownerUserId": "u09",
+      "assignees": [
+        "u09"
+      ],
       "investigator": "임조사",
       "team": "조사국 조사1과",
       "created": "2026-04-28",
       "updated": "어제"
     }
   ],
-  "companyScenarios": {},
+  "companyScenarios": {
+    "C-2002": [
+      {
+        "id": "gis_0_e7682c96-c9d5-4d41-be59-cf19bc38bb59",
+        "key": "network",
+        "type": "network",
+        "label": "관계망 분석 AI 서비스",
+        "behaviors": [
+          "relationship"
+        ],
+        "behavior": "relationship",
+        "behaviorLabel": "관계망 분석",
+        "order": 1,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "인물·동행자·연락처·주소 관계망을 분석해 공범, 전달책, 반복 연계 가능성을 식별\n\n중점 확인: 관계망 분석",
+        "shareRecipients": [],
+        "share_recipients": [],
+        "webTargets": [],
+        "web_targets": []
+      },
+      {
+        "id": "gis_1_40587b59-dc49-4799-9e90-1e97ebb98fd3",
+        "key": "rag_investigation",
+        "type": "rag",
+        "label": "조사정보 RAG",
+        "behaviors": [
+          "investigation_plan"
+        ],
+        "behavior": "investigation_plan",
+        "behaviorLabel": "조사계획 수립",
+        "order": 2,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리"
+      },
+      {
+        "id": "gis_2_d8c7fc09-1dee-4502-b4e9-39c9e26ce827",
+        "key": "declaration_verify",
+        "type": "agent",
+        "label": "수입신고검증 AI 서비스",
+        "behaviors": [
+          "declaration_consistency"
+        ],
+        "behavior": "declaration_consistency",
+        "behaviorLabel": "신고 정합성",
+        "order": 3,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "품명·중량·가격 불일치, 화물 이상 패턴"
+      },
+      {
+        "id": "gis_4_9f8797e7-bdcf-4a4a-b778-e753f0626746",
+        "key": "proceeds_tracking",
+        "type": "agent",
+        "label": "범죄수익 추적 AI 서비스",
+        "behaviors": [
+          "fund_flow"
+        ],
+        "behavior": "fund_flow",
+        "behaviorLabel": "자금흐름",
+        "order": 4,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "자금흐름, 계좌 추적 연계"
+      },
+      {
+        "id": "gis_5_20f1ff63-fe93-405c-8d28-3e7584bac6f1",
+        "key": "law",
+        "type": "agent",
+        "label": "법령 검토 AI 서비스",
+        "behaviors": [
+          "law_basis"
+        ],
+        "behavior": "law_basis",
+        "behaviorLabel": "법령 근거",
+        "order": 5,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+      },
+      {
+        "id": "gis_6_17662d00-efdd-4db0-a4e7-94815d981208",
+        "key": "report_generate",
+        "type": "report",
+        "label": "보고서 작성",
+        "behaviors": [
+          "full_report"
+        ],
+        "behavior": "full_report",
+        "behaviorLabel": "전체 보고서",
+        "order": 6,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "증거 정리"
+      },
+      {
+        "id": "gis_7_5245cdf5-c46b-4553-a617-7622ae283d5d",
+        "key": "report_validate",
+        "type": "approve",
+        "label": "보고서 검증 AI 서비스",
+        "behaviors": [
+          "evidence_validation"
+        ],
+        "behavior": "evidence_validation",
+        "behaviorLabel": "근거 검증",
+        "order": 7,
+        "targetType": "person",
+        "target_type": "person",
+        "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증"
+      }
+    ]
+  },
   "canvasJobOverrides": {},
   "canvasRunArchives": {},
   "hiddenCanvasJobIds": [],
-  "updatedAt": "2026-06-12T03:54:06.237Z"
+  "updatedAt": "2026-06-22T10:15:23.750Z"
 }

@@ -67,6 +67,7 @@
         "profile",
         "data",
         "workbench",
+        "network",
         "report"
       ]
     },
@@ -234,6 +235,30 @@
     "ocr": {
       "serviceId": "ocr",
       "agentId": "ocr",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "translate": {
+      "serviceId": "translate",
+      "agentId": "translate",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "text_summary": {
+      "serviceId": "text_summary",
+      "agentId": "text_summary",
+      "enabled": true,
+      "instruction": "",
+      "behavior": "",
+      "options": {}
+    },
+    "report_standard": {
+      "serviceId": "report_standard",
+      "agentId": "report_standard",
       "enabled": true,
       "instruction": "",
       "behavior": "",

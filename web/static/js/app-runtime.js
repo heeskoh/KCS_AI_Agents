@@ -9462,13 +9462,14 @@ document.addEventListener("change", (event) => {
     const page = sbDefaultTab;
     const scenario = scenarioBuilderConfig.analysisScenarios?.[page];
     if(scenario){
-      scenarioBuilderConfig = {
+      // 즉시 서버에 영속화 — 다른 PC/세션에서도 동일하게 동작하도록 단일 저장소(서버)에 반영
+      saveScenarioBuilderState({
         ...scenarioBuilderConfig,
         analysisScenarios: {
           ...scenarioBuilderConfig.analysisScenarios,
           [page]: { ...scenario, defaultTab: event.target.value },
         },
-      };
+      });
     }
   }
 });
@@ -9876,13 +9877,14 @@ document.addEventListener("click", (event)=>{
     const idx = enabled.indexOf(tabId);
     if(idx === -1){ enabled.push(tabId); }
     else { enabled.splice(idx, 1); }
-    scenarioBuilderConfig = {
+    // 즉시 서버에 영속화 — 다른 PC/세션에서도 저장된 구성대로 동작
+    saveScenarioBuilderState({
       ...scenarioBuilderConfig,
       analysisScenarios: {
         ...scenarioBuilderConfig.analysisScenarios,
         [page]: { ...scenario, enabledSubtabs: enabled },
       },
-    };
+    });
     render("scenarioBuilder");
     return;
   }
@@ -9899,13 +9901,14 @@ document.addEventListener("click", (event)=>{
     if(idx === -1) return;
     if(dir === "up"   && idx > 0)               { [enabled[idx-1], enabled[idx]] = [enabled[idx], enabled[idx-1]]; }
     if(dir === "down" && idx < enabled.length-1){ [enabled[idx], enabled[idx+1]] = [enabled[idx+1], enabled[idx]]; }
-    scenarioBuilderConfig = {
+    // 즉시 서버에 영속화 — 순서 변경도 다른 PC/세션에 반영
+    saveScenarioBuilderState({
       ...scenarioBuilderConfig,
       analysisScenarios: {
         ...scenarioBuilderConfig.analysisScenarios,
         [page]: { ...scenario, enabledSubtabs: enabled },
       },
-    };
+    });
     render("scenarioBuilder");
     return;
   }
@@ -10583,7 +10586,9 @@ document.addEventListener("click", (event)=>{
     if(pageButton.dataset.canvasTab){
       canvasTab = pageButton.dataset.canvasTab;
     }
-    if(pageButton.classList.contains("special-analysis-btn")){
+    // 모든 진입 경로(카드형 버튼·My AI 하단 바로가기·좌측 사이드바 메뉴 등)에서
+    // 분석 페이지로 들어올 때는 항시 관리자 업무시나리오의 기본 진입 탭으로 리셋한다.
+    {
       const page = pageButton.dataset.page;
       const template = analysisTemplateForPage(page);
       if(page === "investigation" || template === "customs"){
