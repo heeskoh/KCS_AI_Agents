@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 관계망분석 플랫폼</title>
+    
+    <script type="text/javascript" src="assets/vis-network.min.js"></script>
+    <script src="assets/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/pdf.worker.min.js';
+    </script>
+    
+    <style>
+        /* ★ [NEW] 다크/라이트 모드를 위한 CSS 변수 세팅 ★ */
+        :root {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-header: #020617;
+            --bg-canvas-inner: #1e293b;
+            --bg-canvas-outer: #0f172a;
+            --border-color: #334155;
+            --border-hover: #475569;
+            --text-main: #f8fafc;
+            --text-muted: #cbd5e1;
+            --text-guide: #94a3b8;
+            --overlay-bg: rgba(15, 23, 42, 0.85);
+            --modal-bg: #1e293b;
+
+            --accent: #3b82f6; --danger: #ef4444; --success: #10b981; --warning: #f59e0b;
+        }
+
+        .light-mode {
+            --bg-main: #f8fafc;
+            --bg-panel: #ffffff;
+            --bg-header: #ffffff;
+            --bg-canvas-inner: #f1f5f9;
+            --bg-canvas-outer: #e2e8f0;
+            --border-color: #cbd5e1;
+            --border-hover: #94a3b8;
+            --text-main: #0f172a;
+            --text-muted: #334155;
+            --text-guide: #475569;
+            --overlay-bg: rgba(255, 255, 255, 0.9);
+            --modal-bg: #ffffff;
+        }
+
+        body, html { margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; height: 100%; background-color: var(--bg-main); color: var(--text-main); overflow: hidden; transition: background 0.3s, color 0.3s; }
+        
+        #header { height: 60px; background-color: var(--bg-header); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); justify-content: space-between; transition: all 0.3s;}
+        #header h1 { font-size: 1.2rem; margin: 0; color: #38bdf8; }
+        
+        /* 테마 토글 버튼 */
+        #theme-toggle { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+        #theme-toggle:hover { background: var(--border-hover); color: #ffffff; }
+        
+        .status-badge { background: var(--danger); color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; transition: all 0.3s;}
+
+        #container { display: flex; height: calc(100vh - 60px); }
+        
+        /* 좌측 패널 */
+        #left-sidebar { width: 300px; background-color: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 2; transition: all 0.3s;}
+        .panel-header { padding: 15px; border-bottom: 1px solid var(--border-color); background: var(--bg-main); }
+        .panel-header h2 { font-size: 1rem; color: var(--text-muted); margin: 0; display: flex; align-items: center; }
+        .panel-header h2 span { color: var(--accent); margin-right: 8px; }
+        
+        #entity-list { flex: 1; overflow-y: auto; padding: 15px 10px; font-size: 0.85rem; user-select: none; -webkit-user-select: none; }
+        .source-group { margin-bottom: 20px; background: var(--bg-main); border-radius: 6px; border: 1px solid var(--border-color); overflow: hidden; }
+        .source-header { background: var(--border-color); padding: 8px 12px; font-size: 0.85rem; font-weight: bold; color: var(--text-main); display: flex; align-items: center; }
+        .source-header input { margin-right: 8px; cursor: pointer; }
+        .source-content { padding: 5px 10px; }
+        .chk-item { display: flex; align-items: center; padding: 6px 5px; margin-bottom: 2px; cursor: ns-resize; transition: background 0.1s; border-radius: 4px; }
+        .chk-item:hover { background: rgba(59, 130, 246, 0.15); }
+        .chk-item input { margin-top: 0; margin-right: 8px; pointer-events: none; }
+        .chk-item.noise { opacity: 0.5; }
+        .item-icon { margin-right: 5px; font-size: 0.85rem; }
+        
+        .tag { font-size: 0.65rem; padding: 2px 4px; border-radius: 3px; margin-left: auto; font-weight: bold; white-space: nowrap; }
+        .tag.alert { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .tag.warn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .tag.safe { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .tag.normal { background: rgba(100, 116, 139, 0.2); color: var(--text-guide); }
+
+        /* 중앙 캔버스 */
+        #graph-wrapper { flex: 1; position: relative; background: radial-gradient(circle, var(--bg-canvas-inner) 0%, var(--bg-canvas-outer) 100%); transition: background 0.3s;}
+        #network-canvas { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;}
+
+        /* 시각화 레이아웃 컨트롤러 */
+        .layout-controls { position: absolute; top: 15px; right: 15px; display: flex; gap: 8px; z-index: 10; background: var(--overlay-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); backdrop-filter: blur(6px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s;}
+        .layout-btn { background: var(--bg-panel); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: all 0.2s; }
+        .layout-btn:hover { background: var(--border-hover); color: var(--text-main); }
+        .layout-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .divider { width: 1px; background: var(--border-hover); margin: 0 5px; }
+
+        /* 시계열 슬라이더 */
+        #timeline-container { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--overlay-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px 30px; display: flex; flex-direction: column; gap: 10px; z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.2); backdrop-filter: blur(8px); width: 60%; display: none; transition: all 0.3s;}
+        #timeline-container.active { display: flex; }
+        .date-display-wrapper { display: flex; justify-content: space-between; font-weight: bold; color: #38bdf8; font-size: 1.05rem; font-family: monospace; }
+        .date-label { color: var(--text-guide); font-size: 0.85rem; margin-right: 10px; }
+        .range-slider-wrapper { position: relative; width: 100%; height: 25px; }
+        .range-slider-wrapper input[type="range"] { position: absolute; width: 100%; pointer-events: none; -webkit-appearance: none; background: transparent; top: 0; left: 0; }
+        .range-slider-wrapper input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; }
+        .range-slider-wrapper input[type="range"]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; height: 18px; width: 18px; background: var(--accent); border-radius: 50%; cursor: pointer; margin-top: -6px; border: 2px solid #f8fafc; }
+        #slider-track-fill { position: absolute; height: 6px; background: var(--accent); top: 0; border-radius: 3px; z-index: -1; }
+
+        /* 조작 가이드 */
+        #interaction-guide { position: absolute; bottom: 20px; left: 20px; z-index: 10; background: var(--overlay-bg); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.2); overflow: hidden; min-width: 260px; transition: all 0.3s;}
+        .guide-header { padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: rgba(59, 130, 246, 0.1); font-weight: bold; color: #38bdf8; transition: background 0.2s; }
+        .guide-header:hover { background: rgba(59, 130, 246, 0.2); }
+        .guide-content { padding: 12px 15px; display: block; line-height: 1.7; }
+        .guide-content.hidden { display: none; }
+        .guide-content b { color: var(--text-main); }
+
+        /* 우측 패널 */
+        #sidebar { width: 340px; background-color: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 2; transition: all 0.3s;}
+        .panel { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .panel h2 { font-size: 1rem; color: var(--text-muted); border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 0; margin-bottom: 15px; }
+        
+        .phase-nav { display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border-hover); transition: all 0.3s;}
+        .phase-nav button { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+        .phase-nav button:hover:not(:disabled) { background: var(--accent); color: white; border-color: var(--accent); }
+        .phase-nav button:disabled { background: var(--bg-main); color: var(--text-guide); cursor: not-allowed; border: 1px solid var(--bg-main); }
+        #phase-indicator { font-weight: bold; color: #38bdf8; font-size: 0.9rem; }
+
+        #pdf-dropzone { border: 2px dashed var(--border-hover); border-radius: 8px; padding: 25px 15px; text-align: center; background: var(--overlay-bg); color: var(--text-guide); cursor: pointer; transition: all 0.3s; margin-bottom: 10px; }
+        #pdf-dropzone:hover, #pdf-dropzone.drag-over { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+        #pdf-dropzone span { display: block; font-size: 2rem; margin-bottom: 8px; }
+
+        #report-area { flex: 1; padding: 20px; overflow-y: auto; background: var(--bg-main); transition: all 0.3s;}
+        .ai-guide { background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 15px; margin-bottom: 15px; border-radius: 0 6px 6px 0; font-size: 0.85rem; line-height: 1.5; color: var(--text-main); }
+        .bot-title { font-weight: bold; color: var(--accent); margin-bottom: 8px; display: block; font-size: 0.95rem;}
+        .text-preview { background: var(--bg-header); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: var(--text-muted); max-height: 100px; overflow-y: auto; margin-top: 10px; border: 1px solid var(--border-color);}
+        .btn-popup { background: var(--accent); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; margin-top: 15px; width: 100%; transition: background 0.2s; }
+
+        /* 보고서 모달 (항상 흰색 배경 유지 - 진짜 문서처럼 보이기 위함) */
+        #report-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-content { background: #ffffff; color: #1e293b; font-family: 'Batang', 'Malgun Gothic', serif; width: 90%; max-width: 800px; max-height: 85vh; padding: 40px; border-radius: 4px; overflow-y: auto; position: relative;}
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: #94a3b8; line-height: 1; }
+        
+        /* 엣지 정보 팝업 (테마 따라감) */
+        #edge-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--modal-bg); color: var(--text-main); padding: 25px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10000; border: 1px solid var(--border-color); min-width: 400px; max-height: 80vh; overflow-y: auto; transition: all 0.3s;}
+        #edge-modal h3 { margin-top: 0; color: var(--accent); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; font-size: 1.1rem; }
+        #edge-modal .close-edge-btn { position: absolute; top: 15px; right: 20px; font-size: 1.2rem; cursor: pointer; color: var(--text-guide); }
+    </style>
+</head>
+<body class="light-mode">
+
+    <div id="header">
+        <h1>📊 AI 관계망 분석 - 압수문건 및 기초데이터 파일 중심</h1>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <button id="theme-toggle" onclick="toggleTheme()">🌙 다크 모드</button>
+            <div class="status-badge" id="main-status" style="color:white;">상태: 증거 입력 및 대기 중</div>
+        </div>
+    </div>
+
+    <div id="container">
+        <div id="left-sidebar">
+            <div class="panel-header"><h2><span>🗂️</span> 추출 개체 통제</h2></div>
+            <div id="entity-list">
+                <div style="color: var(--text-guide); text-align: center; margin-top: 20px;">PDF를 업로드하거나 '다음' 버튼을 눌러<br>분석을 시작하세요.</div>
+            </div>
+        </div>
+
+        <div id="graph-wrapper" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+            
+            <div class="layout-controls">
+                <button class="layout-btn active" id="btn-radial" onclick="setLayout('radial')">🕸️ 방사형</button>
+                <button class="layout-btn" id="btn-hierarchical" onclick="setLayout('hierarchical')">🌳 조직형</button>
+                <button class="layout-btn" id="btn-circular" onclick="setLayout('circular')">🍩 원형</button>
+                <div class="divider"></div>
+                <button class="layout-btn" id="btn-physics" onclick="togglePhysics()" style="background:var(--success); color:white; border-color:var(--success);">▶ 애니메이션 ON</button>
+            </div>
+
+            <div id="network-canvas"></div>
+            
+            <div id="timeline-container">
+                <div class="date-display-wrapper">
+                    <div><span class="date-label">시작일:</span> <span id="start-date-text">2026-05-01</span></div>
+                    <div style="color: var(--text-guide);">~</div>
+                    <div><span class="date-label">종료일:</span> <span id="end-date-text">2026-05-31</span></div>
+                </div>
+                <div class="range-slider-wrapper">
+                    <div id="slider-track-fill"></div>
+                    <input type="range" id="slider-start" min="1" max="31" value="1" oninput="updateTimeline()">
+                    <input type="range" id="slider-end" min="1" max="31" value="31" oninput="updateTimeline()">
+                </div>
+            </div>
+
+            <div id="interaction-guide">
+                <div class="guide-header" onclick="toggleGuide()">
+                    <span>💡 조작 가이드 및 기능 설명</span>
+                    <span id="guide-toggle-icon">▼</span>
+                </div>
+                <div id="guide-content" class="guide-content">
+                    <b>👆 레이아웃 제어:</b> 상단 버튼으로 시각화 정렬 변경 및 멈춤<br>
+                    <b>👆 좌측 드래그(Swipe):</b> 다중 선택 및 해제<br>
+                    <b>🖱️ 엣지(선) 클릭:</b> 상세 증거 팝업 확인<br>
+                    <b>⏱️ 시계열 조작:</b> 특정 기간 자금흐름 분석<br>
+                    <hr style="border: 0; border-top: 1px dashed var(--border-color); margin: 8px 0;">
+                    <b>🎨 우범도 색상 범례:</b><br>
+                    <span style="color:#ef4444; font-size:1.1rem;">●</span> 고위험 (총책, 우범계좌, 위장법인)<br>
+                    <span style="color:#f59e0b; font-size:1.1rem;">●</span> 주의/공범 (자금조달책, 조력자)<br>
+                    <span style="color:#10b981; font-size:1.1rem;">●</span> 무혐의/안전 (법리검토 후 전환)<br>
+                    <span style="color:#94a3b8; font-size:1.1rem;">●</span> 일반/노이즈 (정상 거래자)
+                </div>
+            </div>
+        </div>
+
+        <div id="sidebar">
+            <div class="panel">
+                <h2>📂 시연 제어 및 통합 업로드</h2>
+                <div class="phase-nav">
+                    <button id="btn-prev" onclick="prevPhase()" disabled>◀ 이전</button>
+                    <span id="phase-indicator">Phase 0 / 6</span>
+                    <button id="btn-next" onclick="nextPhase()">다음 ▶</button>
+                </div>
+                <div id="pdf-dropzone" onclick="document.getElementById('file-input').click()" ondragover="allowFileDrop(event)" ondragleave="leaveFileDrop(event)" ondrop="handleFileDrop(event)">
+                    <span>📥</span>
+                    <b>PDF 파일을 드롭하세요</b><br>(오프라인 파싱 지원)
+                    <input type="file" id="file-input" style="display:none" accept=".pdf" multiple onchange="handleFileSelect(event)">
+                </div>
+            </div>
+            <div id="report-area"><div id="dynamic-report"></div></div>
+        </div>
+    </div>
+
+    <div id="report-modal"><div class="modal-content"><span class="close-btn" onclick="closeModal()">&times;</span><div class="doc-header" id="modal-header"></div><div class="modal-body" id="modal-body"></div></div></div>
+    <div id="edge-modal"><span class="close-edge-btn" onclick="closeEdgeModal()">✖</span><h3>🔍 상세 연결 내역</h3><div id="edge-modal-content"></div></div>
+
+    <script>
+        const nodes = new vis.DataSet();
+        const edges = new vis.DataSet();
+        const container = document.getElementById('network-canvas');
+        const data = { nodes: nodes, edges: edges };
+        
+        // ★ [NEW] 테마별 폰트 컬러 추출 함수 ★
+        function getThemeColors() {
+            const isLight = document.body.classList.contains('light-mode');
+            return {
+                nodeFont: isLight ? '#0f172a' : '#f8fafc',
+                edgeFont: isLight ? '#1e293b' : '#cbd5e1',
+                edgeBg: isLight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(30, 41, 59, 0.8)'
+            };
+        }
+
+        const theme = getThemeColors();
+        const defaultOptions = {
+            interaction: { hover: false }, 
+            nodes: { shape: 'dot', size: 8, font: { color: theme.nodeFont, size: 12, face: 'Malgun Gothic', vadjust: -5 }, borderWidth: 2 },
+            edges: { width: 1.5, font: { color: theme.edgeFont, size: 11, strokeWidth: 0, background: theme.edgeBg }, arrows: 'to', smooth: { type: 'continuous' } },
+            groups: {
+                highRisk: { shape: 'dot', color: { background: '#ef4444', border: '#b91c1c' } }, 
+                warning: { shape: 'dot', color: { background: '#f59e0b', border: '#b45309' } },  
+                normal: { shape: 'dot', color: { background: '#64748b', border: '#475569' } },   
+                safe: { shape: 'dot', color: { background: '#10b981', border: '#059669' } },     
+                company_highRisk: { shape: 'hexagon', color: { background: '#ef4444', border: '#b91c1c' } }, 
+                company_normal: { shape: 'hexagon', color: { background: '#64748b', border: '#475569' } }, 
+                history: { shape: 'square', color: { background: '#475569', border: '#334155' } }
+            },
+            layout: { hierarchical: false },
+            physics: { enabled: true, barnesHut: { gravitationalConstant: -8000, centralGravity: 0.1, springLength: 250, springConstant: 0.04 } }
+        };
+        const network = new vis.Network(container, data, defaultOptions);
+        
+        let extractedData = { nodes: {}, edges: {} };
+        let selectedNodes = new Set();
+        let selectedEdges = new Set();
+        let currentPhase = 0;
+
+        // ★ [NEW] 테마 전환 실행 로직 ★
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            document.getElementById('theme-toggle').innerText = isLight ? '🌙 다크 모드' : '☀️ 라이트 모드';
+            
+            // vis.js 캔버스 내의 하드코딩된 폰트 색상 동기화
+            const newTheme = getThemeColors();
+            network.setOptions({
+                nodes: { font: { color: newTheme.nodeFont } },
+                edges: { font: { color: newTheme.edgeFont, background: newTheme.edgeBg } }
+            });
+        }
+
+        // 레이아웃 통제
+        let isPhysicsEnabled = true;
+        let currentLayout = 'radial';
+
+        function setLayout(type) {
+            document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + type).classList.add('active');
+            currentLayout = type;
+
+            if (type === 'radial') {
+                isPhysicsEnabled = true; updatePhysicsBtn();
+                network.setOptions({ layout: { hierarchical: false }, physics: { enabled: true, barnesHut: { gravitationalConstant: -8000, centralGravity: 0.1, springLength: 250, springConstant: 0.04 } } });
+            } 
+            else if (type === 'hierarchical') {
+                isPhysicsEnabled = false; updatePhysicsBtn();
+                network.setOptions({ layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', nodeSpacing: 150, treeSpacing: 250 } }, physics: { enabled: false } });
+            } 
+            else if (type === 'circular') {
+                isPhysicsEnabled = false; updatePhysicsBtn();
+                network.setOptions({ layout: { hierarchical: false }, physics: { enabled: false } });
+                
+                let activeNodeIds = nodes.getIds();
+                if(activeNodeIds.length === 0) return;
+                let radius = Math.max(activeNodeIds.length * 30, 200); 
+                let angle = 2 * Math.PI / activeNodeIds.length;
+                let newPositions = [];
+                activeNodeIds.forEach((id, index) => {
+                    newPositions.push({ id: id, x: radius * Math.cos(angle * index), y: radius * Math.sin(angle * index) });
+                });
+                nodes.update(newPositions); network.fit({animation: true});
+            }
+        }
+
+        function togglePhysics() {
+            isPhysicsEnabled = !isPhysicsEnabled;
+            updatePhysicsBtn();
+            network.setOptions({ physics: { enabled: isPhysicsEnabled } });
+            if(isPhysicsEnabled && currentLayout !== 'radial') {
+                document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-radial').classList.add('active');
+                currentLayout = 'radial'; network.setOptions({ layout: { hierarchical: false } });
+            }
+        }
+
+        function updatePhysicsBtn() {
+            const btn = document.getElementById('btn-physics');
+            if(isPhysicsEnabled) { 
+                btn.innerText = "▶ 애니메이션 ON"; btn.style.background = "var(--success)"; btn.style.borderColor = "var(--success)"; btn.style.color = "white";
+            } 
+            else { 
+                btn.innerText = "⏸ 애니메이션 OFF"; btn.style.background = "var(--border-color)"; btn.style.borderColor = "var(--border-color)"; btn.style.color = "var(--text-main)";
+            }
+        }
+
+        function toggleGuide() {
+            const content = document.getElementById('guide-content');
+            const icon = document.getElementById('guide-toggle-icon');
+            if (content.classList.contains('hidden')) { content.classList.remove('hidden'); icon.innerText = '▼'; } 
+            else { content.classList.add('hidden'); icon.innerText = '▲'; }
+        }
+
+        // 스텝 제어
+        function nextPhase() { if (currentPhase < 6) runPhase(currentPhase + 1); }
+        function prevPhase() {
+            if (currentPhase > 0) {
+                const targetPhase = currentPhase - 1;
+                nodes.clear(); edges.clear();
+                extractedData = { nodes: {}, edges: {} };
+                selectedNodes.clear(); selectedEdges.clear();
+                document.getElementById('dynamic-report').innerHTML = '';
+                document.getElementById('timeline-container').classList.remove('active');
+                
+                currentPhase = 0; 
+                for(let i=1; i<=targetPhase; i++) { runPhase(i); }
+
+                if (targetPhase === 0) {
+                    document.getElementById('main-status').innerText = '상태: 증거 입력 및 대기 중';
+                    document.getElementById('main-status').style.background = 'var(--danger)';
+                    document.getElementById('entity-list').innerHTML = '<div style="color: var(--text-guide); text-align: center; margin-top: 20px;">PDF를 업로드하거나 \'다음\' 버튼을 눌러<br>분석을 시작하세요.</div>';
+                    document.getElementById('phase-indicator').innerText = `Phase 0 / 6`;
+                    document.getElementById('btn-prev').disabled = true; document.getElementById('btn-next').disabled = false;
+                }
+            }
+        }
+
+        // PDF 오프라인 파싱
+        function allowFileDrop(ev) { ev.preventDefault(); document.getElementById('pdf-dropzone').classList.add('drag-over'); }
+        function leaveFileDrop(ev) { document.getElementById('pdf-dropzone').classList.remove('drag-over'); }
+        function handleFileDrop(ev) {
+            ev.preventDefault(); document.getElementById('pdf-dropzone').classList.remove('drag-over');
+            if (ev.dataTransfer.files && ev.dataTransfer.files.length > 0) processFiles(ev.dataTransfer.files);
+        }
+        function handleFileSelect(ev) {
+            if (ev.target.files && ev.target.files.length > 0) processFiles(ev.target.files);
+        }
+
+        async function processFiles(files) {
+            document.getElementById('main-status').innerText = '상태: AI 문서 분석 진행 중...';
+            document.getElementById('main-status').style.background = 'var(--warning)';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type !== "application/pdf") { alert("PDF 파일만 업로드 가능합니다: " + file.name); continue; }
+                
+                const reportContainer = document.getElementById('dynamic-report');
+                const loadingId = 'loading-' + Date.now();
+                reportContainer.innerHTML = `<div id="${loadingId}" class="ai-guide"><span class="bot-title">⚙️ AI 파싱 중...</span>[${file.name}] 텍스트 추출 중...</div>` + reportContainer.innerHTML;
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                    let fullText = '';
+                    for(let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ') + ' ';
+                    }
+
+                    const normalizedText = fullText.replace(/\s+/g, '').toLowerCase();
+                    let targetPhase = 0; let keywords = [];
+
+                    if (normalizedText.includes('fiu') || normalizedText.includes('혐의거래보고서') || normalizedText.includes('의심거래')) {
+                        targetPhase = 1; keywords = ['FIU', '혐의거래보고서', '김준호'];
+                    } else if (normalizedText.includes('당발송금') || normalizedText.includes('수입신고') || normalizedText.includes('globaltrade') || normalizedText.includes('수리내역')) {
+                        targetPhase = 2; keywords = ['당발송금/수입신고', 'GLOBAL TRADE', '100억 Mismatch'];
+                    } else if (normalizedText.includes('포렌식') || normalizedText.includes('telegram') || normalizedText.includes('텔레그램') || normalizedText.includes('kakaotalk') || normalizedText.includes('박태성')) {
+                        targetPhase = 3; keywords = ['디지털 포렌식', 'Telegram 대화내역', '박태성'];
+                    }
+
+                    document.getElementById(loadingId).remove();
+
+                    if (targetPhase > 0) {
+                        while (currentPhase < targetPhase) { runPhase(currentPhase + 1); }
+                        const previewText = fullText.length > 180 ? fullText.substring(0, 180) + "..." : fullText;
+                        const currentGuide = document.getElementById('guide-phase-' + targetPhase);
+                        if (currentGuide) {
+                            const extraHtml = `
+                                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 10px 0;">
+                                <b style="color:#10b981">✔ 로컬 파싱 완료:</b> ${file.name}<br>
+                                <b style="color:#10b981">✔ 감지 키워드:</b> ${keywords.join(', ')}
+                                <div class="text-preview">"${previewText}"</div>
+                            `;
+                            const btn = currentGuide.querySelector('.btn-popup');
+                            if (btn) btn.insertAdjacentHTML('beforebegin', extraHtml); else currentGuide.innerHTML += extraHtml;
+                        }
+                    } else {
+                        reportContainer.innerHTML = `<div class="ai-guide" style="border-color:#ef4444; background:rgba(239,68,68,0.1);"><span class="bot-title">❌ 분석 실패</span>[${file.name}] 연관 단서 없음</div>` + reportContainer.innerHTML;
+                    }
+                } catch (error) {
+                    console.error(error); document.getElementById(loadingId).remove();
+                    reportContainer.innerHTML = `<div class="ai-guide" style="border-color:#ef4444; background:rgba(239,68,68,0.1);"><span class="bot-title">⚠️ 오류</span>[${file.name}] 파싱 실패</div>` + reportContainer.innerHTML;
+                }
+            }
+            document.getElementById('main-status').innerText = '상태: 증거 융합 진행 중';
+            document.getElementById('main-status').style.background = 'var(--accent)';
+        }
+
+        // 스텝 실행기
+        const fullReports = {
+            1: { docNo: '조사-2026-001', html: `<h2>내사 착수 보고</h2><ul><li>환치기 의심 150억 흐름 내사 착수.</li></ul>` },
+            2: { docNo: '조사-2026-015', html: `<h2>영장 청구서</h2><ul><li>외환 분할 송금(12건) 및 통관액 불일치 입증 완료.</li></ul>` },
+            3: { docNo: '조사-2026-045', html: `<h2>인지 보고서</h2><ul><li>홍콩 총책 특정 및 체포영장 청구.</li></ul>` },
+            4: { docNo: '조사-2026-052', html: `<h2>수사 확대 보고</h2><ul><li>위조 공범 및 초기 투자 자금줄 입건.</li></ul>` },
+            5: { docNo: '수사-Legal-Review', html: `<h2>AI 기소 의견서</h2><ul><li>피해자 김사장(E) 혐의 없음 분리 조치.</li></ul>` },
+            6: { docNo: '송치-2026-088', html: `<h2>최종 송치서</h2><ul><li>범죄단체조직 혐의 입증 일괄 송치함.</li></ul>` }
+        };
+
+        function runPhase(phase) {
+            currentPhase = phase;
+            document.getElementById('phase-indicator').innerText = `Phase ${phase} / 6`;
+            document.getElementById('btn-prev').disabled = phase === 0;
+            document.getElementById('btn-next').disabled = phase === 6;
+
+            const sb = document.getElementById('main-status');
+            sb.innerText = `상태: ${["", "1차 내사 진행", "가상자산 및 은행 추적", "포렌식 융합", "공범 심층추적", "법리 검토 완료", "일괄 송치 준비"][phase]}`;
+            if(phase === 5) sb.style.background = 'var(--warning)';
+            if(phase === 6) sb.style.background = 'var(--success)';
+
+            let guideText = ""; let phaseTitle = `🤖 ${phase}단계 완료`;
+            if(phase === 1) guideText = `단서가 자동 배치되었습니다. 좌측 목록에서 <b>마우스를 쭉 드래그(Swipe)</b>하여 불필요한 노이즈를 지워보세요.`;
+            if(phase === 2) guideText = `<b>[가상자산/외환 DB]</b> 김준호 명의의 위장수입업체가 발견되었습니다. 하단 <b>[시계열 슬라이더]</b>를 조작하십시오.`;
+            if(phase === 3) guideText = `<b>[모바일 포렌식]</b> 증거가 병합되어 홍콩 총책 박태성(C)이 수사선상에 올랐습니다.`;
+            if(phase === 4) { phaseTitle = "🤖 AI 심층추적 결과"; guideText = `위조 관세사와 자금줄(D,E)을 추가 식별했습니다.`; }
+            if(phase === 5) { phaseTitle = "⚖️ AI 법리 검토 완료"; guideText = `기망당한 투자자 E를 '무혐의(초록색)' 노드로 전환했습니다.`; }
+            if(phase === 6) { phaseTitle = "🚨 기결 DB 매핑 완료"; guideText = `과거 금괴 밀수 조직 위장 IP 연동 확인. 송치 준비 완료.`; }
+
+            const reportContainer = document.getElementById('dynamic-report');
+            if(phase === 1 && !document.getElementById('guide-phase-1')) reportContainer.innerHTML = ''; 
+            if (!document.getElementById('guide-phase-' + phase)) {
+                let colorBorder = (phase >= 4) ? (phase === 4 ? "#38bdf8" : (phase === 5 ? "#f59e0b" : "#10b981")) : "var(--accent)";
+                reportContainer.innerHTML = `<div id="guide-phase-${phase}" class="ai-guide" style="border-color:${colorBorder};"><span class="bot-title" style="color:${colorBorder};">${phaseTitle}</span>${guideText}<button class="btn-popup" onclick="showModal(${phase})">📄 관련 보고서 초안 생성</button></div>` + reportContainer.innerHTML;
+            }
+
+            if (phase === 1) {
+                addEntity('nodes', {id: 'n1', label: '김준호(A)', group: 'highRisk', date: 1}, 'STR');
+                addEntity('nodes', {id: 'n2', label: '이지윤(B)', group: 'highRisk', date: 1}, 'STR');
+                addEntity('edges', {id: 'e1', from: 'n1', to: 'n2', label: '부부(공범)', dashes: true, date: 1, detailedInfo: '관계: 부부'}, 'STR');
+                addEntity('nodes', {id: 'n901', label: '박영민(유학생)', group: 'normal', date: 1}, 'STR');
+                addEntity('nodes', {id: 'n902', label: '영국대학', group: 'company_normal', date: 1}, 'STR');
+                addEntity('edges', {id: 'e2', from: 'n901', to: 'n902', label: '학비(정상)', color: '#475569', date: 1, detailedInfo: '용도: 유학경비'}, 'STR');
+            }
+            else if (phase === 2) {
+                document.getElementById('timeline-container').classList.add('active'); 
+                addEntity('nodes', {id: 'n_exch', label: 'V가상자산거래소', group: 'warning', shape: 'square', size: 12, date: 4}, 'DB');
+                addEntity('nodes', {id: 'n3', label: 'H은행 계좌\n(집금)', group: 'highRisk', size: 12, date: 10}, 'DB');
+                addEntity('nodes', {id: 'n4', label: 'GLOBAL TRADE', group: 'company_highRisk', date: 13}, 'DB');
+                addEntity('nodes', {id: 'n_fakeCorp', label: '(주)준코스메틱\n(위장수입업체)', group: 'company_highRisk', size: 12, date: 10}, 'DB');
+                
+                addEntity('edges', {id: 'e_ceo', from: 'n1', to: 'n_fakeCorp', label: '설립/운영', color: '#f59e0b', date: 10, detailedInfo: '김준호 명의 페이퍼컴퍼니'}, 'DB');
+                let smurfHtml = "<div style='color:#ef4444; font-weight:bold;'>[H은행 ➔ 홍콩 분할 송금 (12건)]</div><ul><li>5/13~5/15: 전신송금 12건 쪼개기</li></ul>";
+                addEntity('edges', {id: 'e_smurf', from: 'n3', to: 'n4', label: '100억 위장송금', color: {color: '#ef4444', highlight: '#b91c1c'}, width: 4, date: 13, detailedInfo: smurfHtml}, 'DB');
+                addEntity('edges', {id: 'e_import', from: 'n_fakeCorp', to: 'n4', label: '수입신고(1억)', color: '#ef4444', width: 2, date: 12, detailedInfo: '관세청 수입신고액: 약 1억 원<br><b>※ 송금액과 99억 Mismatch</b>'}, 'DB');
+
+                addEntity('edges', {id: 'e_crypto1', from: 'n1', to: 'n_exch', label: '10억 코인매수', color: '#f59e0b', date: 4, detailedInfo: '5/4 V거래소 입금 (김준호)'}, 'DB');
+                addEntity('edges', {id: 'e_crypto2', from: 'n2', to: 'n_exch', label: '15억 코인매수', color: '#f59e0b', date: 5, detailedInfo: '5/5 V거래소 입금 (이지윤)'}, 'DB');
+                addEntity('edges', {id: 'e_crypto3', from: 'n_exch', to: 'n1', label: '12억 차익실현', color: '#ef4444', date: 8, detailedInfo: '5/8 프리미엄 매각'}, 'DB');
+                addEntity('edges', {id: 'e_crypto4', from: 'n_exch', to: 'n2', label: '18억 차익실현', color: '#ef4444', date: 9, detailedInfo: '5/9 프리미엄 매각'}, 'DB');
+                addEntity('edges', {id: 'e_bank1', from: 'n1', to: 'n3', label: '계좌 집금', color: '#ef4444', date: 10}, 'DB');
+                addEntity('edges', {id: 'e_bank2', from: 'n2', to: 'n3', label: '계좌 집금', color: '#ef4444', date: 11}, 'DB');
+
+                addEntity('nodes', {id: 'n903', label: 'S카드사', group: 'company_normal', date: 12}, 'DB');
+                addEntity('nodes', {id: 'n904', label: 'A쇼핑몰', group: 'company_normal', date: 10}, 'DB');
+                addEntity('nodes', {id: 'n905', label: '국세청', group: 'company_normal', date: 6}, 'DB');
+                addEntity('nodes', {id: 'n906', label: 'K부동산', group: 'company_normal', date: 15}, 'DB');
+                addEntity('nodes', {id: 'n907', label: '해외체류 동생', group: 'normal', date: 7}, 'DB');
+
+                addEntity('edges', {id: 'e_noise_b1', from: 'n1', to: 'n903', label: '카드대금', color: '#475569', date: 12, detailedInfo: '일반 생활비 결제건'}, 'DB');
+                addEntity('edges', {id: 'e_noise_b2', from: 'n2', to: 'n904', label: '직구결제', color: '#475569', date: 10, detailedInfo: '해외 쇼핑몰 결제건'}, 'DB');
+                addEntity('edges', {id: 'e_noise_b3', from: 'n1', to: 'n905', label: '종합소득세', color: '#475569', date: 6, detailedInfo: '세금 납부건'}, 'DB');
+                addEntity('edges', {id: 'e_noise_b4', from: 'n2', to: 'n906', label: '상가 월세', color: '#475569', date: 15, detailedInfo: '상가 임대료 납부'}, 'DB');
+                addEntity('edges', {id: 'e_noise_b5', from: 'n1', to: 'n907', label: '유학비용', color: '#475569', date: 7, detailedInfo: '가족 생활비 송금'}, 'DB');
+            }
+            else if (phase === 3) {
+                addEntity('nodes', {id: 'n5', label: '박태성(C)\n총책', group: 'highRisk', date: 14}, 'FORENSIC');
+                addEntity('edges', {id: 'e_tel', from: 'n5', to: 'n1', label: '텔레그램 지시', dashes: true, color: '#ef4444', date: 14, detailedInfo: '5/14 "코인 대금 홍콩 송금해라"'}, 'FORENSIC');
+            }
+            else if (phase === 4) {
+                addEntity('nodes', {id: 'n6', label: '정회장(D)', group: 'warning', date: 1}, 'AI');
+                addEntity('nodes', {id: 'n7', label: '김사장(E)', group: 'warning', date: 2}, 'AI');
+                addEntity('nodes', {id: 'n8', label: '조관세사(F)', group: 'warning', date: 16}, 'AI');
+                addEntity('edges', {id: 'e_inv1', from: 'n6', to: 'n1', label: '초기자금 20억', color: '#f59e0b', date: 1, detailedInfo: '5/1 자금 전달'}, 'AI');
+                addEntity('edges', {id: 'e_inv2', from: 'n7', to: 'n2', label: '초기자금 30억', color: '#f59e0b', date: 2, detailedInfo: '5/2 자금 전달'}, 'AI');
+                addEntity('edges', {id: 'e_fake', from: 'n8', to: 'n_fakeCorp', label: '허위필증 발급', color: '#ef4444', date: 16, detailedInfo: '수량 축소 위조 필증 대행'}, 'AI');
+                addEntity('edges', {id: 'e_fee', from: 'n5', to: 'n8', label: '수수료 우회송금', dashes:true, color: '#f59e0b', date: 18}, 'AI');
+            }
+            else if (phase === 5) {
+                if(extractedData.nodes['n7']) {
+                    extractedData.nodes['n7'].group = 'safe'; 
+                    extractedData.nodes['n7'].label = '김사장(E)\n무혐의';
+                    nodes.update({id: 'n7', group: 'safe', label: '김사장(E)\n무혐의'});
+                }
+            }
+            else if (phase === 6) {
+                addEntity('nodes', {id: 'n9', label: '[23년 사건]\n강동철(G)', group: 'history', date: 25}, 'AI');
+                addEntity('edges', {id: 'e_ip', from: 'n5', to: 'n9', label: '위장 IP 매핑', color: {color: '#ef4444'}, width: 3, dashes: [5, 5], date: 25, detailedInfo: 'IP 218.145.10.112 일치'}, 'AI');
+            }
+            
+            renderEntityPanel();
+            updateTimeline(); 
+            if(currentLayout === 'radial') network.fit({animation: true});
+            else if (currentLayout === 'circular') setLayout('circular');
+        }
+
+        let isDraggingSelection = false;
+        let dragTargetState = true; 
+
+        window.startDragSelect = function(e, type, id) {
+            e.preventDefault(); isDraggingSelection = true;
+            const set = type === 'node' ? selectedNodes : selectedEdges;
+            dragTargetState = !set.has(id); applySelection(type, id, dragTargetState); updateTimeline();
+        };
+        window.doDragSelect = function(e, type, id) {
+            if(isDraggingSelection) { applySelection(type, id, dragTargetState); updateTimeline(); }
+        };
+        window.addEventListener('mouseup', () => { if(isDraggingSelection) { isDraggingSelection = false; renderEntityPanel(); } });
+
+        function applySelection(type, id, state) {
+            const set = type === 'node' ? selectedNodes : selectedEdges;
+            if(state) {
+                set.add(id); document.getElementById(`chk-${type}-${id}`).checked = true;
+                if(type === 'edge') {
+                    const edgeObj = extractedData.edges[id];
+                    selectedNodes.add(edgeObj.from); selectedNodes.add(edgeObj.to);
+                    if(document.getElementById(`chk-node-${edgeObj.from}`)) document.getElementById(`chk-node-${edgeObj.from}`).checked = true;
+                    if(document.getElementById(`chk-node-${edgeObj.to}`)) document.getElementById(`chk-node-${edgeObj.to}`).checked = true;
+                }
+            } else { set.delete(id); document.getElementById(`chk-${type}-${id}`).checked = false; }
+            if(currentLayout === 'circular') setLayout('circular');
+        }
+
+        window.toggleGroup = function(sourceKey, isChecked) {
+            Object.values(extractedData.nodes).forEach(n => { if(n.source === sourceKey) { if(isChecked) selectedNodes.add(n.id); else selectedNodes.delete(n.id); } });
+            Object.values(extractedData.edges).forEach(e => {
+                if(e.source === sourceKey) {
+                    if(isChecked) { selectedEdges.add(e.id); selectedNodes.add(e.from); selectedNodes.add(e.to); } 
+                    else { selectedEdges.delete(e.id); }
+                }
+            });
+            renderEntityPanel(); updateTimeline();
+            if(currentLayout === 'circular') setLayout('circular');
+        };
+
+        function updateTimeline() {
+            let startVal = parseInt(document.getElementById('slider-start').value);
+            let endVal = parseInt(document.getElementById('slider-end').value);
+            if (startVal > endVal) { let tmp = startVal; startVal = endVal; endVal = tmp; document.getElementById('slider-start').value = startVal; document.getElementById('slider-end').value = endVal; }
+
+            document.getElementById('start-date-text').innerText = `2026-05-${startVal.toString().padStart(2, '0')}`;
+            document.getElementById('end-date-text').innerText = `2026-05-${endVal.toString().padStart(2, '0')}`;
+            
+            const trackFill = document.getElementById('slider-track-fill');
+            trackFill.style.left = ((startVal - 1) / 30 * 100) + "%"; trackFill.style.width = ((endVal - startVal) / 30 * 100) + "%";
+
+            let visibleNodesFromEdges = new Set();
+            Object.values(extractedData.edges).forEach(e => {
+                const isSelected = selectedEdges.has(e.id);
+                const inRange = (!e.date) || (e.date >= startVal && e.date <= endVal);
+                if (isSelected && inRange) {
+                    if (!edges.get(e.id)) edges.add(e);
+                    visibleNodesFromEdges.add(e.from); visibleNodesFromEdges.add(e.to);
+                } else { if (edges.get(e.id)) edges.remove(e.id); }
+            });
+
+            Object.values(extractedData.nodes).forEach(n => {
+                const isSelected = selectedNodes.has(n.id);
+                const isConnected = visibleNodesFromEdges.has(n.id);
+                const isNodeInRange = n.date && (n.date >= startVal && n.date <= endVal);
+                if (isSelected && (isConnected || isNodeInRange)) {
+                    if (!nodes.get(n.id)) nodes.add(n);
+                } else { if (nodes.get(n.id)) nodes.remove(n.id); }
+            });
+            if(currentLayout === 'circular') setTimeout(() => setLayout('circular'), 10);
+        }
+
+        function renderEntityPanel() {
+            const sources = {
+                'STR': { title: '📄 1. STR 및 내사 첩보', nodes: [], edges: [] },
+                'DB': { title: '📊 2. 외환/가상자산 DB', nodes: [], edges: [] },
+                'FORENSIC': { title: '📱 3. 모바일 포렌식 융합', nodes: [], edges: [] },
+                'AI': { title: '🤖 4. AI 심층 추적', nodes: [], edges: [] }
+            };
+            Object.values(extractedData.nodes).forEach(n => { if(sources[n.source]) sources[n.source].nodes.push(n); });
+            Object.values(extractedData.edges).forEach(e => { if(sources[e.source]) sources[e.source].edges.push(e); });
+
+            let html = '';
+            for (const [key, data] of Object.entries(sources)) {
+                if (data.nodes.length === 0 && data.edges.length === 0) continue;
+                let allSelected = true;
+                data.nodes.forEach(n => { if(!selectedNodes.has(n.id)) allSelected = false; });
+                data.edges.forEach(e => { if(!selectedEdges.has(e.id)) allSelected = false; });
+                let grpChecked = allSelected ? 'checked' : '';
+
+                html += `<div class="source-group">
+                            <div class="source-header"><input type="checkbox" onchange="toggleGroup('${key}', this.checked)" ${grpChecked}> ${data.title}</div>
+                            <div class="source-content" onmouseleave="isDraggingSelection=false;">`;
+                
+                data.nodes.forEach(n => {
+                    let isChecked = selectedNodes.has(n.id) ? 'checked' : '';
+                    let isNoise = (n.group === 'normal' || n.group === 'company_normal') ? 'noise' : '';
+                    let tag = '';
+                    if (n.group === 'highRisk' || n.group === 'company_highRisk') tag = '<span class="tag alert">고위험</span>';
+                    else if (n.group === 'warning') tag = '<span class="tag warn">주의</span>';
+                    else if (n.group === 'safe') tag = '<span class="tag safe">안전</span>';
+                    else tag = '<span class="tag normal">일반</span>';
+
+                    html += `<label class="chk-item ${isNoise}" onmousedown="startDragSelect(event, 'node', '${n.id}')" onmouseenter="doDragSelect(event, 'node', '${n.id}')"><input type="checkbox" id="chk-node-${n.id}" ${isChecked}> <span class="item-icon">👤</span> ${n.label.replace(/\n/g, ' ')} ${tag}</label>`;
+                });
+                data.edges.forEach(e => {
+                    let isChecked = selectedEdges.has(e.id) ? 'checked' : '';
+                    let dateLabel = e.date ? `<span style="color:var(--text-guide); font-size:0.7rem;">[5/${e.date}]</span>` : '';
+                    html += `<label class="chk-item" onmousedown="startDragSelect(event, 'edge', '${e.id}')" onmouseenter="doDragSelect(event, 'edge', '${e.id}')"><input type="checkbox" id="chk-edge-${e.id}" ${isChecked}> <span class="item-icon">🔗</span> ${e.label?e.label.replace(/\n/g, ' '):'연결 내역'} ${dateLabel}</label>`;
+                });
+                html += `</div></div>`;
+            }
+            document.getElementById('entity-list').innerHTML = html;
+        }
+
+        function addEntity(type, obj, sourceTag) {
+            obj.source = sourceTag; extractedData[type][obj.id] = obj;
+            if(type === 'nodes') selectedNodes.add(obj.id);
+            if(type === 'edges') selectedEdges.add(obj.id);
+        }
+
+        network.on("doubleClick", function (params) {
+            if (params.nodes.length > 0) { selectedNodes.delete(params.nodes[0]); updateTimeline(); renderEntityPanel(); } 
+            else if (params.edges.length > 0) { selectedEdges.delete(params.edges[0]); updateTimeline(); renderEntityPanel(); }
+        });
+        
+        network.on("click", function (params) {
+            if (params.edges.length > 0 && params.nodes.length === 0) {
+                const clickedEdge = extractedData.edges[params.edges[0]];
+                if (clickedEdge && clickedEdge.detailedInfo) {
+                    document.getElementById('edge-modal-content').innerHTML = clickedEdge.detailedInfo;
+                    document.getElementById('edge-modal').style.display = 'block';
+                }
+            }
+        });
+
+        function showModal(phase) { document.getElementById('modal-header').innerText = "문서번호: " + fullReports[phase].docNo; document.getElementById('modal-body').innerHTML = fullReports[phase].html; document.getElementById('report-modal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
+        function closeEdgeModal() { document.getElementById('edge-modal').style.display = 'none'; }
+    </script>
+</body>
+</html>

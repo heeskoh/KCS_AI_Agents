@@ -26,7 +26,7 @@ from src.neo4j_graph import (
     build_path_graph,
     build_person_network_graph,
 )
-from src.paths import DATA_DIR, DB_PATH, STATIC_DIR
+from src.paths import DATA_DIR, DB_PATH, STATIC_DIR, WEB_DIR
 
 load_dotenv()
 
@@ -1738,6 +1738,14 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/static/"):
             self._serve_static(parsed.path.removeprefix("/static/"))
             return
+        if parsed.path == "/KCS_Investigation.html":
+            # 관계망 분석(Main) 독립 플랫폼 — web/KCS_Investigation.html (iframe 임베드)
+            self._serve_file(WEB_DIR / "KCS_Investigation.html", "text/html; charset=utf-8")
+            return
+        if parsed.path.startswith("/assets/"):
+            # KCS_Investigation.html 이 참조하는 정적 자산 (vis-network, pdf.js 등)
+            self._serve_web_asset(parsed.path.removeprefix("/assets/"))
+            return
         if parsed.path == "/api/workspace_state":
             # 진행작업(캔버스) 상태 — data/workspace_state/<userId>.json 사용자별 분리 저장소
             state = self._read_workspace_store()
@@ -2075,6 +2083,19 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         }
         path = (STATIC_DIR / name).resolve()
         if not str(path).startswith(str(STATIC_DIR.resolve())):
+            self.send_error(HTTPStatus.FORBIDDEN)
+            return
+        self._serve_file(path, content_types.get(path.suffix, "application/octet-stream"))
+
+    def _serve_web_asset(self, name: str) -> None:
+        content_types = {
+            ".js": "text/javascript; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".wasm": "application/wasm",
+        }
+        assets_root = (WEB_DIR / "assets").resolve()
+        path = (assets_root / name).resolve()
+        if not str(path).startswith(str(assets_root)):
             self.send_error(HTTPStatus.FORBIDDEN)
             return
         self._serve_file(path, content_types.get(path.suffix, "application/octet-stream"))

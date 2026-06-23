@@ -3,7 +3,7 @@
   "activeScenarioTemplateId": "customs-basic",
   "investigationTab": "ongoing",
   "canvasTab": "overview",
-  "generalInvTab": "network",
+  "generalInvTab": "profile",
   "activeGenInvCaseId": "GI-2026-001",
   "drugInvTab": "profile",
   "activeDrugCaseId": "FX-2026-002",
@@ -794,5 +794,5 @@
   "canvasJobOverrides": {},
   "canvasRunArchives": {},
   "hiddenCanvasJobIds": [],
-  "updatedAt": "2026-06-22T14:21:20.753Z"
+  "updatedAt": "2026-06-23T01:20:50.765Z"
 }

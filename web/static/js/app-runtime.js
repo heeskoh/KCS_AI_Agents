@@ -6250,19 +6250,13 @@ function intlInfoPage(){
    관계망 분석 페이지 (구 관세 온톨로지) — 관계망분석을 메인으로 단일 구성
    ═══════════════════════════════════════════════════════════════ */
 function customsOntologyPage(){
-  // 자유 관계분석(독립 탭): 프로파일과 분리. 다중 시드·파일·속성 필터로 교차 관계망을
-  // 구성하고 커뮤니티·중심성·브리지·공유 허브 교차 등 고급 분석을 수행한다.
+  // 관계망 분석(Main 독립 탭): web/KCS_Investigation.html 폐쇄망 플랫폼을 iframe 임베드.
+  // 프로파일 내부 관계망(networkGraphPanelHtml)과는 분리된 독립 분석 화면이다.
+  // .content 패딩(12/14px)을 음수 마진으로 상쇄해 topbar(64px) 아래 전 영역을 꽉 채운다.
   return `
-    <section class="card gi-hub" style="display:flex;flex-direction:column;min-height:660px">
-      <div class="gi-page-head">
-        <div>
-          <h2>관계망 분석</h2>
-          <p class="muted">여러 기업·인물(시드)·파일·속성 필터로 교차 관계망을 자유롭게 구성하고, 커뮤니티·중심성·브리지·공유 허브 교차로 분석합니다. (프로파일 내 관계망과 독립된 자유 분석)</p>
-        </div>
-      </div>
-      <div class="profile-net-right net-right-wb" style="flex:1;min-height:0">
-        ${networkGraphPanelHtml("explore", "main", "자유 관계분석", { workbench: true, explore: true })}
-      </div>
+    <section style="margin:-12px -14px -14px;height:calc(100vh - 64px);display:flex;flex-direction:column;overflow:hidden">
+      <iframe src="/KCS_Investigation.html" title="관계망 분석"
+        style="flex:1;width:100%;border:0;display:block"></iframe>
     </section>
   `;
 }
