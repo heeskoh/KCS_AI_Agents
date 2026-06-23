@@ -76,6 +76,34 @@ function nodeLabelKo(label){
   return NODE_LABEL_KO[label] || label;
 }
 
+/* 노드 유형 → 도형. 박스=기업/사람/거래처/관세사, 육각형=품목, 삼각형=항만/지역, 그 외=원. */
+const NODE_SHAPE = {
+  Company: "round-rectangle", Person: "round-rectangle", OverseasSupplier: "round-rectangle",
+  Broker: "round-rectangle", AffiliatedCompany: "round-rectangle", RelatedCompany: "round-rectangle",
+  RelatedParty: "round-rectangle", Organization: "round-rectangle", Org: "round-rectangle",
+  ItemClass: "hexagon", Item: "hexagon", HsCode: "hexagon",
+  DeparturePort: "triangle", ArrivalPort: "triangle", Country: "triangle", Region: "triangle", Place: "triangle",
+};
+function nodeShape(label){ return NODE_SHAPE[label] || "ellipse"; }
+
+/* 도형 테두리(라인) 색 — 노드 색을 어둡게 하여 아이템별로 구분되게 한다. */
+function darken(hex, f = 0.6){
+  const h = String(hex || "#64748b").replace("#", "");
+  if(h.length < 6) return "#475569";
+  const c = i => Math.round(parseInt(h.slice(i, i + 2), 16) * f).toString(16).padStart(2, "0");
+  return `#${c(0)}${c(2)}${c(4)}`;
+}
+/* 도형 채움 색 — 노드 색을 흰색과 섞어 파스텔톤으로(라인은 darken으로 진하게 유지). */
+function pastel(hex, f = 0.6){
+  const h = String(hex || "#64748b").replace("#", "");
+  if(h.length < 6) return "#e2e8f0";
+  const c = i => {
+    const v = parseInt(h.slice(i, i + 2), 16);
+    return Math.round(v + (255 - v) * f).toString(16).padStart(2, "0");
+  };
+  return `#${c(0)}${c(2)}${c(4)}`;
+}
+
 /* 관계(엣지) 유형 한국어 라벨 — 엔티티 중심 모델에서 사건/수입 등 이벤트는 엣지로 표현된다.
    NETWORK_EDGE 는 relation_type 속성(예: 송금관계)이 더 구체적이므로 우선 사용. */
 const REL_LABEL_KO = {
@@ -408,23 +436,28 @@ function cyElements(graph){
     const score = nodeRiskScore(n.properties);
     const tier = riskTier(score);
     const baseW = isCore ? 72 : 52;
-    const w = baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0);
+    // 아이콘 크기 축소(×0.35 — 직전 대비 가로세로 반으로)
+    const w = Math.round((baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0)) * 0.35);
     return {
       data: {
         id: n.id,
         name: n.name,
         typeKo: nodeLabelKo(n.label),
         color: nodeColor(n.label),
-        // 기업/사람 노드만 네모박스 + 라벨 하단 배치(가독성). 박스는 원형보다 작게.
-        isEntity: (n.label === "Company" || n.label === "Person") ? 1 : 0,
-        boxW: Math.round(w * 0.6),
+        // 채움은 원색의 연한 파스텔톤, 라인(테두리)은 원색 그대로(진하게)
+        pcolor: pastel(nodeColor(n.label), 0.8),
+        // 노드 유형별 도형(박스/육각형/삼각형/원) + 라벨 하단 배치(가독성)
+        shape: nodeShape(n.label),
+        isBox: nodeShape(n.label) === "round-rectangle" ? 1 : 0,
+        boxW: Math.round(w * 0.8),  // 박스는 원형보다 약간 작게
         ring: isCore ? 3 : (directIds.has(n.id) ? 2 : 1),
         core: isCore ? 1 : 0,
         risk: Number.isFinite(score) ? Math.round(score) : null,
         riskTier: tier,
         w,
-        bcolor: isCore ? "#dc2626" : RISK_BORDER[tier],
-        bwidth: isCore ? 4 : (tier === "high" || tier === "mid" ? 4 : 3),
+        // 라인(테두리)은 아이템 원색 그대로(진하게), 굵기는 가늘게. 중심 노드만 강조 빨강.
+        bcolor: isCore ? "#dc2626" : nodeColor(n.label),
+        bwidth: isCore ? 2.5 : 1.5,
         props: n.properties || {},
       },
     };
@@ -445,58 +478,55 @@ function cyElements(graph){
 
 const CY_STYLE = [
   { selector: "node", style: {
-      "background-color": "data(color)",
+      "background-color": "data(pcolor)",
+      // 유형별 도형 + 라벨을 아이콘 아래로(가독성)
+      "shape": "data(shape)",
       "label": "data(name)",
-      "color": "#fff",
+      "color": "#414141",
       "font-size": "12px",
-      "font-weight": 800,
-      "text-valign": "center",
-      "text-halign": "center",
-      "text-wrap": "ellipsis",
-      "text-max-width": "62px",
-      // A2: 위험도에 따라 크기·테두리(색/굵기)를 데이터로 매핑
-      "width": "data(w)", "height": "data(w)",
-      "border-width": "data(bwidth)", "border-color": "data(bcolor)",
-      "text-outline-width": 2, "text-outline-color": "data(color)",
-  }},
-  { selector: "node[core = 1]", style: {
-      "font-size": "13px",
-  }},
-  // 기업·사람 노드: 네모박스 + 라벨을 아이콘 아래로(가독성). 그 외 노드는 기존 원형·중앙라벨 유지.
-  { selector: "node[isEntity = 1]", style: {
-      "shape": "round-rectangle",
-      "width": "data(boxW)", "height": "data(boxW)",
+      "font-weight": 400,
       "text-valign": "bottom",
       "text-halign": "center",
       "text-margin-y": 4,
-      "color": "#1e293b",
+      "text-wrap": "ellipsis",
+      "text-max-width": "92px",
       "text-outline-width": 0,
       "text-background-color": "#ffffff",
       "text-background-opacity": .85,
       "text-background-padding": "2px",
-      "text-max-width": "92px",
+      // A2: 위험도에 따라 크기·테두리(색/굵기)를 데이터로 매핑
+      "width": "data(w)", "height": "data(w)",
+      "border-width": "data(bwidth)", "border-color": "data(bcolor)",
+  }},
+  { selector: "node[core = 1]", style: {
+      "font-size": "14px",
+      "font-weight": 800,
+  }},
+  // 박스(기업·사람·거래처·관세사)는 원형보다 작게
+  { selector: "node[isBox = 1]", style: {
+      "width": "data(boxW)", "height": "data(boxW)",
   }},
   { selector: ".dim", style: { "opacity": .18 } },
   // A1: 검색 결과 — 비매칭 흐림 + 매칭 강조
   { selector: ".search-dim", style: { "opacity": .12 } },
   { selector: ".search-hit", style: {
       "border-color": "#facc15", "border-width": 6,
-      "text-outline-color": "#ca8a04",
+      "color": "#0066FF", "font-weight": 800,
   }},
   // 분석 기법 강조
   { selector: ".analysis-dim", style: { "opacity": .12 } },
   { selector: ".analysis-hit", style: {
       "border-color": "#16a34a", "border-width": 6,
-      "text-outline-color": "#15803d",
+      "color": "#0066FF", "font-weight": 800,
   }},
   // 파일 등록 엣지 — 점선·자홍색으로 Neo4j 관계와 구분
   { selector: "edge[fileEdge = 1]", style: {
       "line-color": "#db2777", "target-arrow-color": "#db2777",
-      "line-style": "dashed", "color": "#9d174d",
+      "line-style": "dashed",
   }},
   // 경로분석: 수출 흐름은 주황색
   { selector: "edge[exportFlow = 1]", style: {
-      "line-color": "#f59e0b", "target-arrow-color": "#f59e0b", "color": "#b45309",
+      "line-color": "#f59e0b", "target-arrow-color": "#f59e0b",
   }},
   { selector: "edge", style: {
       "curve-style": "bezier",
@@ -507,8 +537,8 @@ const CY_STYLE = [
       "arrow-scale": 1.1,
       "label": "data(typeKo)",
       "font-size": "10px",
-      "font-weight": 700,
-      "color": "#64748b",
+      "font-weight": 400,
+      "color": "#414141",
       "text-rotation": "autorotate",
       "text-background-color": "#f8fbff",
       "text-background-opacity": .9,
@@ -519,8 +549,6 @@ const CY_STYLE = [
       "line-color": "#f59e0b",
       "target-arrow-color": "#f59e0b",
       "width": 4.5,
-      "color": "#b45309",
-      "font-weight": 800,
   }},
 ];
 
