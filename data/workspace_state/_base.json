@@ -837,5 +837,5 @@
   "drugNetworkSubTab": "graph",
   "drugForensicSubTab": "dashboard",
   "drugReportSubTab": "draft",
-  "investigationTab": "ongoing"
+  "investigationTab": "profile"
 }

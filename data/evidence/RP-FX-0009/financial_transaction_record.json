@@ -1,0 +1,109 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0009-FIN",
+  "subject_person_id": "RP-FX-0009",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0009"
+  },
+  "records": [
+    {
+      "txn_date": "2026-04-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 714398000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-05-30",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 410498000.0,
+      "counterpart_country": "일본",
+      "counterpart_org_id": "RO-OFF-006",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-006"
+    },
+    {
+      "txn_date": "2025-02-14",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 717555000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2023-09-24",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 838238000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-11-07",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 525125000.0,
+      "counterpart_country": "중국",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-01-25",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 50616000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2025-01-30",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 737342000.0,
+      "counterpart_country": "일본",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-06-11",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 133907000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-06-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 551781000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    }
+  ]
+}

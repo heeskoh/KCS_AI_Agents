@@ -1,5 +1,5 @@
 import { escapeHtml } from "../../core/dom.js";
-import { networkGraphPanelHtml } from "../shared/network-graph.js";
+import { networkGraphPanelHtml, graphDomainForPage } from "../shared/network-graph.js";
 
 function targetContextHeader(ctx, title, desc){
   if(!ctx) return "";
@@ -26,6 +26,7 @@ export function renderNetworkPanel(deps, uctx){
   if(!ctx) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const targetType = ctx.targetType === "company" ? "company" : "person";
   const targetId = ctx.targetId || "";
+  const domain = graphDomainForPage(uctx?.pageKey);
   const header = targetContextHeader(
     ctx,
     "관계망 분석",
@@ -43,7 +44,7 @@ export function renderNetworkPanel(deps, uctx){
     <div class="drug-network-page">
       ${header}
       <div class="profile-net-right net-right-wb">
-        ${networkGraphPanelHtml(targetType, targetId, "관계망 분석", { workbench: true })}
+        ${networkGraphPanelHtml(targetType, targetId, "관계망 분석", { workbench: true, domain })}
       </div>
     </div>
   `;

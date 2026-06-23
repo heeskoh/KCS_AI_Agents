@@ -55,12 +55,20 @@ DEFAULT_USER = "neo4j"
 DEFAULT_PASSWORD = "kcsneo4j1234"
 DEFAULT_DATABASE = "neo4j"
 SOURCE_TAG = "duckdb.risk_person.sample"
+EVIDENCE_DIR = PROJECT_ROOT / "data" / "evidence"
 
 # network_edge.target_type → (Neo4j label, key) for entity targets (person/org).
 ENTITY_TARGETS = {
     "person": ("Person", "person_id"),
     "org": ("Organization", "org_id"),
 }
+
+# 수사 도메인(설계 정의서 §2): 사건 품목분류 → domain.
+DOMAIN_BY_CONTRABAND = {"마약류": "drug", "외환사범": "forex"}
+
+
+def case_domain(case: dict[str, Any]) -> str:
+    return DOMAIN_BY_CONTRABAND.get(case.get("contraband_category"), "general")
 
 
 def clean_value(value: Any) -> Any:
@@ -104,12 +112,20 @@ def fetch_data() -> dict[str, list[dict[str, Any]]]:
 
 def build_indices(data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     evidence_by_id = {e["source_id"]: e for e in data["evidence"]}
+    cases_by_id = {c["case_id"]: c for c in data["cases"]}
 
     # 위험지표 → 인물별 요약 (Person 노드 속성으로 흡수)
     ind_by_person: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for ri in data["risk_indicators"]:
         if ri.get("entity_type") == "person" and ri.get("entity_id"):
             ind_by_person[ri["entity_id"]].append(ri)
+
+    # 인물 도메인: risk_indicator.domain 우선순위 forex > drug > general
+    person_domain: dict[str, str] = {}
+    for pid, inds in ind_by_person.items():
+        domains = {str(r.get("domain")) for r in inds}
+        person_domain[pid] = ("forex" if "forex" in domains
+                              else "drug" if "drug" in domains else "general")
 
     # 분석결과 → (인물, 사건) 키로 매핑 (INVOLVED_IN 엣지 속성으로 흡수)
     analysis_by_pc: dict[tuple, dict[str, Any]] = {}
@@ -124,7 +140,9 @@ def build_indices(data: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
 
     return {
         "evidence_by_id": evidence_by_id,
+        "cases_by_id": cases_by_id,
         "ind_by_person": ind_by_person,
+        "person_domain": person_domain,
         "analysis_by_pc": analysis_by_pc,
     }
 
@@ -139,6 +157,7 @@ def person_rollup(person_id: str, idx: dict[str, Any]) -> dict[str, Any]:
     return {
         "indicator_count": len(indicators),
         "top_indicators": top_text or None,
+        "domain": idx["person_domain"].get(person_id, "general"),
     }
 
 
@@ -161,6 +180,7 @@ def clear_graph(tx: ManagedTransaction) -> None:
     edge_types = [
         "INVOLVED_IN", "CASE_FROM", "CASE_VIA", "CASE_TO", "NETWORK_EDGE",
         "RESIDES_IN", "LOCATED_IN",
+        "COMMUNICATED_WITH", "FUNDS_FLOW",  # 증거물 엣지
         "CASE_LINK", "ANALYZED_BY",  # 레거시
     ]
     for et in edge_types:
@@ -198,6 +218,7 @@ def merge_person(tx: ManagedTransaction, row: dict[str, Any], rollup: dict[str, 
             p.watch_status = $watch_status,
             p.indicator_count = $indicator_count,
             p.top_indicators = $top_indicators,
+            p.domain = $domain,
             p.seed_batch_id = $seed_batch_id,
             p.updated_from = $source_tag
         """,
@@ -227,10 +248,12 @@ def merge_org(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             o.risk_score = $risk_score,
             o.risk_tags = $risk_tags,
             o.watch_status = $watch_status,
+            o.domain = $domain,
             o.seed_batch_id = $seed_batch_id,
             o.updated_from = $source_tag
         """,
-        {**row, "source_tag": SOURCE_TAG},
+        {**row, "domain": ("forex" if str(row.get("org_id", "")).startswith("RO-OFF")
+                           else "general"), "source_tag": SOURCE_TAG},
     )
     if row.get("address_region"):
         tx.run(
@@ -266,9 +289,10 @@ def merge_case(tx: ManagedTransaction, case: dict[str, Any]) -> None:
             c.estimated_value = $estimated_value,
             c.lead_agency = $lead_agency,
             c.summary = $summary,
+            c.domain = $domain,
             c.updated_from = $source_tag
         """,
-        {**case, "name": name, "source_tag": SOURCE_TAG},
+        {**case, "name": name, "domain": case_domain(case), "source_tag": SOURCE_TAG},
     )
     if case.get("origin_country"):
         code = country_code(case["origin_country"])
@@ -315,10 +339,12 @@ def merge_involved(tx: ManagedTransaction, link: dict[str, Any], idx: dict[str, 
         return
     evidence = idx["evidence_by_id"].get(link.get("source_id")) or {}
     analysis = idx["analysis_by_pc"].get((link["person_id"], link["case_id"])) or {}
+    case = idx["cases_by_id"].get(link["case_id"]) or {}
     params = {
         "person_id": link["person_id"],
         "case_id": link["case_id"],
         "link_id": link.get("link_id"),
+        "domain": case_domain(case),
         "role_in_case": link.get("role_in_case"),
         "is_cargo_owner": link.get("is_cargo_owner"),
         "confidence_score": link.get("confidence_score"),
@@ -336,7 +362,8 @@ def merge_involved(tx: ManagedTransaction, link: dict[str, Any], idx: dict[str, 
         MATCH (p:Person {person_id: $person_id})
         MATCH (c:Case {case_id: $case_id})
         MERGE (p)-[r:INVOLVED_IN {link_id: $link_id}]->(c)
-        SET r.role_in_case = $role_in_case,
+        SET r.domain = $domain,
+            r.role_in_case = $role_in_case,
             r.is_cargo_owner = $is_cargo_owner,
             r.confidence_score = $confidence_score,
             r.evidence_level = $evidence_level,
@@ -352,7 +379,7 @@ def merge_involved(tx: ManagedTransaction, link: dict[str, Any], idx: dict[str, 
     )
 
 
-def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any]) -> None:
+def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any], idx: dict[str, Any]) -> None:
     """person → person/org 직접 관계만 NETWORK_EDGE 로 표현.
     person → case 는 INVOLVED_IN(person_case_link)으로 이미 표현되므로 건너뛴다."""
     if str(row.get("source_type")) != "person":
@@ -361,6 +388,7 @@ def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     if target_type not in ENTITY_TARGETS:
         return
     label, key = ENTITY_TARGETS[target_type]
+    domain = idx["person_domain"].get(row.get("source_id"), "general")
     tx.run(
         f"""
         MATCH (s:Person {{person_id: $source_id}})
@@ -371,9 +399,91 @@ def merge_network_edge(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             r.confidence_score = $confidence_score,
             r.first_seen_at = $first_seen_at,
             r.last_seen_at = $last_seen_at,
+            r.domain = $domain,
             r.updated_from = $source_tag
         """,
-        {**row, "source_tag": SOURCE_TAG},
+        {**row, "domain": domain, "source_tag": SOURCE_TAG},
+    )
+
+
+# ── 증거물 엣지 (압수 통신·금융기록 → COMMUNICATED_WITH / FUNDS_FLOW) ──────────
+
+def fetch_evidence_edges(person_ids: set[str], org_ids: set[str],
+                         person_domain: dict[str, str]) -> list[dict[str, Any]]:
+    """data/evidence/<RP>/*.json 을 읽어 등록 엔티티 간 증거 엣지로 집계.
+    [결정 (d)] 미등록 상대는 노드화하지 않으므로 등록된 person/org 만 연결한다."""
+    import json
+    agg: dict[tuple, dict[str, Any]] = {}
+    if not EVIDENCE_DIR.exists():
+        return []
+    for pdir in sorted(EVIDENCE_DIR.iterdir()):
+        if not pdir.is_dir():
+            continue
+        subject = pdir.name
+        if subject not in person_ids:
+            continue
+        domain = person_domain.get(subject, "general")
+        # 통신기록 → COMMUNICATED_WITH (person↔person)
+        comm = pdir / "communication_record.json"
+        if comm.exists():
+            try:
+                data = json.loads(comm.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                data = {}
+            for rec in data.get("records", []):
+                cp = rec.get("counterpart_person_id")
+                if cp and cp in person_ids and cp != subject:
+                    k = ("COMMUNICATED_WITH", subject, "Person", cp)
+                    e = agg.setdefault(k, {"rel": "COMMUNICATED_WITH", "src": subject,
+                                           "tlabel": "Person", "tkey": "person_id", "tid": cp,
+                                           "domain": domain, "count": 0, "channels": set(), "amount_sum": 0.0})
+                    e["count"] += 1
+                    if rec.get("record_type"):
+                        e["channels"].add(rec["record_type"])
+        # 금융기록 → FUNDS_FLOW (person↔person/org)
+        fin = pdir / "financial_transaction_record.json"
+        if fin.exists():
+            try:
+                data = json.loads(fin.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                data = {}
+            for rec in data.get("records", []):
+                cp_p = rec.get("counterpart_person_id")
+                cp_o = rec.get("counterpart_org_id")
+                amt = float(rec.get("amount") or 0)
+                if cp_p and cp_p in person_ids and cp_p != subject:
+                    k = ("FUNDS_FLOW", subject, "Person", cp_p)
+                    tlabel, tkey, tid = "Person", "person_id", cp_p
+                elif cp_o and cp_o in org_ids:
+                    k = ("FUNDS_FLOW", subject, "Organization", cp_o)
+                    tlabel, tkey, tid = "Organization", "org_id", cp_o
+                else:
+                    continue
+                e = agg.setdefault(k, {"rel": "FUNDS_FLOW", "src": subject,
+                                       "tlabel": tlabel, "tkey": tkey, "tid": tid,
+                                       "domain": domain, "count": 0, "channels": set(), "amount_sum": 0.0})
+                e["count"] += 1
+                e["amount_sum"] += amt
+                if rec.get("channel") or rec.get("txn_type"):
+                    e["channels"].add(rec.get("channel") or rec.get("txn_type"))
+    out = []
+    for e in agg.values():
+        e["channels"] = ", ".join(sorted(c for c in e["channels"] if c)) or None
+        out.append(e)
+    return out
+
+
+def merge_evidence_edge(tx: ManagedTransaction, e: dict[str, Any]) -> None:
+    tx.run(
+        f"""
+        MATCH (s:Person {{person_id: $src}})
+        MATCH (t:{e['tlabel']} {{{e['tkey']}: $tid}})
+        MERGE (s)-[r:{e['rel']} {{evidence_key: $src + '->' + $tid}}]->(t)
+        SET r.domain = $domain, r.count = $count, r.amount_sum = $amount_sum,
+            r.channels = $channels, r.evidence = true, r.updated_from = $source_tag
+        """,
+        {"src": e["src"], "tid": e["tid"], "domain": e["domain"], "count": e["count"],
+         "amount_sum": e["amount_sum"], "channels": e["channels"], "source_tag": SOURCE_TAG},
     )
 
 
@@ -403,7 +513,14 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
             for row in data["person_case_links"]:
                 session.execute_write(merge_involved, row, idx)
             for row in data["network_edges"]:
-                session.execute_write(merge_network_edge, row)
+                session.execute_write(merge_network_edge, row, idx)
+
+            # 증거물 엣지 (압수 통신·금융기록 → 등록 엔티티 간)
+            person_ids = {p["person_id"] for p in data["persons"]}
+            org_ids = {o["org_id"] for o in data["orgs"]}
+            evidence_edges = fetch_evidence_edges(person_ids, org_ids, idx["person_domain"])
+            for e in evidence_edges:
+                session.execute_write(merge_evidence_edge, e)
 
             node_counts = session.run(
                 "MATCH (n) WITH labels(n)[0] AS label, count(*) AS count RETURN label, count ORDER BY label"
@@ -420,6 +537,7 @@ def load_to_neo4j(data: dict[str, list[dict[str, Any]]], clear: bool = False) ->
         "cases_loaded": len(data["cases"]),
         "involved_in_loaded": len(data["person_case_links"]),
         "network_edges_loaded": len(data["network_edges"]),
+        "evidence_edges_loaded": len(evidence_edges),
         "analysis_folded": len(idx["analysis_by_pc"]),
         "neo4j_node_counts": node_counts,
         "neo4j_relationship_counts": relationship_counts,

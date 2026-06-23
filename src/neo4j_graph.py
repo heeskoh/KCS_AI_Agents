@@ -539,10 +539,29 @@ def build_explore_graph(company_ids: list[str] | None = None, person_ids: list[s
     return graph
 
 
-def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1) -> dict[str, Any] | None:
+def _filter_graph_by_domain(graph: dict[str, Any], domain: str | None,
+                            center_id: str) -> dict[str, Any]:
+    """도메인 인지 필터(설계 정의서 §5): 엣지 domain 속성이 일치하거나 도메인이 없는
+    구조적 엣지(RESIDES_IN/LOCATED_IN/CASE_FROM 등)는 유지하고, 다른 도메인 엣지는 제거한 뒤
+    고립 노드(중심 제외)를 정리한다."""
+    if not domain:
+        return graph
+    kept_edges = [e for e in graph["edges"]
+                  if (e.get("properties") or {}).get("domain") in (None, domain)]
+    used = {center_id}
+    for e in kept_edges:
+        used.add(e["source"])
+        used.add(e["target"])
+    kept_nodes = [n for n in graph["nodes"] if n["id"] in used]
+    return {**graph, "nodes": kept_nodes, "edges": kept_edges}
+
+
+def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1,
+                               domain: str | None = None) -> dict[str, Any] | None:
     """Return a node/edge graph centered on a risk person, or None if no person exists.
 
     hops: 1~3단계 이웃까지 확장(기본 1-hop ego 네트워크).
+    domain: customs/drug/forex/general 지정 시 해당 도메인 엣지만 남긴다(구조적 엣지는 유지).
     """
     exists = _read(
         "MATCH (p:Person {person_id: $person_id}) RETURN p.person_id AS person_id LIMIT 1",
@@ -557,7 +576,10 @@ def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1) -
     else:
         query = f"MATCH path = (p:Person {{person_id: $person_id}})-[*1..{h}]-(n) RETURN path LIMIT $limit"
     graph = _read_graph(query, person_id=person_id, limit=limit)
-    graph["center"] = f"Person:{person_id}"
+    center_id = f"Person:{person_id}"
+    graph = _filter_graph_by_domain(graph, domain, center_id)
+    graph["center"] = center_id
+    graph["domain"] = domain
     return graph
 
 

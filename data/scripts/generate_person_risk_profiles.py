@@ -236,11 +236,29 @@ def _gen_sources(person: dict, cases: list[dict], net: list[dict], persons_by_re
 
 def generate_all(conn: duckdb.DuckDBPyConnection, verbose: bool = True) -> dict[str, int]:
     create_person_risk_source_schema(conn)
+    # 외환(forex) 우범자는 setup_forex_risk_db.py 가 별도 산출하므로 본 일반/마약 생성에서 제외.
+    # 이들의 근거 소스·지표를 보존하기 위해 forex 대상(RP-FX-* 또는 profile_type='외환사범')을
+    # DELETE 범위에서 빼고, 루프에서도 건너뛴다.
+    fx_persons = {
+        r[0] for r in conn.execute(
+            "SELECT person_id FROM risk_person_profile "
+            "WHERE person_id LIKE 'RP-FX-%' OR profile_type = '외환사범'"
+        ).fetchall()
+    }
+    fx_clause = ""
+    if fx_persons:
+        ph = ",".join("'" + p.replace("'", "''") + "'" for p in fx_persons)
+        fx_clause = f" WHERE person_id NOT IN ({ph})"
     for name, _ in SOURCE_TABLES:
-        conn.execute(f"DELETE FROM {name}")
-    conn.execute("DELETE FROM risk_indicator WHERE entity_type = 'person'")
+        cols = {row[1] for row in conn.execute(f"PRAGMA table_info('{name}')").fetchall()}
+        conn.execute(f"DELETE FROM {name}{fx_clause if 'person_id' in cols else ''}")
+    fx_ind = (" AND entity_id NOT IN (" + ",".join("'" + p.replace("'", "''") + "'"
+              for p in fx_persons) + ")") if fx_persons else ""
+    conn.execute(f"DELETE FROM risk_indicator WHERE entity_type = 'person'{fx_ind}")
 
-    persons = conn.execute("SELECT * FROM risk_person_profile ORDER BY person_id").df().to_dict("records")
+    persons = [p for p in
+               conn.execute("SELECT * FROM risk_person_profile ORDER BY person_id").df().to_dict("records")
+               if p["person_id"] not in fx_persons]
     links = conn.execute("SELECT person_id, case_id FROM person_case_link").df().to_dict("records")
     cases_by_id = {c["case_id"]: c for c in
                    conn.execute("SELECT * FROM smuggling_case").df().to_dict("records")}

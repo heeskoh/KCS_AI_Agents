@@ -1,0 +1,76 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0001-FIN",
+  "subject_person_id": "RP-FX-0001",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0001"
+  },
+  "records": [
+    {
+      "txn_date": "2023-11-05",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 179980000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-11-06",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 771486000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-007",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-007"
+    },
+    {
+      "txn_date": "2023-12-25",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 787642000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-10-31",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 413425000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-04-15",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 358413000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": "RO-OFF-007",
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금 → RO-OFF-007"
+    },
+    {
+      "txn_date": "2024-07-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 67259000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    }
+  ]
+}

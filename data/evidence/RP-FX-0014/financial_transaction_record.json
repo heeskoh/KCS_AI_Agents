@@ -1,0 +1,87 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0014-FIN",
+  "subject_person_id": "RP-FX-0014",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0014"
+  },
+  "records": [
+    {
+      "txn_date": "2024-11-19",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 289029000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-12-10",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 894788000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-01-03",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 750911000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-09-01",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 604939000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-05-23",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 545219000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": "RO-OFF-001",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-001"
+    },
+    {
+      "txn_date": "2026-04-29",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 76920000.0,
+      "counterpart_country": "싱가포르",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-03-26",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 314255000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-001",
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금 → RO-OFF-001"
+    }
+  ]
+}

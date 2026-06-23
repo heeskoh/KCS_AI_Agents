@@ -1898,11 +1898,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             q = parse_qs(parsed.query)
             person_id = q.get("person_id", [""])[0].strip()
             hops = q.get("hops", ["1"])[0]
+            domain = (q.get("domain", [""])[0].strip() or None)
             if not person_id:
                 self._send_json({"error": "person_id is required"}, HTTPStatus.BAD_REQUEST)
                 return
             try:
-                graph = build_person_network_graph(person_id, hops=hops)
+                graph = build_person_network_graph(person_id, hops=hops, domain=domain)
             except Neo4jGraphError as exc:
                 self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
                 return

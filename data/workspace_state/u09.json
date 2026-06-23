@@ -1,7 +1,7 @@
 {
   "activeCanvasCompanyId": "C-2009",
   "activeScenarioTemplateId": "customs-basic",
-  "investigationTab": "ongoing",
+  "investigationTab": "profile",
   "canvasTab": "overview",
   "generalInvTab": "profile",
   "activeGenInvCaseId": "GI-2026-001",
@@ -794,5 +794,5 @@
   "canvasJobOverrides": {},
   "canvasRunArchives": {},
   "hiddenCanvasJobIds": [],
-  "updatedAt": "2026-06-23T01:20:50.765Z"
+  "updatedAt": "2026-06-23T04:11:44.466Z"
 }

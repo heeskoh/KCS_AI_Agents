@@ -1,0 +1,98 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0008-FIN",
+  "subject_person_id": "RP-FX-0008",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0008"
+  },
+  "records": [
+    {
+      "txn_date": "2025-08-07",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 790997000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": "RO-OFF-007",
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금 → RO-OFF-007"
+    },
+    {
+      "txn_date": "2026-05-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 781513000.0,
+      "counterpart_country": "중국",
+      "counterpart_org_id": "RO-OFF-001",
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금 → RO-OFF-001"
+    },
+    {
+      "txn_date": "2026-04-23",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 338466000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": "RO-OFF-001",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-001"
+    },
+    {
+      "txn_date": "2023-10-23",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 885254000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금"
+    },
+    {
+      "txn_date": "2023-10-18",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 352676000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-12-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 257943000.0,
+      "counterpart_country": "일본",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-12-25",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 536511000.0,
+      "counterpart_country": "싱가포르",
+      "counterpart_org_id": "RO-OFF-007",
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금 → RO-OFF-007"
+    },
+    {
+      "txn_date": "2026-02-10",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 193092000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-001",
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금 → RO-OFF-001"
+    }
+  ]
+}

@@ -225,7 +225,7 @@ export function renderProfilePanel(deps){
   // 우범자 프로파일: 좌측 위험내역 대시보드 + 우측 Neo4j 관계망 그래프 (60:40)
   return profileNetworkLayout(
     renderPersonFullProfile(aCase, person, detail, type),
-    "person", personId,
+    "person", personId, undefined, "general",
   );
 }
 

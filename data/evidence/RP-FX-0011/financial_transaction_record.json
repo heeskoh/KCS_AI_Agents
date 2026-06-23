@@ -1,0 +1,87 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0011-FIN",
+  "subject_person_id": "RP-FX-0011",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0011"
+  },
+  "records": [
+    {
+      "txn_date": "2026-04-17",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 559672000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-12-12",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 342945000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": "RO-OFF-008",
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금 → RO-OFF-008"
+    },
+    {
+      "txn_date": "2024-01-15",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 631840000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2025-06-25",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 640621000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2025-06-02",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 151987000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금"
+    },
+    {
+      "txn_date": "2025-05-04",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 821083000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": "RO-OFF-008",
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금 → RO-OFF-008"
+    },
+    {
+      "txn_date": "2025-12-08",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 868348000.0,
+      "counterpart_country": "중국",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    }
+  ]
+}

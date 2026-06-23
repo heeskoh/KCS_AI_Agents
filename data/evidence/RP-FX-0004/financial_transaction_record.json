@@ -1,0 +1,65 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0004-FIN",
+  "subject_person_id": "RP-FX-0004",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0004"
+  },
+  "records": [
+    {
+      "txn_date": "2024-09-04",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 362065000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2026-03-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 173402000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": "RO-OFF-005",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-005"
+    },
+    {
+      "txn_date": "2024-07-07",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 534646000.0,
+      "counterpart_country": "일본",
+      "counterpart_org_id": "RO-OFF-005",
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금 → RO-OFF-005"
+    },
+    {
+      "txn_date": "2026-05-02",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 241044000.0,
+      "counterpart_country": "일본",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "정식송금",
+      "note": "정식송금 의심 해외송금"
+    },
+    {
+      "txn_date": "2024-03-16",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 108732000.0,
+      "counterpart_country": "UAE",
+      "counterpart_org_id": "RO-OFF-005",
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금 → RO-OFF-005"
+    }
+  ]
+}

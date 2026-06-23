@@ -1,0 +1,19 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0016-COMM",
+  "subject_person_id": "RP-FX-0016",
+  "device": {
+    "device_type": "스마트폰",
+    "seized_date": "2026-06-15",
+    "extraction_tool": "Cellebrite UFED"
+  },
+  "records": [
+    {
+      "timestamp": "2026-02-25",
+      "record_type": "메신저",
+      "direction": "수신",
+      "counterpart_person_id": "RP-FX-0012",
+      "message_preview": "[샘플] 송금 분할·계좌 관련 협의",
+      "note": "외환사범 공범 연락 정황"
+    }
+  ]
+}

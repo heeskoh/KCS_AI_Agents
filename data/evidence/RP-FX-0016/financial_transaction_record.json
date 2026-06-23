@@ -1,0 +1,76 @@
+{
+  "evidence_id": "EV-SEIZED-RP-FX-0016-FIN",
+  "subject_person_id": "RP-FX-0016",
+  "account": {
+    "bank": "샘플은행",
+    "account_no_masked": "110-***-0016"
+  },
+  "records": [
+    {
+      "txn_date": "2023-10-24",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 410327000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "차명",
+      "note": "차명 의심 해외송금"
+    },
+    {
+      "txn_date": "2026-04-17",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 890365000.0,
+      "counterpart_country": "홍콩",
+      "counterpart_org_id": "RO-OFF-007",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-007"
+    },
+    {
+      "txn_date": "2026-03-07",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 440664000.0,
+      "counterpart_country": "미국",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2023-10-01",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 141286000.0,
+      "counterpart_country": "베트남",
+      "counterpart_org_id": null,
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금"
+    },
+    {
+      "txn_date": "2026-01-13",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 311730000.0,
+      "counterpart_country": "싱가포르",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "환치기",
+      "note": "환치기 의심 해외송금 → RO-OFF-004"
+    },
+    {
+      "txn_date": "2025-08-11",
+      "txn_type": "해외송금",
+      "direction": "이체",
+      "amount": 733492000.0,
+      "counterpart_country": "중국",
+      "counterpart_org_id": "RO-OFF-004",
+      "counterpart_person_id": null,
+      "channel": "분산",
+      "note": "분산 의심 해외송금 → RO-OFF-004"
+    }
+  ]
+}
