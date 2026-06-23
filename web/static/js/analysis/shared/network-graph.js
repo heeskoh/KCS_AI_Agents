@@ -436,8 +436,8 @@ function cyElements(graph){
     const score = nodeRiskScore(n.properties);
     const tier = riskTier(score);
     const baseW = isCore ? 72 : 52;
-    // 아이콘 크기 축소(×0.35 — 직전 대비 가로세로 반으로)
-    const w = Math.round((baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0)) * 0.35);
+    // 아이콘 크기(×0.7 — 직전 0.35 대비 가로세로 2배)
+    const w = Math.round((baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0)) * 0.7);
     return {
       data: {
         id: n.id,
@@ -553,6 +553,18 @@ const CY_STYLE = [
 ];
 
 /* 그래프 영역에 cytoscape 마운트 (이전 인스턴스는 파기) */
+/* 라벨 글씨 크기 규정: 기본 12px, 화면상 최소 8px·최대 14px. Cytoscape 폰트는 줌에
+   비례하므로 줌에 따라 font-size(그래프 단위)를 보정해 화면 픽셀을 [8,14]로 클램프한다. */
+function clampLabelFonts(cy){
+  const z = cy.zoom() || 1;
+  const fs = Math.max(8, Math.min(14, 12 * z)) / z;       // 일반 노드(기본 12px)
+  const fsCore = Math.max(8, Math.min(14, 14 * z)) / z;   // 중심 노드(상한 14px)
+  cy.batch(() => {
+    cy.nodes("[core = 1]").style("font-size", `${fsCore.toFixed(2)}px`);
+    cy.nodes("[core != 1]").style("font-size", `${fs.toFixed(2)}px`);
+  });
+}
+
 function mountCytoscape(key, filteredGraph){
   const area = document.querySelector(`[data-net-cy="${CSS.escape(key)}"]`);
   if(!area) return;
@@ -564,10 +576,24 @@ function mountCytoscape(key, filteredGraph){
       container: area,
       elements: cyElements(filteredGraph),
       style: CY_STYLE,
-      layout: viewLayout(filterStateFor(key), filteredGraph),
       wheelSensitivity: .25,
       maxZoom: 3, minZoom: .2,
     });
+    // 레이아웃을 명시적으로 실행해 layoutstop 리스너를 run 전에 붙인다(동기 레이아웃 경합 방지).
+    // 초기 표시: fit으로 과하게 줌아웃되면 라벨이 버튼(12px)보다 작아 보이므로 줌 하한(1.0)을
+    // 적용하고 중심 노드를 화면 중앙에 둔다(노드·라벨 겹침은 레이아웃에서 이미 방지).
+    const layout = cy.layout(viewLayout(filterStateFor(key), filteredGraph));
+    layout.one("layoutstop", () => {
+      if(cy.zoom() < 1){
+        cy.zoom(1);
+        const core = cy.$("node[core = 1]");
+        if(core.nonempty()) cy.center(core); else cy.center();
+      }
+      clampLabelFonts(cy);
+    });
+    layout.run();
+    // 줌 변경 시에도 라벨 화면 크기를 8~14px로 유지
+    cy.on("zoom", () => clampLabelFonts(cy));
     /* 마우스 액션 정리:
        - 호버: 해당 노드와 직접 이웃만 강조(나머지 흐림)
        - 클릭: 상세 정보 패널 표시 (노드 속성 / 관계 정보)
@@ -657,7 +683,7 @@ function presetPositions(graph){
   const laneIdx = new Map(ROUTE_LANES.map((l, i) => [l, i]));
   const byLane = new Map(ROUTE_LANES.map(l => [l, []]));
   (graph.nodes || []).forEach(n => { if(byLane.has(n.label)) byLane.get(n.label).push(n); });
-  const colW = 200, rowH = 58, pos = {};
+  const colW = 200, rowH = 66, pos = {};
   byLane.forEach((list, lane) => {
     const x = laneIdx.get(lane) * colW;
     list.forEach((n, i) => { pos[n.id] = { x, y: (i - (list.length - 1) / 2) * rowH }; });
@@ -665,16 +691,26 @@ function presetPositions(graph){
   return pos;
 }
 
-/* 뷰별 cytoscape 레이아웃 */
+/* 뷰별 cytoscape 레이아웃 — 라벨이 아이콘 아래에 있으므로 nodeDimensionsIncludeLabels로
+   라벨 영역까지 포함해 배치하고 간격을 넓혀 노드·설명이 서로 겹치지 않게 한다. */
 function viewLayout(state, graph){
   const m = viewModeOf(state);
   if(m.layout === "preset") return { name: "preset", positions: presetPositions(graph), padding: 30, fit: true };
-  if(m.layout === "cose") return { name: "cose", padding: 20, animate: false, nodeRepulsion: 9000, idealEdgeLength: 80, fit: true };
+  if(m.layout === "cose") return {
+    name: "cose", padding: 24, animate: false, fit: true,
+    nodeDimensionsIncludeLabels: true,
+    nodeRepulsion: 9000, idealEdgeLength: 95, nodeOverlap: 12, componentSpacing: 80, gravity: 0.4,
+  };
   if(m.layout === "breadthfirst") return {
-    name: "breadthfirst", directed: false, padding: 24, spacingFactor: 1.05, fit: true,
+    name: "breadthfirst", directed: false, padding: 22, spacingFactor: 1.2, fit: true,
+    nodeDimensionsIncludeLabels: true, avoidOverlap: true,
     roots: (graph.nodes || []).filter(n => n.label === "RiskScore").map(n => n.id),
   };
-  return { name: "concentric", concentric: n => n.data("ring"), levelWidth: () => 1, minNodeSpacing: 26, padding: 14, animate: false };
+  return {
+    name: "concentric", concentric: n => n.data("ring"), levelWidth: () => 1,
+    minNodeSpacing: 28, padding: 18, animate: false, avoidOverlap: true,
+    nodeDimensionsIncludeLabels: true,
+  };
 }
 
 /* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) */
