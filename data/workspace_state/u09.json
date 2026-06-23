@@ -6,7 +6,7 @@
   "generalInvTab": "profile",
   "activeGenInvCaseId": "GI-2026-002",
   "drugInvTab": "profile",
-  "activeDrugCaseId": "FX-2026-002",
+  "activeDrugCaseId": "DRUG-2026-002",
   "drugDataSubTab": "profile",
   "drugNetworkSubTab": "graph",
   "drugForensicSubTab": "dashboard",
@@ -794,5 +794,5 @@
   "canvasJobOverrides": {},
   "canvasRunArchives": {},
   "hiddenCanvasJobIds": [],
-  "updatedAt": "2026-06-23T08:28:46.817Z"
+  "updatedAt": "2026-06-23T22:09:46.653Z"
 }

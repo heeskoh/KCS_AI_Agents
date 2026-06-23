@@ -553,15 +553,23 @@ const CY_STYLE = [
 ];
 
 /* 그래프 영역에 cytoscape 마운트 (이전 인스턴스는 파기) */
-/* 라벨 글씨 크기 규정: 기본 12px, 화면상 최소 8px·최대 14px. Cytoscape 폰트는 줌에
-   비례하므로 줌에 따라 font-size(그래프 단위)를 보정해 화면 픽셀을 [8,14]로 클램프한다. */
-function clampLabelFonts(cy){
+/* 화면상 글씨·노드 크기 클램프:
+   - 글씨: 줌과 무관하게 화면 픽셀을 [9,14]로 유지(기준 일반 12·중심 14·엣지 10).
+   - 노드: 줌인(zoom>1) 시 노드가 따라 커지지 않도록 역보정(기준 크기 고정) — 노드가 적어
+     fit이 확대돼도 노드·글씨는 그대로이고 엣지 간격만 길어진다. 줌아웃 시에는 자연 축소 허용. */
+function clampScreenSizes(cy){
   const z = cy.zoom() || 1;
-  const fs = Math.max(8, Math.min(14, 12 * z)) / z;       // 일반 노드(기본 12px)
-  const fsCore = Math.max(8, Math.min(14, 14 * z)) / z;   // 중심 노드(상한 14px)
+  const clampFont = base => Math.max(9, Math.min(14, base * z)) / z;
+  const sizeFactor = z > 1 ? 1 / z : 1;   // 확대 시 노드 크기 고정(축소는 허용)
   cy.batch(() => {
-    cy.nodes("[core = 1]").style("font-size", `${fsCore.toFixed(2)}px`);
-    cy.nodes("[core != 1]").style("font-size", `${fs.toFixed(2)}px`);
+    cy.nodes("[core = 1]").style("font-size", `${clampFont(14).toFixed(2)}px`);
+    cy.nodes("[core != 1]").style("font-size", `${clampFont(12).toFixed(2)}px`);
+    cy.edges().style("font-size", `${clampFont(10).toFixed(2)}px`);
+    cy.nodes().forEach(n => {
+      const base = n.data("isBox") ? n.data("boxW") : n.data("w");
+      const px = Number((base * sizeFactor).toFixed(2));
+      n.style({ width: px, height: px });
+    });
   });
 }
 
@@ -589,11 +597,11 @@ function mountCytoscape(key, filteredGraph){
         const core = cy.$("node[core = 1]");
         if(core.nonempty()) cy.center(core); else cy.center();
       }
-      clampLabelFonts(cy);
+      clampScreenSizes(cy);
     });
     layout.run();
-    // 줌 변경 시에도 라벨 화면 크기를 8~14px로 유지
-    cy.on("zoom", () => clampLabelFonts(cy));
+    // 줌 변경 시에도 글씨(9~14px)·노드 크기를 화면 기준으로 유지
+    cy.on("zoom", () => clampScreenSizes(cy));
     /* 마우스 액션 정리:
        - 호버: 해당 노드와 직접 이웃만 강조(나머지 흐림)
        - 클릭: 상세 정보 패널 표시 (노드 속성 / 관계 정보)
@@ -691,6 +699,68 @@ function presetPositions(graph){
   return pos;
 }
 
+/* 관계분석(방사형) 좌표 — 노드가 많아 한 겹 원이 비대해지면 라벨이 작아지므로,
+   기준 노드를 중앙에 두고 나머지를 유형별로 엇갈려 2~3겹의 동심원으로 분산 배치한다.
+   각 겹의 노드 수가 줄어 전체 지름이 작아지고(→ 줌이 커져) 노드·라벨이 커 보인다. */
+function radialRingPositions(graph){
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const coreSet = new Set((graph.coreIds && graph.coreIds.length) ? graph.coreIds : [graph.center]);
+  const cores = nodes.filter(n => coreSet.has(n.id));
+  const others = nodes.filter(n => !coreSet.has(n.id));
+  const pos = {};
+
+  // 중심: 기준 노드 1개면 정중앙, 여러 개면 작은 안쪽 원
+  if(cores.length <= 1){
+    if(cores.length) pos[cores[0].id] = { x: 0, y: 0 };
+  } else {
+    const step = (Math.PI * 2) / cores.length;
+    cores.forEach((n, i) => { pos[n.id] = { x: 64 * Math.cos(-Math.PI / 2 + step * i), y: 64 * Math.sin(-Math.PI / 2 + step * i) }; });
+  }
+  if(!others.length) return pos;
+
+  // 직접 연결 여부 → 유형 → 이름 순 정렬(같은 유형이 같은 방향에 모이도록)
+  const directIds = new Set();
+  edges.forEach(e => {
+    if(coreSet.has(e.source) && !coreSet.has(e.target)) directIds.add(e.target);
+    if(coreSet.has(e.target) && !coreSet.has(e.source)) directIds.add(e.source);
+  });
+  others.sort((a, b) => {
+    const da = directIds.has(a.id) ? 0 : 1, db = directIds.has(b.id) ? 0 : 1;
+    if(da !== db) return da - db;
+    if(a.label !== b.label) return String(a.label).localeCompare(String(b.label));
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+
+  const SPACING = 66;   // 한 겹 안에서 노드 사이 최소 간격(라벨 포함)
+  const RING_GAP = 88;  // 겹과 겹 사이 간격
+  const baseInner = cores.length <= 1 ? 112 : 162;
+
+  // 겹 수(1~3)는 바깥 반지름이 가장 작아지는 값을 고른다. 겹을 늘리면 겹당 노드가
+  // 줄어 둘레는 작아지지만 RING_GAP만큼 더해지므로, 노드 수에 따라 최적 겹수가 달라진다.
+  const n = others.length;
+  const outerRadius = R => (R - 1) * RING_GAP + Math.max(baseInner, (Math.ceil(n / R) * SPACING) / (Math.PI * 2));
+  let R = 1;
+  for(const cand of [2, 3]) if(outerRadius(cand) < outerRadius(R)) R = cand;
+
+  // 유형별로 엇갈리도록 라운드로빈 분배(정렬이 유형순이라 같은 유형이 여러 겹에 분산됨).
+  const rings = Array.from({ length: R }, () => []);
+  others.forEach((node, i) => rings[i % R].push(node));
+  let prevR = 0;
+  rings.forEach((list, k) => {
+    const need = (list.length * SPACING) / (Math.PI * 2);   // 라벨이 겹치지 않을 최소 반지름
+    const r = Math.max(k === 0 ? baseInner : prevR + RING_GAP, need);
+    prevR = r;
+    const step = (Math.PI * 2) / Math.max(list.length, 1);
+    const offset = (k * step) / 2;   // 인접 겹과 반 칸 엇갈리게
+    list.forEach((n, i) => {
+      const ang = -Math.PI / 2 + step * i + offset;
+      pos[n.id] = { x: r * Math.cos(ang), y: r * Math.sin(ang) };
+    });
+  });
+  return pos;
+}
+
 /* 뷰별 cytoscape 레이아웃 — 라벨이 아이콘 아래에 있으므로 nodeDimensionsIncludeLabels로
    라벨 영역까지 포함해 배치하고 간격을 넓혀 노드·설명이 서로 겹치지 않게 한다. */
 function viewLayout(state, graph){
@@ -706,11 +776,8 @@ function viewLayout(state, graph){
     nodeDimensionsIncludeLabels: true, avoidOverlap: true,
     roots: (graph.nodes || []).filter(n => n.label === "RiskScore").map(n => n.id),
   };
-  return {
-    name: "concentric", concentric: n => n.data("ring"), levelWidth: () => 1,
-    minNodeSpacing: 28, padding: 18, animate: false, avoidOverlap: true,
-    nodeDimensionsIncludeLabels: true,
-  };
+  // 관계분석(방사형): 유형별 엇갈림 2~3겹 동심원 preset으로 전체 지름을 줄인다.
+  return { name: "preset", positions: radialRingPositions(graph), padding: 20, fit: true, animate: false };
 }
 
 /* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) */
