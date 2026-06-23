@@ -415,6 +415,9 @@ function cyElements(graph){
         name: n.name,
         typeKo: nodeLabelKo(n.label),
         color: nodeColor(n.label),
+        // 기업/사람 노드만 네모박스 + 라벨 하단 배치(가독성). 박스는 원형보다 작게.
+        isEntity: (n.label === "Company" || n.label === "Person") ? 1 : 0,
+        boxW: Math.round(w * 0.6),
         ring: isCore ? 3 : (directIds.has(n.id) ? 2 : 1),
         core: isCore ? 1 : 0,
         risk: Number.isFinite(score) ? Math.round(score) : null,
@@ -458,6 +461,20 @@ const CY_STYLE = [
   }},
   { selector: "node[core = 1]", style: {
       "font-size": "13px",
+  }},
+  // 기업·사람 노드: 네모박스 + 라벨을 아이콘 아래로(가독성). 그 외 노드는 기존 원형·중앙라벨 유지.
+  { selector: "node[isEntity = 1]", style: {
+      "shape": "round-rectangle",
+      "width": "data(boxW)", "height": "data(boxW)",
+      "text-valign": "bottom",
+      "text-halign": "center",
+      "text-margin-y": 4,
+      "color": "#1e293b",
+      "text-outline-width": 0,
+      "text-background-color": "#ffffff",
+      "text-background-opacity": .85,
+      "text-background-padding": "2px",
+      "text-max-width": "92px",
   }},
   { selector: ".dim", style: { "opacity": .18 } },
   // A1: 검색 결과 — 비매칭 흐림 + 매칭 강조
