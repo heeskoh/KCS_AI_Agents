@@ -204,6 +204,12 @@ function graphUrl(targetType, targetId, hops = 1){
     const dq = st.domain ? `&domain=${encodeURIComponent(st.domain)}` : "";
     return `/api/graph/person?person_id=${encodeURIComponent(targetId)}${h}${dq}`;
   }
+  // 우범조직(기업 마약/외환 프로파일): 우범자 그래프와 동일한 risk 그래프의 Organization ego 네트워크
+  if(targetType === "org"){
+    const st = filterStateFor(graphKey(targetType, targetId));
+    const dq = st.domain ? `&domain=${encodeURIComponent(st.domain)}` : "";
+    return `/api/graph/org?org_id=${encodeURIComponent(targetId)}${h}${dq}`;
+  }
   return `/api/graph/company_profile?company_id=${encodeURIComponent(targetId)}`;
 }
 

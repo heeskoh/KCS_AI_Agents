@@ -17,6 +17,7 @@ export const pageNames = {
   rag:"통관정보 분석",
   case:"국제정보 분석",
   report:"보고서",
+  customsReport:"통관보고서 생성",
   system:"시스템",
   governance:"거버넌스",
   permission:"권한 승인",
@@ -77,6 +78,24 @@ export function createPageRegistry({
     rag: () => customsInfoPage(),
     case: () => intlInfoPage(),
     report: () => simplePage("보고서 생성센터", "AI 캔버스 블록을 조합해 조사보고서를 생성합니다.", `<button class="btn">조사보고서 초안 생성</button>`),
+
+    customsReport: () => simplePage(
+      "통관보고서 생성",
+      "수입신고·심사·위험선별 결과를 종합해 통관 보고서 초안을 자동 생성합니다.",
+      `
+      <div class="query-box">
+        <span>📄</span>
+        <input value="2026년 5월 ABC무역(주) 수입통관 검토 보고서를 생성해줘">
+        <button class="btn">보고서 생성</button>
+      </div>
+      ${dataTable(["보고서 유형", "대상", "포함 섹션", "형식"], [
+        ["수입통관 검토 보고서", "기업/신고건", "신고개요·심사결과·위험지표·조치의견", "DOCX / PDF"],
+        ["품목분류 검토 보고서", "신고 품목", "HS후보·판단근거·관련 사례", "DOCX / PDF"],
+        ["과세가격 검토 보고서", "신고 가격", "신고가·비교가·가산요소·결론", "DOCX / PDF"],
+      ])}
+      <div class="summary-box"><b>AI 생성 흐름:</b> 신고내역·심사정보 RAG → 신고검증·품목분류·과세가격 결과 취합 → 보고서 생성 AI 서비스(report_generate)로 5섹션 초안 작성 → 검증 AI 서비스로 사실관계 점검 후 다운로드.</div>
+      `
+    ),
     system: () => simplePage("시스템 관리", "연계시스템, 데이터 파이프라인, 사용자 권한, 보안정책을 관리합니다.", ""),
     governance: () => simplePage("모델·권한·감사 로그", "AI 모델 사용 이력, 프롬프트 로그, 승인 프로세스를 점검합니다.", ""),
     permission: () => permissionApprovePage(),

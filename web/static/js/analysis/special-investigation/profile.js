@@ -9,8 +9,10 @@ export function renderProfilePanel(deps, context){
   const domain = graphDomainForPage(context?.pageKey);
   // 좌측 위험내역 대시보드 + 우측 Neo4j 관계망 그래프 (60:40)
   if(ctx.targetType === "company"){
-    const companyId = aCase?.companyId || "";
-    return profileNetworkLayout(drugCompanyProfilePanel(deps), "company", companyId, undefined, domain);
+    // 기업 마약/외환 프로파일의 관계분석은 관세 수입신고 허브(company_profile)가 아니라
+    // 우범조직(risk Organization) ego 네트워크를 사용한다. 대상 조직은 사건의 drugOrgId.
+    const orgId = aCase?.drugOrgId || aCase?.companyId || "";
+    return profileNetworkLayout(drugCompanyProfilePanel(deps), "org", orgId, undefined, domain);
   }
   const personId = deps.riskPersonById?.(aCase?.personId)?.person_id || aCase?.personId || "";
   return profileNetworkLayout(drugPersonProfilePanel(deps), "person", personId, undefined, domain);

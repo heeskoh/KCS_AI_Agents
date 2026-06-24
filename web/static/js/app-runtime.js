@@ -50,7 +50,8 @@ const pages = createPageRegistry({
 
 /* 홈 하단 바로가기 — 페이지별 대표 권한 키 매핑 (하나라도 granted면 활성) */
 const HOME_SHORTCUT_PERMISSION_KEYS = {
-  investigation: ["rag_audit", "declaration_verify", "customs_value"],
+  // 관세조사는 관세조사 RAG(rag_audit) 보유 분야(통관·심사·감시) 전용. 조사분야(rag_investigation)는 비활성.
+  investigation: ["rag_audit"],
   generalinv: ["rag_investigation"],
   lawsearch: ["rag_investigation", "network"],
   fxsearch: ["rag_investigation", "ml"],
@@ -60,6 +61,13 @@ const HOME_SHORTCUT_PERMISSION_KEYS = {
 
 function homeShortcutState(page){
   if(page === "system") return isCurrentUserAdmin() ? "granted" : "locked";
+  // 통관보고서생성은 통관·감시 분야 업무권한으로 실행(관리자 포함). 공통 권한 키로는
+  // 통관·감시만 선별할 수 없어(심사 분야도 동일 키 보유) 분야(team) 기준으로 판별한다.
+  if(page === "customsReport"){
+    const team = currentUserGroup().team || "";
+    const allowed = isCurrentUserAdmin() || team.includes("통관") || team.includes("감시");
+    return allowed ? "granted" : "locked";
+  }
   const keys = HOME_SHORTCUT_PERMISSION_KEYS[page];
   if(!keys || !keys.length) return "granted";
   return keys.some(key => hasPermission(key)) ? "granted" : "locked";
@@ -277,7 +285,7 @@ let GI_STEP_SOURCES_MAP = {};
 const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-001", invTypeId:"d2", domain:"lawsearch",
-    targetName:"김우범", targetType:"person", personId:"RP-0001", nationality:"한국",
+    targetName:"마약우범자001", targetType:"person", personId:"RP-0001", nationality:"한국",
     team:"마약수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"방금",
@@ -285,7 +293,7 @@ const defaultDrugInvCases = [
   },
   {
     caseId:"DRUG-2026-002", invTypeId:"d1", domain:"lawsearch",
-    targetName:"(주)위장무역", targetType:"company", companyId:"__NO_COMPANY_SELECTED__", drugOrgId:"RO-002", nationality:"한국",
+    targetName:"마약우범기업001", targetType:"company", companyId:"C-2013", drugOrgId:"C-2013", nationality:"한국",
     team:"마약수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 09:10",
@@ -293,7 +301,7 @@ const defaultDrugInvCases = [
   },
   {
     caseId:"DRUG-2026-003", invTypeId:"d5", domain:"lawsearch",
-    targetName:"Park James", targetType:"person", personId:"RP-0003", nationality:"미국",
+    targetName:"마약우범자003", targetType:"person", personId:"RP-0003", nationality:"미국",
     team:"국제협력팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
@@ -301,7 +309,7 @@ const defaultDrugInvCases = [
   },
   {
     caseId:"FX-2026-001", invTypeId:"f3", domain:"fxsearch",
-    targetName:"(주)글로벌송금", targetType:"company", companyId:"FX-CO-101", drugOrgId:"FX-101", nationality:"한국",
+    targetName:"외환우범기업001", targetType:"company", companyId:"C-2022", drugOrgId:"C-2022", nationality:"한국",
     team:"외환수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 11:20",
@@ -309,7 +317,7 @@ const defaultDrugInvCases = [
   },
   {
     caseId:"FX-2026-002", invTypeId:"f2", domain:"fxsearch",
-    targetName:"이자금", targetType:"person", personId:"RP-0005", nationality:"한국",
+    targetName:"외환우범자002", targetType:"person", personId:"RP-FX-0002", nationality:"한국",
     team:"외환수사 전담팀", investigator:"임조사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
@@ -1847,16 +1855,17 @@ let riskPersonProfiles   = {};
 let riskPersonProfileLoading = {};
 
 const GEN_INV_TYPES = [
+  // 외환·자금세탁 범죄 수사(구 t4)는 외환수사(fxsearch)에서 처리하므로 일반수사 유형에서 제외.
+  // id는 저장된 사건 호환을 위해 유지하고 표시 번호(num)만 재정렬한다.
   { id:"t1", num:"①", label:"관세포탈 수사",              cls:"gi-t1" },
   { id:"t2", num:"②", label:"밀수입·밀수출 수사",         cls:"gi-t2" },
   { id:"t3", num:"③", label:"원산지 위반 수사",            cls:"gi-t3" },
-  { id:"t4", num:"④", label:"외환·자금세탁 범죄 수사",    cls:"gi-t4" },
-  { id:"t5", num:"⑤", label:"지식재산권 침해 수사",        cls:"gi-t5" },
-  { id:"t6", num:"⑥", label:"전략물자·수출통제 위반 수사", cls:"gi-t6" },
-  { id:"t7", num:"⑦", label:"기타 수사",                  cls:"gi-t7" },
+  { id:"t5", num:"④", label:"지식재산권 침해 수사",        cls:"gi-t5" },
+  { id:"t6", num:"⑤", label:"전략물자·수출통제 위반 수사", cls:"gi-t6" },
+  { id:"t7", num:"⑥", label:"기타 수사",                  cls:"gi-t7" },
 ];
 
-function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
+function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[GEN_INV_TYPES.length - 1]; }
 let giRunEventSource   = null; // 일반수사 분석 실행 SSE 연결
 let drugRunEventSource = null; // 마약수사 분석 실행 SSE 연결 (별도 분리)
 
@@ -2427,21 +2436,7 @@ const giScenarioTemplates = [
       giTemplateStep("gi_appr"),
     ]),
   },
-  {
-    id:"t4",
-    name:"외환·자금세탁 범죄 수사 템플릿",
-    description:"신고검증, 범죄수익 추적, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
-    items: giTemplateItems([
-      giTemplateStep("gi_cdw"),
-      giTemplateStep("gi_imp", "품명·중량·가격 불일치, 화물 이상 패턴"),
-      giTemplateStep("gi_profit", "자금흐름, 계좌 추적 연계"),
-      giTemplateStep("gi_rag_inv"),
-      giTemplateStep("gi_rag_int"),
-      giTemplateStep("gi_law"),
-      giTemplateStep("gi_rep", "증거 정리"),
-      giTemplateStep("gi_appr"),
-    ]),
-  },
+  // 외환·자금세탁 범죄 수사 템플릿(구 t4)은 외환수사(fxsearch)에서 처리 — 일반수사 빌트인에서 제외.
   {
     id:"t5",
     name:"지식재산권 침해 수사 템플릿",
@@ -2489,15 +2484,15 @@ const GI_SCENARIO_STEPS = Object.fromEntries(
 
 
 const defaultGenInvCases = [
-  { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company", companyId:"C-1001",
+  { caseId:"GI-2026-001", targetName:"밀수우범기업001", invTypeId:"t1", targetType:"company", companyId:"C-2001",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
     ownerUserId:"u09", assignees:["u09"],
     investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
-  { caseId:"GI-2026-002", targetName:"샘플우범자001 (개인)", invTypeId:"t2", targetType:"person", personId:"RP-0001",
+  { caseId:"GI-2026-002", targetName:"밀수우범자001 (개인)", invTypeId:"t2", targetType:"person", personId:"RP-0035",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
     ownerUserId:"u09", assignees:["u09"],
     investigator:"임조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
-  { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company", companyId:"C-1003",
+  { caseId:"GI-2026-003", targetName:"밀수우범기업006", invTypeId:"t5", targetType:"company", companyId:"C-2006",
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
     ownerUserId:"u09", assignees:["u09"],
     investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },

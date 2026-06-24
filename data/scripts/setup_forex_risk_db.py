@@ -366,9 +366,16 @@ def main() -> None:
     print(f"DuckDB: {DB_PATH}")
     with duckdb.connect(str(DB_PATH)) as conn:
         stats = build(conn)
+        # 일반/마약/외환 데이터가 모두 적재된 시점에 우범영역 기준으로 이름 재구성(멱등).
+        try:
+            from rename_by_domain import apply_domain_names  # type: ignore
+        except ImportError:
+            from data.scripts.rename_by_domain import apply_domain_names
+        rename_stats = apply_domain_names(conn)
     print("외환(forex) 샘플 생성 완료")
     for k, v in stats.items():
         print(f"  {k}: {v}")
+    print("우범영역 기준 이름 재구성:", rename_stats)
 
 
 if __name__ == "__main__":

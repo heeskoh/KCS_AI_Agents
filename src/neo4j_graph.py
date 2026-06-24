@@ -583,6 +583,33 @@ def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1,
     return graph
 
 
+def build_org_network_graph(org_id: str, limit: int = 60, hops: int = 1,
+                            domain: str | None = None) -> dict[str, Any] | None:
+    """Return a node/edge graph centered on a risk organization, or None if no org exists.
+
+    기업 마약/외환 프로파일의 관계분석에 사용한다(우범조직 ego 네트워크).
+    hops: 1~3단계 이웃까지 확장. domain: 지정 시 해당 도메인 엣지만 남긴다(구조적 엣지 유지).
+    """
+    exists = _read(
+        "MATCH (o:Organization {org_id: $org_id}) RETURN o.org_id AS org_id LIMIT 1",
+        org_id=org_id,
+    )
+    if not exists:
+        return None
+
+    h = _clamp_hops(hops)
+    if h == 1:
+        query = "MATCH (o:Organization {org_id: $org_id})-[r]-(n) RETURN o, r, n LIMIT $limit"
+    else:
+        query = f"MATCH path = (o:Organization {{org_id: $org_id}})-[*1..{h}]-(n) RETURN path LIMIT $limit"
+    graph = _read_graph(query, org_id=org_id, limit=limit)
+    center_id = f"Organization:{org_id}"
+    graph = _filter_graph_by_domain(graph, domain, center_id)
+    graph["center"] = center_id
+    graph["domain"] = domain
+    return graph
+
+
 def _split_node_ref(ref: str) -> tuple[str, str]:
     """프런트 노드 id('{label}:{value}')를 (label, value)로 분리."""
     text = str(ref or "")

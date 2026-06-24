@@ -130,13 +130,36 @@ def _generate_company_sources(
 
     out: dict[str, list[dict[str, Any]]] = {t: [] for t in COMPANY_SCOPED_TABLES}
 
-    # 지표별 독립 propensity (원칙 4: 무관한 위험 무작위 동시부여 금지)
-    lv_under = _level(_emphasis(rng, base))
-    lv_related = _level(_emphasis(rng, base, boost=12 if has_related_hint else 0))
-    lv_fta = _level(_emphasis(rng, base))
-    lv_refund = _level(_emphasis(rng, base))
-    lv_hs = _level(_emphasis(rng, base))
-    lv_offshore = _level(_emphasis(rng, base, boost=10 if has_related_hint else 0))
+    # 죄종/역할 인지 propensity (원칙 4·5: 죄종과 무관한 지표는 baseline으로 낮춘다).
+    # 관련 지표만 강(强)으로, 나머지는 base*0.30 으로 산출 → 무관 위험 동시부여 방지.
+    # 신호 출처: 신고서 crime_signal(Phase 2a) + crime_types.
+    crimes = {x for x in str(company.get("crime_types") or "").split(",") if x}
+    signal = next((d.get("crime_signal") for d in decls if d.get("crime_signal")), "normal")
+    strong: set[str] = set()
+    if signal == "undervalue" or {"관세포탈", "밀수"} & crimes:
+        strong.add("under")
+    if signal == "fta_misuse" or "원산지위반" in crimes:
+        strong.add("fta")
+    if signal in ("ip_hs", "strategic") or {"지식재산침해", "전략물자"} & crimes:
+        strong.add("hs")
+    if signal == "refund":
+        strong.add("refund")
+    if signal == "related":
+        strong.add("related")
+    if signal == "offshore" or {"외환불법거래", "외환자금세탁", "환치기", "재산국외도피"} & crimes:
+        strong.add("offshore")
+
+    def _lvl(key: str, boost: float = 0.0) -> int:
+        if key in strong:
+            return _level(min(100.0, rng.uniform(60, 95) + boost))   # 관련 지표: 강(level 2~3 보장)
+        return _level(rng.uniform(0, 28))                            # 무관 지표: baseline(거의 0)
+
+    lv_under = _lvl("under")
+    lv_related = _lvl("related", boost=12 if has_related_hint else 0)
+    lv_fta = _lvl("fta")
+    lv_refund = _lvl("refund")
+    lv_hs = _lvl("hs")
+    lv_offshore = _lvl("offshore", boost=10 if has_related_hint else 0)
 
     # STEP2: 수출입 이력 — export_declaration (환급 연결용)
     n_exp = {0: 1, 1: 2, 2: 3, 3: 4}[max(lv_refund, 1)]
@@ -387,7 +410,7 @@ def generate_all(conn: duckdb.DuckDBPyConnection, verbose: bool = True) -> dict[
     bench_rows = conn.execute(
         """
         SELECT hs_code, AVG(declared_value) AS avg_val, COUNT(*) AS n
-        FROM import_declarations WHERE hs_code IS NOT NULL
+        FROM import_declarations WHERE hs_code IS NOT NULL AND company_id IS NOT NULL
         GROUP BY hs_code
         """
     ).fetchall()

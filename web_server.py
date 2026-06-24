@@ -23,6 +23,7 @@ from src.neo4j_graph import (
     build_company_profile_graph,
     build_company_trade_routes,
     build_explore_graph,
+    build_org_network_graph,
     build_path_graph,
     build_person_network_graph,
 )
@@ -1909,6 +1910,25 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
             if graph is None:
                 self._send_json({"error": "person not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/org":
+            q = parse_qs(parsed.query)
+            org_id = q.get("org_id", [""])[0].strip()
+            hops = q.get("hops", ["1"])[0]
+            domain = (q.get("domain", [""])[0].strip() or None)
+            if not org_id:
+                self._send_json({"error": "org_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                graph = build_org_network_graph(org_id, hops=hops, domain=domain)
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            if graph is None:
+                self._send_json({"error": "organization not found"}, HTTPStatus.NOT_FOUND)
                 return
             self._send_json(graph)
             return

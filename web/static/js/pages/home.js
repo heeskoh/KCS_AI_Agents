@@ -9,6 +9,7 @@ const WORK_SHORTCUTS = [
   { className: "teal", page: "fxsearch", label: "외환수사", image: "Foreigncash.png" },
   { className: "olive", page: "case", label: "국제정보", image: "Global.png" },
   { className: "lime", page: "model", label: "관계망 분석", image: "Ontology.png" },
+  { className: "orange", page: "customsReport", label: "통관보고서생성", image: "report.png" },
 ];
 
 const DASHBOARD_SHORTCUTS = [

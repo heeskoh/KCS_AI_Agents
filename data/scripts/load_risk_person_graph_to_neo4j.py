@@ -252,8 +252,9 @@ def merge_org(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             o.seed_batch_id = $seed_batch_id,
             o.updated_from = $source_tag
         """,
-        {**row, "domain": ("forex" if str(row.get("org_id", "")).startswith("RO-OFF")
-                           else "general"), "source_tag": SOURCE_TAG},
+        {**row, "domain": (row.get("domain")
+                           or ("forex" if str(row.get("org_id", "")).startswith("RO-OFF") else "general")),
+         "source_tag": SOURCE_TAG},
     )
     if row.get("address_region"):
         tx.run(
