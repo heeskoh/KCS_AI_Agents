@@ -5219,17 +5219,14 @@ function restoreWorkspaceWorkState(userId){
 
 function restoreUserWorkspace(userId){
   restoreWorkspaceWorkState(userId);
-  const firstVisibleJob = () => activeCanvasJobs()[0] || null;
   const workspace = userWorkspaces[userId] || {};
   const candidate = workspace.activeCanvasCompanyId;
   const visibleIds = new Set(activeCanvasJobs().map(job => job.companyId));
-  const fallbackJob = firstVisibleJob();
 
-  if(candidate && visibleIds.has(candidate)){
-    activeCanvasCompanyId = candidate;
-  }else if(fallbackJob){
-    activeCanvasCompanyId = fallbackJob.companyId;
-  }
+  // 일반수사/특수수사와 동일하게: 이전에 명시적으로 선택한 기업이 아직 존재하면 복원,
+  // 그렇지 않으면 명시적으로 null(미선택). fallback 자동선택은 하지 않는다 —
+  // 카드를 클릭해야 서브탭이 활성화된다. (line 4945 전역 복원값도 여기서 정리)
+  activeCanvasCompanyId = (candidate && visibleIds.has(candidate)) ? candidate : null;
 
   activeScenarioTemplateId = workspace.activeScenarioTemplateId || activeScenarioTemplateId || "customs-basic";
   customsState.investigationTab = workspace.investigationTab || "ongoing";
@@ -6318,9 +6315,9 @@ function removeCanvasJobForCurrentUser(companyId){
     delete canvasRunArchives[companyId];
     delete companyScenarios[companyId];
   }
-  const nextJob = activeCanvasJobs()[0] || null;
-  if(activeCanvasCompanyId === companyId && nextJob){
-    activeCanvasCompanyId = nextJob.companyId;
+  if(activeCanvasCompanyId === companyId){
+    activeCanvasCompanyId = null;
+    customsState.investigationTab = "ongoing";
   }
   saveCanvasState();
 }
