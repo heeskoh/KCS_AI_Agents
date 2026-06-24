@@ -446,20 +446,14 @@ def build_company_profile_graph(company_id: str, limit: int = 600) -> dict[str, 
     graph = _read_graph(
         """
         MATCH (c:Company {company_id: $company_id})
-        OPTIONAL MATCH (c)-[rf:FILED]->(d:Declaration)
-        OPTIONAL MATCH (d)-[ri:OF_ITEM]->(it:ItemClass)
-        OPTIONAL MATCH (d)-[rfp:FROM_PORT]->(dp:DeparturePort)
-        OPTIONAL MATCH (d)-[rtp:TO_PORT]->(ap:ArrivalPort)
-        OPTIONAL MATCH (d)-[rs:SUPPLIED_BY]->(os:OverseasSupplier)
-        OPTIONAL MATCH (d)-[rb:FILED_BY]->(b:Broker)
-        OPTIONAL MATCH (d)-[rc:CONTRIBUTES_TO]->(cf:RiskFactor)
+        OPTIONAL MATCH (c)-[rd:IMPORT_DECLARATION]->(it:ItemClass)
         OPTIONAL MATCH (c)-[rri:RISK_INDICATORS]->(rsc:RiskScore)
         OPTIONAL MATCH (rsc)-[rdb:DRIVEN_BY]->(df:RiskFactor)
         OPTIONAL MATCH (c)-[ran:ANALYZED]->(af:RiskFactor)
         OPTIONAL MATCH (c)-[rrp:RELATED_PARTY]->(rp:RelatedParty)
         OPTIONAL MATCH (c)-[raf:AFFILIATED_WITH]->(ac:AffiliatedCompany)
         OPTIONAL MATCH (c)-[rca:CASE]->(ct:CaseType)
-        RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf,
+        RETURN c, rd, it,
                rri, rsc, rdb, df, ran, af, rrp, rp, raf, ac, rca, ct
         LIMIT $limit
         """,
@@ -487,8 +481,8 @@ def build_explore_graph(company_ids: list[str] | None = None, person_ids: list[s
                         industry: str | None = None, limit: int = 900) -> dict[str, Any]:
     """자유 관계분석(독립 탭)용 교차 그래프. 다중 시드(기업/인물) + 속성 필터의 합집합.
 
-    공유 노드(출발항·도착항·해외거래처·관세사·품목분류·위험요인)가 여러 기업을
-    자연스럽게 교차 연결한다. 시드/필터가 모두 비면 빈 그래프.
+    공유 노드(품목분류·위험요인)가 여러 기업을 자연스럽게 교차 연결한다(수입신고는
+    엣지로 흡수되어 출발항·거래처 등은 엣지 속성). 시드/필터가 모두 비면 빈 그래프.
     """
     company_ids = list(company_ids or [])
     person_ids = list(person_ids or [])
@@ -512,16 +506,10 @@ def build_explore_graph(company_ids: list[str] | None = None, person_ids: list[s
         parts.append(_read_graph(
             """
             MATCH (c:Company) WHERE c.company_id IN $cids
-            OPTIONAL MATCH (c)-[rf:FILED]->(d:Declaration)
-            OPTIONAL MATCH (d)-[ri:OF_ITEM]->(it:ItemClass)
-            OPTIONAL MATCH (d)-[rfp:FROM_PORT]->(dp:DeparturePort)
-            OPTIONAL MATCH (d)-[rtp:TO_PORT]->(ap:ArrivalPort)
-            OPTIONAL MATCH (d)-[rs:SUPPLIED_BY]->(os:OverseasSupplier)
-            OPTIONAL MATCH (d)-[rb:FILED_BY]->(b:Broker)
-            OPTIONAL MATCH (d)-[rc:CONTRIBUTES_TO]->(cf:RiskFactor)
+            OPTIONAL MATCH (c)-[rd:IMPORT_DECLARATION]->(it:ItemClass)
             OPTIONAL MATCH (c)-[rri:RISK_INDICATORS]->(rsc:RiskScore)
             OPTIONAL MATCH (rsc)-[rdb:DRIVEN_BY]->(df:RiskFactor)
-            RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf, rri, rsc, rdb, df
+            RETURN c, rd, it, rri, rsc, rdb, df
             LIMIT $limit
             """,
             cids=company_ids, limit=limit,

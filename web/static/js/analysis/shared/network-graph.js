@@ -118,7 +118,9 @@ const REL_LABEL_KO = {
   // 2026 관계망 재정의: 수입통관 체인 + 위험/분석
   PORT_ROUTE: "출발→도착", VIA_SUPPLIER: "도착→거래처",
   RISK_INDICATORS: "오류지표", DRIVEN_BY: "위험요인", ANALYZED: "분석결과", USES_BROKER: "관세사",
-  // 2026 수입신고 허브 모델
+  // 2026 수입신고 엣지 모델 v2 (수입신고=기업→품목 엣지, 출발항/거래처/관세사는 엣지 속성)
+  IMPORT_DECLARATION: "수입신고",
+  // 레거시(수입신고 허브 모델)
   FILED: "신고", OF_ITEM: "품목분류", FROM_PORT: "출발항", TO_PORT: "도착항",
   FILED_BY: "관세사", CONTRIBUTES_TO: "위험기여",
   NETWORK_EDGE: "인적관계", RESIDES_IN: "거주", LOCATED_IN: "소재",
@@ -127,6 +129,8 @@ const REL_LABEL_KO = {
 };
 function relLabelKo(type, props){
   if(type === "NETWORK_EDGE" && props && props.relation_type) return props.relation_type;
+  // 수입신고 엣지는 수출입 구분(trade_flow)에 따라 라벨을 달리한다.
+  if(type === "IMPORT_DECLARATION") return (props && props.trade_flow === "수출") ? "수출신고" : "수입신고";
   return REL_LABEL_KO[type] || type;
 }
 
@@ -296,6 +300,10 @@ const PROP_LABEL_KO = {
   country: "국가", country_name: "국가명", hs_code: "HS코드", item_name: "품목명",
   broker_name: "관세사", org_name: "조직명", risk_score: "위험점수", risk_level: "위험등급",
   declaration_no: "신고번호", declared_value: "신고금액", import_date: "수입일",
+  // 2026 수입신고 엣지 모델 v2: 신고에서 흡수된 엣지 속성
+  value: "신고금액 합계", departure_port: "출발항", arrival_port: "도착항",
+  supplier: "해외거래처", broker: "관세사", arrival_country: "도착국",
+  contributes: "위험기여 요인", contributes_weight: "기여 가중치",
   // 2026 관계망 재구성: 기업 수입 그래프 노드/엣지 속성
   region: "지역", top_risk_name: "주요 위험", top_risk_score: "주요 위험점수",
   risk_indicator_summary: "위험지표", hsk_code: "품목번호(HSK)", spec: "사양/규격",
@@ -648,28 +656,35 @@ function mountCytoscape(key, filteredGraph){
 }
 
 /* ── 프로파일 4-뷰: canonical 그래프를 목적별로 필터+레이아웃+인코딩 프로젝션 ──
-   관계분석(방사형)·원인분석(군집)·위험구성(계층)·경로분석(레인). 회사 프로파일 전용. */
+   관계분석(방사형)·원인분석(군집)·위험구성(계층)·거래경로(레인). 회사 프로파일 전용.
+   수입신고 엣지 모델 v2: 수입신고는 (기업)→(품목분류) 엣지이고 출발항·도착항·해외거래처·
+   관세사·신고금액은 엣지 속성으로 흡수되어, 노드는 기업/품목/위험값/위험요인/관계사/
+   특수관계인/사건유형만 존재한다. */
 const VIEW_MODES = [
   { id: "relation", label: "관계분석", icon: "🕸️", layout: "concentric", desc: "기업 중심 전체 관계(방사형)" },
-  { id: "cause", label: "원인분석", icon: "🧩", layout: "cose", desc: "위험요인별 신고 군집 — 반복 기여 요소(군집형)" },
-  { id: "risk", label: "위험구성", icon: "🏗️", layout: "breadthfirst", desc: "종합위험값→위험요인→신고→요소(계층형)" },
-  { id: "route", label: "경로분석", icon: "🛳️", layout: "preset", desc: "신고별 출발항→도착항→해외거래처(레인)" },
+  { id: "cause", label: "원인분석", icon: "🧩", layout: "cose", desc: "위험요인에 기여한 수입신고·품목 군집(군집형)" },
+  { id: "risk", label: "위험구성", icon: "🏗️", layout: "breadthfirst", desc: "종합위험값→위험요인 + 기여 품목(계층형)" },
+  { id: "route", label: "거래경로", icon: "🛳️", layout: "preset", desc: "기업→품목 수입/수출 흐름 — 엣지에 출발항·거래처(레인)" },
 ];
 
-/* 뷰별 표시 라벨/엣지 화이트리스트. null = 전부 표시(관계분석). */
+/* 뷰별 표시 라벨/엣지 화이트리스트. null = 전부 표시(관계분석).
+   수입신고 엣지(IMPORT_DECLARATION)는 contributes 속성으로 위험기여 여부를 담는다. */
 const VIEW_PROJECTION = {
   relation: null,
   cause: {
-    nodes: new Set(["Company", "Declaration", "RiskFactor", "ItemClass", "DeparturePort", "ArrivalPort", "OverseasSupplier", "Broker"]),
-    edges: new Set(["CONTRIBUTES_TO", "FILED", "OF_ITEM", "FROM_PORT", "TO_PORT", "SUPPLIED_BY", "FILED_BY", "ANALYZED"]),
+    nodes: new Set(["Company", "RiskScore", "RiskFactor", "ItemClass"]),
+    edges: new Set(["IMPORT_DECLARATION", "DRIVEN_BY", "RISK_INDICATORS", "ANALYZED"]),
+    // 원인분석은 위험에 기여한 신고 엣지만 강조(contributes 있는 엣지)
+    edgeFilter: e => e.type !== "IMPORT_DECLARATION" || !!(e.properties && e.properties.contributes),
   },
   risk: {
-    nodes: new Set(["Company", "RiskScore", "RiskFactor", "Declaration"]),
-    edges: new Set(["RISK_INDICATORS", "DRIVEN_BY", "CONTRIBUTES_TO", "FILED"]),
+    nodes: new Set(["Company", "RiskScore", "RiskFactor", "ItemClass"]),
+    edges: new Set(["RISK_INDICATORS", "DRIVEN_BY", "IMPORT_DECLARATION"]),
+    edgeFilter: e => e.type !== "IMPORT_DECLARATION" || !!(e.properties && e.properties.contributes),
   },
   route: {
-    nodes: new Set(["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"]),
-    edges: new Set(["FILED", "FROM_PORT", "TO_PORT", "SUPPLIED_BY"]),
+    nodes: new Set(["Company", "ItemClass"]),
+    edges: new Set(["IMPORT_DECLARATION"]),
   },
 };
 
@@ -684,20 +699,24 @@ function projectForView(graph, modeId){
   if(!proj) return graph;
   const nodes = (graph.nodes || []).filter(n => proj.nodes.has(n.label));
   const ids = new Set(nodes.map(n => n.id));
-  const edges = (graph.edges || []).filter(e => proj.edges.has(e.type) && ids.has(e.source) && ids.has(e.target));
+  const edges = (graph.edges || []).filter(e =>
+    proj.edges.has(e.type) && ids.has(e.source) && ids.has(e.target)
+    && (!proj.edgeFilter || proj.edgeFilter(e)));
   const conn = new Set([graph.center]);
   edges.forEach(e => { conn.add(e.source); conn.add(e.target); });
   return { ...graph, nodes: nodes.filter(n => conn.has(n.id)), edges };
 }
 
-/* 경로분석(레인) 좌표: 라벨별 열 배치 */
-const ROUTE_LANES = ["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"];
-const ROUTE_LANE_KO = ["기업", "수입신고", "출발항", "도착항", "해외거래처"];
+/* 거래경로(레인) 좌표: 기업(좌) → 품목분류(우) 2열 배치.
+   수입신고 엣지에 출발항·도착항·거래처가 속성으로 담겨 있으므로, 항만/거래처는
+   별도 노드가 아니라 엣지(클릭 상세)로 본다. */
+const ROUTE_LANES = ["Company", "ItemClass"];
+const ROUTE_LANE_KO = ["기업", "품목분류(수입/수출)"];
 function presetPositions(graph){
   const laneIdx = new Map(ROUTE_LANES.map((l, i) => [l, i]));
   const byLane = new Map(ROUTE_LANES.map(l => [l, []]));
   (graph.nodes || []).forEach(n => { if(byLane.has(n.label)) byLane.get(n.label).push(n); });
-  const colW = 200, rowH = 66, pos = {};
+  const colW = 280, rowH = 60, pos = {};
   byLane.forEach((list, lane) => {
     const x = laneIdx.get(lane) * colW;
     list.forEach((n, i) => { pos[n.id] = { x, y: (i - (list.length - 1) / 2) * rowH }; });

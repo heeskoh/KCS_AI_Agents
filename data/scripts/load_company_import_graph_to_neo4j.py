@@ -1,20 +1,20 @@
-"""Load DuckDB company data into Neo4j — 수입신고 허브 canonical 모델 (2026 원인분석 재설계).
+"""Load DuckDB company data into Neo4j — 수입신고 **엣지** 모델 (2026 재설계 v2).
 
-목적: 기업 위험도의 **원인 추적**. 수입신고(Declaration)를 허브 노드로 두어
-한쪽으로는 위험지표(어떤 신고가 어떤 지표를 끌어올렸나), 다른 쪽으로는
-품목·항·해외거래처·관세사(그 신고의 구성요소)로 연결한다.
+목적: 기업 위험도의 **원인 추적**. 직전 모델은 수입신고(Declaration)를 허브 노드로 두었으나,
+본 버전은 **수입신고를 (기업)→(품목분류) 엣지**로 표현한다. 한 신고에 달려있던
+출발항·도착항·해외거래처·관세사·금액·신고일·위험기여는 모두 엣지 속성으로 흡수한다.
+이로써 그래프가 크게 단순해지고(신고 노드 폭증 제거) 기업–품목 관계가 직관적으로 보인다.
 
-적재 전략: **canonical 1회 적재(풍부하게)**. 화면의 4개 view(관계분석/원인분석/위험구성/
-경로분석)는 이 한 그래프를 프런트에서 필터+레이아웃+인코딩으로 **프로젝션**한다.
+집계 그레인: (company_id, 품목분류 8자리, 수출입구분) 당 IMPORT_DECLARATION 엣지 1개.
+  - count: 신고 건수, value: 신고금액 합계
+  - departure_port/arrival_port/supplier/broker: 해당 그룹의 distinct 값(콤마 결합)
+  - declaration_no: 대표 신고번호 샘플(콤마 결합, 최대 5)
+  - contributes: 이 그룹 신고들이 끌어올린 위험요인 코드(콤마 결합) — 원인분석용
+  - contributes_weight: 위 기여의 최대 가중치
 
-  노드 (12종)
+  노드 (7종)
     - Company           기업
-    - Declaration       수입신고(허브). 수입/수출 모두. 속성: declaration_no, trade_flow, date, value, status, hs_code, item_name
     - ItemClass         품목분류(8자리)
-    - DeparturePort     출발항 (속성 country)
-    - ArrivalPort       도착항 (속성 country)
-    - OverseasSupplier  해외거래처(=송하인)
-    - Broker            관세사
     - RiskScore         종합위험값(기업당 1)
     - RiskFactor        위험요인(연관 범죄, 지표 6종)
     - RelatedParty      특수관계인
@@ -22,13 +22,10 @@
     - CaseType          사건유형(검토/검사/보류)
 
   엣지
-    - (Company)-[:FILED]->(Declaration)
-    - (Declaration)-[:OF_ITEM {hsk_code}]->(ItemClass)        # 10자리는 엣지 속성
-    - (Declaration)-[:FROM_PORT]->(DeparturePort)
-    - (Declaration)-[:TO_PORT]->(ArrivalPort)
-    - (Declaration)-[:SUPPLIED_BY]->(OverseasSupplier)        # 수입만
-    - (Declaration)-[:FILED_BY]->(Broker)                     # 수입만
-    - (Declaration)-[:CONTRIBUTES_TO {weight}]->(RiskFactor)  # 원인분석 핵심(related_refs.declarations)
+    - (Company)-[:IMPORT_DECLARATION {trade_flow, count, value, declaration_no,
+                 departure_port, arrival_port, departure_country, arrival_country,
+                 supplier, broker, hsk_code, item_name, status, trade_date,
+                 contributes, contributes_weight}]->(ItemClass)
     - (Company)-[:RISK_INDICATORS {6 rates}]->(RiskScore)
     - (RiskScore)-[:DRIVEN_BY {score, reason}]->(RiskFactor)
     - (Company)-[:ANALYZED]->(RiskFactor)                     # 분석결과(analysis_result)
@@ -69,6 +66,7 @@ DEFAULT_PASSWORD = "kcsneo4j1234"
 DEFAULT_DATABASE = "neo4j"
 SOURCE_TAG = "duckdb.company_import.sample"
 KR_COUNTRY = "대한민국"
+SAMPLE_MAX = 5  # 엣지 속성에 담을 distinct/샘플 값 최대 개수
 
 RISK_RATE_FIELDS = (
     "undervaluation_suspicion_rate",
@@ -121,11 +119,12 @@ def hs8(code: Any) -> str | None:
     return digits[:8] if len(digits) >= 8 else (digits or None)
 
 
-def parse_port(label: str | None) -> tuple[str, str]:
+def parse_port(label: str | None) -> str:
+    """'부산항(KRPUS)' → '부산항'. 코드 괄호는 제거하고 이름만 남긴다."""
     if label and label.endswith(")") and "(" in label:
-        name, _, code = label.rpartition("(")
-        return name.strip(), code[:-1].strip()
-    return (label or ""), (label or "")
+        name, _, _code = label.rpartition("(")
+        return name.strip()
+    return label or ""
 
 
 def norm_country(raw: str | None) -> str | None:
@@ -133,6 +132,20 @@ def norm_country(raw: str | None) -> str | None:
         return None
     code = country_code(raw)
     return country_name(code, default=raw) if code else raw
+
+
+def join_distinct(values: list[Any], limit: int = SAMPLE_MAX) -> str | None:
+    """distinct 문자열을 입력 순서대로 콤마 결합(최대 limit개, 초과 시 '…')."""
+    seen: list[str] = []
+    for v in values:
+        s = str(v).strip() if v not in (None, "") else ""
+        if s and s not in seen:
+            seen.append(s)
+    if not seen:
+        return None
+    if len(seen) > limit:
+        return ", ".join(seen[:limit]) + f" … (+{len(seen) - limit})"
+    return ", ".join(seen)
 
 
 # ── DuckDB 조회 ───────────────────────────────────────────────────────────────
@@ -161,7 +174,7 @@ def fetch_data() -> dict[str, Any]:
         except duckdb.CatalogException:
             analyses = []
 
-        # 수입신고 헤더 (Declaration 노드 + FROM/TO/SUPPLIED/FILED 엣지)
+        # 수입신고 헤더 (IMPORT_DECLARATION 엣지로 흡수할 거래/경로/거래처/관세사)
         imports = as_dicts(
             conn,
             """
@@ -176,7 +189,7 @@ def fetch_data() -> dict[str, Any]:
             WHERE company_id IS NOT NULL AND declaration_no IS NOT NULL
             """,
         )
-        # 수출신고 (Declaration 노드 + 경로) — 매수인·관세사 없음
+        # 수출신고 (매수인·관세사 없음)
         try:
             exports = as_dicts(
                 conn,
@@ -192,7 +205,7 @@ def fetch_data() -> dict[str, Any]:
         except duckdb.CatalogException:
             exports = []
 
-        # 신고-품목 라인 (OF_ITEM 엣지: 신고별 distinct 8자리 품목분류 + 10자리 hsk)
+        # 신고-품목 라인 (신고별 distinct 8자리 품목분류 + 대표 10자리 hsk·품명)
         item_lines = as_dicts(
             conn,
             """
@@ -250,18 +263,174 @@ def parse_contrib_decls(related_refs: Any) -> list[str]:
     return [d for d in (decls or []) if d]
 
 
+# ── 수입신고 엣지 집계 ────────────────────────────────────────────────────────
+
+def build_item_lines(item_lines: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """declaration_no → [{hs8, hsk_code, item_name}] (distinct hs8)."""
+    by_decl: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for ln in item_lines:
+        dno, code8 = ln.get("declaration_no"), hs8(ln.get("hsk_code"))
+        if not dno or not code8:
+            continue
+        by_decl[dno].setdefault(code8, {
+            "hs8": code8, "hsk_code": ln.get("hsk_code"), "item_name": ln.get("item_name"),
+        })
+    return {dno: list(items.values()) for dno, items in by_decl.items()}
+
+
+def build_decl_contrib(indicators_by_company: dict[str, list[dict[str, Any]]]) -> dict[str, list[tuple]]:
+    """declaration_no → [(indicator_code, weight)] (원인분석: 신고가 끌어올린 위험요인)."""
+    by_decl: dict[str, list[tuple]] = defaultdict(list)
+    for inds in indicators_by_company.values():
+        for ind in inds:
+            code = ind.get("indicator_code")
+            weight = ind.get("score") or 1
+            if not code:
+                continue
+            for dno in parse_contrib_decls(ind.get("related_refs")):
+                by_decl[dno].append((code, weight))
+    return by_decl
+
+
+class EdgeAgg:
+    """(company_id, hs8, trade_flow) 그룹의 수입신고 엣지 누적기."""
+
+    __slots__ = ("company_id", "hs8", "trade_flow", "count", "value", "decl_nos",
+                 "dep_ports", "arr_ports", "suppliers", "brokers", "dep_countries",
+                 "arr_countries", "hsk_codes", "item_name", "statuses", "trade_date",
+                 "contrib_codes", "contrib_weight")
+
+    def __init__(self, company_id: str, code8: str, trade_flow: str):
+        self.company_id = company_id
+        self.hs8 = code8
+        self.trade_flow = trade_flow
+        self.count = 0
+        self.value = 0.0
+        self.decl_nos: list[str] = []
+        self.dep_ports: list[str] = []
+        self.arr_ports: list[str] = []
+        self.suppliers: list[str] = []
+        self.brokers: list[str] = []
+        self.dep_countries: list[str] = []
+        self.arr_countries: list[str] = []
+        self.hsk_codes: list[str] = []
+        self.item_name: str | None = None
+        self.statuses: list[str] = []
+        self.trade_date: str | None = None
+        self.contrib_codes: list[str] = []
+        self.contrib_weight: float = 0.0
+
+    def add(self, decl: dict[str, Any], item: dict[str, Any], contribs: list[tuple]):
+        self.count += 1
+        try:
+            self.value += float(decl.get("value") or 0)
+        except (TypeError, ValueError):
+            pass
+        self.decl_nos.append(decl["declaration_no"])
+        if decl.get("departure_port"):
+            self.dep_ports.append(parse_port(decl["departure_port"]))
+        if decl.get("arrival_port"):
+            self.arr_ports.append(parse_port(decl["arrival_port"]))
+        if decl.get("supplier"):
+            self.suppliers.append(decl["supplier"])
+        if decl.get("broker"):
+            self.brokers.append(decl["broker"])
+        if decl.get("dep_country_name"):
+            self.dep_countries.append(decl["dep_country_name"])
+        if decl.get("arr_country_name"):
+            self.arr_countries.append(decl["arr_country_name"])
+        if item.get("hsk_code"):
+            self.hsk_codes.append(str(item["hsk_code"]))
+        if not self.item_name and item.get("item_name"):
+            self.item_name = item["item_name"]
+        if decl.get("status"):
+            self.statuses.append(decl["status"])
+        d = decl.get("trade_date")
+        if d and (self.trade_date is None or str(d) > str(self.trade_date)):
+            self.trade_date = d
+        for code, weight in contribs:
+            self.contrib_codes.append(code)
+            try:
+                self.contrib_weight = max(self.contrib_weight, float(weight))
+            except (TypeError, ValueError):
+                pass
+
+    def to_params(self) -> dict[str, Any]:
+        return {
+            "company_id": self.company_id,
+            "code8": self.hs8,
+            "trade_flow": self.trade_flow,
+            "count": self.count,
+            "value": round(self.value) if self.value else None,
+            "declaration_no": join_distinct(self.decl_nos),
+            "departure_port": join_distinct(self.dep_ports),
+            "arrival_port": join_distinct(self.arr_ports),
+            "departure_country": join_distinct(self.dep_countries),
+            "arrival_country": join_distinct(self.arr_countries),
+            "supplier": join_distinct(self.suppliers),
+            "broker": join_distinct(self.brokers),
+            "hsk_code": join_distinct(self.hsk_codes),
+            "item_name": self.item_name,
+            "status": join_distinct([STATUS_KO.get(s, s) for s in self.statuses]),
+            "trade_date": self.trade_date,
+            "contributes": join_distinct(self.contrib_codes, limit=6),
+            "contributes_weight": round(self.contrib_weight, 1) if self.contrib_weight else None,
+            "tag": SOURCE_TAG,
+        }
+
+
+def aggregate_declaration_edges(data: dict[str, Any]) -> list[EdgeAgg]:
+    items_by_decl = build_item_lines(data["item_lines"])
+    contrib_by_decl = build_decl_contrib(build_indicators_by_company(data["risk_indicators"]))
+    broker_by_company = {c["company_id"]: c.get("customs_broker_firm")
+                         for c in data["companies"] if c.get("customs_broker_firm")}
+
+    agg: dict[tuple, EdgeAgg] = {}
+
+    def feed(rows: list[dict[str, Any]], trade_flow: str, is_import: bool):
+        for r in rows:
+            dno = r["declaration_no"]
+            decl = dict(r)
+            if trade_flow == "수입":
+                decl["dep_country_name"] = norm_country(r.get("dep_country"))
+                decl["arr_country_name"] = KR_COUNTRY
+                decl["broker"] = r.get("filer_name") or broker_by_company.get(r["company_id"])
+            else:
+                decl["dep_country_name"] = KR_COUNTRY
+                decl["arr_country_name"] = norm_country(r.get("dest_country"))
+                decl["supplier"] = None
+                decl["broker"] = None
+            # 품목 라인: 없으면 신고 자체 hs_code로 폴백
+            items = items_by_decl.get(dno)
+            if not items:
+                code8 = hs8(r.get("hs_code"))
+                if not code8:
+                    continue
+                items = [{"hs8": code8, "hsk_code": r.get("hs_code"), "item_name": r.get("item_name")}]
+            contribs = contrib_by_decl.get(dno, [])
+            for item in items:
+                key = (r["company_id"], item["hs8"], trade_flow)
+                bucket = agg.get(key)
+                if bucket is None:
+                    bucket = agg[key] = EdgeAgg(r["company_id"], item["hs8"], trade_flow)
+                bucket.add(decl, item, contribs)
+
+    feed(data["imports"], "수입", True)
+    feed(data["exports"], "수출", False)
+    return list(agg.values())
+
+
 # ── Neo4j 적재 ───────────────────────────────────────────────────────────────
 
 def create_constraints(tx: ManagedTransaction) -> None:
     tx.run("DROP CONSTRAINT item_name IF EXISTS")
+    # 레거시(수입신고 노드 모델) 제약 제거 — 노드가 사라지므로 불필요
+    for legacy in ("declaration_no", "departure_port_code", "arrival_port_code",
+                   "supplier_name", "broker_name"):
+        tx.run(f"DROP CONSTRAINT {legacy} IF EXISTS")
     statements = [
         "CREATE CONSTRAINT company_id IF NOT EXISTS FOR (n:Company) REQUIRE n.company_id IS UNIQUE",
-        "CREATE CONSTRAINT declaration_no IF NOT EXISTS FOR (n:Declaration) REQUIRE n.declaration_no IS UNIQUE",
         "CREATE CONSTRAINT item_class_code IF NOT EXISTS FOR (n:ItemClass) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT departure_port_code IF NOT EXISTS FOR (n:DeparturePort) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT arrival_port_code IF NOT EXISTS FOR (n:ArrivalPort) REQUIRE n.code IS UNIQUE",
-        "CREATE CONSTRAINT supplier_name IF NOT EXISTS FOR (n:OverseasSupplier) REQUIRE n.name IS UNIQUE",
-        "CREATE CONSTRAINT broker_name IF NOT EXISTS FOR (n:Broker) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT affiliate_name IF NOT EXISTS FOR (n:AffiliatedCompany) REQUIRE n.name IS UNIQUE",
         "CREATE CONSTRAINT related_party_key IF NOT EXISTS FOR (n:RelatedParty) REQUIRE n.key IS UNIQUE",
         "CREATE CONSTRAINT risk_score_company IF NOT EXISTS FOR (n:RiskScore) REQUIRE n.company_id IS UNIQUE",
@@ -274,24 +443,38 @@ def create_constraints(tx: ManagedTransaction) -> None:
 
 def clear_company_graph(tx: ManagedTransaction) -> None:
     edge_types = [
-        "FILED", "OF_ITEM", "FROM_PORT", "TO_PORT", "SUPPLIED_BY", "FILED_BY",
-        "CONTRIBUTES_TO", "RISK_INDICATORS", "DRIVEN_BY", "ANALYZED",
+        "IMPORT_DECLARATION", "RISK_INDICATORS", "DRIVEN_BY", "ANALYZED",
         "RELATED_PARTY", "AFFILIATED_WITH", "CASE",
-        # 레거시
-        "DEPARTS_FROM", "PORT_ROUTE", "VIA_SUPPLIER", "DECLARES_ITEM", "USES_BROKER",
-        "TRADES_WITH_COUNTRY", "ARRIVES_AT", "IMPORTED", "SUPPLIES_TO",
-        "HAS_RELATED_COMPANY", "EXPORTS_TO", "HAS_RISK_INDICATOR",
+        # 레거시(수입신고 허브 모델 + 그 이전)
+        "FILED", "OF_ITEM", "FROM_PORT", "TO_PORT", "SUPPLIED_BY", "FILED_BY",
+        "CONTRIBUTES_TO", "DEPARTS_FROM", "PORT_ROUTE", "VIA_SUPPLIER",
+        "DECLARES_ITEM", "USES_BROKER", "TRADES_WITH_COUNTRY", "ARRIVES_AT",
+        "IMPORTED", "SUPPLIES_TO", "HAS_RELATED_COMPANY", "EXPORTS_TO",
+        "HAS_RISK_INDICATOR",
     ]
     for et in edge_types:
         tx.run(f"MATCH ()-[r:{et}]-() DELETE r")
+    # 더 이상 노드로 적재하지 않는 레거시 라벨 정리(품목/위험/관계사 등은 유지)
     tx.run(
         """
         MATCH (n)
-        WHERE n:Declaration OR n:ItemClass OR n:Item OR n:OverseasSupplier OR n:AffiliatedCompany
-              OR n:RelatedParty OR n:CaseType OR n:Broker OR n:RiskScore OR n:RiskFactor
-              OR n:DeparturePort OR n:ArrivalPort OR n:HsCode OR n:RelatedCompany OR n:RiskIndicator
+        WHERE n:Declaration OR n:Item OR n:OverseasSupplier
+              OR n:Broker OR n:DeparturePort OR n:ArrivalPort
+              OR n:HsCode OR n:RelatedCompany OR n:RiskIndicator
         DETACH DELETE n
         """
+    )
+    # 본 로더가 적재하는 ItemClass/RiskScore/RiskFactor/CaseType/AffiliatedCompany/
+    # RelatedParty 및 Company 는 재적재 시 MERGE로 갱신되므로 source_tag 로만 정리.
+    tx.run(
+        """
+        MATCH (n)
+        WHERE (n:ItemClass OR n:RiskScore OR n:RiskFactor OR n:CaseType
+               OR n:AffiliatedCompany OR n:RelatedParty)
+          AND n.updated_from = $source_tag
+        DETACH DELETE n
+        """,
+        {"source_tag": SOURCE_TAG},
     )
     tx.run(
         "MATCH (n:Company) WHERE n.updated_from = $source_tag DETACH DELETE n",
@@ -318,89 +501,27 @@ def merge_company(tx: ManagedTransaction, row: dict[str, Any], risk: dict[str, A
     )
 
 
-def merge_declaration(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    """Declaration 노드 + (Company)-[:FILED]->(Declaration)."""
-    name = f"{row['declaration_no']}"
+def merge_import_declaration_edge(tx: ManagedTransaction, params: dict[str, Any]) -> None:
+    """(Company)-[:IMPORT_DECLARATION {거래/경로/거래처/관세사/위험기여}]->(ItemClass).
+
+    수입/수출은 trade_flow 로 구분되어 같은 기업–품목 사이에 별도 엣지로 적재된다.
+    """
     tx.run(
         """
         MATCH (c:Company {company_id: $company_id})
-        MERGE (d:Declaration {declaration_no: $declaration_no})
-        SET d.name = $name, d.trade_flow = $trade_flow, d.trade_date = $trade_date,
-            d.value = $value, d.status = $status, d.hs_code = $hs_code,
-            d.item_name = $item_name, d.updated_from = $source_tag
-        SET d.filed_by_company = $company_id
-        MERGE (c)-[r:FILED]->(d)
-        SET r.trade_flow = $trade_flow, r.updated_from = $source_tag
-        """,
-        {**row, "name": name, "source_tag": SOURCE_TAG},
-    )
-
-
-def merge_decl_ports(tx: ManagedTransaction, row: dict[str, Any]) -> None:
-    """(Declaration)-[:FROM_PORT]->(DeparturePort), -[:TO_PORT]->(ArrivalPort)."""
-    if row.get("departure_port"):
-        dep_name, dep_code = parse_port(row["departure_port"])
-        tx.run(
-            """
-            MATCH (d:Declaration {declaration_no: $declaration_no})
-            MERGE (p:DeparturePort {code: $code})
-            SET p.name = $name, p.country = coalesce($country, p.country), p.updated_from = $tag
-            MERGE (d)-[r:FROM_PORT]->(p) SET r.updated_from = $tag
-            """,
-            {"declaration_no": row["declaration_no"], "code": dep_code, "name": dep_name,
-             "country": row.get("dep_country_name"), "tag": SOURCE_TAG},
-        )
-    if row.get("arrival_port"):
-        arr_name, arr_code = parse_port(row["arrival_port"])
-        tx.run(
-            """
-            MATCH (d:Declaration {declaration_no: $declaration_no})
-            MERGE (p:ArrivalPort {code: $code})
-            SET p.name = $name, p.country = coalesce($country, p.country), p.updated_from = $tag
-            MERGE (d)-[r:TO_PORT]->(p) SET r.updated_from = $tag
-            """,
-            {"declaration_no": row["declaration_no"], "code": arr_code, "name": arr_name,
-             "country": row.get("arr_country_name"), "tag": SOURCE_TAG},
-        )
-
-
-def merge_decl_supplier(tx: ManagedTransaction, declaration_no: str, supplier: str) -> None:
-    tx.run(
-        """
-        MATCH (d:Declaration {declaration_no: $declaration_no})
-        MERGE (s:OverseasSupplier {name: $supplier})
-        SET s.updated_from = $tag
-        MERGE (d)-[r:SUPPLIED_BY]->(s) SET r.updated_from = $tag
-        """,
-        {"declaration_no": declaration_no, "supplier": supplier, "tag": SOURCE_TAG},
-    )
-
-
-def merge_decl_broker(tx: ManagedTransaction, declaration_no: str, broker: str) -> None:
-    tx.run(
-        """
-        MATCH (d:Declaration {declaration_no: $declaration_no})
-        MERGE (b:Broker {name: $broker})
-        SET b.updated_from = $tag
-        MERGE (d)-[r:FILED_BY]->(b) SET r.updated_from = $tag
-        """,
-        {"declaration_no": declaration_no, "broker": broker, "tag": SOURCE_TAG},
-    )
-
-
-def merge_of_item(tx: ManagedTransaction, declaration_no: str, code8: str,
-                  hsk_code: str, item_name: str) -> None:
-    """(Declaration)-[:OF_ITEM {hsk_code(10)}]->(ItemClass(8자리))."""
-    tx.run(
-        """
-        MATCH (d:Declaration {declaration_no: $declaration_no})
         MERGE (it:ItemClass {code: $code8})
         SET it.name = coalesce($item_name, it.name), it.updated_from = $tag
-        MERGE (d)-[r:OF_ITEM {hsk_code: coalesce($hsk_code, '')}]->(it)
-        SET r.item_name = $item_name, r.updated_from = $tag
+        MERGE (c)-[r:IMPORT_DECLARATION {trade_flow: $trade_flow}]->(it)
+        SET r.count = $count, r.value = $value, r.declaration_no = $declaration_no,
+            r.departure_port = $departure_port, r.arrival_port = $arrival_port,
+            r.departure_country = $departure_country, r.arrival_country = $arrival_country,
+            r.supplier = $supplier, r.broker = $broker,
+            r.hsk_code = $hsk_code, r.item_name = $item_name,
+            r.status = $status, r.trade_date = $trade_date,
+            r.contributes = $contributes, r.contributes_weight = $contributes_weight,
+            r.updated_from = $tag
         """,
-        {"declaration_no": declaration_no, "code8": code8, "hsk_code": hsk_code,
-         "item_name": item_name, "tag": SOURCE_TAG},
+        params,
     )
 
 
@@ -451,19 +572,6 @@ def merge_driven_by(tx: ManagedTransaction, company_id: str, ind: dict[str, Any]
         """,
         {"company_id": company_id, "code": ind.get("indicator_code"),
          "score": ind.get("score"), "reason": ind.get("reason"), "tag": SOURCE_TAG},
-    )
-
-
-def merge_contributes(tx: ManagedTransaction, declaration_no: str, code: str, weight: float) -> None:
-    """원인분석 핵심: (Declaration)-[:CONTRIBUTES_TO {weight}]->(RiskFactor)."""
-    tx.run(
-        """
-        MATCH (d:Declaration {declaration_no: $declaration_no})
-        MATCH (rf:RiskFactor {code: $code})
-        MERGE (d)-[r:CONTRIBUTES_TO]->(rf)
-        SET r.weight = $weight, r.updated_from = $tag
-        """,
-        {"declaration_no": declaration_no, "code": code, "weight": weight, "tag": SOURCE_TAG},
     )
 
 
@@ -551,19 +659,12 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
             top_factor[cid] = inds[0]["indicator_code"]
     factors = [{"code": c, "name": n} for c, n in factor_catalog.items()]
 
-    # 관세사(기업 대행사 폴백)·관계사·신고건수
-    broker_by_company = {c["company_id"]: c.get("customs_broker_firm")
-                         for c in data["companies"] if c.get("customs_broker_firm")}
     affiliate_by_company = {c["company_id"]: c.get("related_companies")
                             for c in data["companies"] if c.get("related_companies")}
 
-    # OF_ITEM 그레인: (declaration_no, hs8) → 대표 hsk10·품명
-    of_item: dict[tuple, dict[str, Any]] = {}
-    for ln in data["item_lines"]:
-        dno, code8 = ln.get("declaration_no"), hs8(ln.get("hsk_code"))
-        if not dno or not code8:
-            continue
-        of_item.setdefault((dno, code8), {"hsk_code": ln.get("hsk_code"), "item_name": ln.get("item_name")})
+    # 수입신고 엣지 집계 (company × 품목분류 × 수출입)
+    edges = aggregate_declaration_edges(data)
+    contrib_edges = sum(1 for e in edges if e.contrib_codes)
 
     # 사건건수(전체 status별) + 기업별 status 집합
     case_count: dict[str, int] = defaultdict(int)
@@ -575,8 +676,6 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
             company_statuses[r["company_id"]].add(st)
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
-    decl_count = 0
-    contrib_count = 0
     try:
         driver.verify_connectivity()
         with driver.session(database=database) as session:
@@ -600,45 +699,9 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
                 for st in company_statuses.get(cid, ()):
                     session.execute_write(merge_case, cid, st, case_count.get(st, 0))
 
-            # 수입신고 노드 + 구성요소 엣지
-            for r in data["imports"]:
-                r2 = dict(r)
-                r2["dep_country_name"] = norm_country(r.get("dep_country"))
-                r2["arr_country_name"] = KR_COUNTRY
-                r2["trade_flow"] = "수입"
-                session.execute_write(merge_declaration, r2)
-                session.execute_write(merge_decl_ports, r2)
-                if r.get("supplier"):
-                    session.execute_write(merge_decl_supplier, r["declaration_no"], r["supplier"])
-                broker = r.get("filer_name") or broker_by_company.get(r["company_id"])
-                if broker:
-                    session.execute_write(merge_decl_broker, r["declaration_no"], broker)
-                decl_count += 1
-
-            # 수출신고 노드 + 경로(매수인·관세사 없음)
-            for r in data["exports"]:
-                r2 = dict(r)
-                r2["dep_country_name"] = KR_COUNTRY
-                r2["arr_country_name"] = norm_country(r.get("dest_country"))
-                r2["trade_flow"] = "수출"
-                r2["supplier"] = None
-                r2["filer_name"] = None
-                session.execute_write(merge_declaration, r2)
-                session.execute_write(merge_decl_ports, r2)
-                decl_count += 1
-
-            # OF_ITEM (품목분류)
-            for (dno, code8), info in of_item.items():
-                session.execute_write(merge_of_item, dno, code8, info.get("hsk_code"), info.get("item_name"))
-
-            # CONTRIBUTES_TO (원인분석: 신고→위험요인)
-            for cid, inds in indicators_by_company.items():
-                for ind in inds:
-                    code = ind.get("indicator_code")
-                    weight = ind.get("score") or 1
-                    for dno in parse_contrib_decls(ind.get("related_refs")):
-                        session.execute_write(merge_contributes, dno, code, weight)
-                        contrib_count += 1
+            # 수입신고 엣지 (Company → ItemClass)
+            for e in edges:
+                session.execute_write(merge_import_declaration_edge, e.to_params())
 
             # 분석결과
             for row in data["analyses"]:
@@ -658,12 +721,13 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
     finally:
         driver.close()
 
+    decl_total = sum(e.count for e in edges)
     return {
         "companies_loaded": len(data["companies"]),
-        "declarations_loaded": decl_count,
+        "declaration_edges": len(edges),
+        "declarations_aggregated": decl_total,
         "risk_factors": len(factors),
-        "contributes_edges": contrib_count,
-        "of_item_edges": len(of_item),
+        "contributing_edges": contrib_edges,
         "related_parties_loaded": len(data["related_parties"]),
         "analyses_loaded": len(data["analyses"]),
         "case_count_by_status": dict(case_count),
@@ -673,7 +737,7 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load DuckDB company graph into Neo4j (수입신고 허브 canonical 모델)")
+    parser = argparse.ArgumentParser(description="Load DuckDB company graph into Neo4j (수입신고 엣지 모델 v2)")
     parser.add_argument("--clear", action="store_true", help="Clear previously loaded company graph before loading.")
     args = parser.parse_args()
 
