@@ -198,3 +198,74 @@ def agent_rag_source(source_label: str, source_key: str) -> Callable[[CustomsSta
     def runner(state: CustomsState) -> CustomsState:
         return _run_rag(state, source_label, source_key)
     return runner
+
+
+# ── 구조화 검색 (통합 지식 검색 UI 전용) ────────────────────────────────────────
+
+def search_rag_structured(query: str, source_key: str = "rag_customs", k: int = 4) -> list[dict]:
+    """의미 기반 문서검색 결과를 카드 렌더용 구조화 리스트로 반환한다.
+
+    LLM 요약 없이 원문 스니펫·유사도·메타데이터(source/category/topic)만 추려서
+    프런트가 출처별 카드로 직접 렌더할 수 있게 한다.
+
+    Returns: [{collection, source, category, topic, snippet, similarity}] (유사도 내림차순)
+    """
+    query = (query or "").strip()
+    if not query or not _vectorstores:
+        return []
+
+    targets = [source_key] if source_key in _vectorstores else list(_vectorstores.keys())
+    # (doc, distance) 수집 — 거리는 작을수록 가깝다. 컬렉션이 OpenAI 임베딩(비정규화)으로
+    # 적재되어 L2 거리 절댓값이 크고 relevance_scores가 음수가 되므로, 결과 집합 내
+    # 최근접 문서를 기준(100%)으로 한 '상대 유사도'로 환산해 카드에 표시한다.
+    scored: list[tuple] = []
+    for col in targets:
+        vs = _vectorstores.get(col)
+        if vs is None:
+            continue
+        try:
+            pairs = vs.similarity_search_with_score(query, k=k)
+        except BaseException:
+            try:
+                pairs = [(doc, None) for doc in vs.similarity_search(query, k=k)]
+            except BaseException as exc:
+                print(f"[RAG] {col} 구조화 검색 실패: {exc}")
+                continue
+        for doc, dist in pairs:
+            try:
+                dist = float(dist) if dist is not None else None
+            except (TypeError, ValueError):
+                dist = None
+            scored.append((col, doc, dist))
+
+    dists = [d for _, _, d in scored if d is not None and d > 0]
+    min_dist = min(dists) if dists else None
+
+    hits: list[dict] = []
+    for col, doc, dist in scored:
+        if min_dist is not None and dist is not None and dist > 0:
+            similarity = max(1, min(100, round(100 * min_dist / dist)))
+        elif dist is not None and dist <= 0:
+            similarity = 100  # 동일 벡터(거리 0)
+        else:
+            similarity = None
+        md = doc.metadata or {}
+        hits.append({
+            "collection": col,
+            "source": md.get("source") or "미상",
+            "category": md.get("category") or "",
+            "topic": md.get("topic") or "",
+            "snippet": (doc.page_content or "").strip(),
+            "similarity": similarity,
+        })
+
+    # 동일 본문 중복 제거 후 유사도 내림차순 정렬
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for hit in sorted(hits, key=lambda h: (h["similarity"] is not None, h["similarity"] or 0), reverse=True):
+        head = hit["snippet"][:80]
+        if head in seen:
+            continue
+        seen.add(head)
+        unique.append(hit)
+    return unique[:k]

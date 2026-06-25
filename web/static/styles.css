@@ -585,6 +585,73 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-source-badge{flex:none;font-size:11px;font-weight:800;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:999px;padding:2px 8px}
 .home-source-desc{margin:2px 0 0;color:#475569;font-size:12px;line-height:1.45}
 .home-source-example{margin:6px 0 0;color:#94a3b8;font-size:12px;line-height:1.45;font-style:italic}
+
+/* ── 통합 지식 검색(업무지식베이스) ───────────────────────────────────────── */
+.home-unified-card{display:block}
+.home-unified-card .home-frame-head{display:flex;align-items:center;gap:8px}
+.home-unified-actions{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none}
+.home-unified-body{display:grid;gap:8px;margin-top:8px}
+.home-unified-card.is-collapsed .home-unified-body{display:none}
+.home-unified-query{width:100%;border:1px solid #cfe0f5;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.45;resize:vertical;font-family:inherit;background:#fff;min-height:60px}
+.home-unified-query:focus{outline:none;border-color:#93c5fd;box-shadow:0 0 0 2px rgba(147,197,253,.30)}
+/* 소스 토글 pill */
+.home-ksrc-pills{display:flex;flex-wrap:wrap;gap:8px}
+.home-ksrc-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:5px 11px 5px 10px;cursor:pointer;font-family:inherit}
+.home-ksrc-pill:hover{background:#f8fafc}
+.home-ksrc-pill-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.home-ksrc-pill.db{border-color:#93c5fd}
+.home-ksrc-pill.db .home-ksrc-pill-dot{background:#2563eb}
+.home-ksrc-pill.rag{border-color:#6ee7b7}
+.home-ksrc-pill.rag .home-ksrc-pill-dot{background:#059669}
+.home-ksrc-pill-label{font-size:12.5px;font-weight:800;color:#1e293b}
+.home-ksrc-pill-sub{font-size:11px;color:#64748b}
+.home-ksrc-pill-check{font-size:12px;font-weight:900;color:#16a34a}
+/* 결과 영역(출처별 블록) */
+.home-unified-results{display:flex;flex-direction:column;gap:14px}
+.home-unified-results:empty{display:none}
+.home-ksrc-block{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.home-ksrc-block.db{border-color:#bfdbfe}
+.home-ksrc-block.rag{border-color:#a7f3d0}
+.home-ksrc-block.error{border-color:#fecaca}
+.home-ksrc-block-hdr{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--line);background:#f8fafc}
+.home-ksrc-block.db .home-ksrc-block-hdr{background:linear-gradient(135deg,#eff6ff,#f8faff)}
+.home-ksrc-block.rag .home-ksrc-block-hdr{background:linear-gradient(135deg,#ecfdf5,#f7fefb)}
+.home-ksrc-ic{font-size:15px;flex:none}
+.home-ksrc-block-hdr strong{font-size:13.5px;color:var(--tx-1)}
+.home-ksrc-tag{font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 8px;flex:none}
+.home-ksrc-tag.db{background:#dbeafe;color:#1d4ed8}
+.home-ksrc-tag.rag{background:#d1fae5;color:#047857}
+.home-ksrc-sub{font-size:11px;color:#64748b}
+.home-ksrc-status{margin-left:auto;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;flex:none}
+.home-ksrc-status.running{background:#fef3c7;color:#d97706}
+.home-ksrc-status.error{background:#fee2e2;color:#dc2626}
+.home-ksrc-block-body{padding:12px 14px;font-size:13px}
+.home-ksrc-summary{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
+.home-ksrc-foot{padding:7px 14px;border-top:1px solid var(--line);background:#fbfdff;color:#64748b;font-size:11.5px}
+/* CDW 표 */
+.home-ksrc-table-wrap{overflow-x:auto}
+.home-ksrc-table{width:100%;border-collapse:collapse;font-size:12px}
+.home-ksrc-table th,.home-ksrc-table td{padding:6px 9px;border:1px solid var(--line);white-space:nowrap;text-align:left}
+.home-ksrc-table th{background:var(--surface-2);font-weight:800;font-size:11px;color:#334155}
+.home-ksrc-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.home-ksrc-table tbody tr:nth-child(even){background:#fafcff}
+.home-ksrc-sql{margin-top:10px;font-size:12px}
+.home-ksrc-sql summary{cursor:pointer;color:#1d4ed8;font-weight:700;display:inline-block;border:1px solid #bfdbfe;border-radius:6px;padding:3px 10px}
+.home-ksrc-sql[open] summary{margin-bottom:6px}
+.home-ksrc-sql pre{background:var(--surface-2);border-radius:8px;padding:8px 12px;overflow-x:auto;margin:0}
+.home-ksrc-sql code{font-size:11.5px;color:#0f172a}
+/* RAG 유사도 카드 */
+.home-ksrc-doc{border:1px solid #e5edf7;border-radius:10px;padding:10px 12px;background:#fff}
+.home-ksrc-doc + .home-ksrc-doc{margin-top:10px}
+.home-ksrc-doc-hdr{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.home-ksrc-doc-title{flex:1;font-size:13px;font-weight:800;color:#0f559c;min-width:0}
+.home-ksrc-sim{flex:none;font-size:11px;font-weight:800;color:#047857;background:#d1fae5;border-radius:999px;padding:2px 9px}
+.home-ksrc-doc-snip{margin:0 0 6px;font-size:12px;color:#475569;line-height:1.5}
+.home-ksrc-doc-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.home-ksrc-chip{font-size:10.5px;font-weight:700;color:#475569;background:#eef2f7;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
+.home-ksrc-evidence{margin-left:auto;font-size:11.5px}
+.home-ksrc-evidence summary{cursor:pointer;color:#0f559c;font-weight:700}
+.home-ksrc-evidence-body{margin-top:6px;padding:8px 10px;background:#f8fbff;border:1px solid #edf2fb;border-radius:8px;font-size:11.5px;line-height:1.55;color:#334155;white-space:pre-wrap}
 .home-mail-share-chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;min-height:22px}
 .home-share-email-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #93c5fd;border-radius:999px;background:#fff;color:#0f559c;padding:3px 4px 3px 9px;font-size:12px;font-weight:800}
 .home-share-email-chip button{width:18px;height:18px;border:0;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:900;line-height:1;cursor:pointer}

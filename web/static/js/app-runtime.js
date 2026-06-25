@@ -3084,6 +3084,13 @@ const homeDedicatedInputState = {
 let homeCardPromptState = {};
 // 카드별 접힘 상태(서비스가 많을 때 개별 카드 접기/펴기): { [serviceKey]: true=접힘 }
 let homeCardCollapsed = {};
+// 통합 지식 검색(업무지식베이스) — 선택된 모든 데이터소스가 공유하는 단일 질의 상태.
+let homeUnifiedQueryState = { text: "", edited: false };
+// 통합 지식 검색 결과 상태(출처별): { [sourceKey]: { kind, label, status, data, elapsedMs } } — 재렌더 시 결과 보존용.
+let homeUnifiedResultState = {};
+// 통합 지식 검색 프레임 접힘 상태.
+let homeUnifiedCollapsed = false;
+const HOME_UNIFIED_KEY = "__unified_knowledge__";
 
 // 카드 접기/펴기 토글 버튼 HTML (단일 수행 버튼 옆 액션 영역에 배치).
 function homeCardCollapseToggleHtml(key){
@@ -3609,8 +3616,10 @@ function homeBuildCombinedPrompt(){
     const st = homeCardPromptState[key];   // 읽기 전용(상태 변경 없음)
     return ((st ? st.text : homeCardPromptDefault(key, kind)) || "").trim();
   };
+  // 업무지식베이스 소스는 공유 질의(통합 지식 검색)를 1회만 기여한다.
+  const sharedQuery = sources.length ? homeUnifiedQueryText() : "";
   const parts = [
-    ...sources.map(k => part(k, "source")),
+    ...(sharedQuery ? [sharedQuery] : []),
     ...aiOrder.map(k => part(k, "agent")),
   ];
   return parts.filter(Boolean).join("\n\n");
@@ -3723,6 +3732,310 @@ function homeCardWorkPanel(key, kind, gi = 0){
   `;
 }
 
+// ── 통합 지식 검색(업무지식베이스) ─────────────────────────────────────────────
+// 선택된 모든 데이터소스(CDW·RAG)를 하나의 프레임으로 묶어 공유 질의 1개로 검색하고,
+// 결과는 출처별 구조화 블록(CDW=표 / RAG=유사도 카드)으로 한 영역에 나열한다.
+const HOME_UNIFIED_PLACEHOLDER =
+  "예) HS 8517 품목 수입신고 중 위험지표가 높은 기업 최신 10건과 유사 심사사례 보고서를 함께 찾아줘.";
+
+function homeSourceKind(key){
+  return AI_SERVICE_REGISTRY[key]?.group === RAG_SEARCH_GROUP ? "rag" : "db";
+}
+function homeSourceSubLabel(key){
+  return homeSourceKind(key) === "rag" ? "업무 RAG · 문서검색" : "정형DB · 자연어→SQL";
+}
+function homeUnifiedQueryText(){
+  return (homeUnifiedQueryState.text || "").trim();
+}
+
+// 통합 지식 검색 프레임 HTML — 소스 토글 pill + 공유 질의창 + 결과영역.
+function homeUnifiedSourceCardHtml(sources, order){
+  const pills = sources.map(key => {
+    const svc = AI_SERVICE_REGISTRY[key];
+    const kind = homeSourceKind(key);
+    return `<button type="button" class="home-ksrc-pill ${kind}" data-home-source-toggle="${escapeHtml(key)}"
+        title="클릭하면 검색 대상에서 제외합니다">
+        <span class="home-ksrc-pill-dot"></span>
+        <span class="home-ksrc-pill-label">${escapeHtml(svc?.label || key)}</span>
+        <span class="home-ksrc-pill-sub">${escapeHtml(homeSourceSubLabel(key))}</span>
+        <span class="home-ksrc-pill-check">✓</span>
+      </button>`;
+  }).join("");
+  const collapsed = homeUnifiedCollapsed;
+  return `
+    <div class="home-svc-panel home-source-card home-unified-card${collapsed ? " is-collapsed" : ""}" data-home-unified-card>
+      <div class="home-frame-head">
+        <span class="home-frame-order src" title="실행 순서">${order}</span>
+        <strong class="home-frame-title">통합 지식 검색</strong>
+        <span class="home-source-badge">업무지식베이스</span>
+        <span class="home-unified-actions">
+          <button type="button" class="home-mini-btn home-card-coach-btn" data-home-unified-coach
+            title="질의를 점검하고 재구성안을 제시합니다">AI코칭</button>
+          <button type="button" class="home-mini-btn home-run-single" data-home-unified-run>단일 수행</button>
+          <button type="button" class="home-mini-btn home-unified-collapse" data-home-unified-collapse
+            aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸ 펴기" : "▾ 접기"}</button>
+        </span>
+      </div>
+      <div class="home-unified-body">
+        <p class="home-source-desc">검색할 지식 소스를 선택하세요. 자연어 질의는 정형DB에서는 <b>자연어→SQL</b>로,
+          업무 RAG에서는 <b>의미 기반 문서검색</b>으로 각각 실행되며, 결과는 출처별 프레임으로 구분되어 표시됩니다.</p>
+        <div class="home-ksrc-pills">${pills}</div>
+        <textarea class="home-card-prompt home-unified-query" data-home-unified-query rows="3"
+          placeholder="${escapeHtml(HOME_UNIFIED_PLACEHOLDER)}">${escapeHtml(homeUnifiedQueryState.text || "")}</textarea>
+        <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록 · 특정인이 작성한 보고서 중 최신 10건 · 위험지표 상위 기업의 사후심사 사례</p>
+        <div class="home-unified-results" data-home-unified-result></div>
+      </div>
+    </div>
+  `;
+}
+
+// 단일 수행 — 공유 질의를 선택된 모든 소스에 병렬 실행하고 출처별 블록을 렌더한다.
+async function homeRunUnifiedSearch(btn){
+  const { sources } = homeSelectedAnalysisOptions();
+  if(!sources.length) return;
+  const ta = document.querySelector("[data-home-unified-query]");
+  const query = ((ta?.value) || "").trim();
+  const box = document.querySelector("[data-home-unified-result]");
+  if(!query){
+    if(box) box.innerHTML = `<div class="home-card-result-status">먼저 검색할 질의를 입력하세요.</div>`;
+    ta?.focus();
+    return;
+  }
+  homeUnifiedResultState = {};
+  if(box){
+    box.innerHTML = sources.map(key => {
+      const svc = AI_SERVICE_REGISTRY[key];
+      const kind = homeSourceKind(key);
+      return `<div class="home-ksrc-block loading" data-ksrc-block="${escapeHtml(key)}">
+          <div class="home-ksrc-block-hdr">
+            <span class="home-ksrc-ic">${kind === "rag" ? "📚" : "🗄"}</span>
+            <strong>${escapeHtml(svc?.label || key)} 결과</strong>
+            <span class="home-ksrc-status running">조회 중…</span>
+          </div>
+          <div class="home-ksrc-block-body"><span class="home-running-dot"></span> ${kind === "rag" ? "의미 기반 문서검색 중..." : "SQL 생성 후 실행 중..."}</div>
+        </div>`;
+    }).join("");
+  }
+  if(btn) btn.disabled = true;
+  console.info(`[MyAI분석] 통합 지식 검색: ${sources.map(k => AI_SERVICE_REGISTRY[k]?.label || k).join(", ")}`);
+  await Promise.all(sources.map(key => homeRunUnifiedSource(key, query)));
+  if(btn) btn.disabled = false;
+}
+
+async function homeRunUnifiedSource(key, query){
+  const kind = homeSourceKind(key);
+  const block = document.querySelector(`[data-ksrc-block="${cssString(key)}"]`);
+  const t0 = performance.now();
+  try{
+    const endpoint = kind === "rag" ? "/api/rag_query" : "/api/db_query";
+    const reqBody = kind === "rag"
+      ? { prompt: query, source: key, k: 4 }
+      : { prompt: query, service: key, use_neo4j: false };
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reqBody),
+    });
+    const d = await r.json();
+    const elapsedMs = performance.now() - t0;
+    if(d.error) throw new Error(d.error);
+    homeUnifiedResultState[key] = { kind, status: "done", data: d, elapsedMs };
+    if(kind === "rag") homeRenderRagBlock(block, key, d.docs || [], elapsedMs);
+    else homeRenderCdwBlock(block, key, d, elapsedMs);
+  } catch(err){
+    homeUnifiedResultState[key] = { kind, status: "error", error: err.message || String(err) };
+    if(block){
+      block.className = "home-ksrc-block error";
+      block.innerHTML = `
+        <div class="home-ksrc-block-hdr">
+          <span class="home-ksrc-ic">${kind === "rag" ? "📚" : "🗄"}</span>
+          <strong>${escapeHtml(AI_SERVICE_REGISTRY[key]?.label || key)} 결과</strong>
+          <span class="home-ksrc-status error">오류</span>
+        </div>
+        <div class="home-ksrc-block-body"><p class="high">조회 실패: ${escapeHtml(err.message || String(err))}</p>
+          <p class="muted">조건을 더 구체적으로 보완해 다시 시도하세요.</p></div>`;
+    }
+  }
+}
+
+// CDW(정형DB) 결과 블록 — 행 데이터를 표로 렌더 + SQL 보기 + 건수/응답시간.
+function homeKnowledgeTableHtml(rows){
+  if(!Array.isArray(rows) || !rows.length) return `<p class="muted">조회 결과가 없습니다.</p>`;
+  const cols = Object.keys(rows[0]);
+  const head = cols.map(c => `<th>${escapeHtml(c)}</th>`).join("");
+  const body = rows.map(row => `<tr>${cols.map(c => {
+    const v = row[c];
+    const isNum = typeof v === "number";
+    const txt = (v === null || v === undefined) ? "" : (isNum ? v.toLocaleString("ko-KR") : String(v));
+    return `<td class="${isNum ? "num" : ""}">${escapeHtml(txt)}</td>`;
+  }).join("")}</tr>`).join("");
+  return `<div class="home-ksrc-table-wrap"><table class="home-ksrc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function homeRenderCdwBlock(block, key, d, elapsedMs){
+  if(!block) return;
+  const svc = AI_SERVICE_REGISTRY[key];
+  const rows = d.rows || [];
+  const summaryHtml = d.summary ? `<div class="home-ksrc-summary markdown-output">${markdownToHtml(d.summary)}</div>` : "";
+  const tableHtml = homeKnowledgeTableHtml(rows);
+  const sqlHtml = d.query
+    ? `<details class="home-ksrc-sql"><summary>SQL 보기</summary><pre><code>${escapeHtml(d.query)}</code></pre>${d.explanation ? `<p class="muted">${escapeHtml(d.explanation)}</p>` : ""}</details>`
+    : "";
+  block.className = "home-ksrc-block db";
+  block.innerHTML = `
+    <div class="home-ksrc-block-hdr">
+      <span class="home-ksrc-ic">🗄</span>
+      <strong>${escapeHtml(svc?.label || key)} 결과</strong>
+      <span class="home-ksrc-tag db">정형DB</span>
+      <span class="home-ksrc-sub">자연어 → SQL</span>
+    </div>
+    <div class="home-ksrc-block-body">
+      ${summaryHtml}
+      ${tableHtml}
+      ${sqlHtml}
+    </div>
+    <div class="home-ksrc-foot">📍 CDW(정형 데이터웨어하우스)에서 조회 · 총 ${rows.length}건 · 응답 ${(elapsedMs / 1000).toFixed(1)}초</div>`;
+}
+
+// 관세정보 RAG(업무 RAG) 결과 블록 — 유사도순 문서 카드(근거 원문 펼침).
+function homeRenderRagBlock(block, key, docs, elapsedMs){
+  if(!block) return;
+  const svc = AI_SERVICE_REGISTRY[key];
+  const list = Array.isArray(docs) ? docs : [];
+  const cards = list.map(doc => {
+    const sim = (doc.similarity != null) ? `<span class="home-ksrc-sim">유사도 ${doc.similarity}%</span>` : "";
+    const chips = [doc.category, doc.topic].filter(Boolean)
+      .map(t => `<span class="home-ksrc-chip">${escapeHtml(t)}</span>`).join("");
+    const snippet = doc.snippet || "";
+    const preview = snippet.length > 170 ? snippet.slice(0, 170) + "…" : snippet;
+    const evidence = snippet.length > 170
+      ? `<details class="home-ksrc-evidence"><summary>근거 원문 보기</summary><div class="home-ksrc-evidence-body">${escapeHtml(snippet)}</div></details>`
+      : "";
+    return `<div class="home-ksrc-doc">
+        <div class="home-ksrc-doc-hdr">
+          <strong class="home-ksrc-doc-title">${escapeHtml(doc.source || "미상")}</strong>
+          ${sim}
+        </div>
+        <p class="home-ksrc-doc-snip">${escapeHtml(preview)}</p>
+        <div class="home-ksrc-doc-foot">${chips}${evidence}</div>
+      </div>`;
+  }).join("");
+  block.className = "home-ksrc-block rag";
+  block.innerHTML = `
+    <div class="home-ksrc-block-hdr">
+      <span class="home-ksrc-ic">📚</span>
+      <strong>${escapeHtml(svc?.label || key)} 결과</strong>
+      <span class="home-ksrc-tag rag">업무 RAG</span>
+      <span class="home-ksrc-sub">의미 기반 문서검색 · 유사도순</span>
+    </div>
+    <div class="home-ksrc-block-body">
+      ${list.length ? cards : `<p class="muted">관련 문서를 찾지 못했습니다. 질의를 더 구체적으로 보완해 보세요.</p>`}
+    </div>
+    <div class="home-ksrc-foot">📍 ${escapeHtml(svc?.label || key)}(업무 영역별 지식베이스)에서 검색 · 관련 문서 ${list.length}건 · 응답 ${(elapsedMs / 1000).toFixed(1)}초</div>`;
+}
+
+// 재렌더(서비스 추가 등) 후 보존된 통합 검색 결과를 다시 그린다.
+function homeRestoreUnifiedResults(){
+  const box = document.querySelector("[data-home-unified-result]");
+  if(!box) return;
+  const keys = Object.keys(homeUnifiedResultState);
+  if(!keys.length) return;
+  box.innerHTML = keys.map(key => `<div class="home-ksrc-block" data-ksrc-block="${escapeHtml(key)}"></div>`).join("");
+  keys.forEach(key => {
+    const st = homeUnifiedResultState[key];
+    const block = box.querySelector(`[data-ksrc-block="${cssString(key)}"]`);
+    if(!st || !block) return;
+    if(st.status === "error"){
+      block.className = "home-ksrc-block error";
+      block.innerHTML = `<div class="home-ksrc-block-body"><p class="high">조회 실패: ${escapeHtml(st.error || "오류")}</p></div>`;
+    } else if(st.kind === "rag"){
+      homeRenderRagBlock(block, key, st.data.docs || [], st.elapsedMs || 0);
+    } else {
+      homeRenderCdwBlock(block, key, st.data, st.elapsedMs || 0);
+    }
+  });
+}
+
+// AI코칭 — 공유 질의를 점검하고 재구성안을 제시(선택 소스 컨텍스트 반영).
+async function homeUnifiedCoach(btn){
+  const { sources } = homeSelectedAnalysisOptions();
+  const ta = document.querySelector("[data-home-unified-query]");
+  const query = ((ta?.value) || "").trim();
+  const box = document.querySelector("[data-home-unified-result]");
+  if(!query){
+    if(box) box.innerHTML = `<div class="home-card-result-status">먼저 질의를 입력하세요.</div>`;
+    ta?.focus();
+    return;
+  }
+  if(box) box.innerHTML = `<div class="home-card-result-status muted">AI코칭 분석 중...</div>`;
+  if(btn) btn.disabled = true;
+  try{
+    const res = await fetch("/api/coach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: query, selected_sources: sources, selected_agents: [] }),
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    homeRenderUnifiedCoach(await res.json());
+  } catch(err){
+    if(box) box.innerHTML = `<div class="home-card-result-status">코칭 실패: ${escapeHtml(err.message || String(err))}</div>`;
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+function homeRenderUnifiedCoach(data){
+  const box = document.querySelector("[data-home-unified-result]");
+  if(!box) return;
+  const score = data.score ?? "-";
+  const items = (data.suggestions || []).map(s => {
+    const title = s.title || s.desc || "";
+    const detail = s.desc && s.title ? `<div class="home-card-coach-desc">${escapeHtml(s.desc)}</div>` : "";
+    return `<li><b>${escapeHtml(title)}</b>${detail}</li>`;
+  }).join("");
+  const improved = data.improved_prompt || "";
+  homeCardCoachState[HOME_UNIFIED_KEY] = { improved };
+  box.innerHTML = `
+    <div class="home-card-coach">
+      <div class="home-card-coach-head">AI코칭 <span class="home-card-coach-score">점수 ${escapeHtml(String(score))}</span></div>
+      ${items ? `<ul class="home-card-coach-list">${items}</ul>`
+              : `<p class="muted" style="font-size:12px">개선 제안이 없습니다 — 질의가 충분히 구체적입니다.</p>`}
+      ${improved ? `
+        <div class="home-card-coach-improved">
+          <div class="home-card-coach-improved-label">재구성 제안</div>
+          <div class="home-card-coach-improved-text">${escapeHtml(improved)}</div>
+          <button type="button" class="btn secondary home-card-coach-apply" data-home-unified-coach-apply>이 질의로 교체</button>
+        </div>` : ""}
+    </div>`;
+}
+
+function homeApplyUnifiedCoach(){
+  const improved = homeCardCoachState[HOME_UNIFIED_KEY]?.improved;
+  if(!improved) return;
+  const ta = document.querySelector("[data-home-unified-query]");
+  if(ta) ta.value = improved;
+  homeUnifiedQueryState = { text: improved, edited: true };
+  homeSyncCombinedPrompt();
+  const box = document.querySelector("[data-home-unified-result]");
+  if(box) box.innerHTML = `<div class="home-card-result-status">재구성 질의를 적용했습니다.</div>`;
+}
+
+// 통합 프레임에서 소스 토글(제외) — 선택 해제 후 재렌더.
+function homeRemoveSourceFromUnified(key){
+  homeSelectedRagKeys = homeSelectedRagKeys.filter(k => k !== key);
+  document.querySelectorAll(`[data-home-source="${cssString(key)}"].selected`).forEach(btn => {
+    btn.classList.remove("selected");
+    const check = btn.querySelector(".home-check");
+    if(check){ check.classList.remove("on"); check.classList.add("off"); check.textContent = ""; }
+    const status = btn.querySelector(".home-select-status");
+    if(status){ status.classList.remove("selected"); status.textContent = "×"; }
+  });
+  delete homeUnifiedResultState[key];
+  homeSyncPickerStatuses();
+  homeRenderServiceInputPanels();
+  homeRenderPromptTemplatePanels();
+}
+
 // 데이터소스 소개 카드 (자연어 조회 대상) — 좌: 안내+검색조건 / 우: 프롬프트+수행결과
 function homeDataSourceCardHtml(key, order){
   const svc = AI_SERVICE_REGISTRY[key];
@@ -3807,6 +4120,8 @@ function homeRenderPromptTemplatePanels(){
   Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
   Object.keys(homeCardCollapsed).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
   Object.keys(homeCardResultState).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardResultState[key]; });
+  // 선택 해제된 소스의 통합 검색 결과는 제거
+  Object.keys(homeUnifiedResultState).forEach(key => { if(!sources.includes(key)) delete homeUnifiedResultState[key]; });
   // 신규 AI 서비스 동작칩 상태 초기화
   aiOrder.forEach(key => {
     if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key]){
@@ -3816,16 +4131,18 @@ function homeRenderPromptTemplatePanels(){
 
   if(!sources.length && !aiOrder.length){ container.innerHTML = ""; homeSyncCombinedPrompt(); return; }
 
-  const runtimeSteps = [...sources, ...aiOrder];
-  // 좌→우 가로 흐름: 업무지식베이스(검색) 카드 → AI 분석서비스 프레임, 사이에 화살표
+  // 업무지식베이스 소스는 하나의 '통합 지식 검색' 프레임으로 묶고(공유 질의),
+  // AI 분석 서비스는 그 뒤에 개별 프레임으로 이어 붙인다(순서 배지는 통합 프레임을 1스텝으로 카운트).
+  const srcStepCount = sources.length ? 1 : 0;
   const cards = [
-    ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
-    ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
+    ...(sources.length ? [homeUnifiedSourceCardHtml(sources, 1)] : []),
+    ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, srcStepCount, [])),
   ];
   const flow = cards.join("");
 
-  const allCollapsed = runtimeSteps.length > 0 && runtimeSteps.every(key => homeCardCollapsed[key]);
-  const bulkBtn = runtimeSteps.length > 1
+  const aiAllCollapsed = aiOrder.length > 0 && aiOrder.every(key => homeCardCollapsed[key]);
+  const allCollapsed = aiAllCollapsed && (srcStepCount ? homeUnifiedCollapsed : true);
+  const bulkBtn = (aiOrder.length + srcStepCount) > 1
     ? `<button type="button" class="home-pipeline-collapse-all" data-home-collapse-all="${allCollapsed ? "expand" : "collapse"}">${allCollapsed ? "모두 펴기" : "모두 접기"}</button>
        <button type="button" class="home-pipeline-reset-all" data-home-reset-all title="모든 카드를 접고 수행 결과를 비웁니다">모두 닫고 초기화</button>`
     : "";
@@ -3843,6 +4160,7 @@ function homeRenderPromptTemplatePanels(){
   `;
   // 보존된 수행 결과를 복원(서비스 추가 등 재렌더 시 결과 유지)
   homeRestoreCardResults();
+  homeRestoreUnifiedResults();
   // 선택/입력에 맞춰 통합 프롬프트를 입력창에 자동 생성
   homeSyncCombinedPrompt();
 }
@@ -4386,8 +4704,11 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     const behaviorLabel = (tpl && tpl.behaviors.length)
       ? tpl.behaviors.map(v => (AI_SERVICE_REGISTRY[a.key]?.behaviorOptions || []).find(o => o.value === v)?.label || v).join(", ")
       : "기본";
-    // 카드 프롬프트가 입력값의 단일 출처 — 그대로 지시문으로 사용
-    const cardText = (homeCardPromptState[a.key]?.text || "").trim();
+    // 카드 프롬프트가 입력값의 단일 출처 — 그대로 지시문으로 사용.
+    // 업무지식베이스 소스는 통합 지식 검색의 공유 질의를 지시문으로 쓴다.
+    const cardText = isHomeSourceKey(a.key)
+      ? homeUnifiedQueryText()
+      : (homeCardPromptState[a.key]?.text || "").trim();
     const instruction = cardText || ((tpl && tpl.text.trim()) ? tpl.text.trim() : prompt);
     return {
       id: `home_${i}`,
@@ -9275,6 +9596,12 @@ document.addEventListener("input", (event) => {
     homeCardPromptState[el.dataset.homeCardPrompt] = { text, edited: true };
     homeSyncCombinedPrompt();   // 카드 편집 → 하단 통합 프롬프트 즉시 일치
   }
+  // 통합 지식 검색 공유 질의 — 상태 보존(재렌더 대비) + 하단 통합 프롬프트 동기화
+  const uq = event.target?.closest?.("[data-home-unified-query]");
+  if(uq){
+    homeUnifiedQueryState = { text: uq.value, edited: true };
+    homeSyncCombinedPrompt();
+  }
   // 전용 입력 폼(번역·요약·표준보고서) — 값을 상태에 보존(카드 재렌더 대비)
   const ded = event.target?.closest?.("[data-home-ded]");
   if(ded){
@@ -10219,12 +10546,37 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  // 통합 지식 검색: 단일 수행
+  const unifiedRun = event.target.closest("[data-home-unified-run]");
+  if(unifiedRun){ homeRunUnifiedSearch(unifiedRun); return; }
+
+  // 통합 지식 검색: AI코칭 / 재구성안 적용
+  const unifiedCoach = event.target.closest("[data-home-unified-coach]");
+  if(unifiedCoach){ homeUnifiedCoach(unifiedCoach); return; }
+  const unifiedCoachApply = event.target.closest("[data-home-unified-coach-apply]");
+  if(unifiedCoachApply){ homeApplyUnifiedCoach(); return; }
+
+  // 통합 지식 검색: 소스 pill 토글(검색 대상에서 제외)
+  const sourceToggle = event.target.closest("[data-home-source-toggle]");
+  if(sourceToggle){ homeRemoveSourceFromUnified(sourceToggle.dataset.homeSourceToggle); return; }
+
+  // 통합 지식 검색: 프레임 접기/펴기
+  const unifiedCollapse = event.target.closest("[data-home-unified-collapse]");
+  if(unifiedCollapse){
+    homeUnifiedCollapsed = !homeUnifiedCollapsed;
+    const panel = unifiedCollapse.closest(".home-unified-card");
+    if(panel) panel.classList.toggle("is-collapsed", homeUnifiedCollapsed);
+    unifiedCollapse.textContent = homeUnifiedCollapsed ? "▸ 펴기" : "▾ 접기";
+    unifiedCollapse.setAttribute("aria-expanded", homeUnifiedCollapsed ? "false" : "true");
+    return;
+  }
+
   // 카드 전체 접기/펴기 (수행 흐름 헤더)
   const collapseAll = event.target.closest("[data-home-collapse-all]");
   if(collapseAll){
     const collapse = collapseAll.dataset.homeCollapseAll === "collapse";
-    const { sources } = homeSelectedAnalysisOptions();
-    [...sources, ...homeSyncPipelineOrder()].forEach(key => { homeCardCollapsed[key] = collapse; });
+    homeSyncPipelineOrder().forEach(key => { homeCardCollapsed[key] = collapse; });
+    homeUnifiedCollapsed = collapse;
     homeRenderPromptTemplatePanels();
     return;
   }
@@ -10232,8 +10584,9 @@ document.addEventListener("click", (event)=>{
   // 모두 닫고 초기화: 모든 카드를 접고 수행 결과를 비운다(입력값은 유지)
   const resetAll = event.target.closest("[data-home-reset-all]");
   if(resetAll){
-    const { sources } = homeSelectedAnalysisOptions();
-    [...sources, ...homeSyncPipelineOrder()].forEach(key => { homeCardCollapsed[key] = true; });
+    homeSyncPipelineOrder().forEach(key => { homeCardCollapsed[key] = true; });
+    homeUnifiedCollapsed = true;
+    homeUnifiedResultState = {};
     homeCardResultState = {};
     homeRunResults = {};
     homeStepStatus = {};

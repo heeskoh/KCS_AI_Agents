@@ -789,6 +789,30 @@ def run_db_query_api(body: dict) -> dict:
         return {"error": str(exc), "service": service}
 
 
+def run_rag_query_api(body: dict) -> dict:
+    """의미 기반 문서검색(RAG) 구조화 조회 API — 통합 지식 검색 UI 전용.
+
+    단일 RAG 소스(컬렉션)에 대해 유사도·메타데이터·스니펫을 카드 렌더용으로 반환한다.
+    """
+    from src.agents.agent_rag import search_rag_structured
+
+    prompt = (body.get("prompt") or "").strip()
+    source = (body.get("source") or "rag_customs").strip()
+    try:
+        k = int(body.get("k") or 4)
+    except (TypeError, ValueError):
+        k = 4
+
+    if not prompt:
+        return {"error": "prompt is required", "source": source}
+
+    try:
+        docs = search_rag_structured(prompt, source_key=source, k=k)
+        return {"source": source, "docs": docs}
+    except Exception as exc:
+        return {"error": str(exc), "source": source}
+
+
 def llm_direct_query(body: dict) -> dict:
     """에이전트 없이 LLM에 직접 질의한다.
 
@@ -2060,6 +2084,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 body = {}
             self._send_json(run_db_query_api(body))
+            return
+
+        if parsed.path == "/api/rag_query":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(run_rag_query_api(body))
             return
 
         if parsed.path == "/api/send":
