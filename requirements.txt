@@ -45,3 +45,4 @@ sentence-transformers>=2.7,<3.0   # jhgan/ko-sroberta-multitask 임베딩 사용
 # --- 업로드 문서 텍스트 추출 ---
 openpyxl>=3.1,<4.0
 pypdf>=4.0,<7.0
+olefile>=0.46         # HWP(한글) OLE 스트림 파싱
