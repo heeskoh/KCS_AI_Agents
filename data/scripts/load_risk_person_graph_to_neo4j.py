@@ -236,6 +236,20 @@ def merge_person(tx: ManagedTransaction, row: dict[str, Any], rollup: dict[str, 
         )
 
 
+def _org_domain(row: dict[str, Any]) -> str:
+    """risk_org_profile.domain 을 그래프 도메인 공간(drug/forex/general)으로 정규화.
+
+    앱 도메인 필터·Person.domain 관례와 동일하게 customs 는 general 로 매핑한다.
+    domain 컬럼이 비어 있으면 RO-OFF 역외법인은 forex, 그 외는 general 로 폴백.
+    """
+    d = str(row.get("domain") or "").strip()
+    if d == "customs":
+        return "general"
+    if d in ("drug", "forex", "general"):
+        return d
+    return "forex" if str(row.get("org_id", "")).startswith("RO-OFF") else "general"
+
+
 def merge_org(tx: ManagedTransaction, row: dict[str, Any]) -> None:
     tx.run(
         """
@@ -252,8 +266,7 @@ def merge_org(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             o.seed_batch_id = $seed_batch_id,
             o.updated_from = $source_tag
         """,
-        {**row, "domain": ("forex" if str(row.get("org_id", "")).startswith("RO-OFF")
-                           else "general"), "source_tag": SOURCE_TAG},
+        {**row, "domain": _org_domain(row), "source_tag": SOURCE_TAG},
     )
     if row.get("address_region"):
         tx.run(
