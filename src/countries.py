@@ -40,6 +40,40 @@ def _build_name_to_code() -> dict[str, str]:
 NAME_TO_CODE: dict[str, str] = _build_name_to_code()
 
 
+# ISO 3166-1 alpha-3 → alpha-2 (수입신고서 원산지/적출국가 코드는 alpha-2 체계)
+ALPHA3_TO_ALPHA2: dict[str, str] = {
+    "TWN": "TW", "CHN": "CN", "JPN": "JP", "KOR": "KR", "SAU": "SA", "ARE": "AE",
+    "MYS": "MY", "THA": "TH", "VNM": "VN", "BGD": "BD", "KHM": "KH", "IDN": "ID",
+    "CHE": "CH", "DEU": "DE", "USA": "US", "GBR": "GB", "AUS": "AU", "CHL": "CL",
+    "PER": "PE", "SGP": "SG", "HKG": "HK", "MEX": "MX", "IND": "IN", "BRA": "BR",
+    "TUR": "TR", "FRA": "FR", "NLD": "NL", "PHL": "PH", "ITA": "IT", "CAN": "CA",
+}
+
+# COUNTRY_NAMES(alpha-3)에 없는 데이터 표기(코드성 별칭) → alpha-2
+_EXTRA_ALPHA2: dict[str, str] = {
+    "BVI": "VG", "파나마": "PA", "PANAMA": "PA",
+}
+
+
+def country_alpha2(name_or_code: str | None, default: str = "UN") -> str:
+    """한글명/별칭/코드 → ISO 3166-1 alpha-2 코드(수입신고서 원산지·적출국가 코드).
+
+    이미 alpha-2면 그대로, 한글명/alpha-3은 변환, 미해석 시 default('UN')."""
+    if not name_or_code:
+        return default
+    text = str(name_or_code).strip()
+    if text in _EXTRA_ALPHA2:
+        return _EXTRA_ALPHA2[text]
+    if text.upper() in _EXTRA_ALPHA2:
+        return _EXTRA_ALPHA2[text.upper()]
+    a3 = country_code(text)                       # 한글명/코드 → alpha-3
+    if a3 in ALPHA3_TO_ALPHA2:
+        return ALPHA3_TO_ALPHA2[a3]
+    if len(text) == 2 and text.isalpha():         # 이미 alpha-2
+        return text.upper()
+    return default
+
+
 def country_name(code: str | None, default: str | None = None) -> str:
     """국가 코드 → 한글명. 미등록 코드면 default(없으면 원본 코드)를 반환한다."""
     if not code:

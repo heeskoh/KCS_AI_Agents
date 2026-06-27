@@ -42,13 +42,13 @@ MAP: dict[int, tuple[str, str]] = {
     29: (D, "taxpayer_name"), 30: (D, "taxpayer_phone"), 31: (D, "taxpayer_email"),
     32: (D, "taxpayer_person_name"), 33: (D, "taxpayer_customs_code"),
     35: (D, "forwarder_name"), 36: (D, "forwarder_code"),
-    41: (D, "overseas_supplier_name"), 42: (D, "overseas_supplier_country"),
+    41: (D, "overseas_supplier_name"), 42: (D, "overseas_supplier_country_code"),
     43: (D, "overseas_supplier_code"), 51: (D, "clearance_plan"),
     52: (D, "declaration_type"), 53: (D, "transaction_type"), 54: (D, "import_type"),
     55: (D, "origin_cert_flag"), 56: (D, "price_declaration_flag"),
     58: (D, "total_weight"), 59: (D, "total_weight_unit"), 60: (D, "total_packages"),
     62: (D, "arrival_port"), 63: (D, "transport_type"), 64: (D, "package_type"),
-    65: (D, "departure_country"), 66: (D, "vessel_name"), 67: (D, "vessel_nationality"),
+    65: (D, "departure_country_code"), 66: (D, "vessel_name"), 67: (D, "vessel_nationality"),
     68: (D, "master_bl_awb_no"), 69: (D, "carrier_code"), 70: (D, "inspection_location"),
     72: (D, "payment_incoterms"), 73: (D, "payment_amount"), 74: (D, "payment_currency"),
     75: (D, "payment_method"), 76: (D, "total_customs_value_usd"), 77: (D, "total_customs_value_krw"),
@@ -61,7 +61,7 @@ MAP: dict[int, tuple[str, str]] = {
     # ── 란(품목)부 ──
     120: (I, "line_no"), 121: (I, "tariff_item_name_en"), 122: (I, "trade_item_name_en"),
     123: (I, "brand_code"), 124: (I, "brand_name"), 126: (I, "hsk_code"),
-    140: (I, "origin_country"), 141: (I, "origin_criteria"), 142: (I, "origin_marking"),
+    140: (I, "origin_country_code"), 141: (I, "origin_criteria"), 142: (I, "origin_marking"),
     147: (I, "refund_quantity_unit"), 148: (I, "refund_quantity"),
     155: (I, "post_verification_agency"), 158: (I, "net_weight_unit"), 159: (I, "net_weight"),
     160: (I, "tariff_quantity_unit"), 161: (I, "tariff_quantity"),
@@ -145,15 +145,48 @@ def main() -> None:
         ).fetchone()[0]
         return "OK", (nn / tot * 100 if tot else 0.0)
 
-    # 서식표시 자동판정: 항목명 핵심토큰이 서식 본문에 존재
+    # 서식표시 자동판정: 항목명 어간·별칭이 서식 본문(공백·기호 제거)에 존재
+    def _norm(s: str) -> str:
+        s = re.sub(r"[①-⑳]", "", s)              # 원문자 번호 제거
+        return re.sub(r"[\s()/·.\-ㆍ※*\[\]]", "", s)
+
+    form_n = _norm(form)
+    _SUFFIX = ("코드", "부호", "번호", "여부", "유무", "구분", "단위", "명")
+    # 서식 라벨이 정의서명과 다른 항목(별칭)
+    ALIAS = {
+        "HS부호": ["세번부호"], "원산지코드": ["원산지", "적출국"], "적출국가코드": ["적출국"],
+        "선(기)명": ["선기명"], "선(기)국적": ["선기명"], "운송수단": ["운송형태"],
+        "수입종류": ["종류"], "모델 및 규격": ["모델규격"],
+        "중량ㆍ수량": ["수량"], "중량ㆍ수량 단위": ["수량"],
+        "Master B/L 번호": ["MASTERBL"], "총부가세": ["부가가치세"],
+        "총부가세과세과표": ["총부가가치세과표"], "총부가세면세과표": ["총부가가치세과표"],
+        "검사(반입)장소 보세구역부호": ["검사반입장소"], "결제금액 통화종류": ["통화종류"],
+        "신고세관": ["세관과", "세관"], "신고과": ["세관과"],
+        "관세액": ["세액"], "내국세액": ["세액"], "부가세액": ["세액"],
+        "교육세액": ["세액"], "농특세액": ["세액"], "내국세액합계": ["세액"],
+        "관세율": ["세율"], "내국세율": ["세율"],
+        "관세감면율": ["감면율"], "관세감면액": ["감면액"], "관세감면분납부호": ["감면분납부호"],
+        "총관세총액": ["총과세가격", "관세"], "총개별소비세": ["개별소비세"],
+        "총교육세": ["교육세"], "총세액합계": ["세액"],
+        "납세의무자 식별번호": ["납세의무자"], "납세의무자 식별번호 구분부호": ["납세의무자"],
+        "수입요건확인서 발급서류명": ["발급서류명"],
+    }
+
     def in_form(name: str) -> bool:
-        key = re.sub(r"[\s()/·.\-]", "", name)
-        for cut in (key, key[:6], key[:4]):
-            if cut and cut in form:
-                return True
-        # 토큰 분해 매칭
-        toks = [t for t in re.split(r"[\s()/·.\-]", name) if len(t) >= 2]
-        return any(re.sub(r"\s", "", t) in form for t in toks[:1])
+        stems = set(ALIAS.get(name, []))
+        core = _norm(name)
+        stems.add(core)
+        # 접미사 제거 어간
+        cur = core
+        for suf in _SUFFIX:
+            if cur.endswith(suf) and len(cur) > len(suf) + 1:
+                cur = cur[: -len(suf)]
+                stems.add(cur)
+        # 첫 토큰(괄호/구분자 앞)
+        first = _norm(re.split(r"[\s()/·\-ㆍ]", name)[0])
+        if len(first) >= 2:
+            stems.add(first)
+        return any(_norm(s) in form_n for s in stems if len(_norm(s)) >= 2)
 
     rows = []
     n_map = n_store = n_full = n_form = 0
