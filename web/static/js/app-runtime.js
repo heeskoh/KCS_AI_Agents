@@ -60,6 +60,12 @@ const HOME_SHORTCUT_PERMISSION_KEYS = {
 
 function homeShortcutState(page){
   if(page === "system") return isCurrentUserAdmin() ? "granted" : "locked";
+  // 권한관리.pdf 매트릭스: 페이지 접근권한(pages)을 1차 기준으로 사용
+  if(currentUserGroup().pages || isCurrentUserSuperAdmin()){
+    if(["investigation","generalinv","lawsearch","fxsearch","case","model","report"].includes(page)){
+      return pageAllowed(page) ? "granted" : "locked";
+    }
+  }
   const keys = HOME_SHORTCUT_PERMISSION_KEYS[page];
   if(!keys || !keys.length) return "granted";
   return keys.some(key => hasPermission(key)) ? "granted" : "locked";
@@ -278,7 +284,7 @@ const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-001", invTypeId:"d2", domain:"lawsearch",
     targetName:"김우범", targetType:"person", personId:"RP-0001", nationality:"한국",
-    team:"마약수사 전담팀", investigator:"임조사",
+    team:"마약수사 전담팀", investigator:"임수사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"방금",
     status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
@@ -286,7 +292,7 @@ const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-002", invTypeId:"d1", domain:"lawsearch",
     targetName:"(주)위장무역", targetType:"company", companyId:"__NO_COMPANY_SELECTED__", drugOrgId:"RO-002", nationality:"한국",
-    team:"마약수사 전담팀", investigator:"임조사",
+    team:"마약수사 전담팀", investigator:"임수사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 09:10",
     status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
@@ -294,7 +300,7 @@ const defaultDrugInvCases = [
   {
     caseId:"DRUG-2026-003", invTypeId:"d5", domain:"lawsearch",
     targetName:"Park James", targetType:"person", personId:"RP-0003", nationality:"미국",
-    team:"국제협력팀", investigator:"임조사",
+    team:"국제협력팀", investigator:"임수사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
     status:{ label:"보고서 검증", tone:"review", done:5, total:6, pct:83 },
@@ -302,7 +308,7 @@ const defaultDrugInvCases = [
   {
     caseId:"FX-2026-001", invTypeId:"f3", domain:"fxsearch",
     targetName:"(주)글로벌송금", targetType:"company", companyId:"FX-CO-101", drugOrgId:"FX-101", nationality:"한국",
-    team:"외환수사 전담팀", investigator:"임조사",
+    team:"외환수사 전담팀", investigator:"임수사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"오늘 11:20",
     status:{ label:"진행중", tone:"running", done:2, total:6, pct:33 },
@@ -310,7 +316,7 @@ const defaultDrugInvCases = [
   {
     caseId:"FX-2026-002", invTypeId:"f2", domain:"fxsearch",
     targetName:"이자금", targetType:"person", personId:"RP-0005", nationality:"한국",
-    team:"외환수사 전담팀", investigator:"임조사",
+    team:"외환수사 전담팀", investigator:"임수사",
     ownerUserId:"u09", assignees:["u09"],
     updated:"어제",
     status:{ label:"자료수집", tone:"running", done:1, total:6, pct:17 },
@@ -1283,53 +1289,56 @@ const sidebarPermissionGroups = {
 const ALL_RAG = sidebarPermissionGroups.dataSources;
 const ALL_AGENTS = sidebarPermissionGroups.agents;
 
+// 페이지 접근권한 키(권한관리.pdf 매트릭스): 관세조사·일반수사·마약수사·외환수사·국제정보·감시보고서등록·관계망분석
+const ALL_INV_PAGES = ["investigation", "generalinv", "lawsearch", "fxsearch", "case", "model"];
+
 const userGroups = [
   // ── 정보국 ──────────────────────────────────────────────────────────────
-  {id:"g01",org:"정보국",team:"정보기획담당관", isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS},
-  {id:"g02",org:"정보국",team:"인공지능혁신팀", isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","law","report_generate","report_validate"]},
-  {id:"g03",org:"정보국",team:"시스템운영팀",   isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"]},
-  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","rag_customs","rag_audit"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"]},
-  {id:"g05",org:"정보국",team:"데이터담당관",   isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS},
+  {id:"g01",org:"정보국",team:"정보기획담당관", isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS, pages:[...ALL_INV_PAGES]},
+  {id:"g02",org:"정보국",team:"인공지능혁신팀", isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch"]},
+  {id:"g03",org:"정보국",team:"시스템운영팀",   isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
+  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","rag_customs","rag_audit"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
+  {id:"g05",org:"정보국",team:"데이터담당관",   isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS, pages:["model"]},
   // ── 본청 업무분야 ────────────────────────────────────────────────────────
   {id:"g06",org:"본청",team:"통관 분야", isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g07",org:"본청",team:"감시분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"]},
-  {id:"g08",org:"본청",team:"심사분야",  isAdmin:false,
+    agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"], pages:["case","report"]},
+  {id:"g08",org:"본청",team:"조사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
-  {id:"g09",org:"본청",team:"조사분야",  isAdmin:false,
+    agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["investigation","case","model"]},
+  {id:"g09",org:"본청",team:"수사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_investigation"],
-    agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
+    agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch","case","model"]},
   {id:"g10",org:"본청",team:"국제협력",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_global"],
-    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"], pages:["case"]},
   {id:"g11",org:"본청",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
-    agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"]},
-  {id:"g12",org:"본청",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS},
+    agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"], pages:[...ALL_INV_PAGES]},
+  {id:"g12",org:"본청",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS, pages:[...ALL_INV_PAGES]},
   // ── 세관 업무분야 ────────────────────────────────────────────────────────
   {id:"g13",org:"세관",team:"통관 분야", isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g14",org:"세관",team:"감시분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"]},
-  {id:"g15",org:"세관",team:"심사분야",  isAdmin:false,
+    agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"], pages:["case","report"]},
+  {id:"g15",org:"세관",team:"조사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_audit"],
-    agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
-  {id:"g16",org:"세관",team:"조사분야",  isAdmin:false,
+    agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["investigation","case","model"]},
+  {id:"g16",org:"세관",team:"수사분야",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_investigation"],
-    agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"]},
+    agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch","case","model"]},
   {id:"g17",org:"세관",team:"국제협력",  isAdmin:false,
     rag:["db_cdw","rag_customs","rag_global"],
-    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"]},
+    agents:["ocr","web_search","rag_create","law","report_generate","report_validate"], pages:["case"]},
   {id:"g18",org:"세관",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
-    agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"]},
-  {id:"g19",org:"세관",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS},
+    agents:["ocr","ml","network","web_search","rag_create","law","report_generate","report_validate"], pages:[...ALL_INV_PAGES]},
+  {id:"g19",org:"세관",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS, pages:[...ALL_INV_PAGES]},
 ];
 
 const sampleUsers = [
@@ -1340,15 +1349,15 @@ const sampleUsers = [
   {id:"u05",groupId:"g05",name:"정데이터",avatar:"정"},
   {id:"u06",groupId:"g06",name:"강통관",  avatar:"강"},
   {id:"u07",groupId:"g07",name:"조감시",  avatar:"조"},
-  {id:"u08",groupId:"g08",name:"윤심사",  avatar:"윤"},
-  {id:"u09",groupId:"g09",name:"임조사",  avatar:"임"},
+  {id:"u08",groupId:"g08",name:"윤조사",  avatar:"윤"},
+  {id:"u09",groupId:"g09",name:"임수사",  avatar:"임"},
   {id:"u10",groupId:"g10",name:"한협력",  avatar:"한"},
   {id:"u11",groupId:"g11",name:"노분석",  avatar:"노"},
   {id:"u12",groupId:"g12",name:"류지원",  avatar:"류"},
   {id:"u13",groupId:"g13",name:"오통관",  avatar:"오"},
   {id:"u14",groupId:"g14",name:"서감시",  avatar:"서"},
-  {id:"u15",groupId:"g15",name:"신심사",  avatar:"신"},
-  {id:"u16",groupId:"g16",name:"권조사",  avatar:"권"},
+  {id:"u15",groupId:"g15",name:"신조사",  avatar:"신"},
+  {id:"u16",groupId:"g16",name:"권수사",  avatar:"권"},
   {id:"u17",groupId:"g17",name:"황협력",  avatar:"황"},
   {id:"u18",groupId:"g18",name:"전분석",  avatar:"전"},
   {id:"u19",groupId:"g19",name:"고지원",  avatar:"고"},
@@ -2492,15 +2501,15 @@ const defaultGenInvCases = [
   { caseId:"GI-2026-001", targetName:"한국소재무역(주)", invTypeId:"t1", targetType:"company", companyId:"C-1001",
     status:{ label:"진행중", tone:"running", pct:65, done:4, total:7 },
     ownerUserId:"u09", assignees:["u09"],
-    investigator:"임조사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
+    investigator:"임수사", team:"조사국 조사1과", created:"2026-05-10", updated:"방금" },
   { caseId:"GI-2026-002", targetName:"샘플우범자001 (개인)", invTypeId:"t2", targetType:"person", personId:"RP-0001",
     status:{ label:"대기", tone:"wait", pct:10, done:1, total:7 },
     ownerUserId:"u09", assignees:["u09"],
-    investigator:"임조사", team:"세관 조사분야", created:"2026-05-15", updated:"오늘 09:30" },
+    investigator:"임수사", team:"세관 수사분야", created:"2026-05-15", updated:"오늘 09:30" },
   { caseId:"GI-2026-003", targetName:"글로벌패션코리아", invTypeId:"t5", targetType:"company", companyId:"C-1003",
     status:{ label:"검토중", tone:"review", pct:85, done:6, total:7 },
     ownerUserId:"u09", assignees:["u09"],
-    investigator:"임조사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
+    investigator:"임수사", team:"조사국 조사1과", created:"2026-04-28", updated:"어제" },
 ];
 const defaultGenInvCasesBaseline = JSON.parse(JSON.stringify(defaultGenInvCases));
 
@@ -5322,6 +5331,12 @@ function currentUser(){ return sampleUsers.find(u => u.id === currentUserId) || 
 function currentUserGroup(){ const u = currentUser(); return userGroups.find(g => g.id === u.groupId) || userGroups[0]; }
 function isCurrentUserAdmin(){ return currentUserGroup().isAdmin === true; }
 function isCurrentUserSuperAdmin(){ return isSuperAdminUser(currentUser()); }
+/* 권한관리.pdf 매트릭스 기반 페이지 접근권한: 그룹 pages 목록(슈퍼관리자는 전체). */
+function currentUserPages(){
+  if(isCurrentUserSuperAdmin()) return [...ALL_INV_PAGES, "report"];
+  return currentUserGroup().pages || [];
+}
+function pageAllowed(page){ return currentUserPages().includes(page); }
 
 /* 업무시나리오 구성 저장소: 서버 파일(data/scenario_builder_config.json).
    - localStorage는 빠른 초기 렌더용 캐시로 유지하되, 서버 파일이 단일 진실원.
