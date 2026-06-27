@@ -334,7 +334,12 @@ function mainCanvasJob(job){
           <h3>${title}</h3>
           <p>${meta}</p>
         </div>
-        <span class="job-status ${status.tone}">${status.label}</span>
+        <div class="main-job-head-right">
+          <span class="job-status ${status.tone}">${status.label}</span>
+          <button type="button" class="canvas-job-del" title="내 캔버스에서 삭제"
+            data-canvas-job-del="${escapeHtml(job.jobId || companyId || "")}"
+            data-canvas-job-page="${escapeHtml(job.page || "investigation")}">×</button>
+        </div>
       </div>
       <span class="canvas-category-chip">${escapeHtml(canvasJobCategory(job))}</span>
       <div class="job-progress"><i style="width:${status.pct}%"></i></div>
@@ -6345,6 +6350,25 @@ function removeCanvasJobForCurrentUser(companyId){
   saveCanvasState();
 }
 
+/* 개인 캔버스에서 진행중 심사/수사 작업을 현재 사용자 기준으로 삭제(제거).
+   - 관세조사(통관): 기존 removeCanvasJobForCurrentUser(소유 custom은 삭제, 공유는 숨김)
+   - 일반/마약/외환 수사: caseId(jobId)를 사용자별 숨김목록에 추가 */
+function deleteCanvasJobForCurrentUser(jobId, page){
+  if(!jobId) return;
+  if(page === "investigation"){
+    removeCanvasJobForCurrentUser(jobId);
+    return;
+  }
+  const hidden = new Set(hiddenCanvasJobsByUser[currentUserId] || []);
+  hidden.add(jobId);
+  hiddenCanvasJobsByUser[currentUserId] = [...hidden];
+  saveCanvasState();
+}
+
+function isCanvasJobHiddenForUser(jobId){
+  return (hiddenCanvasJobsByUser[currentUserId] || []).includes(jobId);
+}
+
 function isArchivedJob(job){
   return job.archived === true;
 }
@@ -6360,6 +6384,7 @@ function activeCanvasJobs(){
 function activeGeneralInvestigationJobs(){
   return allGenInvCases()
     .filter(item => !item.archived)
+    .filter(item => !isCanvasJobHiddenForUser(item.caseId))
     .filter(item => {
       // 캔버스에는 로그인 사용자가 소유/담당한 수사만 표시 (소유자 없는 샘플 사건 제외)
       if(item.ownerUserId === currentUserId) return true;
@@ -6395,6 +6420,7 @@ function activeGiCaseStepsForCard(aCase){
 function activeDrugInvestigationJobs(){
   // 캔버스에는 로그인 사용자가 소유/담당한 사건만 표시 (소유자 없는 샘플 사건 제외)
   return defaultDrugInvCases
+    .filter(item => !isCanvasJobHiddenForUser(item.caseId))
     .filter(item => item.ownerUserId === currentUserId ||
       (Array.isArray(item.assignees) && item.assignees.includes(currentUserId)))
     .map(item => {
@@ -10424,6 +10450,20 @@ document.addEventListener("click", (event)=>{
     restoreRunArchiveToWorkspace(companyId, { tab:"report" });
     canvasTab = "overview";
     render("canvas");
+    return;
+  }
+
+  const canvasJobDel = event.target.closest("[data-canvas-job-del]");
+  if(canvasJobDel){
+    event.stopPropagation();
+    const jobId = canvasJobDel.dataset.canvasJobDel;
+    const page = canvasJobDel.dataset.canvasJobPage || "investigation";
+    const card = canvasJobDel.closest("[data-analysis-job]");
+    const title = card?.querySelector("h3")?.textContent?.trim() || "이 작업";
+    if(window.confirm(`'${title}'을(를) 내 캔버스에서 삭제할까요?`)){
+      deleteCanvasJobForCurrentUser(jobId, page);
+      render("home");
+    }
     return;
   }
 

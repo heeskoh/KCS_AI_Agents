@@ -1334,6 +1334,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .job-card h3{margin:0 0 7px;font-size:16px}
 .canvas-category-chip{display:inline-flex;align-items:center;width:max-content;margin:0 0 8px;padding:4px 8px;border-radius:999px;background:#eef6ff;color:#0f559c;font-size:11px;font-weight:900;line-height:1}
 .main-job-card .canvas-category-chip{margin-top:10px}
+.main-job-head-right{display:flex;align-items:center;gap:6px;flex:none}
+.canvas-job-del{border:1px solid #f1d4d4;background:#fff;color:#b91c1c;width:22px;height:22px;border-radius:7px;font-size:15px;line-height:1;cursor:pointer;padding:0;opacity:.55;transition:.12s}
+.main-job-card:hover .canvas-job-del{opacity:1}
+.canvas-job-del:hover{background:#fef2f2;border-color:#dc2626}
 .job-status{flex:none;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900;background:#eef4ff;color:#174ea6}
 .job-status.running{background:#fff7ed;color:#c2410c}
 .job-status.done{background:#ecfdf5;color:#047857}
