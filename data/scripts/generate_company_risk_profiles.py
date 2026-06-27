@@ -383,17 +383,18 @@ def generate_all(conn: duckdb.DuckDBPyConnection, verbose: bool = True) -> dict[
     conn.execute("DELETE FROM price_benchmark")
     conn.execute("DELETE FROM classification_case_library")
 
-    # price_benchmark: HS별 평균 신고금액 (전체 신고 기준)
+    # price_benchmark: 품목 유형(GlobalHS 6자리)별 평균 신고금액 (전체 신고 기준)
     bench_rows = conn.execute(
         """
-        SELECT hs_code, AVG(declared_value) AS avg_val, COUNT(*) AS n
-        FROM import_declarations WHERE hs_code IS NOT NULL
-        GROUP BY hs_code
+        SELECT global_hs, AVG(declared_value) AS avg_val, COUNT(*) AS n
+        FROM import_declarations WHERE global_hs IS NOT NULL
+        GROUP BY global_hs
         """
     ).fetchall()
     benchmark = {hs: float(avg) for hs, avg, _ in bench_rows}
     _insert(conn, "price_benchmark", [
-        {"hs_code": hs, "period": "2025", "avg_declared_value": round(float(avg)),
+        {"hs_code": hs, "global_hs": hs, "hsk": None, "period": "2025",
+         "avg_declared_value": round(float(avg)),
          "sample_size": int(n), "currency": "KRW", "source": "import_declarations 집계"}
         for hs, avg, n in bench_rows
     ])

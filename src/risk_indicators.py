@@ -106,12 +106,12 @@ def _rows(ctx: dict[str, Any], key: str) -> list[dict[str, Any]]:
 
 
 def _decl_nos_for_hs(decls: list[dict[str, Any]], hs_set: set) -> list[str]:
-    """지표 근거 HS 집합과 일치하는 수입신고번호 목록(저가신고 벤치마크 갭 등)."""
+    """지표 근거 HS 집합(GlobalHS 6자리)과 일치하는 수입신고번호 목록(저가신고 벤치마크 갭 등)."""
     if not hs_set:
         return []
     return sorted({
         d.get("declaration_no") for d in decls
-        if d.get("declaration_no") and d.get("hs_code") in hs_set
+        if d.get("declaration_no") and (d.get("global_hs") or d.get("hs_code")) in hs_set
     })
 
 
@@ -149,10 +149,10 @@ def _compute_undervaluation(ctx: dict[str, Any]) -> IndicatorResult:
     audits = _rows(ctx, "valuation_audit")
     related = _rows(ctx, "related_party")
 
-    # HS별 회사 평균 신고금액 vs 벤치마크 → 가중 저가폭(%)
+    # 품목 유형(GlobalHS 6자리)별 회사 평균 신고금액 vs 벤치마크 → 가중 저가폭(%)
     by_hs: dict[str, list[float]] = {}
     for d in decls:
-        hs = d.get("hs_code")
+        hs = d.get("global_hs") or d.get("hs_code")
         if hs and d.get("declared_value"):
             by_hs.setdefault(hs, []).append(float(d["declared_value"]))
     gap_weighted, weight = 0.0, 0

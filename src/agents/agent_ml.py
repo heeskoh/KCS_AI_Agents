@@ -328,8 +328,9 @@ def _run_industry_stats(conn, company_id: str) -> str:
 
 
 def _run_hs_risk(conn, company_id: str) -> str:
+    # 품목 유형(GlobalHS 6자리) 단위 통계
     all_stats = conn.execute("""
-        SELECT hs_code,
+        SELECT global_hs,
                COUNT(*)                                               AS cnt,
                AVG(declared_value)                                    AS avg_val,
                STDDEV_SAMP(declared_value)                            AS std_val,
@@ -339,11 +340,11 @@ def _run_hs_risk(conn, company_id: str) -> str:
                PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY declared_value) AS q1,
                PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY declared_value) AS q3
         FROM import_declarations
-        GROUP BY hs_code
+        GROUP BY global_hs
     """).df()
 
     my_decl = conn.execute(
-        "SELECT hs_code, declared_value, status FROM import_declarations WHERE company_id=?",
+        "SELECT global_hs, declared_value, status FROM import_declarations WHERE company_id=?",
         [company_id],
     ).df()
 
@@ -353,7 +354,7 @@ def _run_hs_risk(conn, company_id: str) -> str:
         return "\n".join(lines)
 
     for _, row in my_decl.iterrows():
-        peer = all_stats[all_stats["hs_code"] == row["hs_code"]]
+        peer = all_stats[all_stats["global_hs"] == row["global_hs"]]
         if peer.empty:
             continue
         p = peer.iloc[0]
@@ -381,7 +382,7 @@ def _run_hs_risk(conn, company_id: str) -> str:
             risk = "🟢 정상"
 
         lines.append(
-            f"- HS {row['hs_code']}: 신고가 {my_val:,.0f}  "
+            f"- HS {row['global_hs']}: 신고가 {my_val:,.0f}  "
             f"| 전체평균 {avg_val:,.0f} ({diff_pct:+.1f}%)  "
             f"| Z={z_score:.2f}  | 검토율 {review_rate:.1f}%  → {risk}{iqr_flag}"
         )
@@ -390,7 +391,7 @@ def _run_hs_risk(conn, company_id: str) -> str:
 
 def _run_hs_recommend(conn, company_id: str) -> str:
     my_items = conn.execute(
-        "SELECT DISTINCT hs_code, item_name FROM import_declarations WHERE company_id=?",
+        "SELECT DISTINCT global_hs, item_name FROM import_declarations WHERE company_id=?",
         [company_id],
     ).df()
 
@@ -400,35 +401,36 @@ def _run_hs_recommend(conn, company_id: str) -> str:
         return "\n".join(lines)
 
     for _, row in my_items.iterrows():
-        prefix = str(row["hs_code"])[:4]
+        prefix = str(row["global_hs"])[:4]
         hint   = _HS_HINTS.get(prefix)
         if hint:
             desc, candidates = hint
-            lines.append(f"- {row['item_name']}  (현재 신고: {row['hs_code']})")
+            lines.append(f"- {row['item_name']}  (현재 신고: {row['global_hs']})")
             lines.append(f"  분류군: {desc}")
             for c in candidates:
-                marker = "  ✅ 현재 신고" if str(row["hs_code"]).startswith(c[:7].replace(" ", "")) else "     후보"
+                marker = "  ✅ 현재 신고" if str(row["global_hs"]).startswith(c[:7].replace(" ", "")) else "     후보"
                 lines.append(f"{marker}: {c}")
         else:
-            lines.append(f"- {row['item_name']} ({row['hs_code']}): 추가 사양서·BOM 검토 필요")
+            lines.append(f"- {row['item_name']} ({row['global_hs']}): 추가 사양서·BOM 검토 필요")
     return "\n".join(lines)
 
 
 def _run_anomaly(conn, company_id: str) -> str:
+    # 품목 유형(GlobalHS 6자리) 단위 이상치 탐지
     stats = conn.execute("""
-        SELECT hs_code,
+        SELECT global_hs,
                COUNT(*)                     AS cnt,
                AVG(declared_value)          AS avg_val,
                STDDEV_SAMP(declared_value)  AS std_val,
                MIN(declared_value)          AS min_val,
                MAX(declared_value)          AS max_val
         FROM import_declarations
-        GROUP BY hs_code
+        GROUP BY global_hs
         HAVING COUNT(*) >= 3
     """).df()
 
     my_decl = conn.execute(
-        "SELECT hs_code, declared_value, status, import_date FROM import_declarations WHERE company_id=?",
+        "SELECT global_hs, declared_value, status, import_date FROM import_declarations WHERE company_id=?",
         [company_id],
     ).df()
 
@@ -438,7 +440,7 @@ def _run_anomaly(conn, company_id: str) -> str:
     normals   = []
 
     for _, row in my_decl.iterrows():
-        peer = stats[stats["hs_code"] == row["hs_code"]]
+        peer = stats[stats["global_hs"] == row["global_hs"]]
         if peer.empty:
             continue
         p   = peer.iloc[0]
@@ -450,14 +452,14 @@ def _run_anomaly(conn, company_id: str) -> str:
             z = (val - avg) / std  # 부호 유지 (음수 = 저가)
             if abs(z) > CFG.ml.anomaly_medium:
                 direction = "저가신고 의심" if z < 0 else "고가신고"
-                anomalies.append((row["hs_code"], val, avg, z, str(row["status"]), direction))
+                anomalies.append((row["global_hs"], val, avg, z, str(row["status"]), direction))
             else:
-                normals.append((row["hs_code"], val, avg, z))
+                normals.append((row["global_hs"], val, avg, z))
         else:
             # 표준편차 0 = 모든 값이 동일 → 직접 비교
             diff_pct = (val - avg) / avg * 100 if avg else 0
             if abs(diff_pct) > CFG.ml.anomaly_price_pct:
-                anomalies.append((row["hs_code"], val, avg, float("nan"), str(row["status"]),
+                anomalies.append((row["global_hs"], val, avg, float("nan"), str(row["status"]),
                                   "저가신고 의심" if diff_pct < 0 else "고가신고"))
 
     if anomalies:

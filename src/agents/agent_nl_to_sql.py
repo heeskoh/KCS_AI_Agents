@@ -28,7 +28,10 @@ DuckDB 데이터베이스 스키마 (관세청 CDW):
 
 2. import_declarations — 수입신고서 헤더 (신고 1건, 수입신고서 영역1·2·3·5)
    id (INT PK),  company_id (TEXT FK),  declaration_no (TEXT),
-   hs_code/item_name/declared_value/origin_country/origin_country_name (대표 품목값=첫 란),
+   hs_code (TEXT, HSK 10자리 "8708.99.9099"=GlobalHS6+HSK4),
+   global_hs (TEXT, 국제공통 6자리 "8708.99" — ★품목 유형 구분·집계·동종비교는 이 컬럼 사용),
+   hsk (TEXT, 국내 세분 4자리 "9099"),
+   item_name/declared_value/origin_country/origin_country_name (대표 품목값=첫 란),
    import_date (DATE),  status (TEXT: NORMAL/REVIEW/INSPECT/HOLD),
    [영역1 당사자] customs_office_code, declaration_type, clearance_plan, filer_name,
      importer_name, importer_customs_code, taxpayer_name, taxpayer_address,
@@ -46,7 +49,8 @@ DuckDB 데이터베이스 스키마 (관세청 CDW):
 
 2-1. import_declaration_items — 수입신고서 품목/란 (1신고 N란, 영역4)
    item_id (INT PK),  declaration_id (INT FK→import_declarations.id),  line_no (INT 란번호),
-   tariff_item_name_en, trade_item_name_en, hsk_code (HSK10), brand_name,
+   tariff_item_name_en, trade_item_name_en, hsk_code (HSK10 "8708990099"),
+   global_hs (6자리 "8708.99"), hsk (4자리 "9099"), brand_name,
    net_weight, tariff_quantity, tariff_quantity_unit, refund_quantity,
    origin_country, origin_criteria, origin_marking,
    import_requirement_type, import_requirement_doc, import_requirement_law_code,

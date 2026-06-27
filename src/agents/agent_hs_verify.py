@@ -409,7 +409,7 @@ def agent_hs_verify(state: CustomsState) -> CustomsState:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         # ── 기업 수입신고 ─────────────────────────────────────────────────────
         decl = conn.execute(
-            """SELECT declaration_no, hs_code, item_name, declared_value,
+            """SELECT declaration_no, global_hs, hs_code, item_name, declared_value,
                       origin_country, status
                FROM import_declarations
                WHERE company_id = ?
@@ -420,30 +420,31 @@ def agent_hs_verify(state: CustomsState) -> CustomsState:
         if decl.empty:
             return {**state, "hs_verify_result": "[품목분류검증] 수입신고 데이터 없음"}
 
-        hs_list = list(decl["hs_code"].unique())
+        # 품목분류 검증은 6자리 GlobalHS(품목 유형) 기준 — 분류 룰·타사 통계 매칭
+        hs_list = list(decl["global_hs"].unique())
 
         # ── 타사 동일 HS 원산지 분포 ─────────────────────────────────────────
         peer_origins = conn.execute(
-            f"""SELECT hs_code, origin_country, COUNT(*) AS cnt
+            f"""SELECT global_hs, origin_country, COUNT(*) AS cnt
                 FROM import_declarations
-                WHERE hs_code IN ({','.join(['?']*len(hs_list))})
+                WHERE global_hs IN ({','.join(['?']*len(hs_list))})
                   AND company_id != ?
-                GROUP BY hs_code, origin_country
-                ORDER BY hs_code, cnt DESC""",
+                GROUP BY global_hs, origin_country
+                ORDER BY global_hs, cnt DESC""",
             hs_list + [company_id],
         ).df()
 
         # ── 타사 동일 HS 신고가 통계 ─────────────────────────────────────────
         peer_stats = conn.execute(
-            f"""SELECT hs_code,
+            f"""SELECT global_hs,
                        AVG(declared_value)  AS avg_val,
                        MIN(declared_value)  AS min_val,
                        MAX(declared_value)  AS max_val,
                        COUNT(*)             AS cnt
                 FROM import_declarations
-                WHERE hs_code IN ({','.join(['?']*len(hs_list))})
+                WHERE global_hs IN ({','.join(['?']*len(hs_list))})
                   AND company_id != ?
-                GROUP BY hs_code""",
+                GROUP BY global_hs""",
             hs_list + [company_id],
         ).df()
 
@@ -458,7 +459,7 @@ def agent_hs_verify(state: CustomsState) -> CustomsState:
     hs_seen: set[str] = set()
 
     for _, row in decl.iterrows():
-        hs     = str(row["hs_code"])
+        hs     = str(row["global_hs"])
         origin = str(row.get("origin_country") or "")
         status = str(row.get("status") or "NORMAL")
         value  = float(row.get("declared_value") or 0)
@@ -470,13 +471,13 @@ def agent_hs_verify(state: CustomsState) -> CustomsState:
         rule = _HS_RULES.get(hs, _DEFAULT_RULE)
 
         # 타사 통계 조회
-        ps_row = peer_stats[peer_stats["hs_code"] == hs]
+        ps_row = peer_stats[peer_stats["global_hs"] == hs]
         peer_avg = float(ps_row.iloc[0]["avg_val"]) if not ps_row.empty else 0.0
         peer_min = float(ps_row.iloc[0]["min_val"]) if not ps_row.empty else 0.0
         peer_max = float(ps_row.iloc[0]["max_val"]) if not ps_row.empty else 0.0
 
         # 타사 주요 원산지
-        po_rows = peer_origins[peer_origins["hs_code"] == hs]
+        po_rows = peer_origins[peer_origins["global_hs"] == hs]
         peer_top_origin = str(po_rows.iloc[0]["origin_country"]) if not po_rows.empty else ""
 
         # 이상 탐지

@@ -73,7 +73,7 @@ def agent_declaration_verify(state: CustomsState) -> CustomsState:
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         db_rows = conn.execute(
-            """SELECT declaration_no, hs_code, item_name, declared_value, origin_country, status
+            """SELECT declaration_no, global_hs, hs_code, item_name, declared_value, origin_country, status
                FROM import_declarations WHERE company_id=? ORDER BY import_date DESC LIMIT 10""",
             [company_id],
         ).df()
@@ -87,16 +87,17 @@ def agent_declaration_verify(state: CustomsState) -> CustomsState:
 
         peer_avg_map: dict[str, float] = {}
         if industry_code:
+            # 동종 업종 평균은 품목 유형(GlobalHS 6자리) 기준 — OCR 추출 HS(6자리)와 정합
             peer_avg = conn.execute(
-                """SELECT d.hs_code, AVG(d.declared_value) AS peer_avg
+                """SELECT d.global_hs, AVG(d.declared_value) AS peer_avg
                    FROM import_declarations d
                    JOIN company_profiles c ON d.company_id = c.company_id
                    WHERE c.industry_code = ? AND d.company_id != ?
-                   GROUP BY d.hs_code""",
+                   GROUP BY d.global_hs""",
                 [industry_code, company_id],
             ).df()
             for _, r in peer_avg.iterrows():
-                peer_avg_map[str(r["hs_code"])] = float(r["peer_avg"] or 0)
+                peer_avg_map[str(r["global_hs"])] = float(r["peer_avg"] or 0)
 
     mismatches: list[dict] = []
     matches: list[str] = []
@@ -114,7 +115,8 @@ def agent_declaration_verify(state: CustomsState) -> CustomsState:
     }
 
     for _, row in db_rows.iterrows():
-        hs = str(row["hs_code"])
+        # OCR 송장 항목·동종 평균은 품목 유형(GlobalHS 6자리)으로 대조
+        hs = str(row["global_hs"])
         val = float(row["declared_value"] or 0)
 
         if hs in ocr_hs_set:

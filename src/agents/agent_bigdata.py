@@ -98,16 +98,17 @@ def agent_bigdata(state: CustomsState) -> CustomsState:
             """
         ).df()
 
+        # 품목 유형(GlobalHS 6자리)별 집계
         hs_stats = conn.execute(
             """
             SELECT
-                hs_code,
+                global_hs,
                 item_name,
                 COUNT(*) AS declaration_count,
                 AVG(declared_value) AS avg_declared_value,
                 SUM(declared_value) AS total_declared_value
             FROM import_declarations
-            GROUP BY hs_code, item_name
+            GROUP BY global_hs, item_name
             ORDER BY total_declared_value DESC
             """
         ).df()

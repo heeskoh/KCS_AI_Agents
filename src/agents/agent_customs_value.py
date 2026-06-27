@@ -37,14 +37,15 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         my_decl = conn.execute(
-            """SELECT hs_code, item_name, declared_value, origin_country
+            """SELECT global_hs, hs_code, item_name, declared_value, origin_country
                FROM import_declarations WHERE company_id=? ORDER BY import_date DESC""",
             [company_id],
         ).df()
 
+        # 동종 품목(유형) 비교는 6자리 GlobalHS 기준으로 집계
         peer_stats = conn.execute(
             """SELECT
-                 d.hs_code,
+                 d.global_hs,
                  d.origin_country,
                  COUNT(*)                           AS peer_count,
                  AVG(d.declared_value)              AS peer_avg,
@@ -54,7 +55,7 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
                  PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY d.declared_value) AS q3
                FROM import_declarations d
                WHERE d.company_id != ?
-               GROUP BY d.hs_code, d.origin_country
+               GROUP BY d.global_hs, d.origin_country
                HAVING COUNT(*) >= 1""",
             [company_id],
         ).df()
@@ -71,7 +72,7 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
 
     lines = [
         "[과세가격평가 결과]",
-        f"대상 기업: {company_id}  |  검증 품목: {my_decl['hs_code'].nunique()}종",
+        f"대상 기업: {company_id}  |  검증 품목: {my_decl['global_hs'].nunique()}종",
         "",
     ]
 
@@ -91,7 +92,7 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
     red_flags: list[str] = []
 
     for _, row in my_decl.iterrows():
-        hs = str(row["hs_code"])
+        hs = str(row["global_hs"])
         origin = str(row["origin_country"])
         key = f"{hs}_{origin}"
         if key in seen:
@@ -100,7 +101,7 @@ def agent_customs_value(state: CustomsState) -> CustomsState:
 
         val = float(row["declared_value"] or 0)
         peer = peer_stats[
-            (peer_stats["hs_code"] == hs) & (peer_stats["origin_country"] == origin)
+            (peer_stats["global_hs"] == hs) & (peer_stats["origin_country"] == origin)
         ]
 
         lines.append(f"■ HS {hs} / {row['item_name']} (원산지: {origin})")
