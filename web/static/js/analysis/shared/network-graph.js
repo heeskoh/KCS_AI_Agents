@@ -172,6 +172,7 @@ function emptyState(){
     activeScenarioId: "",              // 선택/적용된 시나리오 id
     _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
     viewMode: "relation",              // 프로파일 4-뷰: relation|cause|risk|route
+    hiddenIds: new Set(),              // 속성창에서 숨김 처리한 노드 id(개별 숨기기/보이기 토글)
     domain: "",                        // 수사 도메인 필터: ""|drug|forex|general (우범자 그래프)
     // 자유 관계분석(explore 탭): 다중 시드 + 속성 필터
     explore: false,                    // explore 워크벤치 여부
@@ -369,7 +370,10 @@ function hideNetDetail(key){
 }
 
 function nodeDetailHtml(key, data){
-  const isFocus = filterStateFor(key).draft.focusIds.has(data.id);
+  const state = filterStateFor(key);
+  const isFocus = state.draft.focusIds.has(data.id);
+  const isHidden = state.hiddenIds.has(data.id);
+  const isCenter = currentRawGraph(key, state)?.center === data.id;
   return `
     <div class="net-detail-head">
       <i class="net-dot" style="background:${data.color}"></i>
@@ -381,6 +385,10 @@ function nodeDetailHtml(key, data){
     <div class="net-detail-foot">
       <button type="button" class="btn net-detail-focus" data-net-detail-focus="${escapeHtml(key)}::${escapeHtml(data.id)}">
         ${isFocus ? "기준 노드 해제" : "기준 노드로 지정"}
+      </button>
+      <button type="button" class="btn net-detail-hide" data-net-detail-hide="${escapeHtml(key)}::${escapeHtml(data.id)}"
+        ${isCenter ? "disabled title='중심 노드는 숨길 수 없습니다'" : ""}>
+        ${isHidden ? "보이기" : "숨기기"}
       </button>
       <span class="muted">더블클릭으로도 지정/해제됩니다</span>
     </div>
@@ -672,6 +680,18 @@ function viewModeOf(state){
   return VIEW_MODES.find(v => v.id === id) || VIEW_MODES[0];
 }
 
+/* 속성창에서 숨김 처리한 노드(state.hiddenIds)와 연결 엣지를 그래프에서 제거.
+   중심(center) 노드는 숨김 대상에서 제외(그래프가 비지 않도록). */
+function applyHidden(graph, state){
+  const hidden = state && state.hiddenIds;
+  if(!hidden || !hidden.size) return graph;
+  const drop = new Set([...hidden].filter(id => id !== graph.center));
+  if(!drop.size) return graph;
+  const nodes = (graph.nodes || []).filter(n => !drop.has(n.id));
+  const edges = (graph.edges || []).filter(e => !drop.has(e.source) && !drop.has(e.target));
+  return { ...graph, nodes, edges };
+}
+
 /* canonical 그래프 → 현재 뷰 프로젝션(라벨/엣지 필터 + 고립 노드 제거) */
 function projectForView(graph, modeId){
   const proj = VIEW_PROJECTION[modeId];
@@ -788,7 +808,11 @@ function buildViewToggle(state, key){
     `<button type="button" class="net-view-btn${v.id === cur ? " on" : ""}" data-net-view="${escapeHtml(key)}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
   ).join("");
   const desc = viewModeOf(state).desc;
-  return `<div class="profile-net-views">${btns}<span class="net-view-desc">${escapeHtml(desc)}</span></div>`;
+  const nHidden = state.hiddenIds ? state.hiddenIds.size : 0;
+  const hiddenChip = nHidden
+    ? `<button type="button" class="net-hidden-chip" data-net-show-all="${escapeHtml(key)}" title="숨긴 노드를 모두 다시 표시">🙈 숨김 ${nHidden} · 모두 표시</button>`
+    : "";
+  return `<div class="profile-net-views">${btns}<span class="net-view-desc">${escapeHtml(desc)}</span>${hiddenChip}</div>`;
 }
 
 /* 경로분석 레인 헤더 */
@@ -1729,7 +1753,7 @@ function renderPanelContent(targetType, targetId){
   const isProjectable = targetType === "company" || targetType === "explore";
   const filtered = applyFilter(raw, state);
   // 회사 프로파일·자유 관계분석: 4-뷰로 프로젝션(라벨/엣지 필터). 우범자는 전체.
-  const projected = isProjectable ? projectForView(filtered, state.viewMode) : filtered;
+  const projected = applyHidden(isProjectable ? projectForView(filtered, state.viewMode) : filtered, state);
   const isRoute = isProjectable && viewModeOf(state).id === "route";
   // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
   if(state._autorun && projected.nodes.length){
@@ -1780,7 +1804,7 @@ function renderPanelInto(el, targetType, targetId){
   if(raw){
     const filtered = applyFilter(raw, state);
     const projectable = targetType === "company" || targetType === "explore";
-    const projected = projectable ? projectForView(filtered, state.viewMode) : filtered;
+    const projected = applyHidden(projectable ? projectForView(filtered, state.viewMode) : filtered, state);
     if(projected.nodes.length) mountCytoscape(key, projected);
   }
 }
@@ -2046,6 +2070,24 @@ function bindHandlers(){
       const { draft } = filterStateFor(key);
       if(draft.focusIds.has(nodeId)) draft.focusIds.delete(nodeId);
       else draft.focusIds.add(nodeId);
+      rerenderPanelByKey(key);
+      return;
+    }
+    const detailHide = event.target.closest("[data-net-detail-hide]");
+    if(detailHide){
+      const [key, ...idParts] = detailHide.dataset.netDetailHide.split("::");
+      const nodeId = idParts.join("::");
+      const state = filterStateFor(key);
+      if(state.hiddenIds.has(nodeId)) state.hiddenIds.delete(nodeId);
+      else state.hiddenIds.add(nodeId);
+      hideNetDetail(key);          // 숨긴 노드의 상세창은 닫는다
+      rerenderPanelByKey(key);
+      return;
+    }
+    const showAllBtn = event.target.closest("[data-net-show-all]");
+    if(showAllBtn){
+      const key = showAllBtn.dataset.netShowAll;
+      filterStateFor(key).hiddenIds.clear();
       rerenderPanelByKey(key);
       return;
     }
