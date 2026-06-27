@@ -364,15 +364,17 @@ def merge_decl_ports(tx: ManagedTransaction, row: dict[str, Any]) -> None:
         )
 
 
-def merge_decl_supplier(tx: ManagedTransaction, declaration_no: str, supplier: str) -> None:
+def merge_decl_supplier(tx: ManagedTransaction, declaration_no: str, supplier: str,
+                        country: str | None = None) -> None:
     tx.run(
         """
         MATCH (d:Declaration {declaration_no: $declaration_no})
         MERGE (s:OverseasSupplier {name: $supplier})
-        SET s.updated_from = $tag
+        SET s.country = coalesce($country, s.country), s.updated_from = $tag
         MERGE (d)-[r:SUPPLIED_BY]->(s) SET r.updated_from = $tag
         """,
-        {"declaration_no": declaration_no, "supplier": supplier, "tag": SOURCE_TAG},
+        {"declaration_no": declaration_no, "supplier": supplier,
+         "country": country, "tag": SOURCE_TAG},
     )
 
 
@@ -609,7 +611,8 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
                 session.execute_write(merge_declaration, r2)
                 session.execute_write(merge_decl_ports, r2)
                 if r.get("supplier"):
-                    session.execute_write(merge_decl_supplier, r["declaration_no"], r["supplier"])
+                    session.execute_write(merge_decl_supplier, r["declaration_no"],
+                                          r["supplier"], r2["dep_country_name"])
                 broker = r.get("filer_name") or broker_by_company.get(r["company_id"])
                 if broker:
                     session.execute_write(merge_decl_broker, r["declaration_no"], broker)

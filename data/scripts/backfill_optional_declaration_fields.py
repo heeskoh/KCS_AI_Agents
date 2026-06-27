@@ -26,7 +26,15 @@ DB_PATH = Path(__file__).resolve().parents[1] / "customs.duckdb"
 
 FORWARDERS = [("범한판토스", "PANT"), ("현대글로비스", "GLOV"), ("CJ대한통운", "CJLX"),
               ("롯데글로벌로지스", "LOGL"), ("한진", "HJIN"), ("DHL코리아", "DHLK")]
-PORTS = ["KRPUS", "KRINC", "KRICN", "KRPTK", "KRKPO", "KRKAN"]   # 부산·인천항·인천공항·평택·포항·광양
+PORTS = ["KRPUS", "KRINC", "KRICN", "KRPTK", "KRKPO", "KRKAN"]   # 부산·인천항·인천공항·평택·포항·광양(도착항=국내)
+# 적출국별 대표 출발항(UN/LOCODE) — 해외 departure_port
+DEP_PORTS = {
+    "중국": ["CNSHA", "CNNGB", "CNSZX"], "일본": ["JPTYO", "JPYOK", "JPUKB"],
+    "미국": ["USLAX", "USNYC", "USOAK"], "독일": ["DEHAM", "DEBRV"],
+    "베트남": ["VNSGN", "VNHPH"], "태국": ["THBKK", "THLCH"], "대만": ["TWKHH", "TWTPE"],
+    "말레이시아": ["MYPKG", "MYPEN"], "인도네시아": ["IDJKT", "IDSUB"], "이탈리아": ["ITGOA", "ITSPE"],
+    "싱가포르": ["SGSIN"], "홍콩": ["HKHKG"], "파나마": ["PAONX"], "BVI": ["VGRAD"],
+}
 SEA_LINES = [("HMM", "HMM ROTTERDAM"), ("KMTC", "KMTC SHANGHAI"), ("SITC", "SITC HUNHE"),
              ("ONEY", "ONE COLUMBA"), ("HJSC", "HANJIN GDANSK")]
 AIR_LINES = [("KE", "KE", "대한항공"), ("OZ", "OZ", "아시아나"), ("KZ", "KZ", "니혼카고")]
@@ -74,6 +82,7 @@ def backfill(conn: duckdb.DuckDBPyConnection) -> None:
             vnat = "KR"
 
         fwd_name, fwd_code = rng.choice(FORWARDERS)
+        dep_port = rng.choice(DEP_PORTS.get(origin, [f"{(origin[:2] if origin else 'XX')}PRT"]))
         supplier = f"{origin} {rng.choice(SUPPLIER_KINDS)} CO.,LTD"
         supplier_code = f"{(origin[:2] if origin else 'XX')}{rng.randint(100000000,999999999)}"
         customs_code = f"{(biz or '0000000000').replace('-','')[:10]}{rng.randint(10000,99999)}"[:15]
@@ -83,7 +92,7 @@ def backfill(conn: duckdb.DuckDBPyConnection) -> None:
             UPDATE import_declarations SET
               bl_awb_no = ?, master_bl_awb_no = ?,
               vessel_name = ?, vessel_nationality = ?, carrier_code = ?,
-              arrival_port = ?, forwarder_name = ?, forwarder_code = ?,
+              departure_port = ?, arrival_port = ?, forwarder_name = ?, forwarder_code = ?,
               overseas_supplier_name = ?, overseas_supplier_country = ?, overseas_supplier_code = ?,
               importer_name = COALESCE(NULLIF(importer_name,''), ?),
               importer_customs_code = ?, taxpayer_customs_code = ?,
@@ -97,7 +106,7 @@ def backfill(conn: duckdb.DuckDBPyConnection) -> None:
             [
                 bl, master_bl,
                 vessel, vnat, carrier,
-                rng.choice(PORTS), fwd_name, fwd_code,
+                dep_port, rng.choice(PORTS), fwd_name, fwd_code,
                 supplier, origin, supplier_code,
                 tname,
                 customs_code, customs_code,
