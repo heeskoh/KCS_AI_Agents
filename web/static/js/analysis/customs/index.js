@@ -6,16 +6,30 @@ export function createCustomsInvestigation(deps){
   // 통합 서브탭 레지스트리에서 이 페이지의 서브탭을 구성한다(업무 전용 목록 제거).
   const tabsForPage = (pageKey = "investigation") => deps.buildSubtabsForPage(pageKey);
 
+  // 진행중인 관세조사로 '실제 등록된' 기업이 선택됐을 때만 case를 채운다.
+  // (전역 activeCanvasCompanyId가 다른 화면에서 남아 있어도, 이 페이지에 등록된
+  //  관세조사 job이 아니면 미선택으로 보아 일반수사와 동일하게 탭을 비활성화한다.)
+  function activeCustomsCase(){
+    const activeCompanyId = deps.getActiveCanvasCompanyId?.() || "";
+    if(!activeCompanyId) return null;
+    const isRegistered = (deps.activeCanvasJobs?.() || [])
+      .some(job => job.companyId === activeCompanyId && deps.canvasJobCategory?.(job) === "관세조사 분석");
+    if(!isRegistered) return null;
+    const company = (deps.getScenarioCompanies?.() || []).find(c => c.company_id === activeCompanyId);
+    return company || { company_id: activeCompanyId };
+  }
+
   function investigationPage(pageKey = "investigation"){
     const tabs = tabsForPage(pageKey);
     const tab = deps.getInvestigationTab();
     const workTabs = tabs.filter(item => item.group !== "tools");
     const toolTabs = tabs.filter(item => item.group === "tools");
     const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
-    const activeCompanyId = deps.getActiveCanvasCompanyId?.() || "";
-    const activeCompany = (deps.getScenarioCompanies?.() || []).find(company => company.company_id === activeCompanyId) || null;
     // 조사 대상이 선택돼야 기업프로파일 이후 서브탭이 활성화된다.
-    const tabContext = { case: activeCompanyId ? (activeCompany || { company_id: activeCompanyId }) : null };
+    const activeCase = activeCustomsCase();
+    const activeCompanyId = activeCase?.company_id || "";
+    const activeCompany = activeCase;
+    const tabContext = { case: activeCase };
     return `
       <section class="card ci-hub${isFullHeight ? " ci-hub-full" : ""}">
         <div class="ci-page-head">
@@ -49,8 +63,7 @@ export function createCustomsInvestigation(deps){
 
   function investigationTabContent(pageKey = "investigation", context = null){
     const tabs = tabsForPage(pageKey);
-    const activeCompanyId = deps.getActiveCanvasCompanyId?.() || "";
-    const ctx = context || { case: activeCompanyId ? { company_id: activeCompanyId } : null };
+    const ctx = context || { case: activeCustomsCase() };
     return renderAnalysisTabContent(tabs, deps.getInvestigationTab(), ctx, "ongoing");
   }
 
