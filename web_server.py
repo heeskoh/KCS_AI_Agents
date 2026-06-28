@@ -770,6 +770,96 @@ def analyze_prompt_intent(body: dict) -> dict:
     return result
 
 
+# 통합 지식 검색(업무지식베이스) 실행계획 수립용 의도분석 프롬프트
+_KB_PLAN_PROMPT = """당신은 한국 관세청 '통합 지식 검색'의 의도분석·실행계획 수립기입니다.
+사용자의 자연어 질의와, 사용자가 켜둔 업무지식베이스(KB) 목록이 주어집니다.
+
+[KB 종류]
+- 정형DB(CDW, kind=db): 자연어→SQL 로 정형 데이터(기업·수입신고·위험지표)를 조회
+- 업무RAG(kind=rag): 의미 기반 문서검색(관세정보/심사/조사/국제협력 결과보고서)
+
+[해야 할 일]
+사용자 질의의 의도를 분석하여, 켜둔 KB들을 '어떤 순서'로 실행할지, 그리고 한 KB의 결과를
+다른 KB가 입력으로 쓰는 '의존관계'가 있는지 판단해 실행계획(steps)을 세우세요.
+- 예: "CDW로 위험률 높은 기업을 찾은 뒤 그 기업들의 유사 심사사례를 RAG에서 검색" →
+  step1: db_cdw(role=데이터조회), step2: rag(depends_on=db_cdw, query="앞 단계에서 식별된 고위험
+  기업들의 유사 심사사례·근거 검색")
+- 의존관계가 없으면 각 KB를 병렬적 의미로 보고 depends_on=null.
+- steps에는 '켜둔 KB만' 포함하고, 실행 순서대로 정렬하세요. 각 step.query는 해당 KB에 보낼
+  구체적인 자연어 질의로 다시 써 주세요(선행 결과 활용 시 그 의도를 query에 반영).
+
+반드시 아래 JSON만 반환(마크다운/코드블록 없이 순수 JSON):
+{
+  "reasoning": "<의도 분석 요약 1~2줄>",
+  "steps": [
+    {"source": "<KB key>", "role": "<이 단계 역할>", "depends_on": "<선행 KB key 또는 null>", "query": "<이 KB에 보낼 자연어 질의>"}
+  ]
+}"""
+
+
+def analyze_kb_execution_plan(body: dict) -> dict:
+    """통합 지식 검색: NL 질의 + 켜둔 KB 목록 → 의도분석 후 실행계획(순서·의존성)을 반환."""
+    prompt = (body.get("prompt") or "").strip()
+    sources = body.get("sources") or []   # [{key,label,kind}]
+    keys = [s.get("key") for s in sources if s.get("key")]
+    if not prompt or not keys:
+        return {"error": "prompt and sources required", "reasoning": "", "steps": []}
+
+    def _fallback() -> dict:
+        # LLM 불가 시: 정형DB(db) 먼저, 그 뒤 RAG들이 선행 결과에 의존하는 기본 계획
+        db_keys = [s["key"] for s in sources if s.get("kind") == "db"]
+        ordered = db_keys + [s["key"] for s in sources if s.get("kind") != "db"]
+        prior = db_keys[0] if db_keys else None
+        steps = []
+        for i, k in enumerate(ordered):
+            dep = prior if (prior and k != prior) else None
+            steps.append({"source": k, "role": "데이터조회" if k == prior else "문서검색",
+                          "depends_on": dep,
+                          "query": (f"앞 단계 결과를 활용하여: {prompt}" if dep else prompt)})
+        return {"reasoning": "기본 계획(정형DB 선행 → RAG): LLM 의도분석 미사용", "steps": steps,
+                "fallback": True}
+
+    from src.llm import llm
+    if llm is None:
+        return _fallback()
+
+    kb_lines = "\n".join(
+        f"- {s.get('key')}: {s.get('label') or s.get('key')} (kind={s.get('kind') or 'rag'})"
+        for s in sources
+    )
+    full_prompt = f"{_KB_PLAN_PROMPT}\n\n[켜둔 업무지식베이스]\n{kb_lines}\n\n[사용자 질의]\n{prompt}"
+    try:
+        raw = llm.invoke(full_prompt).content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip().rstrip("`").strip()
+        s, e = raw.find("{"), raw.rfind("}")
+        if s >= 0 and e > s:
+            raw = raw[s : e + 1]
+        parsed = json.loads(raw)
+    except Exception as exc:  # noqa: BLE001
+        result = _fallback()
+        result["reasoning"] = f"의도분석 파싱 실패로 기본 계획 사용 ({exc})"
+        return result
+
+    # 켜둔 KB로 한정 + 순서 보정
+    valid = set(keys)
+    steps = [st for st in (parsed.get("steps") or []) if st.get("source") in valid]
+    seen = {st["source"] for st in steps}
+    for k in keys:               # 누락된 KB는 말미에 보강(병렬)
+        if k not in seen:
+            steps.append({"source": k, "role": "문서검색", "depends_on": None, "query": prompt})
+    for i, st in enumerate(steps):
+        st["order"] = i + 1
+        if st.get("depends_on") not in valid:
+            st["depends_on"] = None
+        if not (st.get("query") or "").strip():
+            st["query"] = prompt
+    return {"reasoning": parsed.get("reasoning", ""), "steps": steps}
+
+
 def run_db_query_api(body: dict) -> dict:
     """자연어 → SQL/Cypher 변환 후 DuckDB 또는 Neo4j 조회 API."""
     from src.agents.agent_nl_to_sql import run_nl_db_query
@@ -2020,6 +2110,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 body = {}
             self._send_json(analyze_prompt_intent(body))
+            return
+
+        if parsed.path == "/api/analyze_kb_plan":
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                body = {}
+            self._send_json(analyze_kb_execution_plan(body))
             return
 
         if parsed.path == "/api/llm_query":

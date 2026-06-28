@@ -502,6 +502,13 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-isch-chip.rag .dot{background:#0d9488}
 .home-isch-chip.rag .chk{color:#0d9488}
 .home-isch-prompt{width:100%;min-height:78px;resize:vertical;border:1px solid #e3d9a8;border-radius:9px;padding:12px 14px;font-family:inherit;font-size:13.5px;color:#1f2937;line-height:1.6;background:#fff}
+.home-isch-plan{margin-top:14px;border:1px solid #e7c84a;background:#fffaeb;border-radius:9px;padding:10px 13px}
+.home-isch-plan-spin{font-size:12.5px;color:#92702a;font-weight:700;display:inline-flex;align-items:center;gap:7px}
+.home-isch-plan-reason{font-size:12.5px;color:#7a5f17;font-weight:600;margin-bottom:7px;line-height:1.5}
+.home-isch-plan-steps{margin:0;padding-left:2px;list-style:none;display:flex;flex-direction:column;gap:4px}
+.home-isch-plan-steps li{font-size:12.5px;color:#3f3413}
+.home-isch-plan-steps li b{color:#b45309}
+.home-isch-plan-steps .dep{color:#2563eb;font-size:11.5px;font-weight:700;margin-left:4px}
 .home-isch-results{display:flex;flex-direction:column;gap:14px;margin-top:16px}
 .home-isch-results:empty{display:none}
 .home-isch-result{border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff}

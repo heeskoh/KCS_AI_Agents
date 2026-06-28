@@ -3810,6 +3810,62 @@ let homeIntegratedPromptText = "";
 const homeIschResultCollapsed = {};   // 통합검색 출처별 결과 프레임 접힘 상태(key→bool)
 const homeIschDisabled = new Set();   // 통합검색에서 토글로 비활성화한 업무지식베이스 key(통합수행 대상 제외)
 function homeIschEnabledSources(sources){ return sources.filter(k => !homeIschDisabled.has(k)); }
+
+// 통합검색 단일 소스 실행 완료 대기(폴링) — homeCardResultState[key]가 running이 아니게 되면 output 반환
+function homeAwaitCardResult(key, timeoutMs = 120000){
+  return new Promise(resolve => {
+    const t0 = Date.now();
+    const tick = () => {
+      const r = homeCardResultState[key];
+      if(r && r.status && r.status !== "running"){ resolve(r.output || ""); return; }
+      if(Date.now() - t0 > timeoutMs){ resolve(""); return; }
+      setTimeout(tick, 400);
+    };
+    setTimeout(tick, 500);   // running 전이 후부터 폴링
+  });
+}
+
+// 통합 지식 검색: 백엔드 의도분석으로 실행계획을 받아 KB를 '순차' 실행.
+// 의존 단계는 선행 KB 결과를 질의에 주입(CDW 조회 → 그 결과로 RAG 검색 등).
+async function homeRunIntegratedSearch(enabled, btn){
+  const planEl = document.querySelector("[data-home-isch-plan]");
+  const promptText = homeIntegratedPromptText.trim();
+  const sourcesMeta = enabled.map(k => ({ key:k, label:AI_SERVICE_REGISTRY[k]?.label || k, kind:homeSourceKind(k) }));
+  if(planEl){ planEl.hidden = false; planEl.innerHTML = `<span class="home-isch-plan-spin"><span class="home-running-dot"></span> 프롬프트 의도분석 중…</span>`; }
+  let plan = null;
+  try {
+    const res = await fetch("/api/analyze_kb_plan", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ prompt: promptText, sources: sourcesMeta }),
+    });
+    if(res.ok) plan = await res.json();
+  } catch(e){ plan = null; }
+  const steps = (plan && Array.isArray(plan.steps) && plan.steps.length)
+    ? plan.steps.filter(s => enabled.includes(s.source))
+    : enabled.map((k,i) => ({ source:k, order:i+1, depends_on:null, query:promptText, role:"" }));
+  if(planEl){
+    const reason = (plan && plan.reasoning) ? `<div class="home-isch-plan-reason">🧭 의도분석 — ${escapeHtml(plan.reasoning)}</div>` : "";
+    const list = steps.map((s,i) => {
+      const dep = s.depends_on ? `<span class="dep">← ${escapeHtml(AI_SERVICE_REGISTRY[s.depends_on]?.label || s.depends_on)} 결과 활용</span>` : "";
+      return `<li><b>${i+1}.</b> ${escapeHtml(AI_SERVICE_REGISTRY[s.source]?.label || s.source)}${s.role ? ` · ${escapeHtml(s.role)}` : ""} ${dep}</li>`;
+    }).join("");
+    planEl.innerHTML = `${reason}<ol class="home-isch-plan-steps">${list}</ol>`;
+  }
+  // 순차 실행 + 의존성 주입
+  const results = {};
+  for(const step of steps){
+    let q = (step.query || promptText).trim();
+    if(step.depends_on && results[step.depends_on]){
+      const priorLabel = AI_SERVICE_REGISTRY[step.depends_on]?.label || step.depends_on;
+      q = `[선행 ${priorLabel} 결과 요약]\n${(results[step.depends_on] || "").slice(0, 1500)}\n\n[요청]\n${q}`;
+    }
+    homeCardPromptState[step.source] = { text: q, edited: true };
+    const hid = document.querySelector(`[data-home-card-prompt="${cssString(step.source)}"]`);
+    if(hid) hid.value = q;
+    homeRunSingleService(step.source, btn);
+    results[step.source] = await homeAwaitCardResult(step.source);
+  }
+}
 function homeSourceKind(key){
   return AI_SERVICE_REGISTRY[key]?.group === DB_SEARCH_GROUP ? "db" : "rag";
 }
@@ -3862,6 +3918,7 @@ function homeIntegratedSourceFrameHtml(sources){
         <div class="home-isch-chips">${chips}</div>
         <textarea class="home-isch-prompt" data-home-integrated-prompt placeholder="${escapeHtml(ph)}">${escapeHtml(homeIntegratedPromptText)}</textarea>
         <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록 · 특정인이 작성한 보고서 중 최신 10건 · 위험지표 상위 기업의 사후심사 사례</p>
+        <div class="home-isch-plan" data-home-isch-plan hidden></div>
         <div class="home-isch-results">${resultFrames}</div>
       </div>
     </div>
@@ -9499,13 +9556,13 @@ document.addEventListener("input", (event) => {
 
 // 카드별 단일 수행
 document.addEventListener("click", (event) => {
-  // 통합 지식 검색: 켜진 업무지식베이스에 통합 질의 동시 수행(의도분석 기반)
+  // 통합 지식 검색: 의도분석 실행계획대로 켜진 업무지식베이스를 순차 수행(의존성 주입)
   const ischRun = event.target?.closest?.("[data-home-isch-run]");
   if(ischRun){
     const { sources } = homeSelectedAnalysisOptions();
     const enabled = homeIschEnabledSources(sources);
     if(!enabled.length){ alert("통합수행할 업무지식베이스를 1개 이상 켜주세요."); return; }
-    enabled.forEach(key => homeRunSingleService(key, ischRun));
+    homeRunIntegratedSearch(enabled, ischRun);
     return;
   }
   // 통합 지식 검색: 업무지식베이스 토글(통합수행 대상 포함/제외)
