@@ -3762,6 +3762,61 @@ function homeDataSourceCardHtml(key, order){
   `;
 }
 
+// 통합 지식 검색: 업무지식베이스 2개 이상 선택 시 개별 카드를 대체하는 단일 프레임.
+// 하나의 자연어 질의를 정형DB(자연어→SQL)·업무RAG(문서검색)에 동시 실행, 출처별 결과 프레임 표시.
+let homeIntegratedPromptText = "";
+function homeSourceKind(key){
+  return AI_SERVICE_REGISTRY[key]?.group === DB_SEARCH_GROUP ? "db" : "rag";
+}
+function homeIntegratedSourceFrameHtml(sources){
+  const collapsed = !!homeCardCollapsed["__integrated__"];
+  const chips = sources.map(key => {
+    const svc = AI_SERVICE_REGISTRY[key];
+    const kind = homeSourceKind(key);
+    const sub = kind === "db" ? "정형DB · 자연어→SQL" : "업무 RAG · 문서검색";
+    return `<span class="home-isch-chip ${kind}"><span class="dot"></span><b>${escapeHtml(svc?.label || key)}</b><span class="sub">${sub}</span><span class="chk">✓</span></span>`;
+  }).join("");
+  const resultFrames = sources.map(key => {
+    const svc = AI_SERVICE_REGISTRY[key];
+    const kind = homeSourceKind(key);
+    const icon = kind === "db" ? "▦" : "❏";
+    const badge = kind === "db" ? "정형DB" : "업무 RAG";
+    const sub = kind === "db" ? "정형 데이터웨어하우스 · 자연어 → SQL" : "업무 영역별 지식베이스 · 의미 기반 문서검색";
+    return `
+      <div class="home-isch-result ${kind}" data-home-isch-result="${escapeHtml(key)}">
+        <div class="home-isch-result-head">
+          <span class="ic">${icon}</span>
+          <div class="meta"><div class="t">${escapeHtml(svc?.label || key)} 결과</div><div class="s">${escapeHtml(sub)}</div></div>
+          <span class="bdg">${badge}</span>
+        </div>
+        <div class="home-card-result" data-home-card-result="${escapeHtml(key)}"></div>
+        <textarea class="home-isch-hidden" data-home-card-prompt="${escapeHtml(key)}" data-kind="source" aria-hidden="true">${escapeHtml(homeIntegratedPromptText)}</textarea>
+      </div>`;
+  }).join("");
+  const ph = "예) HS 8517 품목 수입신고 중 위험지표가 높은 기업 최신 10건과 유사 심사사례 보고서를 함께 찾아줘.";
+  return `
+    <div class="home-svc-panel home-isch-frame${collapsed ? " is-collapsed" : ""}" data-home-source-card="__integrated__">
+      <div class="home-isch-head">
+        <span class="home-frame-order src" title="실행 순서">1</span>
+        <strong class="home-frame-title">통합 지식 검색</strong>
+        <span class="home-source-badge">업무지식베이스</span>
+        <div class="home-card-actions home-isch-actions">
+          <button type="button" class="home-mini-btn home-card-coach-btn" data-home-isch-coach title="질의를 점검하고 재구성안을 제시합니다">AI코칭</button>
+          <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="선택한 모든 지식소스에 동시 실행">단일 수행</button>
+          ${homeCardCollapseToggleHtml("__integrated__")}
+        </div>
+      </div>
+      <div class="home-isch-body">
+        <p class="home-isch-desc">검색할 지식 소스를 선택하세요. 자연어 질의는 정형DB에서는 <b class="db">자연어→SQL</b>로, 업무 RAG에서는 <b class="rag">의미 기반 문서검색</b>으로 각각 실행되며, 결과는 출처별 프레임으로 구분되어 표시됩니다.</p>
+        <div class="home-isch-chips">${chips}</div>
+        <textarea class="home-isch-prompt" data-home-integrated-prompt placeholder="${escapeHtml(ph)}">${escapeHtml(homeIntegratedPromptText)}</textarea>
+        <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록 · 특정인이 작성한 보고서 중 최신 10건 · 위험지표 상위 기업의 사후심사 사례</p>
+        <div class="home-isch-results">${resultFrames}</div>
+      </div>
+    </div>
+  `;
+}
+
 // 단일 AI 서비스 수행 프레임 (순서 배지 + ▲▼ + 기능 설명 + 동작칩 + 필수 입력값)
 function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
   const svc = AI_SERVICE_REGISTRY[key];
@@ -3824,7 +3879,7 @@ function homeRenderPromptTemplatePanels(){
   const aiOrder = homeSyncPipelineOrder();
   // 선택 해제된 AI 서비스는 상태에서 제거
   Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
-  Object.keys(homeCardCollapsed).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
+  Object.keys(homeCardCollapsed).forEach(key => { if(key !== "__integrated__" && !sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
   Object.keys(homeCardResultState).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardResultState[key]; });
   // 신규 AI 서비스 동작칩 상태 초기화
   aiOrder.forEach(key => {
@@ -3837,8 +3892,12 @@ function homeRenderPromptTemplatePanels(){
 
   const runtimeSteps = [...sources, ...aiOrder];
   // 좌→우 가로 흐름: 업무지식베이스(검색) 카드 → AI 분석서비스 프레임, 사이에 화살표
+  // 업무지식베이스 2개 이상 선택 시 개별 카드 대신 단일 '통합 지식 검색' 프레임으로 묶는다.
+  const sourceCards = sources.length >= 2
+    ? [homeIntegratedSourceFrameHtml(sources)]
+    : sources.map((key, i) => homeDataSourceCardHtml(key, i + 1));
   const cards = [
-    ...sources.map((key, i) => homeDataSourceCardHtml(key, i + 1)),
+    ...sourceCards,
     ...aiOrder.map((key, p) => homePipelineFrameHtml(key, p, aiOrder.length, sources.length, runtimeSteps)),
   ];
   const flow = cards.join("");
@@ -9317,6 +9376,19 @@ document.addEventListener("input", (event) => {
 
 // 카드별 프롬프트 직접 편집 (자동등록 후 수정) — contenteditable(AI)·textarea(KB) 모두 지원
 document.addEventListener("input", (event) => {
+  // 통합 지식 검색: 단일 질의를 선택된 모든 업무지식베이스에 브로드캐스트
+  const isch = event.target?.closest?.("[data-home-integrated-prompt]");
+  if(isch){
+    homeIntegratedPromptText = isch.value;
+    const { sources } = homeSelectedAnalysisOptions();
+    sources.forEach(key => {
+      homeCardPromptState[key] = { text: homeIntegratedPromptText, edited: true };
+      const hid = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+      if(hid && hid !== isch) hid.value = homeIntegratedPromptText;
+    });
+    homeSyncCombinedPrompt();
+    return;
+  }
   const el = event.target?.closest?.("[data-home-card-prompt]");
   if(el){
     const text = el.isContentEditable ? el.innerText : el.value;
@@ -9376,8 +9448,15 @@ document.addEventListener("input", (event) => {
 
 // 카드별 단일 수행
 document.addEventListener("click", (event) => {
+  // 통합 지식 검색: 선택된 모든 업무지식베이스에 동시 단일 수행
+  const ischRun = event.target?.closest?.("[data-home-isch-run]");
+  if(ischRun){
+    const { sources } = homeSelectedAnalysisOptions();
+    sources.forEach(key => homeRunSingleService(key, ischRun));
+    return;
+  }
   const btn = event.target?.closest?.("[data-home-run-single]");
-  if(btn){ homeRunSingleService(btn.dataset.homeRunSingle, btn); }
+  if(btn && !btn.hasAttribute("data-home-isch-run")){ homeRunSingleService(btn.dataset.homeRunSingle, btn); }
 });
 
 // 입력값 칩 클릭 → 프롬프트 커서 위치에 [입력값 이름] 변수 삽입

@@ -476,6 +476,50 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-svc-panel-row select{height:32px;border:1px solid #fcd34d;border-radius:8px;padding:0 8px;font-size:13px;background:#fff}
 .home-svc-panel textarea{width:100%;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;resize:vertical;font-family:inherit}
 .home-analysis-card .home-svc-panel{padding:10px 12px}
+/* ── 통합 지식 검색 프레임(업무지식베이스 2개+ 선택 시) ── */
+.home-isch-frame{padding:0;border:1.5px solid #e7c84a;background:#fffdf4;border-radius:12px;box-shadow:0 2px 10px rgba(220,180,40,.10);overflow:hidden;display:block}
+.home-isch-head{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid #f0e3a8;background:#fffaeb}
+.home-isch-head .home-frame-order.src{background:#c2570c}
+.home-isch-head .home-frame-title{font-size:15px;font-weight:800;color:#1f2937}
+.home-isch-actions{margin-left:auto;display:flex;gap:7px}
+.home-isch-body{padding:15px 17px 18px}
+.home-isch-desc{margin:0 0 12px;font-size:12.5px;color:#7a6a3a;line-height:1.55}
+.home-isch-desc b.db{color:#2563eb}
+.home-isch-desc b.rag{color:#0d9488}
+.home-isch-chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+.home-isch-chip{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:6px 12px;font-size:12.5px;border:1.5px solid;background:#fff}
+.home-isch-chip .dot{width:9px;height:9px;border-radius:50%}
+.home-isch-chip .sub{opacity:.7;font-size:11px;font-weight:500}
+.home-isch-chip .chk{font-weight:900;margin-left:1px}
+.home-isch-chip.db{border-color:#bfdbfe;color:#1d4ed8;background:#f5f8ff}
+.home-isch-chip.db .dot,.home-isch-chip.db .chk{color:#2563eb;background:#2563eb}
+.home-isch-chip.db .chk{background:none}
+.home-isch-chip.rag{border-color:#bbeae2;color:#0f766e;background:#f1fbf9}
+.home-isch-chip.rag .dot{background:#0d9488}
+.home-isch-chip.rag .chk{color:#0d9488}
+.home-isch-prompt{width:100%;min-height:78px;resize:vertical;border:1px solid #e3d9a8;border-radius:9px;padding:12px 14px;font-family:inherit;font-size:13.5px;color:#1f2937;line-height:1.6;background:#fff}
+.home-isch-results{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.home-isch-results:empty{display:none}
+.home-isch-result{border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff}
+.home-isch-result.db{border-left:4px solid #2563eb}
+.home-isch-result.rag{border-left:4px solid #0d9488}
+.home-isch-result-head{display:flex;align-items:center;gap:11px;padding:11px 15px;border-bottom:1px solid #eef2f8}
+.home-isch-result.db .home-isch-result-head{background:#f5f8ff;border-bottom-color:#e4ecfc}
+.home-isch-result.rag .home-isch-result-head{background:#f1fbf9;border-bottom-color:#d6efea}
+.home-isch-result-head .ic{width:30px;height:30px;border-radius:8px;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.home-isch-result.db .ic{background:#2563eb}
+.home-isch-result.rag .ic{background:#0d9488}
+.home-isch-result-head .meta .t{font-size:14px;font-weight:800;color:#16348a}
+.home-isch-result.rag .home-isch-result-head .meta .t{color:#0f766e}
+.home-isch-result-head .meta .s{font-size:11px;color:#5f7bc4;margin-top:1px}
+.home-isch-result.rag .home-isch-result-head .meta .s{color:#4b9c91}
+.home-isch-result-head .bdg{margin-left:auto;font-size:11px;font-weight:700;border-radius:5px;padding:3px 8px}
+.home-isch-result.db .bdg{color:#1d4ed8;background:#e0eaff}
+.home-isch-result.rag .bdg{color:#0f766e;background:#d2f0eb}
+.home-isch-result .home-card-result{padding:12px 15px}
+.home-isch-result .home-card-result:empty{display:none}
+.home-isch-hidden{display:none}
+.home-isch-frame.is-collapsed .home-isch-body{display:none}
 .home-tpl-panel{border-color:#bfdbfe;background:#f7faff}
 .home-tpl-panel .home-svc-panel-head strong{color:#0f559c}
 .home-tpl-edited{color:#2563eb;font-weight:700;font-size:12px}
