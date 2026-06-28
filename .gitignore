@@ -11,3 +11,7 @@ chroma_db/
 node_modules/
 dist/
 .env
+
+# 런타임 사용자 워크스페이스 상태(진행작업/캔버스) — 자동 생성·변동, 추적 제외(꼬임 방지)
+data/workspace_state/
+data/_workspace_state_backup_*/
