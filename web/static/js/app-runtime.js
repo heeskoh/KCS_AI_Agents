@@ -3665,8 +3665,13 @@ function homeBuildCombinedPrompt(){
     const st = homeCardPromptState[key];   // 읽기 전용(상태 변경 없음)
     return ((st ? st.text : homeCardPromptDefault(key, kind)) || "").trim();
   };
+  // 통합 지식 검색(업무지식베이스 2개+): 단일 의도 프롬프트를 1회만 사용(소스별 중복 제거).
+  // 켜진 KB들에 대해 의도분석 후 처리되는 하나의 질의이므로 반복 표기하지 않는다.
+  const sourceParts = sources.length >= 2
+    ? (homeIntegratedPromptText.trim() ? [homeIntegratedPromptText.trim()] : [])
+    : sources.map(k => part(k, "source"));
   const parts = [
-    ...sources.map(k => part(k, "source")),
+    ...sourceParts,
     ...aiOrder.map(k => part(k, "agent")),
   ];
   return parts.filter(Boolean).join("\n\n");
