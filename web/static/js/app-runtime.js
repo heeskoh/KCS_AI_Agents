@@ -852,7 +852,7 @@ const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 const AI_SERVICE_REGISTRY = {
   // ── [업무지식베이스] 정형DB(Text-to-SQL) + 업무 영역별 RAG ──
   db_cdw: {
-    label: "관세청 CDW 대상 Text-to-SQL 분석", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    label: "CDW 자연어 분석", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
     defaultInstruction: "관세청 내부직원이 자연어로 질문하면, 시스템이 이를 해석해 CDW(관세 데이터 웨어하우스) 대상 SQL을 생성·실행하고 분석 결과를 제공",
     behaviorOptions: [
       { value: "profile_summary", label: "기업/신고 요약" },
@@ -3803,18 +3803,24 @@ function homeDataSourceCardHtml(key, order){
 // 하나의 자연어 질의를 정형DB(자연어→SQL)·업무RAG(문서검색)에 동시 실행, 출처별 결과 프레임 표시.
 let homeIntegratedPromptText = "";
 const homeIschResultCollapsed = {};   // 통합검색 출처별 결과 프레임 접힘 상태(key→bool)
+const homeIschDisabled = new Set();   // 통합검색에서 토글로 비활성화한 업무지식베이스 key(통합수행 대상 제외)
+function homeIschEnabledSources(sources){ return sources.filter(k => !homeIschDisabled.has(k)); }
 function homeSourceKind(key){
   return AI_SERVICE_REGISTRY[key]?.group === DB_SEARCH_GROUP ? "db" : "rag";
 }
 function homeIntegratedSourceFrameHtml(sources){
   const collapsed = !!homeCardCollapsed["__integrated__"];
+  // 선택된 업무지식베이스마다 토글 버튼 — 켜진 소스만 통합수행/의도분석 대상
   const chips = sources.map(key => {
     const svc = AI_SERVICE_REGISTRY[key];
     const kind = homeSourceKind(key);
     const sub = kind === "db" ? "정형DB · 자연어→SQL" : "업무 RAG · 문서검색";
-    return `<span class="home-isch-chip ${kind}"><span class="dot"></span><b>${escapeHtml(svc?.label || key)}</b><span class="sub">${sub}</span><span class="chk">✓</span></span>`;
+    const on = !homeIschDisabled.has(key);
+    return `<button type="button" class="home-isch-chip ${kind}${on ? " on" : " off"}" data-home-isch-toggle="${escapeHtml(key)}"
+      title="${on ? "통합수행 대상 — 클릭하여 제외" : "제외됨 — 클릭하여 포함"}" aria-pressed="${on}">
+      <span class="dot"></span><b>${escapeHtml(svc?.label || key)}</b><span class="sub">${sub}</span><span class="chk">${on ? "✓" : "＋"}</span></button>`;
   }).join("");
-  const resultFrames = sources.map(key => {
+  const resultFrames = homeIschEnabledSources(sources).map(key => {
     const svc = AI_SERVICE_REGISTRY[key];
     const kind = homeSourceKind(key);
     const icon = kind === "db" ? "▦" : "❏";
@@ -3842,7 +3848,7 @@ function homeIntegratedSourceFrameHtml(sources){
         <span class="home-source-badge">업무지식베이스</span>
         <div class="home-card-actions home-isch-actions">
           <button type="button" class="home-mini-btn home-card-coach-btn" data-home-isch-coach title="질의를 점검하고 재구성안을 제시합니다">AI코칭</button>
-          <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="선택한 모든 지식소스에 동시 실행">단일 수행</button>
+          <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="켜진 업무지식베이스에 통합 질의를 동시 실행">업무지식베이스 통합수행</button>
           ${homeCardCollapseToggleHtml("__integrated__")}
         </div>
       </div>
@@ -9421,7 +9427,7 @@ document.addEventListener("input", (event) => {
   if(isch){
     homeIntegratedPromptText = isch.value;
     const { sources } = homeSelectedAnalysisOptions();
-    sources.forEach(key => {
+    homeIschEnabledSources(sources).forEach(key => {
       homeCardPromptState[key] = { text: homeIntegratedPromptText, edited: true };
       const hid = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
       if(hid && hid !== isch) hid.value = homeIntegratedPromptText;
@@ -9488,11 +9494,22 @@ document.addEventListener("input", (event) => {
 
 // 카드별 단일 수행
 document.addEventListener("click", (event) => {
-  // 통합 지식 검색: 선택된 모든 업무지식베이스에 동시 단일 수행
+  // 통합 지식 검색: 켜진 업무지식베이스에 통합 질의 동시 수행(의도분석 기반)
   const ischRun = event.target?.closest?.("[data-home-isch-run]");
   if(ischRun){
     const { sources } = homeSelectedAnalysisOptions();
-    sources.forEach(key => homeRunSingleService(key, ischRun));
+    const enabled = homeIschEnabledSources(sources);
+    if(!enabled.length){ alert("통합수행할 업무지식베이스를 1개 이상 켜주세요."); return; }
+    enabled.forEach(key => homeRunSingleService(key, ischRun));
+    return;
+  }
+  // 통합 지식 검색: 업무지식베이스 토글(통합수행 대상 포함/제외)
+  const ischToggle = event.target?.closest?.("[data-home-isch-toggle]");
+  if(ischToggle){
+    const key = ischToggle.dataset.homeIschToggle;
+    if(homeIschDisabled.has(key)) homeIschDisabled.delete(key);
+    else homeIschDisabled.add(key);
+    homeRenderPromptTemplatePanels();
     return;
   }
   // 통합 지식 검색: 출처별 결과 프레임 접기/펴기

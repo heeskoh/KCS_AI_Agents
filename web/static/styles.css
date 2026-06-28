@@ -487,7 +487,11 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-isch-desc b.db{color:#2563eb}
 .home-isch-desc b.rag{color:#0d9488}
 .home-isch-chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
-.home-isch-chip{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:6px 12px;font-size:12.5px;border:1.5px solid;background:#fff}
+.home-isch-chip{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:6px 12px;font-size:12.5px;border:1.5px solid;background:#fff;cursor:pointer;transition:.12s;font-family:inherit}
+.home-isch-chip:hover{filter:brightness(.97)}
+.home-isch-chip.off{opacity:.5;border-style:dashed;background:#fff!important;color:#94a3b8!important}
+.home-isch-chip.off .dot{background:#cbd5e1!important}
+.home-isch-chip.off .chk{color:#94a3b8!important;font-weight:700}
 .home-isch-chip .dot{width:9px;height:9px;border-radius:50%}
 .home-isch-chip .sub{opacity:.7;font-size:11px;font-weight:500}
 .home-isch-chip .chk{font-weight:900;margin-left:1px}
