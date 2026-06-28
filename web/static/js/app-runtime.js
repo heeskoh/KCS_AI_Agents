@@ -3765,6 +3765,7 @@ function homeDataSourceCardHtml(key, order){
 // 통합 지식 검색: 업무지식베이스 2개 이상 선택 시 개별 카드를 대체하는 단일 프레임.
 // 하나의 자연어 질의를 정형DB(자연어→SQL)·업무RAG(문서검색)에 동시 실행, 출처별 결과 프레임 표시.
 let homeIntegratedPromptText = "";
+const homeIschResultCollapsed = {};   // 통합검색 출처별 결과 프레임 접힘 상태(key→bool)
 function homeSourceKind(key){
   return AI_SERVICE_REGISTRY[key]?.group === DB_SEARCH_GROUP ? "db" : "rag";
 }
@@ -3782,12 +3783,14 @@ function homeIntegratedSourceFrameHtml(sources){
     const icon = kind === "db" ? "▦" : "❏";
     const badge = kind === "db" ? "정형DB" : "업무 RAG";
     const sub = kind === "db" ? "정형 데이터웨어하우스 · 자연어 → SQL" : "업무 영역별 지식베이스 · 의미 기반 문서검색";
+    const rCollapsed = !!homeIschResultCollapsed[key];
     return `
-      <div class="home-isch-result ${kind}" data-home-isch-result="${escapeHtml(key)}">
+      <div class="home-isch-result ${kind}${rCollapsed ? " is-collapsed" : ""}" data-home-isch-result="${escapeHtml(key)}">
         <div class="home-isch-result-head">
           <span class="ic">${icon}</span>
           <div class="meta"><div class="t">${escapeHtml(svc?.label || key)} 결과</div><div class="s">${escapeHtml(sub)}</div></div>
           <span class="bdg">${badge}</span>
+          <button type="button" class="home-isch-result-collapse" data-home-isch-result-collapse="${escapeHtml(key)}" title="결과 접기/펴기">${rCollapsed ? "▾ 펴기" : "▴ 접기"}</button>
         </div>
         <div class="home-card-result" data-home-card-result="${escapeHtml(key)}"></div>
         <textarea class="home-isch-hidden" data-home-card-prompt="${escapeHtml(key)}" data-kind="source" aria-hidden="true">${escapeHtml(homeIntegratedPromptText)}</textarea>
@@ -9453,6 +9456,16 @@ document.addEventListener("click", (event) => {
   if(ischRun){
     const { sources } = homeSelectedAnalysisOptions();
     sources.forEach(key => homeRunSingleService(key, ischRun));
+    return;
+  }
+  // 통합 지식 검색: 출처별 결과 프레임 접기/펴기
+  const ischResCol = event.target?.closest?.("[data-home-isch-result-collapse]");
+  if(ischResCol){
+    const key = ischResCol.dataset.homeIschResultCollapse;
+    const collapsed = !homeIschResultCollapsed[key];
+    homeIschResultCollapsed[key] = collapsed;
+    ischResCol.closest(".home-isch-result")?.classList.toggle("is-collapsed", collapsed);
+    ischResCol.textContent = collapsed ? "▾ 펴기" : "▴ 접기";
     return;
   }
   const btn = event.target?.closest?.("[data-home-run-single]");

@@ -514,6 +514,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .home-isch-result-head .meta .s{font-size:11px;color:#5f7bc4;margin-top:1px}
 .home-isch-result.rag .home-isch-result-head .meta .s{color:#4b9c91}
 .home-isch-result-head .bdg{margin-left:auto;font-size:11px;font-weight:700;border-radius:5px;padding:3px 8px}
+.home-isch-result-collapse{font-size:11.5px;font-weight:700;color:#64748b;background:#fff;border:1px solid #d8dee9;border-radius:7px;padding:5px 10px;cursor:pointer}
+.home-isch-result-collapse:hover{border-color:#94a3b8;background:#f8fafc}
+.home-isch-result.is-collapsed .home-card-result{display:none}
 .home-isch-result.db .bdg{color:#1d4ed8;background:#e0eaff}
 .home-isch-result.rag .bdg{color:#0f766e;background:#d2f0eb}
 .home-isch-result .home-card-result{padding:12px 15px}
