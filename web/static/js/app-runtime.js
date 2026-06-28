@@ -846,8 +846,8 @@ const REPORT_AI_GROUP = "보고서 생성 및 검증";
 const AI_SERVICE_GROUP = ANALYSIS_AI_GROUP;
 const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 
-// 모든 사용자 그룹에 기본 granted 처리할 분석지원/공유 서비스 (사건·권한과 무관한 범용 도구)
-const DEFAULT_GRANTED_AGENTS = ["mail_share", "translate", "text_summary", "report_standard"];
+// 모든 사용자 그룹에 기본 granted 처리할 서비스는 AI_SERVICE_REGISTRY 정의 직후
+// DEFAULT_GRANTED_AGENTS 로 계산한다(분석지원·외부연계·보고서 그룹 전체 — 아래 참조).
 
 const AI_SERVICE_REGISTRY = {
   // ── [업무지식베이스] 정형DB(Text-to-SQL) + 업무 영역별 RAG ──
@@ -1168,6 +1168,11 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
 };
+
+// 전체 사용자에게 기본 granted: 분석지원·외부연계·보고서 그룹의 모든 AI 서비스(범용 도구)
+const DEFAULT_GRANTED_AGENTS = Object.entries(AI_SERVICE_REGISTRY)
+  .filter(([, svc]) => [LLM_SERVICE_GROUP, EXTERNAL_AI_GROUP, REPORT_AI_GROUP].includes(svc.group))
+  .map(([key]) => key);
 
 const targetConfig = (companyPrompt, personPrompt = companyPrompt, supports = { company:true, person:true }) => ({
   supports,
