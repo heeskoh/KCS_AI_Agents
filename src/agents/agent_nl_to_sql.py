@@ -144,7 +144,9 @@ _SQL_SYSTEM = textwrap.dedent("""
 - 테이블명, 컬럼명은 스키마에 있는 것만 사용합니다.
 - 날짜 필터는 DATE 리터럴(예: DATE '2024-01-01') 또는 CURRENT_DATE를 사용합니다.
 - 결과 건수 제한: 기본 LIMIT 20, 집계 쿼리는 제한 없음.
-- company_id를 알 수 없으면 company_name ILIKE '%키워드%'로 검색합니다.
+- "C-숫자"(예: C-2008, C-101) 형태는 company_id 식별자입니다 → company_id = 'C-2008' 로 직접 필터(절대 company_name으로 검색 금지).
+- "DV2-C-숫자-NN"·"D-..." 형태는 declaration_no(신고번호)입니다 → declaration_no = '...' 또는 declaration_no ILIKE 'DV2-C-2008-%' 로 검색.
+- 그 외 식별자가 없는 일반 기업명 키워드만 company_name ILIKE '%키워드%'로 검색합니다.
 - 위험도 높은 순: ORDER BY risk_score DESC
 - 최신 위험점수 조회 시: QUALIFY ROW_NUMBER() OVER (PARTITION BY company_id ORDER BY generated_at DESC) = 1
 
