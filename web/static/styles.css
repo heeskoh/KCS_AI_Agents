@@ -1624,6 +1624,19 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-chip.scenario-state-running.active,
 .scenario-chip.scenario-state-done.active,
 .scenario-chip.scenario-state-has-result.active{border-width:2px;border-color:#c0c7d1;outline-color:#1d4ed8;box-shadow:0 0 0 2px rgba(226,232,240,.9),0 0 12px rgba(203,213,225,.95)}
+/* 선택 노드 표현: 바탕색 유지 + 테두리=좌측 라인색(진하게) + 원 안 숫자→체크표시 */
+.scenario-list .scenario-chip.active{
+  background:var(--svc-bg);
+  border-style:solid;border-width:2px;border-left-width:4px;
+  border-color:color-mix(in srgb, var(--svc), #000 26%);
+  border-left-color:var(--svc);
+  outline:none;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--svc) 24%, transparent);
+}
+.scenario-list .scenario-chip.active .chip-title-row strong{color:#0f172a}
+.scenario-list .scenario-chip.active .chip-body p{color:#475569}
+.scenario-list .scenario-chip.active .chip-num{background:var(--svc);color:transparent;box-shadow:0 0 0 2px #fff;position:relative}
+.scenario-list .scenario-chip.active .chip-num::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;line-height:1}
 .scenario-chip.scenario-state-error{border-width:2px;border-color:#dc2626;box-shadow:0 0 0 2px rgba(254,202,202,.95),0 0 10px rgba(239,68,68,.55)}
 .scenario-chip.scenario-state-error.active{border-width:2px;border-color:#dc2626;outline-color:#1d4ed8;box-shadow:0 0 0 2px rgba(254,202,202,.95),0 0 12px rgba(239,68,68,.65)}
 /* Permission overrides */
