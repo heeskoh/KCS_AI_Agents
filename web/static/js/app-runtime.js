@@ -4653,7 +4653,7 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
       if(homeEventSource){ homeEventSource.close(); homeEventSource = null; }
     } else if(data.status === "failed"){
       if(resultBox){
-        resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">분석 중 오류가 발생했습니다.</p>`;
+        resultBox.innerHTML = `<h3>AI통합분석결과</h3><p class="high">분석 중 오류가 발생했습니다.</p>`;
       }
       setHomeActionLabel(btn, "AI실행");
       btn.disabled = false;
@@ -4689,7 +4689,7 @@ function homeShowLlmAnswer(prompt, answer, reasoning, btn){
   if(detail) detail.style.display = "none";
   if(resultBox){
     resultBox.innerHTML = `
-      <h3>AI 분석 결과</h3>
+      <h3>AI통합분석결과</h3>
       <p class="muted" style="font-size:12px;margin-bottom:8px">
         ${escapeHtml(reasoning || "내부 AI 서비스 없이 LLM이 직접 답변합니다.")}
       </p>
@@ -4858,7 +4858,7 @@ async function homeRunAnalysis(prompt, btn){
       resultBox.style.display = "block";
       homeToggleGreeting(false);
       resultBox.innerHTML = `
-        <h3>AI 분석 결과</h3>
+        <h3>AI통합분석결과</h3>
         <p class="high">분석결과 공유 AI 서비스를 사용하려면 수신 이메일 ID를 1개 이상 등록하세요.</p>
       `;
     }
@@ -4878,7 +4878,7 @@ async function homeRunAnalysis(prompt, btn){
     resultBox.style.display = "block";
     homeToggleGreeting(false);
     resultBox.innerHTML = `
-      <h3>AI 분석 결과</h3>
+      <h3>AI통합분석결과</h3>
       <div class="home-running-line">
         <span class="home-running-dot"></span>
         <span>${hasSelectedInternalTool ? "선택된 데이터소스와 AI 서비스를 준비합니다." : "선택된 데이터소스/AI 서비스가 없어 LLM 자체 답변으로 처리합니다."}</span>
@@ -4944,7 +4944,7 @@ async function homeRunAnalysis(prompt, btn){
     intent = await res.json();
   } catch(e) {
     if(resultBox) homePreserveDbResults(resultBox, () => {
-      resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">서버 연결에 실패했습니다.</p>`;
+      resultBox.innerHTML = `<h3>AI통합분석결과</h3><p class="high">서버 연결에 실패했습니다.</p>`;
     });
     setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
@@ -4954,7 +4954,7 @@ async function homeRunAnalysis(prompt, btn){
   // LLM 사용 불가 에러
   if(intent.mode === "error"){
     if(resultBox) homePreserveDbResults(resultBox, () => {
-      resultBox.innerHTML = `<h3>AI 분석 결과</h3><p class="high">${escapeHtml(intent.error || "LLM을 사용할 수 없습니다.")}</p>`;
+      resultBox.innerHTML = `<h3>AI통합분석결과</h3><p class="high">${escapeHtml(intent.error || "LLM을 사용할 수 없습니다.")}</p>`;
     });
     setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
@@ -5010,7 +5010,7 @@ async function homeRunAnalysis(prompt, btn){
     const targetText = detectedCompanyId ? ` (대상 기업: <b>${escapeHtml(detectedCompanyId)}</b>)` : "";
     homePreserveDbResults(resultBox, () => {
       resultBox.innerHTML = `
-        <h3>AI 분석 결과</h3>
+        <h3>AI통합분석결과</h3>
         <div class="home-running-line">
           <span class="home-running-dot"></span>
           <span>분석 중입니다…${targetText}</span>
@@ -5078,7 +5078,7 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 
   homePreserveDbResults(resultBox, () => {
     resultBox.innerHTML = `
-      <h3>AI 분석 결과</h3>
+      <h3>AI통합분석결과</h3>
       ${homePromptEchoHtml(prompt)}
       <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
       ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
@@ -10624,6 +10624,12 @@ document.addEventListener("click", (event)=>{
   if(homeRunBtn){
     const prompt = coachPromptText();
     if(!prompt){ alert("프롬프트를 먼저 입력하세요."); return; }
+    // AI통합분석(하단 실행) 시 상단 통합 지식 검색(개별 서비스) 영역은 강제로 접어 결과에 집중
+    const { sources } = homeSelectedAnalysisOptions();
+    if(sources.length >= 2){
+      homeCardCollapsed["__integrated__"] = true;
+      homeRenderPromptTemplatePanels();
+    }
     homeRunAnalysis(prompt, homeRunBtn);
     return;
   }

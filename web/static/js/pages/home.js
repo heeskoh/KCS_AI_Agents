@@ -116,12 +116,6 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
     <div class="home-focus-grid">
       <section class="home-analysis-card home-col-card">
 
-        <!-- 결과 영역 (평소엔 숨김, 분석 후 표시) -->
-        <div class="home-result-area" id="homeResultArea">
-          <div class="summary-box markdown-output" id="homeResultBox" style="display:none"></div>
-          <div class="home-analysis-detail" id="homeAnalysisDetail" style="display:none"></div>
-        </div>
-
         <!-- 인사말 (결과 없을 때 표시) -->
         <div class="home-greeting" id="homeGreeting">
           <div class="home-greeting-row">
@@ -152,6 +146,12 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
         <div class="home-dynamic-area">
           <!-- 선택 서비스별 프롬프트 템플릿 구성 패널 (동적 렌더) -->
           <div id="homePromptTemplatePanels"></div>
+
+          <!-- AI 통합분석 결과 (하단 AI실행 결과) — 수행 흐름 아래, 평소엔 숨김 -->
+          <div class="home-result-area" id="homeResultArea">
+            <div class="summary-box markdown-output" id="homeResultBox" style="display:none"></div>
+            <div class="home-analysis-detail" id="homeAnalysisDetail" style="display:none"></div>
+          </div>
         </div>
 
         <!-- 컴포저 (프롬프트 입력 + 버튼) -->
