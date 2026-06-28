@@ -67,7 +67,6 @@
         "profile",
         "data",
         "workbench",
-        "network",
         "report"
       ]
     },
@@ -81,6 +80,7 @@
         "profile",
         "data",
         "scenario",
+        "forensic",
         "report",
         "slang",
         "dashboard"
@@ -97,6 +97,7 @@
         "data",
         "scenario",
         "forensic",
+        "report",
         "slang",
         "dashboard"
       ]
