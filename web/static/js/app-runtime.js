@@ -6845,7 +6845,6 @@ function canvasOverviewPanel(){
             <div class="job-status-row">
               <span class="job-status ${job.status.tone}">${job.status.label}</span>
               ${isDone ? `<button class="btn-inline-action" data-archive-job="${escapeHtml(job.companyId)}" title="아카이브로 저장">아카이브</button>` : ""}
-              <button class="btn-inline-action job-remove-action" data-canvas-job-del="${escapeHtml(job.jobId || job.companyId || "")}" data-canvas-job-page="${escapeHtml(job.page || "investigation")}" title="내 진행작업에서 삭제">삭제</button>
             </div>
           </div>
           ${job.scenarioChanged ? `<div class="job-change-note">시나리오가 변경되어 재실행이 필요합니다.</div>` : ""}
