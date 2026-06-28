@@ -850,9 +850,10 @@ const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 const DEFAULT_GRANTED_AGENTS = ["mail_share", "translate", "text_summary", "report_standard"];
 
 const AI_SERVICE_REGISTRY = {
+  // ── [업무지식베이스] 정형DB(Text-to-SQL) + 업무 영역별 RAG ──
   db_cdw: {
-    label: "CDW 조회", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+    label: "관세청 CDW 대상 Text-to-SQL 분석", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "관세청 내부직원이 자연어로 질문하면, 시스템이 이를 해석해 CDW(관세 데이터 웨어하우스) 대상 SQL을 생성·실행하고 분석 결과를 제공",
     behaviorOptions: [
       { value: "profile_summary", label: "기업/신고 요약" },
       { value: "risk_focus", label: "위험지표 중심" },
@@ -860,7 +861,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   company_profile: {
-    label: "기업 프로파일 조회", type: "company", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    label: "기업 프로파일 조회", type: "company", group: DB_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
     defaultInstruction: "기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회",
     supports: { company:true, person:false },
     behaviorOptions: [
@@ -869,40 +870,32 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_customs: {
-    label: "관세정보 RAG", type: "rag_customs", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "관세 업무 정보에서 과세가격, 원산지, 품목분류 관련 근거 확인",
+    label: "관세정보RAG", type: "rag_customs", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "업무규정, 관세법령, 사례집 기반 유사사례 검색",
     behaviorOptions: [
       { value: "regulation_basis", label: "관세정보 근거 확인" },
       { value: "case_comparison", label: "유사사례 비교" },
     ],
   },
-  rag_trade: {
-    label: "무역정보 RAG", type: "rag_trade", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
-    defaultInstruction: "통관/무역 정보에서 이상 징후와 참고 근거 확인",
-    behaviorOptions: [
-      { value: "trade_signal", label: "무역 징후 확인" },
-      { value: "market_context", label: "시장 맥락 확인" },
-    ],
-  },
   rag_audit: {
-    label: "심사정보 RAG", type: "rag_audit", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "심사정보와 추징 가능성 관점의 조사 포인트 정리",
+    label: "심사정보RAG", type: "rag_audit", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "심사결과보고서 기반 유사사례 검색 (심사국 한정)",
     behaviorOptions: [
       { value: "audit_case", label: "심사사례 비교" },
       { value: "recovery_point", label: "추징 포인트" },
     ],
   },
   rag_investigation: {
-    label: "조사정보 RAG", type: "rag_investigation", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+    label: "조사정보RAG", type: "rag_investigation", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "조사/수사결과보고서 기반 유사사례 검색 (조사국 한정)",
     behaviorOptions: [
       { value: "investigation_plan", label: "조사계획 수립" },
       { value: "evidence_check", label: "증빙 체크" },
     ],
   },
   rag_global: {
-    label: "국제협력 RAG", type: "rag_global", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
+    label: "국제협력RAG", type: "rag_global", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "WCO 회의록 및 국제협력 내용 (국제협력국 수정권한, 타부서 조회 권한 제공)",
     behaviorOptions: [
       { value: "global_signal", label: "국제협력 위험신호" },
       { value: "counterparty", label: "해외거래처 확인" },
@@ -916,17 +909,10 @@ const AI_SERVICE_REGISTRY = {
       { value: "response_pattern", label: "답변흐름 정리" },
     ],
   },
-  rag_risk_select: {
-    label: "위험선별 RAG", type: "rag_risk_select", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
-    defaultInstruction: "위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
-    behaviorOptions: [
-      { value: "selection_rule", label: "선별기준 확인" },
-      { value: "risk_signal", label: "위험신호 정리" },
-    ],
-  },
   ml: {
     label: "ML 모델 실행 AI 서비스", type: "ml", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
-    defaultInstruction: "전체 모델을 실행해 위험 패턴을 비교",
+    defaultInstruction: "전체 모델을 실행해 기업 위험 패턴을 비교",
+    personInstruction: "전체 모델을 실행해 개인 위험 패턴을 비교",
     behaviorOptions: [
       { value: "all_models", label: "전체 모델 실행" },
       { value: "industry_stats", label: "동종업종 통계" },
@@ -938,23 +924,36 @@ const AI_SERVICE_REGISTRY = {
   network: {
     label: "관계망 분석 AI 서비스", type: "network", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "관계망과 거래 구조를 분석해 특수관계, 우회수입, 페이퍼컴퍼니 가능성을 식별",
+    personInstruction: "인물·동행자·연락처·주소 관계망을 분석해 공범, 전달책, 반복 연계 가능성을 식별",
     behaviorOptions: [
       { value: "relationship", label: "관계망 분석" },
       { value: "paper_company", label: "페이퍼컴퍼니" },
     ],
   },
   ontology: {
-    label: "관세온톨로지 AI 서비스", type: "ontology", group: ANALYSIS_AI_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
-    defaultInstruction: "우범여행자 중심 관세 온톨로지와 지식그래프 관계를 구성",
+    label: "관세온톨로지 AI 서비스", type: "ontology", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "기업·거래·품목 중심 관세 온톨로지와 지식그래프 관계를 구성",
+    personInstruction: "우범여행자 중심 관세 온톨로지와 지식그래프 관계를 구성",
     behaviorOptions: [
       { value: "traveler_ontology", label: "우범여행자 온톨로지" },
       { value: "cargo_relation", label: "화물 관계 분석" },
       { value: "semantic_rules", label: "추론 규칙 생성" },
     ],
   },
+  // ── [업무분석 AI 서비스] ──
+  rag_risk_select: {
+    label: "위험Case검색 서비스", type: "rag_risk_select", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
+    personInstruction: "개인 위험선별 기준과 선별 이력을 바탕으로 위험 신호 확인",
+    behaviorOptions: [
+      { value: "selection_rule", label: "선별기준 확인" },
+      { value: "risk_signal", label: "위험신호 정리" },
+    ],
+  },
   origin_analysis: {
     label: "원산지 검증 AI 서비스", type: "origin_analysis", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
+    personInstruction: "개인 반입 물품의 원산지 증빙과 우회 반입 가능성을 분석",
     behaviorOptions: [
       { value: "origin_certificate", label: "원산지증명 검토" },
       { value: "fta_risk", label: "FTA 리스크" },
@@ -964,6 +963,7 @@ const AI_SERVICE_REGISTRY = {
   abnormal_trade: {
     label: "이상거래 검증 AI 서비스", type: "abnormal_trade", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "가격·거래상대방·신고패턴의 이상거래 징후를 검증",
+    personInstruction: "반입·송금·연락·이동 패턴의 이상 징후를 검증",
     behaviorOptions: [
       { value: "price_pattern", label: "가격 패턴" },
       { value: "counterparty_pattern", label: "거래상대방" },
@@ -973,6 +973,7 @@ const AI_SERVICE_REGISTRY = {
   proceeds_tracking: {
     label: "범죄수익 추적 AI 서비스", type: "proceeds_tracking", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+    personInstruction: "개인 계좌·송금·현금 반입 단서를 기반으로 범죄수익 은닉 가능성을 분석",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름" },
       { value: "account_trace", label: "계좌추적 단서" },
@@ -982,8 +983,8 @@ const AI_SERVICE_REGISTRY = {
   // 신규: 범죄자금추적 — 실제 등록된 소스(이체·가상자산·현금 등)에 따라 분석.
   // 동작 선택 = 분석에 사용할 데이터 소스 선택. (범죄수익 추적과는 별개 서비스)
   fund_trace: {
-    label: "범죄자금추적 AI 서비스", type: "fund_trace", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
-    defaultInstruction: "등록된 자금 소스(계좌이체·가상자산·현금 입출금 등) 중 선택한 항목을 기반으로 범죄자금 흐름을 추적",
+    label: "범죄자금내역 추적 AI 서비스", type: "fund_trace", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "자금이체·현금입출금·가상계좌 이체 등 자금내역 파일을 입력받아 시계열·소유주 중심으로 추적관리(관계망 그래프 활용)",
     behaviorOptions: [
       { value: "fund_flow", label: "자금흐름내역" },
       { value: "transfer", label: "계좌·송금 이체내역" },
@@ -1005,6 +1006,7 @@ const AI_SERVICE_REGISTRY = {
   route_analysis: {
     label: "운송경로 분석 AI 서비스", type: "route_analysis", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+    personInstruction: "여행경로, 경유지, 동행 이력을 분석해 우회 반입 가능성을 탐지",
     behaviorOptions: [
       { value: "route_check", label: "운송경로" },
       { value: "supply_chain", label: "공급망 역추적" },
@@ -1014,6 +1016,7 @@ const AI_SERVICE_REGISTRY = {
   web_search: {
     label: "웹검색 AI 서비스", type: "web", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
+    personInstruction: "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인",
     behaviorOptions: [
       { value: "company_news", label: "업체 기사" },
       { value: "supply_chain", label: "공급망/가격" },
@@ -1024,6 +1027,7 @@ const AI_SERVICE_REGISTRY = {
   declaration_verify: {
     label: "수입신고검증 AI 서비스", type: "declaration_verify", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
+    personInstruction: "개인 휴대품 신고, 반입 물품, 첨부 증빙을 비교해 불일치와 은닉 가능성 확인",
     behaviorOptions: [
       { value: "declaration_consistency", label: "신고 정합성" },
       { value: "missing_evidence", label: "누락 증빙" },
@@ -1032,6 +1036,7 @@ const AI_SERVICE_REGISTRY = {
   hs_verify: {
     label: "품목분류검증 AI 서비스", type: "hs_verify", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
+    personInstruction: "개인 반입 물품의 품목분류와 규제 대상 여부를 검증",
     behaviorOptions: [
       { value: "classification_check", label: "분류 적정성" },
       { value: "alternative_hs", label: "대체 HS 후보" },
@@ -1040,14 +1045,25 @@ const AI_SERVICE_REGISTRY = {
   customs_value: {
     label: "과세가격평가 AI 서비스", type: "customs_value", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "과세가격 결정 요소와 저가신고 가능성 검토",
+    personInstruction: "개인 반입 물품의 과세가격 산정 근거와 축소 신고 가능성 검토",
     behaviorOptions: [
       { value: "valuation_basis", label: "과세가격 근거" },
       { value: "undervaluation", label: "저가신고 탐지" },
     ],
   },
+  rag_trade: {
+    label: "통관보고서 생성", type: "rag_trade", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "통관/무역 정보에서 이상 징후와 참고 근거 확인",
+    personInstruction: "개인 반입·운송·거래 정보에서 이상 징후와 참고 근거 확인",
+    behaviorOptions: [
+      { value: "trade_signal", label: "무역 징후 확인" },
+      { value: "market_context", label: "시장 맥락 확인" },
+    ],
+  },
   patent: {
     label: "특허정보 조회 AI 서비스", type: "patent", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "특허/로열티 관련 거래와 과세가격 반영 여부 확인",
+    personInstruction: "개인 반입 물품의 상표권·지식재산권 침해 가능성 확인",
     behaviorOptions: [
       { value: "royalty_check", label: "로열티 확인" },
       { value: "patent_lookup", label: "특허 정보 조회" },
@@ -1056,6 +1072,7 @@ const AI_SERVICE_REGISTRY = {
   law: {
     label: "법령 검토 AI 서비스", type: "law", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "관련 법령, 고시, 판례, 유권해석 근거 검색",
+    personInstruction: "개인 수사·통관·처분 관련 법령, 고시, 판례, 유권해석 근거 검색",
     behaviorOptions: [
       { value: "law_basis", label: "법령 근거" },
       { value: "precedent", label: "판례/유권해석" },
@@ -1064,14 +1081,16 @@ const AI_SERVICE_REGISTRY = {
   ocr: {
     label: "OCR/문서인식 AI 서비스", type: "ocr", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "첨부 문서에서 주요 항목을 추출하고 신고자료와 대조할 수 있도록 구조화",
+    personInstruction: "개인 신분·여행·반입 관련 첨부 문서에서 주요 항목을 추출하고 구조화",
     behaviorOptions: [
       { value: "document_extract", label: "문서 항목 추출" },
       { value: "evidence_parse", label: "증빙 구조화" },
     ],
   },
   rag_create: {
-    label: "RAG 생성", type: "rag_create", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    label: "RAG 생성 AI 서비스", type: "rag_create", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
+    personInstruction: "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     behaviorOptions: [
       { value: "knowledge_build", label: "지식 생성" },
       { value: "source_cleanup", label: "자료 정제" },
@@ -1086,7 +1105,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   text_summary: {
-    label: "요약 AI 서비스", type: "text_summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    label: "요약 AI 서비스", type: "text_summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
     defaultInstruction: "입력한 문서·텍스트를 지정한 결과 형식으로 요약",
     behaviorOptions: [
       { value: "bullet", label: "핵심 불릿" },
@@ -1096,16 +1115,17 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   report_standard: {
-    label: "표준 보고서 생성 AI 서비스", type: "report_standard", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
-    defaultInstruction: "표준 보고서 템플릿의 형식·구성에 맞춰 신규 보고서 내용을 재구성",
+    label: "표준보고서 생성 AI 서비스", type: "report_standard", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력자료를 유사사례 표준보고서 형식으로 재구성",
     behaviorOptions: [
       { value: "match_template", label: "템플릿 형식 적용" },
       { value: "fill_sections", label: "섹션별 채움" },
     ],
   },
   summary: {
-    label: "보고서 요약 AI 서비스", type: "summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents", selectable: false, adminVisible: false,
+    label: "보고서 요약 AI 서비스", type: "summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "요약 대상을 조사관용 핵심 요약으로 정리",
+    personInstruction: "요약 대상을 개인 수사 담당자용 핵심 요약으로 정리",
     behaviorOptions: [
       { value: "brief", label: "핵심 요약" },
       { value: "evidence_table", label: "근거 표 정리" },
@@ -1114,6 +1134,7 @@ const AI_SERVICE_REGISTRY = {
   report_generate: {
     label: "보고서 생성 AI 서비스", type: "report", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
+    personInstruction: "보고서 대상 자료를 개인 수사보고서 초안으로 통합",
     behaviorOptions: [
       { value: "full_report", label: "전체 보고서" },
       { value: "issue_report", label: "쟁점 중심 보고서" },
@@ -1122,14 +1143,25 @@ const AI_SERVICE_REGISTRY = {
   report_validate: {
     label: "보고서 검증 AI 서비스", type: "validation", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+    personInstruction: "개인 수사보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
     behaviorOptions: [
       { value: "evidence_validation", label: "근거 검증" },
       { value: "risk_review", label: "리스크 리뷰" },
     ],
   },
+  result_synthesis: {
+    label: "결과통합 AI서비스", type: "result_synthesis", group: REPORT_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "선행 단계 결과를 사용자가 지정한 최종 결과 형식으로 종합",
+    personInstruction: "선행 단계 결과를 사용자가 지정한 최종 결과 형식으로 종합",
+    behaviorOptions: [
+      { value: "synthesize", label: "결과 종합" },
+      { value: "final_format", label: "최종 형식 적용" },
+    ],
+  },
   mail_share: {
-    label: "분석결과 공유 AI 서비스", type: "mail_share", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
+    label: "내부메일 공유 AI 서비스", type: "mail_share", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "분석결과 보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
+    personInstruction: "개인 수사 결과보고서를 이메일 본문과 첨부 요약으로 구성하여 지정 수신자에게 공유",
     behaviorOptions: [
       { value: "email_share", label: "이메일 공유" },
       { value: "team_brief", label: "팀 공유 요약" },
