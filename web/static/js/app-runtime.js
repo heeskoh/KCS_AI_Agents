@@ -3848,7 +3848,7 @@ function homeIntegratedSourceFrameHtml(sources){
         <span class="home-source-badge">업무지식베이스</span>
         <div class="home-card-actions home-isch-actions">
           <button type="button" class="home-mini-btn home-card-coach-btn" data-home-isch-coach title="질의를 점검하고 재구성안을 제시합니다">AI코칭</button>
-          <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="켜진 업무지식베이스에 통합 질의를 동시 실행">업무지식베이스 통합수행</button>
+          <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="켜진 업무지식베이스에 통합 질의를 동시 실행">AI분석실행</button>
           ${homeCardCollapseToggleHtml("__integrated__")}
         </div>
       </div>
