@@ -169,7 +169,7 @@ def fetch_data() -> dict[str, Any]:
                    CAST(import_date AS VARCHAR) AS trade_date,
                    declared_value AS value, status, hs_code, item_name,
                    departure_port, arrival_port, overseas_supplier_name AS supplier,
-                   filer_name,
+                   filer_name, filer_representative,
                    COALESCE(NULLIF(departure_country, ''),
                             NULLIF(origin_country_name, ''), origin_country) AS dep_country
             FROM import_declarations
@@ -378,16 +378,32 @@ def merge_decl_supplier(tx: ManagedTransaction, declaration_no: str, supplier: s
     )
 
 
-def merge_decl_broker(tx: ManagedTransaction, declaration_no: str, broker: str) -> None:
+def merge_decl_broker(tx: ManagedTransaction, declaration_no: str,
+                      firm: str, manager: str | None = None) -> None:
+    # 관세사무소(firm)만 노드로 두고, 담당 관세사(manager)는 FILED_BY 엣지 속성으로 표현.
     tx.run(
         """
         MATCH (d:Declaration {declaration_no: $declaration_no})
-        MERGE (b:Broker {name: $broker})
+        MERGE (b:Broker {name: $firm})
         SET b.updated_from = $tag
-        MERGE (d)-[r:FILED_BY]->(b) SET r.updated_from = $tag
+        MERGE (d)-[r:FILED_BY]->(b)
+        SET r.manager = $manager, r.updated_from = $tag
         """,
-        {"declaration_no": declaration_no, "broker": broker, "tag": SOURCE_TAG},
+        {"declaration_no": declaration_no, "firm": firm, "manager": manager, "tag": SOURCE_TAG},
     )
+
+
+def split_broker(filer_name: str | None, rep: str | None) -> tuple[str, str | None]:
+    """filer_name('관세사무소 담당자') → (관세사무소, 담당자). rep(filer_representative) 우선."""
+    name = (filer_name or "").strip()
+    person = (rep or "").strip() or None
+    if person and name.endswith(person):
+        firm = name[: -len(person)].strip()
+        return (firm or name), person
+    if " " in name:
+        firm, _, tail = name.rpartition(" ")
+        return firm.strip(), (person or tail.strip() or None)
+    return name, person
 
 
 def merge_of_item(tx: ManagedTransaction, declaration_no: str, code8: str,
@@ -615,7 +631,9 @@ def load_to_neo4j(data: dict[str, Any], clear: bool = False) -> dict[str, Any]:
                                           r["supplier"], r2["dep_country_name"])
                 broker = r.get("filer_name") or broker_by_company.get(r["company_id"])
                 if broker:
-                    session.execute_write(merge_decl_broker, r["declaration_no"], broker)
+                    firm, manager = split_broker(r.get("filer_name") or broker,
+                                                 r.get("filer_representative"))
+                    session.execute_write(merge_decl_broker, r["declaration_no"], firm, manager)
                 decl_count += 1
 
             # 수출신고 노드 + 경로(매수인·관세사 없음)

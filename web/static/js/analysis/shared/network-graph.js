@@ -127,6 +127,8 @@ const REL_LABEL_KO = {
 };
 function relLabelKo(type, props){
   if(type === "NETWORK_EDGE" && props && props.relation_type) return props.relation_type;
+  // 관세사: 사무소는 노드, 담당 관세사는 엣지에 표시 (관세사 · 담당자명)
+  if(type === "FILED_BY" && props && props.manager) return `관세사 · ${props.manager}`;
   return REL_LABEL_KO[type] || type;
 }
 
@@ -296,6 +298,7 @@ const PROP_LABEL_KO = {
   risk_indicator_summary: "위험지표", hsk_code: "품목번호(HSK)", spec: "사양/규격",
   departure_country: "적출국", overseas_supplier: "해외거래처", item: "품목", count: "건수",
   transport_type: "운송수단", trade_flow: "수출입 구분", port_code: "항만코드", trade_date: "신고일자",
+  manager: "담당 관세사",
   item_class: "품목분류(8자리)", model_or_agent: "분석 모델/서비스", reason: "근거",
   shareholding_pct: "지분율(%)", trade_share_pct: "거래비중(%)", is_offshore: "역외 여부", note: "비고",
   origin: "원산지", status: "사건유형", case_count: "사건건수",
