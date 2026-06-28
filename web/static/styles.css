@@ -1491,12 +1491,12 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .upload-status.running{background:#eff6ff;color:#1d4ed8}
 
 .scenario-workbench{margin-top:0}
-.scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:8px}
+.scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:6px}
 .scenario-workbench-v2.result-full-active{height:auto;overflow:visible}
-.scenario-work-header{display:grid;grid-template-columns:minmax(220px,1fr) minmax(410px,auto) minmax(520px,auto);align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 10px;flex:none}
-.scenario-title-row{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;min-width:0;flex:none}
-.scenario-title-row h3{margin-bottom:6px}
-.scenario-title-row p{margin:0}
+.scenario-work-header{display:grid;grid-template-columns:minmax(180px,1fr) minmax(410px,auto) minmax(520px,auto);align-items:center;gap:8px;border:none;border-radius:0;background:transparent;padding:0;flex:none}
+.scenario-title-row{display:flex;justify-content:space-between;gap:16px;align-items:center;min-width:0;flex:none}
+.scenario-title-row h3{margin:0;font-size:15px}
+.scenario-title-row p{display:none}
 .scenario-status{display:none}
 .scenario-layout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:10px}
 .scenario-execution-layout{grid-template-columns:minmax(260px,3fr) minmax(520px,7fr);align-items:stretch;flex:1;min-height:0;overflow:hidden}
@@ -1507,10 +1507,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config{display:flex;flex-direction:column}
 .scenario-config-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .scenario-config-title h3{margin:0;font-size:18px;color:var(--text)}
-.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:0;padding:8px 10px;min-width:410px}
+.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:410px}
 .scenario-service-zone strong{font-size:13px;color:#14532d;white-space:nowrap}
 /* Template zone — colored background block */
-.scenario-template-zone{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:0;padding:8px 10px;min-width:620px}
+.scenario-template-zone{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:620px}
 .scenario-template-zone strong{font-size:14px;color:#0f172a;white-space:nowrap}
 .scenario-template-zone-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .scenario-template-zone-head span{font-size:12px;font-weight:800;color:#53617b}
@@ -1555,7 +1555,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-board-head h3,.scenario-log-head h3{margin:0}
 .scenario-log-actions{display:flex;gap:8px;align-items:center}
 .scenario-log-actions .btn{padding:8px 10px;font-size:12px;white-space:nowrap}
-.scenario-workbench-v2 .scenario-board{position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:6px;padding:6px 14px;min-height:0;height:auto;overflow:visible}
+.scenario-workbench-v2 .scenario-board{position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:4px;padding:4px 10px;min-height:0;height:auto;overflow:visible}
 .scenario-board-progress{display:none}
 .scenario-list{min-height:66px;margin:0;padding:0 2px 4px;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;list-style:none;scrollbar-width:thin}
 .scenario-list-horizontal .scenario-chip{flex:0 0 232px;min-height:58px}
