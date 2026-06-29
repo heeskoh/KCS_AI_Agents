@@ -146,7 +146,7 @@ export const AI_SERVICE_CATALOG = {
       { value:"anomaly", label:"이상치 탐색" },
     ]),
 
-  rag_create: cfg("RAG 생성", "rag_create", LLM_SERVICE_GROUP,
+  rag_create: cfg("업무특화RAG 분석서비스", "rag_create", LLM_SERVICE_GROUP,
     "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     [

@@ -107,11 +107,17 @@ export function agenticNodeInnerHtml(type, data = {}){
 /* ── 좌측 팔레트 ── */
 function paletteSection(store, service, listOpen){
   const serviceItems = store.services.map(svc => `
-    <button class="agentic-svc-item${svc.id === service?.id ? " active" : ""}" type="button"
-            data-agentic-select-service="${escapeHtml(svc.id)}">
-      <span class="agentic-svc-name">${escapeHtml(svc.name)}</span>
-      <span class="agentic-svc-meta">${agenticServiceNodeCount(svc)} 노드</span>
-    </button>
+    <div class="agentic-svc-row${svc.id === service?.id ? " active" : ""}">
+      <button class="agentic-svc-item${svc.id === service?.id ? " active" : ""}" type="button"
+              data-agentic-select-service="${escapeHtml(svc.id)}">
+        <span class="agentic-svc-name">${escapeHtml(svc.name)}</span>
+        <span class="agentic-svc-meta">${agenticServiceNodeCount(svc)} 노드</span>
+      </button>
+      <button class="agentic-svc-del" type="button" data-agentic-delete-service="${escapeHtml(svc.id)}"
+              title="서비스 삭제" aria-label="${escapeHtml(svc.name)} 서비스 삭제">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>
   `).join("") || `<div class="agentic-svc-empty">등록된 서비스가 없습니다.</div>`;
 
   const nodeButtons = AGENTIC_NODE_TYPES.map(def => `

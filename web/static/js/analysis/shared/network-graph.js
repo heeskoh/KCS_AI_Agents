@@ -174,6 +174,8 @@ function emptyState(){
     activeScenarioId: "",              // 선택/적용된 시나리오 id
     _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
     viewMode: "relation",              // 프로파일 4-뷰: relation|cause|risk|route
+    manualPositions: {},               // 정렬·드래그로 옮긴 노드 위치(뷰별 id→{x,y}, 재렌더 유지)
+    alignBarOn: false,                  // 정렬 툴바 고정 표시 여부(off라도 2개 이상 선택 시 자동 표시)
     hiddenIds: new Set(),              // 속성창에서 숨김 처리한 노드 id(개별 숨기기/보이기 토글)
     domain: "",                        // 수사 도메인 필터: ""|drug|forex|general (우범자 그래프)
     // 자유 관계분석(explore 탭): 다중 시드 + 속성 필터
@@ -186,6 +188,14 @@ function emptyState(){
 function filterStateFor(key){
   if(!_filterState.has(key)) _filterState.set(key, emptyState());
   return _filterState.get(key);
+}
+
+/* 현재 뷰의 수동 노드 위치 맵(정렬·드래그 결과). 뷰별로 레이아웃이 달라 분리 저장. */
+function manualPosFor(state){
+  if(!state.manualPositions) state.manualPositions = {};
+  const v = state.viewMode || "relation";
+  if(!state.manualPositions[v]) state.manualPositions[v] = {};
+  return state.manualPositions[v];
 }
 
 function graphUrl(targetType, targetId, hops = 1){
@@ -530,6 +540,12 @@ const CY_STYLE = [
       "border-color": "#16a34a", "border-width": 6,
       "color": "#0066FF", "font-weight": 800,
   }},
+  // 정렬용 다중 선택 — 파란 후광(검색=노랑·분석=초록과 구분)
+  { selector: "node:selected", style: {
+      "border-color": "#2563eb", "border-width": 5,
+      "overlay-color": "#2563eb", "overlay-opacity": .14, "overlay-padding": 6,
+      "color": "#1d4ed8", "font-weight": 800,
+  }},
   // 파일 등록 엣지 — 점선·자홍색으로 Neo4j 관계와 구분
   { selector: "edge[fileEdge = 1]", style: {
       "line-color": "#db2777", "target-arrow-color": "#db2777",
@@ -603,6 +619,16 @@ function mountCytoscape(key, filteredGraph){
     // 적용하고 중심 노드를 화면 중앙에 둔다(노드·라벨 겹침은 레이아웃에서 이미 방지).
     const layout = cy.layout(viewLayout(filterStateFor(key), filteredGraph));
     layout.one("layoutstop", () => {
+      // 정렬·드래그로 옮긴 노드 위치를 레이아웃 위에 복원(재렌더 후에도 유지)
+      const mp = manualPosFor(filterStateFor(key));
+      const movedIds = Object.keys(mp);
+      if(movedIds.length){
+        cy.batch(() => movedIds.forEach(id => {
+          const n = cy.getElementById(id);
+          if(n && n.nonempty()) n.position({ x: mp[id].x, y: mp[id].y });
+        }));
+        cy.fit(undefined, 30);
+      }
       if(cy.zoom() < 1){
         cy.zoom(1);
         const core = cy.$("node[core = 1]");
@@ -624,6 +650,8 @@ function mountCytoscape(key, filteredGraph){
     });
     cy.on("mouseout", "node", () => cy.elements().removeClass("dim"));
     cy.on("tap", "node", evt => {
+      // Shift+클릭은 정렬용 다중 선택 — 상세 패널은 띄우지 않는다(세로 툴바와 겹침 방지)
+      if(evt.originalEvent && evt.originalEvent.shiftKey) return;
       showNetDetail(key, nodeDetailHtml(key, evt.target.data()));
     });
     cy.on("tap", "edge", evt => {
@@ -640,7 +668,16 @@ function mountCytoscape(key, filteredGraph){
       else draft.focusIds.add(nodeId);
       rerenderPanelByKey(key);
     });
+    // 정렬: 다중 선택(Shift+클릭/드래그 박스) 변화 시 툴바 갱신
+    cy.on("select unselect", "node", () => updateAlignToolbar(key));
+    // 정렬: 노드를 손으로 옮기면 위치 저장(여럿 선택 상태면 함께 이동한 노드 모두 저장)
+    cy.on("dragfree", "node", evt => {
+      const mp = manualPosFor(filterStateFor(key));
+      const moved = evt.target.selected() ? cy.$("node:selected") : evt.target;
+      moved.forEach(nd => { mp[nd.id()] = { ...nd.position() }; });
+    });
     _cyInstances.set(key, cy);
+    updateAlignToolbar(key);
     // A1: 재렌더 후에도 검색 강조 유지
     const term = filterStateFor(key).searchTerm;
     if(term) applySearchHighlight(key, term);
@@ -803,19 +840,118 @@ function viewLayout(state, graph){
   return { name: "preset", positions: radialRingPositions(graph), padding: 20, fit: true, animate: false };
 }
 
-/* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) */
+/* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) + 우측 도구(정렬 툴바·전체화면) */
 function buildViewToggle(state, key){
-  if(!key.startsWith("company:") && !key.startsWith("explore:")) return "";
+  const k = escapeHtml(key);
+  const isProfileViews = key.startsWith("company:") || key.startsWith("explore:");
   const cur = viewModeOf(state).id;
-  const btns = VIEW_MODES.map(v =>
-    `<button type="button" class="net-view-btn${v.id === cur ? " on" : ""}" data-net-view="${escapeHtml(key)}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
-  ).join("");
-  const desc = viewModeOf(state).desc;
+  const btns = isProfileViews ? VIEW_MODES.map(v =>
+    `<button type="button" class="net-view-btn${v.id === cur ? " on" : ""}" data-net-view="${k}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
+  ).join("") : "";
+  const desc = isProfileViews ? `<span class="net-view-desc">${escapeHtml(viewModeOf(state).desc)}</span>` : "";
   const nHidden = state.hiddenIds ? state.hiddenIds.size : 0;
   const hiddenChip = nHidden
-    ? `<button type="button" class="net-hidden-chip" data-net-show-all="${escapeHtml(key)}" title="숨긴 노드를 모두 다시 표시">🙈 숨김 ${nHidden} · 모두 표시</button>`
+    ? `<button type="button" class="net-hidden-chip" data-net-show-all="${k}" title="숨긴 노드를 모두 다시 표시">🙈 숨김 ${nHidden} · 모두 표시</button>`
     : "";
-  return `<div class="profile-net-views">${btns}<span class="net-view-desc">${escapeHtml(desc)}</span>${hiddenChip}</div>`;
+  // 우측 도구: 정렬 툴바 고정 토글 + 전체화면 토글(항상 표시)
+  const tools = `
+    <span class="net-view-tools">
+      <button type="button" class="net-tool-btn${state.alignBarOn ? " on" : ""}" data-net-align-toggle="${k}" title="노드 정렬 툴바 고정 표시 (선택 시 자동 표시됨)">⠿ 정렬 툴바 ${state.alignBarOn ? "숨기기" : "보이기"}</button>
+      <button type="button" class="net-tool-btn" data-net-fullscreen="${k}" title="관계분석을 전체화면으로 보기">⛶ 전체화면</button>
+    </span>`;
+  return `<div class="profile-net-views">${btns}${desc}${hiddenChip}${tools}</div>`;
+}
+
+/* ── 노드 정렬 툴바: 다중 선택한 노드를 가로/세로 기준 정렬 + 균등 간격 배치 ── */
+const ALIGN_BTNS = [
+  { mode: "left",    grp: "좌우", label: "왼쪽",   title: "선택 노드를 가장 왼쪽 기준으로 정렬" },
+  { mode: "hcenter", grp: "좌우", label: "가운데", title: "선택 노드를 좌우 중앙에 정렬" },
+  { mode: "right",   grp: "좌우", label: "오른쪽", title: "선택 노드를 가장 오른쪽 기준으로 정렬" },
+  { mode: "top",     grp: "상하", label: "위",     title: "선택 노드를 가장 위 기준으로 정렬" },
+  { mode: "vcenter", grp: "상하", label: "가운데", title: "선택 노드를 상하 중앙에 정렬" },
+  { mode: "bottom",  grp: "상하", label: "아래",   title: "선택 노드를 가장 아래 기준으로 정렬" },
+  { mode: "dist-h",  grp: "균등", label: "가로",   title: "가로 간격을 균등하게 배분 (3개 이상)" },
+  { mode: "dist-v",  grp: "균등", label: "세로",   title: "세로 간격을 균등하게 배분 (3개 이상)" },
+];
+function buildAlignToolbar(key){
+  const k = escapeHtml(key);
+  const groups = ["좌우", "상하", "균등"].map(g => {
+    const btns = ALIGN_BTNS.filter(b => b.grp === g).map(b =>
+      `<button type="button" class="net-align-btn" data-net-align="${k}::${b.mode}" title="${escapeHtml(b.title)}" disabled>${escapeHtml(b.label)}</button>`
+    ).join("");
+    return `<span class="net-align-grp"><em>${g}</em><span class="net-align-row">${btns}</span></span>`;
+  }).join("");
+  return `
+    <div class="net-align-bar" data-net-align-bar="${k}">
+      <span class="net-align-count" data-net-align-count="${k}">Shift+클릭·드래그로<br>노드 다중 선택</span>
+      ${groups}
+      <button type="button" class="net-align-clear" data-net-align-clear="${k}" title="선택 해제" disabled>✕ 선택해제</button>
+    </div>`;
+}
+/* 선택 노드 수/고정여부에 따라 툴바 표시·버튼 활성 갱신.
+   표시: 고정(alignBarOn) 또는 2개 이상 선택 시. 안내문·겹침회피 클래스도 함께 갱신. */
+function updateAlignToolbar(key){
+  const bar = document.querySelector(`[data-net-align-bar="${CSS.escape(key)}"]`);
+  if(!bar) return;
+  const cy = _cyInstances.get(key);
+  const n = cy ? cy.$("node:selected").length : 0;
+  const on = filterStateFor(key).alignBarOn;
+  const visible = on || n >= 2;
+  bar.classList.toggle("show", visible);
+  if(bar.parentElement) bar.parentElement.classList.toggle("align-on", visible);   // 상세패널 좌측 이동
+  const countEl = bar.querySelector("[data-net-align-count]");
+  if(countEl) countEl.innerHTML = n ? `선택 <b>${n}</b>개` : "Shift+클릭·드래그로<br>노드 다중 선택";
+  bar.querySelectorAll("[data-net-align]").forEach(b => {
+    const mode = b.dataset.netAlign.split("::")[1];
+    b.disabled = n < (mode.startsWith("dist") ? 3 : 2);
+  });
+  const clr = bar.querySelector("[data-net-align-clear]");
+  if(clr) clr.disabled = n < 1;
+}
+/* 관계분석 패널 전체화면 토글 (제목·필터·그래프·하단 포함 frame 단위) */
+function toggleNetFullscreen(key){
+  const [tt, ...rest] = key.split(":");
+  const body = document.getElementById(containerId(tt, rest.join(":")));
+  const frame = body ? body.closest(".profile-net-frame") : null;
+  if(!frame) return;
+  if(document.fullscreenElement === frame) document.exitFullscreen();
+  else if(frame.requestFullscreen) frame.requestFullscreen().catch(() => {});
+}
+/* 선택 노드 정렬/균등 배치 실행 — cytoscape 모델 좌표를 직접 조작하고 위치를 저장 */
+function alignSelected(key, mode){
+  const cy = _cyInstances.get(key);
+  if(!cy) return;
+  const sel = cy.$("node:selected");
+  const n = sel.length;
+  if(n < (mode.startsWith("dist") ? 3 : 2)) return;
+  const items = sel.map(nd => ({ nd, p: { ...nd.position() } }));
+  const xs = items.map(o => o.p.x), ys = items.map(o => o.p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  cy.batch(() => {
+    switch(mode){
+      case "left":    items.forEach(o => o.nd.position("x", minX)); break;
+      case "hcenter": items.forEach(o => o.nd.position("x", (minX + maxX) / 2)); break;
+      case "right":   items.forEach(o => o.nd.position("x", maxX)); break;
+      case "top":     items.forEach(o => o.nd.position("y", minY)); break;
+      case "vcenter": items.forEach(o => o.nd.position("y", (minY + maxY) / 2)); break;
+      case "bottom":  items.forEach(o => o.nd.position("y", maxY)); break;
+      case "dist-h": {
+        const step = (maxX - minX) / (n - 1);
+        [...items].sort((a, b) => a.p.x - b.p.x).forEach((o, i) => o.nd.position("x", minX + step * i));
+        break;
+      }
+      case "dist-v": {
+        const step = (maxY - minY) / (n - 1);
+        [...items].sort((a, b) => a.p.y - b.p.y).forEach((o, i) => o.nd.position("y", minY + step * i));
+        break;
+      }
+    }
+  });
+  // 변경된 위치 저장(재렌더 후 유지)
+  const mp = manualPosFor(filterStateFor(key));
+  sel.forEach(nd => { mp[nd.id()] = { ...nd.position() }; });
+  clampScreenSizes(cy);
 }
 
 /* 경로분석 레인 헤더 */
@@ -1772,7 +1908,7 @@ function renderPanelContent(targetType, targetId){
     ${buildFilterBar(raw, state, key)}
     ${isRoute ? buildRouteLanes() : ""}
     ${buildPathBanner(state, key)}
-    <div class="profile-net-graph-area">${graphArea}</div>
+    <div class="profile-net-graph-area">${projected.nodes.length ? buildAlignToolbar(key) : ""}${graphArea}</div>
     <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>
     <div class="profile-net-bottom">
       ${buildAnalysisResult(state, key)}
@@ -2010,6 +2146,13 @@ function bindHandlers(){
   _handlerBound = true;
   loadScenarios();   // 서버 저장 시나리오 1회 로드
 
+  // 전체화면 진입/이탈 시 cytoscape 캔버스를 새 컨테이너 크기에 맞춰 리사이즈
+  document.addEventListener("fullscreenchange", () => {
+    _cyInstances.forEach(cy => {
+      try { cy.resize(); cy.fit(undefined, 30); clampScreenSizes(cy); } catch (e) { /* noop */ }
+    });
+  });
+
   // A1: 검색 입력 — 재렌더 없이 cy에 직접 강조(입력 포커스 유지)
   document.addEventListener("input", event => {
     const searchInput = event.target.closest("[data-net-search]");
@@ -2033,6 +2176,38 @@ function bindHandlers(){
   });
 
   document.addEventListener("click", event => {
+    // 노드 정렬 툴바: 선택 노드 정렬/균등 배치 (재렌더 없이 cy 위치만 조작)
+    const alignBtn = event.target.closest("[data-net-align]");
+    if(alignBtn){
+      const [key, mode] = alignBtn.dataset.netAlign.split("::");
+      alignSelected(key, mode);
+      return;
+    }
+    const alignClear = event.target.closest("[data-net-align-clear]");
+    if(alignClear){
+      const key = alignClear.dataset.netAlignClear;
+      const cy = _cyInstances.get(key);
+      if(cy) cy.$("node:selected").unselect();
+      updateAlignToolbar(key);
+      return;
+    }
+    // 정렬 툴바 고정 표시 토글(재렌더 없이 — 선택 상태 유지)
+    const alignToggle = event.target.closest("[data-net-align-toggle]");
+    if(alignToggle){
+      const key = alignToggle.dataset.netAlignToggle;
+      const st = filterStateFor(key);
+      st.alignBarOn = !st.alignBarOn;
+      alignToggle.classList.toggle("on", st.alignBarOn);
+      alignToggle.innerHTML = `⠿ 정렬 툴바 ${st.alignBarOn ? "숨기기" : "보이기"}`;
+      updateAlignToolbar(key);
+      return;
+    }
+    // 관계분석 전체화면 토글
+    const fsBtn = event.target.closest("[data-net-fullscreen]");
+    if(fsBtn){
+      toggleNetFullscreen(fsBtn.dataset.netFullscreen);
+      return;
+    }
     const chip = event.target.closest("[data-net-filter]");
     if(chip){
       const [key, label] = chip.dataset.netFilter.split("::");

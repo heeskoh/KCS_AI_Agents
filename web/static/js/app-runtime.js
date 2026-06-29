@@ -26,6 +26,7 @@ import { intlInfoPageHtml } from "./pages/intl.js";
 import { agenticServicePage as renderAgenticServicePage, agenticInspectorHtml, agenticRunPanelHtml, agenticHistoryHtml, agenticNodeTypeDef } from "./pages/agentic-service.js";
 import { createAgenticFlow, loadDrawflow } from "./pages/agentic-flow.js";
 import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
+import { openFileRegisterPopup } from "./pages/file-register-popup.js";
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -909,6 +910,16 @@ const AI_SERVICE_REGISTRY = {
       { value: "response_pattern", label: "답변흐름 정리" },
     ],
   },
+  // 업무특화 RAG 검색: 기초자료 등록 팝업에서 신규 RAG 생성 시 분석 프로세스 맨 앞에 자동 추가되는 단계.
+  // 팔레트에는 노출하지 않고(selectable·adminVisible=false) 프로그램으로만 추가한다. 라벨은 단계별로 RAG 이름을 덧붙인다.
+  rag_custom_search: {
+    label: "업무특화 RAG 검색", type: "rag_custom_search", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
+    defaultInstruction: "신규 생성한 업무특화 RAG에서 이번 조사와 관련된 근거·유사사례를 우선 검색",
+    behaviorOptions: [
+      { value: "knowledge_search", label: "업무특화 지식 검색" },
+      { value: "case_comparison", label: "유사사례 비교" },
+    ],
+  },
   ml: {
     label: "ML 모델 실행 AI 서비스", type: "ml", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "전체 모델을 실행해 기업 위험 패턴을 비교",
@@ -1088,7 +1099,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_create: {
-    label: "RAG 생성 AI 서비스", type: "rag_create", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    label: "업무특화RAG 분석서비스", type: "rag_create", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "선택 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     personInstruction: "개인 사건 자료를 RAG 지식으로 구성하기 위한 항목 정리",
     behaviorOptions: [
@@ -1597,6 +1608,9 @@ function normalizeScenarioItem(item, index = 0){
     share_recipients: shareRecipients,
     webTargets,
     web_targets: webTargets,
+    // 업무특화 RAG 검색 단계: 검색 대상 RAG 식별자/이름 보존
+    ragId: key === "rag_custom_search" ? (item.ragId || item.rag_id || "") : "",
+    ragName: key === "rag_custom_search" ? (item.ragName || item.rag_name || "") : "",
   };
 }
 
@@ -2589,6 +2603,8 @@ const canvasStateKey = "kcs_ai_canvas_state_v1";
 let scenarioCompaniesLoading = false;
 let companyDetailCache = {};
 let companyScenarios = {};   // { [companyId]: scenarioItem[] }
+let uploadedFilesByCompany = {};   // { [companyId]: uploadRecord[] } — 분석작업(기업)별 업로드 파일. userWorkspaces 스냅샷으로 사용자별 분리·영속
+let ragsByCompany = {};   // { [companyId]: ragRecord[] } — 분석작업(기업)별 생성된 업무특화 RAG. 동일하게 사용자별 분리·영속
 let currentPage = "home";
 let riskDashboardFilter = { query: "", minScore: 0 };
 
@@ -2659,7 +2675,7 @@ const COACH_AGENT_LABELS = {
   origin_analysis:"원산지분석", abnormal_trade:"이상거래검증",
   proceeds_tracking:"범죄수익추적", route_analysis:"운송경로분석", web:"웹검색",
   declaration_verify:"수입신고검증", hs_verify:"품목분류검증", customs_value:"과세가격평가",
-  summary:"보고서요약", patent:"특허정보", rag_create:"RAG생성", law:"법령정보",
+  summary:"보고서요약", patent:"특허정보", rag_create:"업무특화RAG", law:"법령정보",
   report:"보고서생성", validate:"보고서검증", report_generate:"보고서생성", report_validate:"보고서검증",
 };
 
@@ -3104,7 +3120,7 @@ const HOME_DEFAULT_AGENTS = [
   { type:"patent",             label:"특허정보 조회 AI 서비스",   key:"patent" },
   { type:"law",                label:"법령 검토 AI 서비스",       key:"law" },
   { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
-  { type:"rag_create",         label:"RAG 생성",                 key:"rag_create" },
+  { type:"rag_create",         label:"업무특화RAG 분석서비스",     key:"rag_create" },
   { type:"translate",          label:"문서 번역 AI 서비스",       key:"translate" },
   { type:"text_summary",       label:"요약 AI 서비스",            key:"text_summary" },
   { type:"report_standard",    label:"표준 보고서 생성 AI 서비스", key:"report_standard" },
@@ -4297,6 +4313,76 @@ function addPendingScenarioWebTarget(){
   return addWebTargetToScope("scenario");
 }
 
+/* ── 업무특화 RAG 검색 단계(rag_custom_search): 검색 대상 RAG 선택 + 프롬프트 적용 ── */
+function scenarioItemRagId(item){
+  return item && item.key === "rag_custom_search" ? (item.ragId || "") : "";
+}
+function setScenarioItemRag(item, ragId, ragName){
+  if(!item || item.key !== "rag_custom_search") return;
+  item.ragId = ragId || "";
+  item.ragName = ragName || "";
+  if(ragName) item.label = `업무특화RAG(${ragName}) 검색하기`;   // 칩 라벨도 선택 RAG에 맞춤
+}
+function customRagPromptFor(name){
+  return `업무특화 RAG "${name}"에서 이번 조사 대상과 관련된 근거·유사사례를 우선 검색하고, 핵심 결과를 요약한다.`;
+}
+function ragSelectPanelHtml(item){
+  if(!item || item.key !== "rag_custom_search") return "";
+  const rags = Array.isArray(ragsByCompany[activeCanvasCompanyId]) ? ragsByCompany[activeCanvasCompanyId] : [];
+  const options = [`<option value="">— 검색할 업무특화 RAG 선택 —</option>`]
+    .concat(rags.map(r => `<option value="${escapeHtml(r.id)}" ${item.ragId === r.id ? "selected" : ""}>${escapeHtml(r.name)}</option>`))
+    .join("");
+  const selected = rags.find(r => r.id === item.ragId);
+  const meta = selected
+    ? escapeHtml(selected.meta || "")
+    : (rags.length ? "검색할 RAG를 선택하면 해당 RAG 기준으로 프롬프트가 구성됩니다."
+                   : "등록된 업무특화 RAG가 없습니다. 기초자료 등록에서 먼저 생성하세요.");
+  return `
+    <div class="scenario-rag-panel">
+      <div class="scenario-rag-head">
+        <strong>업무특화 RAG 선택</strong>
+        <span>이 단계가 검색할 RAG를 지정하고 프롬프트에 반영합니다.</span>
+      </div>
+      <div class="scenario-rag-form">
+        <select class="scenario-rag-select" data-rag-select ${rags.length ? "" : "disabled"}>${options}</select>
+        <button type="button" class="btn secondary" data-rag-fill-prompt ${rags.length ? "" : "disabled"}>선택 RAG로 프롬프트 채우기</button>
+      </div>
+      <div class="scenario-rag-meta">${meta}</div>
+    </div>`;
+}
+function renderRagSelectPanel(){
+  const panel = document.getElementById("scenarioRagPanel");
+  if(!panel) return;
+  const item = selectedScenarioItem();
+  panel.innerHTML = ragSelectPanelHtml(item);
+  const sel = panel.querySelector("[data-rag-select]");
+  if(sel) sel.addEventListener("change", () => selectScenarioRag(sel.value));
+}
+function selectScenarioRag(ragId){
+  const item = selectedScenarioItem();
+  if(!item || item.key !== "rag_custom_search") return;
+  const rag = (ragsByCompany[activeCanvasCompanyId] || []).find(r => r.id === ragId);
+  setScenarioItemRag(item, ragId, rag ? rag.name : "");
+  // RAG 선택 시 프롬프트를 해당 RAG 기준으로 채워 적용
+  if(rag){
+    item.instruction = customRagPromptFor(rag.name);
+    const el = document.getElementById("scenarioInstruction");
+    if(el) el.value = item.instruction;
+  }
+  saveCompanyScenario();
+  renderRagSelectPanel();
+  renderScenarioList();
+}
+function fillScenarioRagPrompt(){
+  const item = selectedScenarioItem();
+  if(!item || item.key !== "rag_custom_search") return;
+  const name = item.ragName || "선택한 업무특화 RAG";
+  item.instruction = customRagPromptFor(name);
+  const el = document.getElementById("scenarioInstruction");
+  if(el) el.value = item.instruction;
+  saveCompanyScenario();
+}
+
 function ensureDirectUrlTargets(items, rerun){
   const missing = items.find(item =>
     item.key === "web_search"
@@ -5136,6 +5222,8 @@ async function loadCanvasState(){
       companyScenarios = saved.companyScenarios;
       Object.values(companyScenarios).forEach(normalizeScenarioLabelsInPlace);
     }
+    if(saved.uploadedFilesByCompany && typeof saved.uploadedFilesByCompany === "object") uploadedFilesByCompany = saved.uploadedFilesByCompany;
+    if(saved.ragsByCompany && typeof saved.ragsByCompany === "object") ragsByCompany = saved.ragsByCompany;
     if(saved.userPermissions && typeof saved.userPermissions === "object"){
       userPermissions = {...defaultUserPermissions, ...saved.userPermissions};
       // 그룹 정의가 부여한 권한은 과거 저장 스냅샷의 locked보다 우선 —
@@ -5197,6 +5285,8 @@ function buildWorkspaceStatePayload(){
     latestReport,
     latestValidation,
     companyScenarios,
+    uploadedFilesByCompany,
+    ragsByCompany,
     userPermissions,
     canvasJobOverrides,
     canvasRunArchives,
@@ -5325,6 +5415,8 @@ function migrateLegacyWorkspaceState(saved){
     customGenInvCases: cloneSavedValue(generalInvestigationState.customGenInvCases, []),
     defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
     companyScenarios: cloneSavedValue(companyScenarios, {}),
+    uploadedFilesByCompany: cloneSavedValue(uploadedFilesByCompany, {}),
+    ragsByCompany: cloneSavedValue(ragsByCompany, {}),
     canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
     canvasRunArchives: cloneSavedValue(canvasRunArchives, {}),
     hiddenCanvasJobIds: cloneSavedValue(hiddenCanvasJobsByUser[currentUserId] || [], []),
@@ -5353,6 +5445,8 @@ function saveCurrentUserWorkspace(){
     customGenInvCases: cloneSavedValue(generalInvestigationState.customGenInvCases, []),
     defaultGenInvCasesState: cloneSavedValue(defaultGenInvCases, []),
     companyScenarios: cloneSavedValue(companyScenarios, {}),
+    uploadedFilesByCompany: cloneSavedValue(uploadedFilesByCompany, {}),
+    ragsByCompany: cloneSavedValue(ragsByCompany, {}),
     canvasJobOverrides: cloneSavedValue(canvasJobOverrides, {}),
     canvasRunArchives: cloneSavedValue(canvasRunArchives, {}),
     hiddenCanvasJobIds: cloneSavedValue(hiddenCanvasJobsByUser[currentUserId] || [], []),
@@ -5392,6 +5486,12 @@ function restoreWorkspaceWorkState(userId){
     ? cloneSavedValue(workspace.companyScenarios, {})
     : {};
   Object.values(companyScenarios).forEach(normalizeScenarioLabelsInPlace);
+  uploadedFilesByCompany = workspace.uploadedFilesByCompany && typeof workspace.uploadedFilesByCompany === "object"
+    ? cloneSavedValue(workspace.uploadedFilesByCompany, {})
+    : {};
+  ragsByCompany = workspace.ragsByCompany && typeof workspace.ragsByCompany === "object"
+    ? cloneSavedValue(workspace.ragsByCompany, {})
+    : {};
   canvasJobOverrides = workspace.canvasJobOverrides && typeof workspace.canvasJobOverrides === "object"
     ? cloneSavedValue(workspace.canvasJobOverrides, {})
     : {};
@@ -7244,6 +7344,11 @@ function canvasDataPanel(companyIdOverride, options = {}){
     const company = activeCanvasCompany(resolvedCompanyId);
     subjectName = `${escapeHtml(company.company_name)} (${escapeHtml(company.company_id)})`;
   }
+  // 분석작업(기업)별로 저장된 업로드 파일 — 재로그인 후에도 복원되어 표 상단에 표시
+  const persistedUploads = Array.isArray(uploadedFilesByCompany[resolvedCompanyId]) ? uploadedFilesByCompany[resolvedCompanyId] : [];
+  const persistedRows = persistedUploads.map(uploadRowFromRecord).join("");
+  const totalDocs = 124 + persistedUploads.length;
+  const runningDocs = 20 + persistedUploads.length;
   return `
     <section class="data-upload-board">
       <div class="canvas-selected-company">
@@ -7254,14 +7359,14 @@ function canvasDataPanel(companyIdOverride, options = {}){
       <h3>${escapeHtml(heading)}</h3>
       ${description ? `<p class="muted" style="margin:-8px 0 14px">${escapeHtml(description)}</p>` : ""}
       <div class="upload-summary-grid">
-        <button type="button" class="upload-drop-card">
+        <button type="button" class="upload-drop-card" data-upload-open data-upload-subject="${subjectName}">
           <strong>파일 업로드</strong>
           <span>PDF, XLS, DOCX, 이미지 문서</span>
         </button>
-        <div class="upload-stat-card"><span>총 업로드 문서</span><strong>124</strong></div>
+        <div class="upload-stat-card"><span>총 업로드 문서</span><strong>${totalDocs}</strong></div>
         <div class="upload-stat-card"><span>정상추출 자동승인</span><strong>80</strong></div>
         <div class="upload-stat-card warn"><span>검토필요 이상감지</span><strong>44</strong></div>
-        <div class="upload-stat-card active"><span>AI 분석 진행중</span><strong>20</strong></div>
+        <div class="upload-stat-card active"><span>AI 분석 진행중</span><strong>${runningDocs}</strong></div>
       </div>
 
       <div class="upload-table-wrap">
@@ -7278,6 +7383,7 @@ function canvasDataPanel(companyIdOverride, options = {}){
             </tr>
           </thead>
           <tbody>
+            ${persistedRows}
             ${uploadRow({
               file:"INV_HG_20260422.pdf",
               type:"세금계산서",
@@ -7318,7 +7424,7 @@ function canvasDataPanel(companyIdOverride, options = {}){
               file:"개인조사자료.xls",
               type:"매출 관련 정보",
               extracted:["업체정보: 에이비씨 테크","우범자: 김관세","연관자: 김우범"],
-              agents:["RAG생성 AI 서비스"],
+              agents:["업무특화RAG 분석서비스"],
               result:"처리중",
               status:"분석중",
               tone:"running"
@@ -7330,7 +7436,11 @@ function canvasDataPanel(companyIdOverride, options = {}){
   `;
 }
 
-function uploadRow({file,type,extracted,agents,result,status,tone}){
+function uploadRow({file,type,extracted,agents,result,status,tone,deleteId}){
+  // deleteId가 있으면(사용자가 등록한 영속 행) 진행상태 옆에 삭제 버튼 표시
+  const delBtn = deleteId
+    ? `<button type="button" class="upload-del-btn" data-upload-delete="${escapeHtml(deleteId)}" title="업로드 삭제" aria-label="${file} 삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`
+    : "";
   return `
     <tr>
       <td><input type="checkbox" aria-label="${file} 선택"></td>
@@ -7339,9 +7449,110 @@ function uploadRow({file,type,extracted,agents,result,status,tone}){
       <td>${extracted.map(item => `<span class="extract-pill">${item}</span>`).join("")}</td>
       <td>${agents.map(agent => `<strong class="agent-line">${agent}</strong>`).join("")}</td>
       <td>${result}</td>
-      <td><span class="upload-status ${tone}">${status}</span></td>
+      <td><div class="upload-status-cell"><span class="upload-status ${tone}">${status}</span>${delBtn}</div></td>
     </tr>
   `;
+}
+
+/* 파일 등록 팝업 제출 시: 업로드 기록을 분석작업(기업)별 저장소에 영속화.
+   userWorkspaces 스냅샷으로 사용자별 분리·서버 저장되어 재로그인 후에도 복원된다. */
+function saveUploadedFile(payload){
+  const companyId = activeCanvasCompanyId;
+  if(!companyId || !payload || !payload.file) return;
+  const agents = (payload.agentNames || []).map(n =>
+    n === "업무특화RAG 분석서비스" ? n : `${n} agent`);
+  const rec = {
+    id: uid(),
+    name: payload.file.name || "신규 파일",
+    type: "신규 등록",
+    extracted: ["AI 분석 예약"],
+    agents: agents.length ? agents : ["—"],
+    result: "처리중",
+    status: "분석중",
+    tone: "running",
+    uploadedAt: new Date().toISOString(),
+  };
+  if(!Array.isArray(uploadedFilesByCompany[companyId])) uploadedFilesByCompany[companyId] = [];
+  uploadedFilesByCompany[companyId].unshift(rec);   // 최신 업로드가 위로
+  saveCanvasState();
+}
+
+/* 신규 업무특화 RAG 생성 시: 분석작업(기업)별 RAG 목록에 영속 저장.
+   다음 업로드 팝업의 동작방식 선택에 "등록된 RAG"로 표시된다(사용자별 분리). */
+const RAG_PERM_KO = { org: "전체 공개", dept: "부서", team: "조사팀", me: "본인만" };
+function registerCustomRag(rag){
+  const companyId = activeCanvasCompanyId;
+  const name = rag && rag.name ? String(rag.name).trim() : "";
+  if(!companyId || !name) return;
+  if(!Array.isArray(ragsByCompany[companyId])) ragsByCompany[companyId] = [];
+  if(ragsByCompany[companyId].some(r => r.name === name)) return;   // 동일 이름 중복 방지
+  const date = new Date().toISOString().slice(0, 10);
+  const permKo = rag.perm ? (RAG_PERM_KO[rag.perm] || rag.perm) : "";
+  ragsByCompany[companyId].unshift({
+    id: uid(),
+    name,
+    perm: rag.perm || "",
+    validity: rag.validity || "",
+    meta: `신규 등록 ${date}${permKo ? " · 검색권한 " + permKo : ""}`,
+    createdAt: new Date().toISOString(),
+  });
+  saveCanvasState();
+}
+
+/* 저장된 업로드 기록 → 표 행 HTML (저장값은 평문, 렌더 시 이스케이프) */
+function uploadRowFromRecord(r){
+  return uploadRow({
+    file: escapeHtml(r.name || ""),
+    type: escapeHtml(r.type || ""),
+    extracted: (r.extracted || []).map(escapeHtml),
+    agents: (r.agents || []).map(escapeHtml),
+    result: escapeHtml(r.result || ""),
+    status: escapeHtml(r.status || ""),
+    tone: r.tone || "running",
+    deleteId: r.id,
+  });
+}
+
+/* 업로드 기록 삭제 (분석작업별 저장소에서 제거 후 영속화) */
+function deleteUploadedFile(recordId){
+  const companyId = activeCanvasCompanyId;
+  const list = uploadedFilesByCompany[companyId];
+  if(!companyId || !Array.isArray(list)) return;
+  const idx = list.findIndex(r => r.id === recordId);
+  if(idx < 0) return;
+  list.splice(idx, 1);
+  saveCanvasState();
+  if(currentPage === "investigation") render("investigation");
+}
+
+/* 신규 업무특화 RAG 생성 시: 현재 조사 기업의 분석 프로세스 맨 앞에 "업무특화RAG(이름) 검색하기" 단계를 추가.
+   영속 저장(companyScenarios)과 활성 메모리(scenarioItems)를 모두 갱신해야 시나리오 탭 로드 게이팅과 무관하게 반영된다. */
+function prependCustomRagSearchStep(ragName){
+  const companyId = activeCanvasCompanyId;
+  const name = String(ragName || "").trim();
+  if(!companyId || !name) return false;
+  const label = `업무특화RAG(${name}) 검색하기`;
+  const list = getCompanyScenario(companyId);                 // 저장본 또는 기본 템플릿(정규화됨)
+  if(list.some(item => item.label === label)) return false;   // 동일 RAG 검색 단계 중복 방지
+  const ragRec = (ragsByCompany[companyId] || []).find(r => r.name === name);
+  const step = normalizeScenarioItem({
+    key: "rag_custom_search",
+    label,
+    behaviors: ["knowledge_search"],
+    instruction: `신규 생성한 업무특화 RAG "${name}"에서 이번 조사와 관련된 근거·유사사례를 우선 검색`,
+    ragId: ragRec ? ragRec.id : "",
+    ragName: name,
+  }, 0);
+  const next = [step, ...list].map((item, i) => ({ ...item, order: i + 1 }));
+  companyScenarios[companyId] = next.map(item => ({ ...item }));
+  // 시나리오가 이미 이 기업으로 메모리에 로드되어 있으면 즉시 반영 + 재렌더(탭이 떠 있을 때만 DOM 존재)
+  if(companyId === activeCanvasCompanyId && scenarioLoadedForCompany === activeCanvasCompanyId){
+    scenarioItems = next;
+    selectedScenarioId = scenarioItems[0]?.id || selectedScenarioId;
+    try { renderScenarioList(); renderScenarioSteps(); } catch(e){ /* 시나리오 탭 미표시 */ }
+  }
+  saveCanvasState();
+  return true;
 }
 
 function canvasReportPanel(){
@@ -7800,6 +8011,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             </div>
             <div id="scenarioShareEmailPanel"></div>
             <div id="scenarioWebTargetPanel"></div>
+            <div id="scenarioRagPanel"></div>
             <label class="scenario-field">
               <span>자동 생성 프롬프트</span>
               <textarea id="scenarioInstruction"
@@ -8303,6 +8515,7 @@ function syncScenarioEditor(){
   if(validation) validation.innerHTML = "";
   renderShareEmailPanel("scenario");
   renderWebTargetPanel("scenario");
+  renderRagSelectPanel();
   const quickDeleteButton = document.querySelector("[data-scenario-quick-delete]");
   if(quickDeleteButton) quickDeleteButton.disabled = !item || isCompanyArchived();
   const applyPromptButton = document.getElementById("scenarioApplyPromptButton");
@@ -8678,6 +8891,8 @@ function scenarioPayload(items = scenarioItems){
     shareRecipients: scenarioItemShareRecipients(item),
     web_targets: scenarioItemWebTargets(item),
     webTargets: scenarioItemWebTargets(item),
+    ragId: scenarioItemRagId(item),
+    ragName: item.key === "rag_custom_search" ? (item.ragName || "") : "",
     target_type: "company",
     targetType: "company",
     targetSupport: scenarioSourceByKey(item.key)?.supports || { company:true, person:true },
@@ -10162,6 +10377,35 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
+  /* ── 기초자료 파일 등록 팝업 열기 ── */
+  const uploadOpen = event.target.closest("[data-upload-open]");
+  if(uploadOpen){
+    const subjectRaw = (uploadOpen.dataset.uploadSubject || "").trim();
+    let subject = subjectRaw, subjectId = "";
+    const m = subjectRaw.match(/^(.*)\s*\(([^)]+)\)\s*$/);   // "이름 (C-1023)" → 이름 + 식별자 분리
+    if(m){ subject = m[1].trim(); subjectId = m[2].trim(); }
+    // 이 분석작업에 등록된 업무특화 RAG → 팝업 동작방식 선택에 표시
+    const registeredRags = (ragsByCompany[activeCanvasCompanyId] || []).map(r => ({ id: r.id, name: r.name, meta: r.meta }));
+    openFileRegisterPopup({ subject, subjectId, registeredRags, onSubmit: (payload) => {
+      saveUploadedFile(payload);   // 분석작업(기업)별 영속 저장
+      // 신규 업무특화 RAG 생성을 선택했으면: RAG 등록 + 분석 프로세스 맨 앞에 검색 단계 추가
+      const rag = payload && payload.rag;
+      if(rag && (rag.mode || "new") === "new" && rag.name && rag.name.trim()){
+        registerCustomRag(rag);
+        prependCustomRagSearchStep(rag.name.trim());
+      }
+      if(currentPage === "investigation") render("investigation");   // 표에 저장된 업로드 반영
+    }});
+    return;
+  }
+  // 기초자료 업로드 행 삭제
+  const uploadDel = event.target.closest("[data-upload-delete]");
+  if(uploadDel){
+    const rec = (uploadedFilesByCompany[activeCanvasCompanyId] || []).find(r => r.id === uploadDel.dataset.uploadDelete);
+    if(rec && confirm(`"${rec.name}" 업로드를 삭제하시겠습니까?`)) deleteUploadedFile(uploadDel.dataset.uploadDelete);
+    return;
+  }
+
   /* ── AI Agentic 서비스 빌더 ── */
   if(event.target.closest("[data-agentic-new]")){
     if(!isCurrentUserAdmin()) return;
@@ -10178,6 +10422,23 @@ document.addEventListener("click", (event)=>{
     if(!isCurrentUserAdmin()) return;
     agenticListOpen = !agenticListOpen;
     render("agentic");
+    return;
+  }
+  const agDelSvc = event.target.closest("[data-agentic-delete-service]");
+  if(agDelSvc){
+    if(!isCurrentUserAdmin()) return;
+    const store = agenticGroupStore();
+    const serviceId = agDelSvc.dataset.agenticDeleteService;
+    const svc = store.services.find(s => s.id === serviceId);
+    if(!svc) return;
+    if(!confirm(`"${svc.name}" 서비스를 삭제하시겠습니까?\n삭제한 서비스와 흐름은 복구할 수 없습니다.`)) return;
+    store.services = store.services.filter(s => s.id !== serviceId);
+    // 활성 서비스를 지웠으면 남은 첫 서비스로 전환(없으면 null)
+    if(store.activeServiceId === serviceId){
+      store.activeServiceId = store.services[0] ? store.services[0].id : null;
+    }
+    saveCanvasState();
+    render("agentic");   // 목록·캔버스 재마운트
     return;
   }
   const agSelectSvc = event.target.closest("[data-agentic-select-service]");
@@ -10617,6 +10878,12 @@ document.addEventListener("click", (event)=>{
   const removeWebTargetBtn = event.target.closest("[data-web-target-remove]");
   if(removeWebTargetBtn){
     removeWebTargetFromScope(removeWebTargetBtn.dataset.webTargetRemove, Number(removeWebTargetBtn.dataset.index));
+    return;
+  }
+
+  const ragFillPromptBtn = event.target.closest("[data-rag-fill-prompt]");
+  if(ragFillPromptBtn){
+    fillScenarioRagPrompt();
     return;
   }
 

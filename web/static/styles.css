@@ -181,6 +181,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .profile-switcher{background:transparent;border:none;cursor:pointer;display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:12px;color:var(--tx-1);transition:.2s}
 .profile-switcher:hover{background:var(--surface-3)}
 .user-select-overlay{position:fixed;inset:0;background:rgba(10,30,70,.55);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px)}
+/* 기초자료 파일 등록 팝업 (내용은 모듈에서 인라인 스타일로 렌더) */
+.file-register-overlay{position:fixed;inset:0;background:rgba(20,28,48,.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10000;font-family:'Pretendard',-apple-system,sans-serif}
+@keyframes fre-spin{to{transform:rotate(360deg)}}
+@keyframes fre-popin{from{transform:translateY(14px) scale(.985);opacity:0}to{transform:none;opacity:1}}
 .user-select-modal{background:white;border-radius:20px;width:min(900px,96vw);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.22)}
 .user-select-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 26px 16px;border-bottom:1px solid var(--line)}
 .user-select-head h2{margin:0 0 4px;font-size:20px}
@@ -664,6 +668,15 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-share-email-chip button{width:17px;height:17px;border:0;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-weight:900;line-height:1;cursor:pointer}
 .scenario-share-email-empty{color:#64748b;font-size:11px}
 .scenario-web-target-panel{display:grid;gap:8px;margin:-2px 0 12px;padding:10px;border:1px solid #facc15;border-radius:11px;background:#fffbeb}
+/* 업무특화 RAG 선택 패널 */
+.scenario-rag-panel{display:grid;gap:8px;margin:-2px 0 12px;padding:10px;border:1px solid #bfdbfe;border-radius:11px;background:#f3f8ff}
+.scenario-rag-head{display:grid;gap:2px}
+.scenario-rag-head strong{color:#1d4ed8;font-size:12px}
+.scenario-rag-head span{color:#5a6577;font-size:11px;line-height:1.35}
+.scenario-rag-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.scenario-rag-select{min-width:0;height:34px;border:1px solid #93c5fd;border-radius:8px;padding:0 9px;font-size:12px;background:#fff;color:#23314e}
+.scenario-rag-form .btn{height:34px;padding:0 10px;font-size:12px;white-space:nowrap}
+.scenario-rag-meta{font-size:11px;color:#5a6577;line-height:1.4}
 .scenario-web-target-head{display:grid;gap:2px}
 .scenario-web-target-head strong{color:#92400e;font-size:12px}
 .scenario-web-target-head span{color:#57534e;font-size:11px;line-height:1.35}
@@ -1505,6 +1518,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .upload-status.done{background:#ecfdf5;color:#047857}
 .upload-status.review{background:#fff7ed;color:#c2410c}
 .upload-status.running{background:#eff6ff;color:#1d4ed8}
+.upload-status-cell{display:inline-flex;align-items:center;gap:8px}
+.upload-del-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--line);background:#fff;color:#94a3b8;border-radius:8px;cursor:pointer;transition:.12s;flex:none}
+.upload-del-btn:hover{border-color:#fca5a5;background:#fef2f2;color:#dc2626}
 
 .scenario-workbench{margin-top:0}
 .scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:6px}
@@ -1877,6 +1893,30 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .net-detail-hide:hover:not([disabled]){border-color:#93c5fd;background:#f0f6ff}
 .net-detail-hide[disabled]{opacity:.45;cursor:not-allowed}
 .profile-net-cy{width:100%;height:100%;min-height:0;border-radius:10px;background:#fff;border:1px solid #edf2fb}
+/* 뷰 토글 우측 도구(정렬 툴바·전체화면) */
+.net-view-tools{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.net-tool-btn{border:1px solid #dbe7f6;background:#fff;color:#334155;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;transition:.12s;white-space:nowrap}
+.net-tool-btn:hover{border-color:#93c5fd;background:#f0f6ff;color:#1d4ed8}
+.net-tool-btn.on{border-color:#2563eb;background:#eaf1ff;color:#1d4ed8}
+/* 노드 정렬 툴바 (그래프 오른쪽 끝 세로 도크 — 선택 시/고정 시에만 표시) */
+.net-align-bar{position:absolute;top:50%;right:10px;transform:translateY(-50%);z-index:6;display:none;flex-direction:column;gap:7px;padding:9px 9px;background:rgba(255,255,255,.97);border:1px solid #c7dcf7;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
+.net-align-bar.show{display:flex}
+.net-align-count{font-size:10px;font-weight:800;color:#64748b;text-align:center;line-height:1.4;max-width:128px}
+.net-align-count b{color:#1d4ed8}
+.net-align-grp{display:flex;flex-direction:column;gap:3px}
+.net-align-grp em{font-style:normal;font-size:9px;font-weight:800;color:#94a3b8;text-align:center;letter-spacing:.5px}
+.net-align-row{display:flex;gap:3px;justify-content:center}
+.net-align-btn{flex:1;border:1px solid #dbe7f6;background:#fff;color:#334155;font-size:11px;font-weight:700;padding:4px 7px;border-radius:7px;cursor:pointer;transition:.12s;white-space:nowrap}
+.net-align-btn:hover:not([disabled]){border-color:#93c5fd;background:#f0f6ff;color:#1d4ed8}
+.net-align-btn[disabled]{opacity:.4;cursor:not-allowed}
+.net-align-clear{margin-top:1px;border:1px solid #f1d5d5;background:#fff;color:#b91c1c;font-size:10px;font-weight:800;padding:4px 7px;border-radius:7px;cursor:pointer;transition:.12s}
+.net-align-clear:hover:not([disabled]){border-color:#fca5a5;background:#fef2f2}
+.net-align-clear[disabled]{opacity:.4;cursor:not-allowed}
+/* 정렬 툴바가 보일 때 상세 패널을 왼쪽으로 비켜 겹침 방지 */
+.profile-net-graph-area.align-on .net-detail-panel{right:148px}
+/* 관계분석 전체화면 */
+.profile-net-frame:fullscreen{background:#fff;width:100vw;height:100vh}
+.profile-net-frame:fullscreen .profile-net-body{height:calc(100vh - 46px)}
 /* 하단(필터 조건 + 관계 표)은 묶어서 스크롤 — 그래프 영역 최대 확보 */
 .profile-net-bottom{flex:none;height:10%;min-height:64px;overflow-y:auto;display:flex;flex-direction:column;border-top:1px solid #edf2fb}
 .profile-net-svg-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
@@ -2034,9 +2074,16 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .agentic-act-btn.primary:hover{background:var(--accent-strong)}
 .agentic-act-btn.open{background:var(--accent-soft);border-color:color-mix(in oklab,var(--accent) 40%,transparent);color:var(--accent-strong)}
 .agentic-svc-list{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:4px;background:var(--surface-2)}
-.agentic-svc-item{display:flex;flex-direction:column;align-items:flex-start;gap:0;width:100%;border:0;background:transparent;border-radius:7px;padding:5px 7px;cursor:pointer;text-align:left;transition:.15s}
+.agentic-svc-row{position:relative;display:flex;align-items:stretch}
+.agentic-svc-item{display:flex;flex-direction:column;align-items:flex-start;gap:0;flex:1;min-width:0;border:0;background:transparent;border-radius:7px;padding:5px 28px 5px 7px;cursor:pointer;text-align:left;transition:.15s}
 .agentic-svc-item:hover{background:var(--surface-3)}
 .agentic-svc-item.active{background:var(--accent-soft)}
+.agentic-svc-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 서비스 삭제 버튼 — 행 hover 시 우측에 표시 */
+.agentic-svc-del{position:absolute;top:50%;right:5px;transform:translateY(-50%);display:none;align-items:center;justify-content:center;width:24px;height:24px;border:0;background:transparent;color:var(--tx-3);border-radius:6px;cursor:pointer;transition:.15s}
+.agentic-svc-del svg{width:14px;height:14px}
+.agentic-svc-row:hover .agentic-svc-del,.agentic-svc-del:focus-visible{display:flex}
+.agentic-svc-del:hover{background:#fee2e2;color:#dc2626}
 .agentic-svc-name{font-weight:700;font-size:12px;color:var(--tx-1)}
 .agentic-svc-meta{font-size:10px;color:var(--tx-3)}
 .agentic-svc-empty{font-size:11px;color:var(--tx-3);padding:6px 4px;text-align:center}
