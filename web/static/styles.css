@@ -677,6 +677,30 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-rag-select{min-width:0;height:34px;border:1px solid #93c5fd;border-radius:8px;padding:0 9px;font-size:12px;background:#fff;color:#23314e}
 .scenario-rag-form .btn{height:34px;padding:0 10px;font-size:12px;white-space:nowrap}
 .scenario-rag-meta{font-size:11px;color:#5a6577;line-height:1.4}
+/* 관리자 업무특화 RAG 관리 */
+.rag-admin-wrap{display:flex;flex-direction:column;gap:12px}
+.rag-admin-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rag-admin-head strong{font-size:15px;color:#16213d}
+.rag-admin-table-wrap{border:1px solid var(--line);border-radius:12px;overflow:auto;background:#fff}
+.rag-admin-table{width:100%;min-width:980px;border-collapse:collapse;font-size:13px}
+.rag-admin-table th,.rag-admin-table td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.rag-admin-table th{background:#f7faff;color:#172033;font-size:12px;font-weight:800;white-space:nowrap}
+.rag-admin-table tr:last-child td{border-bottom:0}
+.rag-admin-table tr.rag-admin-off{background:#fbfcfe;color:#94a3b8}
+.rag-admin-files{display:flex;flex-direction:column;gap:3px;max-width:220px}
+.rag-admin-file{font-size:11.5px;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rag-admin-validity{display:flex;flex-wrap:wrap;gap:4px}
+.rag-admin-chip{border:1px solid #d8e0ec;background:#fff;color:#5a6577;font-size:11px;font-weight:700;border-radius:7px;padding:3px 8px;cursor:pointer;transition:.12s}
+.rag-admin-chip:hover{border-color:#93c5fd;background:#f0f6ff}
+.rag-admin-chip.on{border-color:#2f6fed;background:#2f6fed;color:#fff}
+.rag-admin-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800}
+.rag-admin-status.on{background:#ecfdf5;color:#047857}
+.rag-admin-status.off{background:#f1f5f9;color:#64748b}
+.rag-admin-status.exp{background:#fff7ed;color:#c2410c}
+.rag-admin-actions{display:flex;gap:6px;white-space:nowrap}
+.rag-admin-actions .btn{font-size:12px;padding:5px 11px}
+.rag-admin-actions .btn.danger{border:1px solid #fca5a5;background:#fff;color:#dc2626}
+.rag-admin-actions .btn.danger:hover{background:#fef2f2}
 .scenario-web-target-head{display:grid;gap:2px}
 .scenario-web-target-head strong{color:#92400e;font-size:12px}
 .scenario-web-target-head span{color:#57534e;font-size:11px;line-height:1.35}

@@ -109,7 +109,7 @@ function initState(opts){
     selected: new Set(["declaration_verify", "hs_verify"]),
     expanded: new Set(),
     cfg: {},
-    file: null,
+    files: [],
     subject: opts.subject || "",
     subjectId: opts.subjectId || "",
     registeredRags: Array.isArray(opts.registeredRags) ? opts.registeredRags : [],
@@ -345,7 +345,7 @@ function bodyHtml(){
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
         </div>
         <div style="font-size:16px;font-weight:700;color:#24324f;">파일을 끌어다 놓거나 클릭하여 업로드</div>
-        <div style="font-size:13px;color:#8590a6;">PDF, XLS, XLSX, DOCX, 이미지 문서 · 최대 50MB</div>
+        <div style="font-size:13px;color:#8590a6;">PDF, XLS, XLSX, DOCX, 이미지 문서 · 최대 50MB · 여러 개 선택 가능</div>
         <div style="margin-top:6px;padding:9px 18px;background:#2f6fed;color:#fff;border-radius:9px;font-size:13.5px;font-weight:600;">파일 선택</div>
       </div>`;
   }
@@ -358,8 +358,21 @@ function bodyHtml(){
       </div>`;
   }
   // ready
-  const f = S.file || {};
+  const files = S.files || [];
+  const f = files[0] || {};
   const badge = fileKindBadge(f.name || "");
+  const fileListHtml = files.length > 1
+    ? `<div style="margin-top:10px;border-top:1px dashed #e6ebf3;padding-top:10px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;">
+        ${files.map(file => {
+          const b = fileKindBadge(file.name || "");
+          return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#2a3550;">
+            <span style="flex:0 0 auto;width:30px;text-align:center;font-size:9px;font-weight:800;color:${b.fg};background:${b.bg};border-radius:5px;padding:2px 0;">${b.label}</span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(file.name || "")}</span>
+            <span style="flex:0 0 auto;color:#8590a6;">${escapeHtml(humanSize(file.size))}</span>
+          </div>`;
+        }).join("")}
+      </div>`
+    : "";
   const specs = [
     { k: "문서유형 (자동감지)", v: "세금계산서" },
     { k: "언어", v: "영문 / 국문 혼용" },
@@ -388,13 +401,14 @@ function bodyHtml(){
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="width:42px;height:42px;border-radius:10px;background:${badge.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${badge.fg};flex:0 0 auto;">${badge.label}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:14.5px;font-weight:800;color:#16213d;word-break:break-all;">${escapeHtml(f.name || "")}</div>
+              <div style="font-size:14.5px;font-weight:800;color:#16213d;word-break:break-all;">${escapeHtml(f.name || "")}${files.length > 1 ? ` <span style="font-size:11px;font-weight:700;color:#2f6fed;">외 ${files.length - 1}개</span>` : ""}</div>
               <div style="font-size:12px;color:#8590a6;margin-top:2px;">${escapeHtml(f.meta || "")}</div>
             </div>
           </div>
+          ${fileListHtml}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
             <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#e3f5ea;border-radius:8px;font-size:12px;font-weight:700;color:#2e9e5b;">
-              <span style="width:7px;height:7px;border-radius:50%;background:#2e9e5b;"></span>분석 완료
+              <span style="width:7px;height:7px;border-radius:50%;background:#2e9e5b;"></span>분석 완료 ${files.length > 1 ? `· ${files.length}개 파일` : ""}
             </div>
             <button data-fre-reset style="border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;">다시 선택</button>
           </div>
@@ -472,23 +486,26 @@ function close(){
 function pickFiles(){
   const input = document.createElement("input");
   input.type = "file";
+  input.multiple = true;   // 여러 파일 동시 등록
   input.accept = ".pdf,.xls,.xlsx,.csv,.doc,.docx,.jpg,.jpeg,.png,.gif";
   input.style.display = "none";
   input.addEventListener("change", () => {
-    const file = input.files && input.files[0];
+    const files = input.files ? [...input.files] : [];
     document.body.removeChild(input);
-    if(file) startAnalyze(file);
+    if(files.length) startAnalyze(files);
   });
   document.body.appendChild(input);
   input.click();
 }
 
-function startAnalyze(file){
-  S.file = {
+function startAnalyze(fileList){
+  const list = Array.isArray(fileList) ? fileList : [fileList];
+  const stamp = nowStamp();
+  S.files = list.map(file => ({
     name: file.name,
     size: file.size,
-    meta: `${fileKindBadge(file.name).label} 문서 · ${humanSize(file.size)} · 업로드 ${nowStamp()}`,
-  };
+    meta: `${fileKindBadge(file.name).label} 문서 · ${humanSize(file.size)} · 업로드 ${stamp}`,
+  }));
   S.stage = "analyzing";
   rerender();
   clearTimeout(S._t);
@@ -500,8 +517,10 @@ function submit(){
   if(!fd.canSubmit) return;
   const agentNames = [...S.selected].map(id => AGENT_NAME[id] || id);
   const ragOn = S.selected.has("rag_create");
+  const files = S.files || [];
   const payload = {
-    file: S.file,
+    files,
+    file: files[0] || null,   // 하위호환
     agentIds: [...S.selected],
     agentNames,
     rag: ragOn ? (S.cfg.rag_create || {}) : null,
@@ -522,7 +541,7 @@ function bindOverlay(ov){
     if(e.target === ov){ close(); return; }   // 배경 클릭
     if(e.target.closest("[data-fre-close]")){ close(); return; }
     if(e.target.closest("[data-fre-pick]")){ pickFiles(); return; }
-    if(e.target.closest("[data-fre-reset]")){ S.stage = "empty"; S.file = null; rerender(); return; }
+    if(e.target.closest("[data-fre-reset]")){ S.stage = "empty"; S.files = []; rerender(); return; }
     if(e.target.closest("[data-fre-submit]")){ submit(); return; }
 
     const grp = e.target.closest("[data-fre-group-toggle]");
@@ -583,8 +602,8 @@ function bindOverlay(ov){
     const dz = e.target.closest("[data-fre-dropzone]");
     if(!dz) return;
     e.preventDefault();
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if(file) startAnalyze(file);
+    const files = e.dataTransfer && e.dataTransfer.files ? [...e.dataTransfer.files] : [];
+    if(files.length) startAnalyze(files);
   });
 }
 

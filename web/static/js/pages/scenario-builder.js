@@ -28,7 +28,7 @@ function catalogSubtabById(id){
   return ANALYSIS_SUBTAB_CATALOG.find(subtab => subtab.id === cid) || null;
 }
 
-export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "", showNewForm = false, newDraft = {}, editingServiceId = null }){
+export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtabs", selectedPage = "", showNewForm = false, newDraft = {}, editingServiceId = null, ragAdminHtml = "" }){
   if(!isSuperAdmin()){
     return `
       <section class="card" style="text-align:center;padding:56px 20px">
@@ -50,7 +50,8 @@ export function scenarioBuilderPage({ config, isSuperAdmin, activeView = "subtab
 ${scenarioBuilderViewTabs(activeView)}
 
       <div>
-        ${activeView === "services" ? agentDefaultsSection(config, editingServiceId) :
+        ${activeView === "rags" ? ragAdminHtml :
+          activeView === "services" ? agentDefaultsSection(config, editingServiceId) :
           analysisScenarioPoolSection(config, selectedPage, showNewForm, newDraft)
         }
       </div>
@@ -62,6 +63,7 @@ function scenarioBuilderViewTabs(activeView){
   const views = [
     ["subtabs", "업무분석별 서브탭 구성"],
     ["services", "AI 서비스 설정"],
+    ["rags", "업무특화 RAG"],
   ];
   return `
     <div class="gi-tab-nav" style="margin-bottom:16px">
