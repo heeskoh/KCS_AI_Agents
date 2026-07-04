@@ -3,6 +3,7 @@
    3단계: empty(드롭존) → analyzing(분석중) → ready(파일속성 + AI 에이전트 선택).
    상태는 모듈 내부에 보관하고, 변경 시 오버레이 innerHTML을 다시 그린다(이벤트는 위임). */
 import { escapeHtml } from "../core/dom.js";
+import { openServiceDetailPopup } from "./service-detail-popup.js";   // AI 서비스 상세(입력정의·결과형식) 팝업
 
 /* ── 데이터 정의(설계 원본과 동일) ── */
 const GROUPS = [
@@ -157,7 +158,8 @@ function ragInvalidState(){
   const rc = S.cfg.rag_create || {};
   const mode = rc.mode || "new";
   const on = S.selected.has("rag_create");
-  const newInvalid = on && mode === "new" && (!(rc.name && rc.name.trim()) || !rc.perm || !rc.validity);
+  const newInvalid = on && mode === "new" && (!(rc.name && rc.name.trim()) || !rc.perm || !rc.validity
+    || (rc.validity === "custom" && !rc.customExpiry));
   const existInvalid = on && mode === "existing" && !rc.existingId;
   return { on, mode, newInvalid, existInvalid, invalid: newInvalid || existInvalid };
 }
@@ -168,7 +170,7 @@ function footerData(){
   const canSubmit = ready && count > 0 && !invalid;
   const hint = ready
     ? (invalid
-        ? (mode === "new" ? "신규 RAG는 이름·검색 권한·유효기간이 필수입니다." : "추가할 기존 RAG를 선택하세요.")
+        ? (mode === "new" ? "신규 RAG는 이름·검색 권한·유효기간(임의 설정 시 만료일)이 필수입니다." : "추가할 기존 RAG를 선택하세요.")
         : (count > 0 ? count + "개 AI 서비스로 처리 예약됩니다." : "처리할 AI 에이전트를 1개 이상 선택하세요."))
     : "파일을 업로드하면 속성 분석이 시작됩니다.";
   const label = canSubmit ? "파일 등록 · " + count + "개 서비스" : "파일 등록";
@@ -214,7 +216,11 @@ function agentCardHtml(id, name, desc){
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:13.5px;font-weight:700;color:#23314e;">${escapeHtml(name)}</span>
             ${rec ? `<span style="font-size:10.5px;font-weight:800;color:#2e9e5b;background:#e7f5ec;padding:2px 6px;border-radius:5px;">추천</span>` : ""}
-            ${needsConfig ? `<span style="margin-left:auto;font-size:10.5px;font-weight:800;color:#2f6fed;background:#e8f0ff;padding:2px 7px;border-radius:5px;">설정 필요</span>` : ""}
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;">
+              ${needsConfig ? `<span style="font-size:10.5px;font-weight:800;color:#2f6fed;background:#e8f0ff;padding:2px 7px;border-radius:5px;">설정 필요</span>` : ""}
+              <button type="button" data-fre-svc-detail="${escapeHtml(name)}" title="입력정의·결과형식 상세 보기"
+                style="border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:700;cursor:pointer;line-height:1.5;">상세</button>
+            </span>
           </div>
           <div style="font-size:12px;color:#8590a6;margin-top:5px;line-height:1.45;">${escapeHtml(desc)}</div>
         </div>
@@ -247,10 +253,33 @@ function groupsHtml(){
   }).join("");
 }
 
-/* 등록된 RAG 목록: 이 분석작업에서 생성된 업무특화 RAG(최신순) + 기본 샘플 */
+/* 등록된 RAG 목록: 이 분석작업에서 생성된 업무특화 RAG(최신순) + 기본 샘플(동일 이름은 실제 기록 우선) */
 function registeredRagList(){
-  const created = (S.registeredRags || []).map(r => [r.id, r.name, r.meta || "업무특화 RAG"]);
-  return [...created, ...EXISTING_RAG];
+  const created = (S.registeredRags || []).map(r => ({
+    id: r.id, name: r.name, meta: r.meta || "업무특화 RAG",
+    perm: r.perm || "", validity: r.validity || "", expiry: r.expiry || "",
+    ownerName: r.ownerName || "", createdAt: r.createdAt || "", sample: false,
+  }));
+  const names = new Set(created.map(r => r.name));
+  const samples = EXISTING_RAG.filter(([, label]) => !names.has(label))
+    .map(([id, label, sub]) => ({ id, name: label, meta: sub, perm: "", validity: "", expiry: "", ownerName: "", createdAt: "", sample: true }));
+  return [...created, ...samples];
+}
+
+const RAG_PERM_KO = { org: "전체 공개", dept: "부서", team: "조사팀", me: "본인만" };
+const RAG_VAL_KO = { "3m": "3개월", "6m": "6개월", "1y": "1년", none: "무기한", custom: "임의 설정" };
+const RAG_VALIDITY_OPTIONS = [["3m", "3개월"], ["6m", "6개월"], ["1y", "1년"], ["custom", "임의 설정"]];
+
+/* 기존 RAG 카드 부가정보: 검색권한 · 유효기간(만료) · 초기 생성 담당자 */
+function ragCardSub(r){
+  if(r.sample) return r.meta;
+  const parts = [];
+  if(r.createdAt) parts.push(`등록 ${r.createdAt.slice(0, 10)}`);
+  parts.push(`검색권한 ${RAG_PERM_KO[r.perm] || "전체 공개"}`);
+  const val = RAG_VAL_KO[r.validity] || "무기한";
+  parts.push(`유효기간 ${val}${r.expiry && r.expiry !== "무기한" ? ` (~${r.expiry})` : ""}`);
+  if(r.ownerName) parts.push(`생성 담당자 ${r.ownerName}`);
+  return parts.join(" · ");
 }
 
 function ragSectionHtml(){
@@ -270,15 +299,55 @@ function ragSectionHtml(){
   const registered = registeredRagList();
   const selectable = mode === "existing";
   const registeredCards = registered.length
-    ? registered.map(([id, label, sub]) =>
-        `<div ${selectable ? `data-fre-rag-existing="${id}"` : ""} style="${selectable ? (rc.existingId === id ? CARD_SEL : CARD_UNSEL) : CARD_READONLY}">
-          <div style="font-size:13px;font-weight:800;color:#23314e;">${escapeHtml(label)}</div>
-          <div style="font-size:11.5px;color:#8590a6;margin-top:3px;">${escapeHtml(sub)}</div>
+    ? registered.map(r =>
+        `<div ${selectable ? `data-fre-rag-existing="${r.id}"` : ""} style="${selectable ? (rc.existingId === r.id ? CARD_SEL : CARD_UNSEL) : CARD_READONLY}">
+          <div style="font-size:13px;font-weight:800;color:#23314e;">${escapeHtml(r.name)}</div>
+          <div style="font-size:11.5px;color:#8590a6;margin-top:3px;">${escapeHtml(ragCardSub(r))}</div>
         </div>`).join("")
     : `<div style="font-size:11.5px;color:#9aa3b3;padding:11px 13px;border:1px dashed #d8e0ec;border-radius:10px;">등록된 업무특화 RAG가 없습니다. 신규로 생성하세요.</div>`;
   const registeredLabel = selectable
     ? `추가할 RAG 선택 <span style="color:#dc4646;">*</span>`
     : `등록된 RAG <span style="font-weight:600;color:#9aa3b3;">· 참고</span>`;
+
+  // 선택한 기존 RAG 설정 변경 — 사용 권한 = 변경 권한(목록 자체가 사용 권한 보유분만 표시됨)
+  const selRag = selectable ? registered.find(r => r.id === rc.existingId) : null;
+  const curPerm = rc.existingPerm !== undefined ? rc.existingPerm : ((selRag && selRag.perm) || "org");
+  const curVal = rc.existingValidity !== undefined
+    ? rc.existingValidity
+    : ((selRag && ["3m", "6m", "1y"].includes(selRag.validity)) ? selRag.validity : "custom");
+  const curCustom = rc.existingCustomExpiry !== undefined
+    ? rc.existingCustomExpiry
+    : ((selRag && selRag.expiry && selRag.expiry !== "무기한") ? selRag.expiry : "");
+  const editPermCards = PERMS.map(([id, label, desc]) =>
+    `<div data-fre-rag-eperm="${id}" style="${curPerm === id ? CARD_SEL : CARD_UNSEL}">
+      <div style="font-size:12.5px;font-weight:800;color:#23314e;">${label}</div>
+      <div style="font-size:11px;color:#8590a6;margin-top:4px;line-height:1.35;">${desc}</div>
+    </div>`).join("");
+  const editValChips = RAG_VALIDITY_OPTIONS.map(([id, label]) =>
+    `<div data-fre-rag-evalidity="${id}" style="${curVal === id ? OPT_SEL : OPT_UNSEL}">${label}</div>`).join("");
+  const editExpiryPreview = curVal === "custom" ? (curCustom || "현행 유지") : expiry(curVal);
+  const existingEditPanel = selRag ? `
+    <div style="border:1.5px solid #dbe6fb;background:#fff;border-radius:10px;padding:13px;display:flex;flex-direction:column;gap:13px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11.5px;font-weight:800;color:#5a6577;">선택 RAG 설정 변경</span>
+        <span style="font-size:11px;color:#9aa3b3;">사용 권한이 있는 담당자는 검색 권한·유효기간을 변경할 수 있습니다.</span>
+        ${selRag.ownerName ? `<span style="margin-left:auto;font-size:11px;font-weight:700;color:#2f5fd6;background:#eef4ff;border-radius:6px;padding:3px 8px;">초기 생성 담당자 ${escapeHtml(selRag.ownerName)}</span>` : ""}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:800;color:#5a6577;margin-bottom:7px;">검색 권한 <span style="font-weight:600;color:#9aa3b3;">(사용 권한과 변경 권한이 동일)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${editPermCards}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:800;color:#5a6577;margin-bottom:7px;">유효기간</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          ${editValChips}
+          <span style="margin-left:auto;font-size:11.5px;color:#5a6577;">만료 예정 <b style="color:#2f5fd6;" data-fre-eexpiry-preview>${editExpiryPreview}</b></span>
+        </div>
+        ${curVal === "custom" ? `
+          <input type="date" data-fre-rag-ecustom-date value="${escapeHtml(curCustom || "")}" min="${todayStr()}"
+            style="margin-top:9px;border:1.5px solid #d8e0ec;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;color:#23314e;outline:none;background:#fff;">` : ""}
+      </div>
+    </div>` : "";
 
   const permCards = PERMS.map(([id, label, desc]) =>
     `<div data-fre-rag-perm="${id}" style="${rc.perm === id ? CARD_SEL : CARD_UNSEL}">
@@ -286,8 +355,9 @@ function ragSectionHtml(){
       <div style="font-size:11px;color:#8590a6;margin-top:4px;line-height:1.35;">${desc}</div>
     </div>`).join("");
 
-  const validityChips = [["3m", "3개월"], ["6m", "6개월"], ["1y", "1년"]].map(([id, label]) =>
+  const validityChips = RAG_VALIDITY_OPTIONS.map(([id, label]) =>
     `<div data-fre-rag-validity="${id}" style="${rc.validity === id ? OPT_SEL : OPT_UNSEL}">${label}</div>`).join("");
+  const newExpiryPreview = rc.validity === "custom" ? (rc.customExpiry || "—") : (rc.validity ? expiry(rc.validity) : "—");
 
   const expand = !on ? "" : `
     <div style="border-top:1px dashed #cfddf6;background:#f5f9ff;padding:16px;display:flex;flex-direction:column;gap:16px;">
@@ -299,6 +369,7 @@ function ragSectionHtml(){
         <div style="font-size:11.5px;font-weight:800;color:#5a6577;margin-bottom:8px;">${registeredLabel}</div>
         <div style="display:flex;flex-direction:column;gap:9px;">${registeredCards}</div>
       </div>
+      ${existingEditPanel}
       ${mode === "new" ? `
         <div style="display:flex;flex-direction:column;gap:16px;">
           <div>
@@ -314,11 +385,14 @@ function ragSectionHtml(){
             <div style="font-size:11.5px;font-weight:800;color:#5a6577;margin-bottom:8px;">유효기간 <span style="color:#dc4646;">*</span></div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
               ${validityChips}
-              <span style="margin-left:auto;font-size:11.5px;color:#5a6577;">만료 예정 <b style="color:#2f5fd6;">${rc.validity ? expiry(rc.validity) : "—"}</b></span>
+              <span style="margin-left:auto;font-size:11.5px;color:#5a6577;">만료 예정 <b style="color:#2f5fd6;" data-fre-expiry-preview>${newExpiryPreview}</b></span>
             </div>
+            ${rc.validity === "custom" ? `
+              <input type="date" data-fre-rag-custom-date value="${escapeHtml(rc.customExpiry || "")}" min="${todayStr()}"
+                style="margin-top:9px;border:1.5px solid #d8e0ec;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;color:#23314e;outline:none;background:#fff;">` : ""}
           </div>
         </div>` : ""}
-      ${newInvalid ? `<div style="font-size:11.5px;font-weight:700;color:#c0392b;background:#fdeaea;border-radius:8px;padding:9px 12px;">신규 업무특화 RAG는 이름·검색 권한·유효기간이 필수 항목입니다.</div>` : ""}
+      ${newInvalid ? `<div style="font-size:11.5px;font-weight:700;color:#c0392b;background:#fdeaea;border-radius:8px;padding:9px 12px;">신규 업무특화 RAG는 이름·검색 권한·유효기간(임의 설정 시 만료일)이 필수 항목입니다.</div>` : ""}
     </div>`;
 
   return `
@@ -329,6 +403,8 @@ function ragSectionHtml(){
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:10.5px;font-weight:800;color:#2f6fed;background:#e3edff;padding:3px 9px;border-radius:6px;">업무특화RAG</span>
             <span style="font-size:14.5px;font-weight:800;color:#16213d;">업무특화RAG 분석서비스</span>
+            <button type="button" data-fre-svc-detail="업무특화RAG 분석서비스" title="입력정의·결과형식 상세 보기"
+              style="margin-left:auto;border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:700;cursor:pointer;line-height:1.5;">상세</button>
           </div>
           <div style="font-size:12px;color:#8590a6;margin-top:6px;line-height:1.45;">선택 자료를 RAG 지식으로 구성합니다. 기존 RAG에 추가하거나 업무특화 RAG를 신규 생성할 수 있습니다.</div>
         </div>
@@ -357,22 +433,8 @@ function bodyHtml(){
         <div style="font-size:13px;color:#8590a6;">OCR · 문서유형 감지 · 핵심 항목 추출 진행 중</div>
       </div>`;
   }
-  // ready
+  // ready — 파일별 분석 프레임(개별 삭제 버튼 포함), 많아지면 목록 스크롤, 맨 아래 파일추가
   const files = S.files || [];
-  const f = files[0] || {};
-  const badge = fileKindBadge(f.name || "");
-  const fileListHtml = files.length > 1
-    ? `<div style="margin-top:10px;border-top:1px dashed #e6ebf3;padding-top:10px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;">
-        ${files.map(file => {
-          const b = fileKindBadge(file.name || "");
-          return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#2a3550;">
-            <span style="flex:0 0 auto;width:30px;text-align:center;font-size:9px;font-weight:800;color:${b.fg};background:${b.bg};border-radius:5px;padding:2px 0;">${b.label}</span>
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(file.name || "")}</span>
-            <span style="flex:0 0 auto;color:#8590a6;">${escapeHtml(humanSize(file.size))}</span>
-          </div>`;
-        }).join("")}
-      </div>`
-    : "";
   const specs = [
     { k: "문서유형 (자동감지)", v: "세금계산서" },
     { k: "언어", v: "영문 / 국문 혼용" },
@@ -388,36 +450,39 @@ function bodyHtml(){
     pill("거래일자 ", "2026-04-18"), pill("이상감지 ", "품명 불일치 의심", true),
   ].join("");
   const specsHtml = specs.map(sp =>
-    `<div style="background:#fff;padding:13px 16px;">
+    `<div style="background:#fff;padding:11px 14px;">
       <div style="font-size:11px;color:#9aa3b3;font-weight:600;">${escapeHtml(sp.k)}</div>
-      <div style="font-size:13px;color:#2a3550;font-weight:700;margin-top:3px;">${escapeHtml(sp.v)}</div>
+      <div style="font-size:12.5px;color:#2a3550;font-weight:700;margin-top:3px;">${escapeHtml(sp.v)}</div>
     </div>`).join("");
+  const fileFrames = files.map((file, i) => {
+    const b = fileKindBadge(file.name || "");
+    return `
+      <div style="border:1px solid #e6ebf3;border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto;">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f7faff;border-bottom:1px solid #eef1f6;">
+          <div style="width:34px;height:34px;border-radius:9px;background:${b.bg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${b.fg};flex:0 0 auto;">${b.label}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:#16213d;word-break:break-all;">${escapeHtml(file.name || "")}</div>
+            <div style="font-size:11.5px;color:#8590a6;margin-top:2px;">${escapeHtml(file.meta || "")}</div>
+          </div>
+          <button data-fre-file-del="${i}" title="파일 삭제" aria-label="${escapeHtml(file.name || "")} 삭제"
+            style="flex:0 0 auto;width:20px;height:20px;border:1px solid #e3e9f2;background:#fff;border-radius:6px;color:#8590a6;font-size:11px;cursor:pointer;line-height:1;padding:0;">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#eef1f6;">${specsHtml}</div>
+        <div style="padding:12px 14px;border-top:1px solid #eef1f6;">
+          <div style="font-size:11.5px;font-weight:700;color:#9aa3b3;margin-bottom:8px;">추출 데이터</div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;">${extracted}</div>
+        </div>
+      </div>`;
+  }).join("");
 
   return `
     <div style="display:flex;gap:18px;align-items:flex-start;">
-      <!-- LEFT: 파일 속성 카드 -->
-      <div style="width:300px;flex:0 0 auto;border:1px solid #e6ebf3;border-radius:12px;overflow:hidden;position:sticky;top:0;">
-        <div style="padding:16px 18px;background:#f7faff;border-bottom:1px solid #eef1f6;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:42px;height:42px;border-radius:10px;background:${badge.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${badge.fg};flex:0 0 auto;">${badge.label}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:14.5px;font-weight:800;color:#16213d;word-break:break-all;">${escapeHtml(f.name || "")}${files.length > 1 ? ` <span style="font-size:11px;font-weight:700;color:#2f6fed;">외 ${files.length - 1}개</span>` : ""}</div>
-              <div style="font-size:12px;color:#8590a6;margin-top:2px;">${escapeHtml(f.meta || "")}</div>
-            </div>
-          </div>
-          ${fileListHtml}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
-            <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#e3f5ea;border-radius:8px;font-size:12px;font-weight:700;color:#2e9e5b;">
-              <span style="width:7px;height:7px;border-radius:50%;background:#2e9e5b;"></span>분석 완료 ${files.length > 1 ? `· ${files.length}개 파일` : ""}
-            </div>
-            <button data-fre-reset style="border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;">다시 선택</button>
-          </div>
+      <!-- LEFT: 파일별 분석 프레임 목록 + 파일추가 -->
+      <div style="width:300px;flex:0 0 auto;position:sticky;top:0;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow-y:auto;padding-right:2px;">
+          ${fileFrames}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#eef1f6;">${specsHtml}</div>
-        <div style="padding:16px 18px;border-top:1px solid #eef1f6;">
-          <div style="font-size:12px;font-weight:700;color:#9aa3b3;margin-bottom:10px;">추출 데이터</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;">${extracted}</div>
-        </div>
+        <button data-fre-add style="border:1.5px solid #2f6fed;background:#eef4ff;color:#2f6fed;border-radius:10px;padding:9px 0;font-size:13px;font-weight:700;cursor:pointer;width:100%;">파일추가</button>
       </div>
 
       <!-- RIGHT: 에이전트 선택 -->
@@ -438,7 +503,7 @@ function bodyHtml(){
 function modalHtml(){
   const fd = footerData();
   return `
-    <div style="width:1000px;max-width:100%;max-height:88vh;background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.32);display:flex;flex-direction:column;overflow:hidden;animation:fre-popin .28s cubic-bezier(.2,.8,.2,1);">
+    <div data-fre-modal style="width:1000px;max-width:96vw;max-height:92vh;min-width:720px;min-height:420px;resize:both;background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.32);display:flex;flex-direction:column;overflow:hidden;animation:fre-popin .28s cubic-bezier(.2,.8,.2,1);">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 22px;border-bottom:1px solid #eef1f6;flex:0 0 auto;">
         <div>
           <div style="font-size:17px;font-weight:800;color:#16213d;letter-spacing:-.01em;">기초자료 파일 등록</div>
@@ -464,7 +529,18 @@ function overlayEl(){ return document.getElementById("fileRegisterOverlay"); }
 
 function rerender(){
   const ov = overlayEl();
-  if(ov) ov.innerHTML = modalHtml();
+  if(!ov) return;
+  // 사용자가 조절한 모달 크기(resize 인라인 width/height)를 재렌더 후에도 유지
+  const prev = ov.querySelector("[data-fre-modal]");
+  const size = prev ? { w: prev.style.width, h: prev.style.height } : null;
+  ov.innerHTML = modalHtml();
+  if(size){
+    const modal = ov.querySelector("[data-fre-modal]");
+    if(modal){
+      if(size.w) modal.style.width = size.w;
+      if(size.h) modal.style.height = size.h;
+    }
+  }
 }
 /* 텍스트 입력 중에는 전체 재렌더 대신 푸터(안내문·등록 버튼)만 갱신해 포커스 유지 */
 function refreshFooter(){
@@ -483,7 +559,7 @@ function close(){
   S = null;
 }
 
-function pickFiles(){
+function pickFiles(append){
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;   // 여러 파일 동시 등록
@@ -492,20 +568,27 @@ function pickFiles(){
   input.addEventListener("change", () => {
     const files = input.files ? [...input.files] : [];
     document.body.removeChild(input);
-    if(files.length) startAnalyze(files);
+    if(files.length) startAnalyze(files, append);
   });
   document.body.appendChild(input);
   input.click();
 }
 
-function startAnalyze(fileList){
+/* append=true: 이미 선택된 파일 목록에 새 파일을 추가(파일명+크기 기준 중복 제거) */
+function startAnalyze(fileList, append){
   const list = Array.isArray(fileList) ? fileList : [fileList];
   const stamp = nowStamp();
-  S.files = list.map(file => ({
+  const mapped = list.map(file => ({
     name: file.name,
     size: file.size,
     meta: `${fileKindBadge(file.name).label} 문서 · ${humanSize(file.size)} · 업로드 ${stamp}`,
   }));
+  if(append && Array.isArray(S.files) && S.files.length){
+    const seen = new Set(S.files.map(f => `${f.name}::${f.size}`));
+    S.files = [...S.files, ...mapped.filter(f => !seen.has(`${f.name}::${f.size}`))];
+  } else {
+    S.files = mapped;
+  }
   S.stage = "analyzing";
   rerender();
   clearTimeout(S._t);
@@ -518,12 +601,29 @@ function submit(){
   const agentNames = [...S.selected].map(id => AGENT_NAME[id] || id);
   const ragOn = S.selected.has("rag_create");
   const files = S.files || [];
+  let rag = null;
+  if(ragOn){
+    rag = { ...(S.cfg.rag_create || {}) };
+    if((rag.mode || "new") === "existing" && rag.existingId){
+      // 선택한 기존 RAG의 표시명을 함께 전달 — 빌트인 샘플을 실제 레지스트리 기록으로 등록할 때 필요
+      const hit = registeredRagList().find(r => r.id === rag.existingId);
+      rag.existingName = hit ? hit.name : "";
+      // 설정이 원래 값 그대로면 전달하지 않음 — 동일 유효기간 재적용으로 만료일이 연장되지 않도록
+      if(hit && !hit.sample){
+        if(rag.existingPerm === hit.perm) delete rag.existingPerm;
+        const validityUnchanged = rag.existingValidity === "custom"
+          ? (!rag.existingCustomExpiry || rag.existingCustomExpiry === hit.expiry)
+          : rag.existingValidity === hit.validity;
+        if(validityUnchanged){ delete rag.existingValidity; delete rag.existingCustomExpiry; }
+      }
+    }
+  }
   const payload = {
     files,
     file: files[0] || null,   // 하위호환
     agentIds: [...S.selected],
     agentNames,
-    rag: ragOn ? (S.cfg.rag_create || {}) : null,
+    rag,
   };
   const cb = S.onSubmit;
   close();
@@ -541,8 +641,20 @@ function bindOverlay(ov){
     if(e.target === ov){ close(); return; }   // 배경 클릭
     if(e.target.closest("[data-fre-close]")){ close(); return; }
     if(e.target.closest("[data-fre-pick]")){ pickFiles(); return; }
-    if(e.target.closest("[data-fre-reset]")){ S.stage = "empty"; S.files = []; rerender(); return; }
+    if(e.target.closest("[data-fre-add]")){ pickFiles(true); return; }
+    const fileDel = e.target.closest("[data-fre-file-del]");
+    if(fileDel){
+      const i = Number(fileDel.dataset.freFileDel);
+      if(Array.isArray(S.files)) S.files.splice(i, 1);
+      if(!S.files || !S.files.length){ S.stage = "empty"; S.files = []; }   // 전부 삭제하면 드롭존으로 복귀
+      rerender();
+      return;
+    }
     if(e.target.closest("[data-fre-submit]")){ submit(); return; }
+
+    // AI 서비스 '상세' 버튼 — 카드 선택 토글보다 먼저 처리해 클릭 전파로 선택이 바뀌지 않도록 한다
+    const svcDetail = e.target.closest("[data-fre-svc-detail]");
+    if(svcDetail){ openServiceDetailPopup(svcDetail.dataset.freSvcDetail); return; }
 
     const grp = e.target.closest("[data-fre-group-toggle]");
     if(grp){
@@ -566,7 +678,21 @@ function bindOverlay(ov){
     const ragMode = e.target.closest("[data-fre-rag-mode]");
     if(ragMode){ setCfg("rag_create", "mode", ragMode.dataset.freRagMode); rerender(); return; }
     const ragEx = e.target.closest("[data-fre-rag-existing]");
-    if(ragEx){ setCfg("rag_create", "existingId", ragEx.dataset.freRagExisting); rerender(); return; }
+    if(ragEx){
+      const id = ragEx.dataset.freRagExisting;
+      setCfg("rag_create", "existingId", id);
+      // 설정 변경 패널 초기값: 선택한 RAG의 현재 권한·유효기간(기간형 외에는 임의 설정 + 현행 만료일)
+      const r = registeredRagList().find(x => x.id === id);
+      setCfg("rag_create", "existingPerm", (r && r.perm) || "org");
+      setCfg("rag_create", "existingValidity", (r && ["3m", "6m", "1y"].includes(r.validity)) ? r.validity : "custom");
+      setCfg("rag_create", "existingCustomExpiry", (r && r.expiry && r.expiry !== "무기한") ? r.expiry : "");
+      rerender();
+      return;
+    }
+    const ragEperm = e.target.closest("[data-fre-rag-eperm]");
+    if(ragEperm){ setCfg("rag_create", "existingPerm", ragEperm.dataset.freRagEperm); rerender(); return; }
+    const ragEval = e.target.closest("[data-fre-rag-evalidity]");
+    if(ragEval){ setCfg("rag_create", "existingValidity", ragEval.dataset.freRagEvalidity); rerender(); return; }
     const ragPerm = e.target.closest("[data-fre-rag-perm]");
     if(ragPerm){ setCfg("rag_create", "perm", ragPerm.dataset.freRagPerm); rerender(); return; }
     const ragVal = e.target.closest("[data-fre-rag-validity]");
@@ -585,6 +711,22 @@ function bindOverlay(ov){
     if(!S) return;
     const ragName = e.target.closest("[data-fre-rag-name]");
     if(ragName){ setCfg("rag_create", "name", ragName.value); refreshFooter(); return; }
+    // 유효기간 임의 설정 날짜: 재렌더 없이 만료 예정 표시와 푸터만 갱신(입력 포커스 유지)
+    const newDate = e.target.closest("[data-fre-rag-custom-date]");
+    if(newDate){
+      setCfg("rag_create", "customExpiry", newDate.value);
+      const p = ov.querySelector("[data-fre-expiry-preview]");
+      if(p) p.textContent = newDate.value || "—";
+      refreshFooter();
+      return;
+    }
+    const editDate = e.target.closest("[data-fre-rag-ecustom-date]");
+    if(editDate){
+      setCfg("rag_create", "existingCustomExpiry", editDate.value);
+      const p = ov.querySelector("[data-fre-eexpiry-preview]");
+      if(p) p.textContent = editDate.value || "현행 유지";
+      return;
+    }
     const cfgText = e.target.closest("[data-fre-cfg-text]");
     if(cfgText){
       const [id, key] = cfgText.dataset.freCfgText.split("::");
@@ -593,17 +735,20 @@ function bindOverlay(ov){
     }
   });
 
-  // 드래그 앤 드롭
+  // 드래그 앤 드롭: empty 단계는 드롭존에 새로 등록, ready 단계는 모달 어디든 드롭하면 파일 추가
   ov.addEventListener("dragover", e => {
-    if(S && S.stage === "empty" && e.target.closest("[data-fre-dropzone]")){ e.preventDefault(); }
+    if(!S) return;
+    if(S.stage === "empty" && e.target.closest("[data-fre-dropzone]")){ e.preventDefault(); return; }
+    if(S.stage === "ready" && e.target.closest("[data-fre-modal]")){ e.preventDefault(); }
   });
   ov.addEventListener("drop", e => {
-    if(!S || S.stage !== "empty") return;
-    const dz = e.target.closest("[data-fre-dropzone]");
-    if(!dz) return;
+    if(!S) return;
+    const inEmpty = S.stage === "empty" && e.target.closest("[data-fre-dropzone]");
+    const inReady = S.stage === "ready" && e.target.closest("[data-fre-modal]");
+    if(!inEmpty && !inReady) return;
     e.preventDefault();
     const files = e.dataTransfer && e.dataTransfer.files ? [...e.dataTransfer.files] : [];
-    if(files.length) startAnalyze(files);
+    if(files.length) startAnalyze(files, !!inReady);
   });
 }
 

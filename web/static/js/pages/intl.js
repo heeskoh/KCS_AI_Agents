@@ -107,9 +107,9 @@ export function intlInfoPageHtml(){
               <svg class="btn-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <button class="btn-soft home-tool-btn home-llm-mode-btn" type="button"
-                    data-home-llm-mode data-llm-mode="ext" title="LLM 사용 모드 전환 (외부 / 내부 / 외부+내부)">
+                    data-home-llm-mode data-llm-mode="ext_int" title="LLM 사용 모드 전환 (외부 / 내부 / 외부+내부)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
-              <span class="home-llm-mode-label">외부LLM only</span>
+              <span class="home-llm-mode-label">외부LLM+내부LLM</span>
             </button>
             <div class="home-composer-actions">
               <button class="btn-ghost home-action-btn coach" id="coachAnalyzeBtn" type="button">

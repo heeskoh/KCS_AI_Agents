@@ -1695,6 +1695,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     SCENARIO_TEMPLATES_PATH = DATA_DIR / "scenario_templates.json"
     PROMPT_OVERRIDES_PATH = DATA_DIR / "prompt_overrides.json"
     NETWORK_SCENARIOS_PATH = DATA_DIR / "network_scenarios.json"
+    SERVICE_SETTINGS_PATH = DATA_DIR / "service_settings.json"
     _workspace_lock = threading.Lock()
 
     def _read_json_store(self, path) -> dict | None:
@@ -1864,6 +1865,12 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/prompt_overrides":
             # AI 서비스 상세 프롬프트 템플릿 오버라이드 — data/prompt_overrides.json
             state = self._read_json_store(self.PROMPT_OVERRIDES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/service_settings":
+            # AI 서비스 설정값(서비스 설정 팝업 저장분) — data/service_settings.json
+            state = self._read_json_store(self.SERVICE_SETTINGS_PATH)
             if state is not None:
                 self._send_json({"state": state})
             return
@@ -2046,6 +2053,10 @@ class WorkflowHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/prompt_overrides":
             self._write_json_store(self.PROMPT_OVERRIDES_PATH)
+            return
+
+        if parsed.path == "/api/service_settings":
+            self._write_json_store(self.SERVICE_SETTINGS_PATH)
             return
 
         if parsed.path == "/api/network_scenarios":

@@ -27,6 +27,9 @@ import { agenticServicePage as renderAgenticServicePage, agenticInspectorHtml, a
 import { createAgenticFlow, loadDrawflow } from "./pages/agentic-flow.js";
 import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
 import { openFileRegisterPopup } from "./pages/file-register-popup.js";
+import "./pages/service-detail-popup.js";   // AI 서비스 상세 팝업(신규) — self-init, 기존 코드 무변경
+import { serviceInputStripHtml } from "./pages/service-workspace-ui.js";   // 3세트 UI 입력값 스트립(신규)
+import { finalizeScenarioPrompt } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -1592,11 +1595,20 @@ function normalizeScenarioItem(item, index = 0){
     || configInstruction
     || sourceDefaultInstruction(key, targetType);
 
+  // 업무특화 RAG 검색 단계: 구버전 라벨("업무특화RAG(이름) 검색하기")을 표준 서비스명으로 정규화하고
+  // 라벨에만 있던 RAG 이름은 ragName으로 흡수한다.
+  let label = item.label || source?.label || key;
+  let legacyRagName = "";
+  if(key === "rag_custom_search"){
+    const m = /^업무특화RAG\((.+)\) 검색하기$/.exec(label);
+    if(m){ legacyRagName = m[1]; label = "업무특화 RAG 검색"; }
+  }
+
   return {
     id: item.id || uid(),
     key,
     type: item.type || source?.type || "db",
-    label: item.label || source?.label || key,
+    label,
     behaviors,
     behavior: behaviors[0],
     behaviorLabel: sourceBehaviorLabels(key, behaviors).join(", "),
@@ -1609,9 +1621,9 @@ function normalizeScenarioItem(item, index = 0){
     share_recipients: shareRecipients,
     webTargets,
     web_targets: webTargets,
-    // 업무특화 RAG 단계(검색·생성): 대상 RAG 식별자/이름 보존
+    // 업무특화 RAG 단계(검색·생성): 대상 RAG 식별자/이름 보존 (구버전은 라벨에서 이름 복구)
     ragId: (key === "rag_custom_search" || key === "rag_create") ? (item.ragId || item.rag_id || "") : "",
-    ragName: (key === "rag_custom_search" || key === "rag_create") ? (item.ragName || item.rag_name || "") : "",
+    ragName: (key === "rag_custom_search" || key === "rag_create") ? (item.ragName || item.rag_name || legacyRagName || "") : "",
   };
 }
 
@@ -2652,7 +2664,7 @@ const HOME_LLM_MODES = [
   { mode: "ext_int", label: "외부LLM+내부LLM" },
 ];
 function homeLlmMode(){
-  return document.querySelector("[data-home-llm-mode]")?.dataset.llmMode || "ext";
+  return document.querySelector("[data-home-llm-mode]")?.dataset.llmMode || "ext_int";
 }
 function homeLlmModeReasoning(d){
   const map = { ext: "외부LLM", int: "내부LLM only(시뮬레이션)", ext_int: "외부LLM+내부LLM" };
@@ -3440,6 +3452,7 @@ const AI_SERVICE_INPUTS = {
     { key:"hs", label:"대상 HS", placeholder:"예: 8471.30" },
   ],
   hs_verify: [
+    { key:"target", label:"대상 기업/개인", placeholder:"예: C-1036 또는 P-2003", required:true },
     { key:"declared_hs", label:"신고 HS", placeholder:"예: 8471.30", required:true },
     { key:"item", label:"품명/규격", placeholder:"예: 노트북 컴퓨터" },
   ],
@@ -3935,7 +3948,7 @@ function homeIntegratedSourceFrameHtml(sources){
         </div>
       </div>
       <div class="home-isch-body">
-        <p class="home-isch-desc">검색할 지식 소스를 선택하세요. 자연어 질의는 정형DB에서는 <b class="db">자연어→SQL</b>로, 업무 RAG에서는 <b class="rag">의미 기반 문서검색</b>으로 각각 실행되며, 결과는 출처별 프레임으로 구분되어 표시됩니다.</p>
+        <p class="home-isch-desc">검색할 지식 소스를 선택하세요. 자연어 질의는 정형DB에서는 <b class="db">자연어→SQL</b>로, 업무 RAG에서는 <b class="rag">의미 기반 문서검색</b>으로 실행됩니다.</p>
         <div class="home-isch-chips">${chips}</div>
         <textarea class="home-isch-prompt" data-home-integrated-prompt placeholder="${escapeHtml(ph)}">${escapeHtml(homeIntegratedPromptText)}</textarea>
         <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록 · 특정인이 작성한 보고서 중 최신 10건 · 위험지표 상위 기업의 사후심사 사례</p>
@@ -4017,7 +4030,12 @@ function homeRenderPromptTemplatePanels(){
     }
   });
 
-  if(!sources.length && !aiOrder.length){ container.innerHTML = ""; homeSyncCombinedPrompt(); return; }
+  if(!sources.length && !aiOrder.length){
+    container.innerHTML = "";
+    homeToggleComposerTa(true);
+    homeSyncCombinedPrompt();
+    return;
+  }
 
   const runtimeSteps = [...sources, ...aiOrder];
   // 좌→우 가로 흐름: 업무지식베이스(검색) 카드 → AI 분석서비스 프레임, 사이에 화살표
@@ -4031,7 +4049,8 @@ function homeRenderPromptTemplatePanels(){
   ];
   const flow = cards.join("");
 
-  const allCollapsed = runtimeSteps.length > 0 && runtimeSteps.every(key => homeCardCollapsed[key]);
+  const collapseKeys = homeCollapseKeys(sources, aiOrder);
+  const allCollapsed = collapseKeys.length > 0 && collapseKeys.every(key => homeCardCollapsed[key]);
   const bulkBtn = runtimeSteps.length > 1
     ? `<button type="button" class="home-pipeline-collapse-all" data-home-collapse-all="${allCollapsed ? "expand" : "collapse"}">${allCollapsed ? "모두 펴기" : "모두 접기"}</button>
        <button type="button" class="home-pipeline-reset-all" data-home-reset-all title="모든 카드를 접고 수행 결과를 비웁니다">모두 닫고 초기화</button>`
@@ -4043,15 +4062,32 @@ function homeRenderPromptTemplatePanels(){
           <strong>수행 흐름</strong>
           ${bulkBtn}
         </div>
-        <span>각 AI 서비스는 독립적으로 동작하며, [입력값 이름] 자리에 값을 채워 호출합니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 선행 서비스 결과를 선택해 연계하세요. 아래 통합 프롬프트는 자동 생성됩니다.</span>
+        <span>각 AI 서비스는 독립적으로 동작하며, [입력값 이름] 자리에 값을 채워 호출합니다. ◀▶ 로 순서를 조정하고, 입력값은 직접 입력하거나 선행 서비스 결과를 선택해 연계하세요.</span>
       </div>
       <div class="home-pipeline-flow">${flow}</div>
     </div>
   `;
+  // 수행 흐름 카드가 있으면 각 카드에 전용 프롬프트 창이 있으므로 하단 통합 입력창은 숨긴다
+  homeToggleComposerTa(false);
   // 보존된 수행 결과를 복원(서비스 추가 등 재렌더 시 결과 유지)
   homeRestoreCardResults();
   // 선택/입력에 맞춰 통합 프롬프트를 입력창에 자동 생성
   homeSyncCombinedPrompt();
+}
+
+/* 접기/펴기 대상 카드 키 목록 — 업무지식베이스 2개 이상은 단일 '통합 지식 검색' 프레임("__integrated__")으로
+   렌더되므로 개별 소스 키 대신 그 키를 사용해야 전체 접기·초기화가 통합 프레임에도 적용된다. */
+function homeCollapseKeys(sources, aiOrder){
+  const src = sources || homeSelectedAnalysisOptions().sources;
+  const ai = aiOrder || homeSyncPipelineOrder();
+  return [...(src.length >= 2 ? ["__integrated__"] : src), ...ai];
+}
+
+/* 하단 통합 프롬프트 입력창 표시 토글 — 수행 흐름이 비어 있을 때만 보인다.
+   숨겨진 동안에도 값은 homeSyncCombinedPrompt()로 계속 동기화되어 실행에 사용된다. */
+function homeToggleComposerTa(show){
+  const ta = document.getElementById("coachPrompt");
+  if(ta) ta.style.display = show ? "" : "none";
 }
 
 // 프레임 순서 이동 (▲▼)
@@ -4324,6 +4360,21 @@ function addPendingScenarioWebTarget(){
 function isRagSelectStep(item){
   return !!item && (item.key === "rag_custom_search" || item.key === "rag_create");
 }
+/* 업무특화 RAG 단계의 권한: 표준 서비스 권한 키 대신 RAG 자체의 검색권한(업무특화RAG 서비스에서 설정)을 따른다.
+   지정된 RAG에 접근 권한이 있으면 실행 가능, 없으면 잠금. RAG 미지정 단계는 구성 자체를 허용한다. */
+function scenarioItemPermissionStatus(item){
+  if(isRagSelectStep(item)){
+    if(item.ragId){
+      const f = findRagById(item.ragId);
+      return (f && f.rag.status !== "suspended" && !ragExpired(f.rag) && canAccessRag(f.rag)) ? "granted" : "locked";
+    }
+    return "granted";
+  }
+  return permissionStatus(item.key);
+}
+function scenarioItemHasPermission(item){
+  return scenarioItemPermissionStatus(item) === "granted";
+}
 function scenarioItemRagId(item){
   return isRagSelectStep(item) ? (item.ragId || "") : "";
 }
@@ -4331,8 +4382,7 @@ function setScenarioItemRag(item, ragId, ragName){
   if(!isRagSelectStep(item)) return;
   item.ragId = ragId || "";
   item.ragName = ragName || "";
-  // 검색 단계만 칩 라벨을 선택 RAG에 맞춤(생성 단계 라벨은 "업무특화RAG 분석서비스" 유지)
-  if(ragName && item.key === "rag_custom_search") item.label = `업무특화RAG(${ragName}) 검색하기`;
+  // 라벨은 표준 AI 서비스명 유지 — 선택한 RAG 이름은 설명(instruction)에 반영된다
 }
 function customRagPromptFor(name, key){
   if(key === "rag_create")
@@ -5240,6 +5290,24 @@ async function loadCanvasState(){
     }
     if(saved.uploadedFilesByCompany && typeof saved.uploadedFilesByCompany === "object") uploadedFilesByCompany = saved.uploadedFilesByCompany;
     if(saved.ragsByCompany && typeof saved.ragsByCompany === "object") ragsByCompany = saved.ragsByCompany;
+    // 구버전(전역 레지스트리 도입 전)에는 업무특화 RAG가 사용자 워크스페이스 내부에 저장됐고,
+    // 그 위치는 복원 대상이 아니어서 시나리오 RAG 선택이 비어 보였다 — 전역 레지스트리로 1회 이행.
+    if(saved.userWorkspaces && typeof saved.userWorkspaces === "object"){
+      Object.entries(saved.userWorkspaces).forEach(([wsUserId, ws]) => {
+        const legacy = ws && ws.ragsByCompany;
+        if(!legacy || typeof legacy !== "object") return;
+        Object.entries(legacy).forEach(([cid, arr]) => {
+          if(!Array.isArray(arr) || !arr.length) return;
+          if(!Array.isArray(ragsByCompany[cid])) ragsByCompany[cid] = [];
+          arr.forEach(r => {
+            if(!r || !r.name) return;
+            if(ragsByCompany[cid].some(x => x && (x.id === r.id || x.name === r.name))) return;
+            ragsByCompany[cid].push({ id: uid(), status: "active", ownerUserId: wsUserId, companyId: cid, ...r });
+          });
+        });
+        delete ws.ragsByCompany;   // 이행 완료 — 다음 저장 시 구 위치 제거
+      });
+    }
     if(saved.userPermissions && typeof saved.userPermissions === "object"){
       userPermissions = {...defaultUserPermissions, ...saved.userPermissions};
       // 그룹 정의가 부여한 권한은 과거 저장 스냅샷의 locked보다 우선 —
@@ -7494,7 +7562,7 @@ function saveUploadedFile(payload){
 
 /* ── 업무특화 RAG 전역 레지스트리: 사건(기업/개인)별 독립 + 공유권한별 가시성 ── */
 const RAG_PERM_KO = { org: "전체 공개", dept: "부서", team: "조사팀", me: "본인만" };
-const RAG_VALIDITY_KO = { "3m": "3개월", "6m": "6개월", "1y": "1년", none: "무기한" };
+const RAG_VALIDITY_KO = { "3m": "3개월", "6m": "6개월", "1y": "1년", none: "무기한", custom: "임의 설정" };
 function ragExpiryFromValidity(validity){
   if(!validity || validity === "none") return "무기한";
   const add = { "3m": 3, "6m": 6, "1y": 12 }[validity];
@@ -7535,17 +7603,39 @@ function findRagById(id){
   return null;
 }
 
+/* 기존 RAG 기록에 자료 파일 추가(파일명 기준 중복 제거) + 메타 갱신 */
+function appendRagFiles(rec, files){
+  if(!rec) return;
+  if(!Array.isArray(rec.files)) rec.files = [];
+  const names = new Set(rec.files.map(f => f && f.name));
+  (Array.isArray(files) ? files : []).forEach(f => {
+    const name = (f && f.name) || String(f || "");
+    if(!name || names.has(name)) return;
+    names.add(name);
+    rec.files.push({ name });
+  });
+  const permKo = rec.perm ? (RAG_PERM_KO[rec.perm] || rec.perm) : "";
+  rec.meta = `자료 ${rec.files.length}건 · 갱신 ${new Date().toISOString().slice(0, 10)}${permKo ? " · 검색권한 " + permKo : ""}`;
+}
+
 /* 신규 업무특화 RAG 생성 시: 전역 레지스트리에 사건별 등록(파일목록·권한·유효기간·등록자·상태 포함) */
 function registerCustomRag(rag, files, subject){
   const companyId = activeCanvasCompanyId;
   const name = rag && rag.name ? String(rag.name).trim() : "";
   if(!companyId || !name) return;
   if(!Array.isArray(ragsByCompany[companyId])) ragsByCompany[companyId] = [];
-  if(ragsByCompany[companyId].some(r => r.name === name)) return;   // 동일 이름 중복 방지
+  const dup = ragsByCompany[companyId].find(r => r.name === name);
+  if(dup){   // 동일 이름이면 새 레코드 대신 기존 RAG에 자료만 추가
+    appendRagFiles(dup, files);
+    saveCanvasState();
+    return;
+  }
   const date = new Date().toISOString().slice(0, 10);
   const permKo = rag.perm ? (RAG_PERM_KO[rag.perm] || rag.perm) : "";
   const grp = currentUserGroup() || {};
   const validity = rag.validity || "";
+  // 임의 설정(custom)은 팝업에서 지정한 날짜를 만료일로 사용
+  const expiry = validity === "custom" ? (rag.customExpiry || "무기한") : ragExpiryFromValidity(validity);
   ragsByCompany[companyId].unshift({
     id: uid(),
     name,
@@ -7555,7 +7645,7 @@ function registerCustomRag(rag, files, subject){
     files: Array.isArray(files) ? files.map(f => ({ name: (f && f.name) || String(f) })) : [],
     perm: rag.perm || "",
     validity,
-    expiry: ragExpiryFromValidity(validity),
+    expiry,
     ownerUserId: currentUserId,
     ownerName: currentUser()?.name || currentUserId,
     ownerOrg: grp.org || "",
@@ -7669,14 +7759,17 @@ function deleteUploadedFile(recordId){
 
 /* 신규 업무특화 RAG 생성 시: 현재 조사 기업의 분석 프로세스 맨 앞에 "업무특화RAG(이름) 검색하기" 단계를 추가.
    영속 저장(companyScenarios)과 활성 메모리(scenarioItems)를 모두 갱신해야 시나리오 탭 로드 게이팅과 무관하게 반영된다. */
-function prependCustomRagSearchStep(ragName){
+function prependCustomRagSearchStep(ragName, ragId){
   const companyId = activeCanvasCompanyId;
   const name = String(ragName || "").trim();
   if(!companyId || !name) return false;
-  const label = `업무특화RAG(${name}) 검색하기`;
+  const label = "업무특화 RAG 검색";   // 표준 AI 서비스명 — RAG 이름은 설명(instruction)에 표시
   const list = getCompanyScenario(companyId);                 // 저장본 또는 기본 템플릿(정규화됨)
-  if(list.some(item => item.label === label)) return false;   // 동일 RAG 검색 단계 중복 방지
-  const ragRec = (ragsByCompany[companyId] || []).find(r => r.name === name);
+  // 동일 RAG 검색 단계 중복 방지 (구버전 라벨 형식 포함)
+  if(list.some(item => item.key === "rag_custom_search" && (item.ragName === name || item.label === `업무특화RAG(${name}) 검색하기`))) return false;
+  const ragRec = ragId
+    ? (findRagById(ragId)?.rag || null)
+    : (ragsByCompany[companyId] || []).find(r => r.name === name);
   const step = normalizeScenarioItem({
     key: "rag_custom_search",
     label,
@@ -8627,24 +8720,33 @@ function syncScenarioEditor(){
       if(!composed || !liveItem || liveItem.id !== issuedItemId) return;
       const el = document.getElementById("scenarioInstruction");
       if(!el) return;
+      // 패턴 등록 서비스는 설명형 패턴 프롬프트로 대체(그 외는 composePrompt 원본)
+      const finalText = finalizeScenarioPrompt(item.key,
+        sourceBehaviorLabels(item.key, item.behaviors || sourceDefaultBehaviors(item.key)), composed);
       // 사용자가 직접 수정하지 않은 경우(=자동 생성값과 동일할 때)에만 교체
       const current = el.value;
-      if(!current || current === _fallback){
-        el.value = composed;
-        liveItem.instruction = composed;
+      if(!current || current === _fallback || current === composed){
+        el.value = finalText;
+        liveItem.instruction = finalText;
       }
     });
   }
   if(hint && item){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
-    const status = permissionStatus(item.key);
+    const status = scenarioItemPermissionStatus(item);
     const needsPermission = status === "locked" || status === "requested";
     hint.innerHTML = `
       <div class="hint-header">
         <strong>${escapeHtml(item.label)}</strong>
         <span class="source-permission ${status}">${permissionLabel(status)}</span>
+        <button type="button" data-service-detail="${escapeHtml(item.label)}" title="입력정의·결과형식 상세 보기"
+          style="margin-left:auto;border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.6;">서비스 상세</button>
       </div>
       <span class="hint-behaviors">${escapeHtml(behaviors.join(", "))}</span>
+      ${serviceInputStripHtml(item.label, {
+        targetLabel: (() => { const c = activeCanvasCompany(); return c ? `${c.company_name} (${c.company_id})` : ""; })(),
+        docCount: (uploadedFilesByCompany[activeCanvasCompanyId] || []).length,
+      })}
       ${needsPermission ? `
         <div class="hint-permission-callout">
           <span>${status === "requested" ? "권한 요청이 접수되었습니다. 승인 대기 중입니다." : "이 단계를 실행하려면 추가 권한이 필요합니다."}</span>
@@ -8683,7 +8785,7 @@ function applyScenarioSourceSelection(key){
   const _initPrompt = scenarioSuggestedInstruction(key, targetType, behaviors);
   if(instruction) instruction.value = _initPrompt;
   composePrompt(key, behaviors, targetType).then(composed => {
-    if(composed && instruction) instruction.value = composed;
+    if(composed && instruction) instruction.value = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, behaviors), composed);
   });
   const validation = document.getElementById("scenarioPromptValidation");
   if(validation) validation.innerHTML = "";
@@ -8832,12 +8934,16 @@ function updateSelectedScenarioBehaviors(){
   const targetType = item.target_type || item.targetType || "company";
   // 이전 프롬프트가 자동 생성(레거시 또는 JSON composePrompt)인지 확인 후 재생성
   composePrompt(item.key, previousBehaviors, targetType).then(prevComposed => {
+    // 패턴 등록 서비스는 이전 자동 생성값도 패턴 형태이므로 패턴 기준으로도 비교한다
+    const prevFinal = finalizeScenarioPrompt(item.key, sourceBehaviorLabels(item.key, previousBehaviors), prevComposed);
     const isAuto = isAutoScenarioInstruction(previousInstruction, item.key, targetType, previousBehaviors)
-      || String(previousInstruction || "").trim() === String(prevComposed || "").trim();
+      || String(previousInstruction || "").trim() === String(prevComposed || "").trim()
+      || String(previousInstruction || "").trim() === String(prevFinal || "").trim();
     if(isAuto){
       // JSON 기반 최적 프롬프트 우선 적용
       return composePrompt(item.key, values, targetType).then(composed => {
-        const prompt = composed || scenarioSuggestedInstruction(item.key, targetType, values);
+        const prompt = finalizeScenarioPrompt(item.key, sourceBehaviorLabels(item.key, values),
+          composed || scenarioSuggestedInstruction(item.key, targetType, values));
         item.instruction = prompt;
         // race 가드: 해당 단계가 여전히 선택돼 있을 때만 에디터 갱신
         const el = document.getElementById("scenarioInstruction");
@@ -8869,9 +8975,10 @@ function updateSelectedScenarioSource(key){
   item.instruction = scenarioSuggestedInstruction(key, targetType, nextBehaviors);
   composePrompt(key, nextBehaviors, targetType).then(composed => {
     if(composed){
-      item.instruction = composed;
+      const finalText = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, nextBehaviors), composed);
+      item.instruction = finalText;
       const el = document.getElementById("scenarioInstruction");
-      if(el) el.value = composed;
+      if(el) el.value = finalText;
     }
   });
   setScenarioItemShareRecipients(item, key === "mail_share" ? scenarioItemShareRecipients(item) : []);
@@ -8898,7 +9005,7 @@ function renderScenarioList(){
   if(!target) return;
   normalizeScenarioOrder();
   target.innerHTML = scenarioItems.map(item => {
-    const status = permissionStatus(item.key);
+    const status = scenarioItemPermissionStatus(item);
     const locked = status !== "granted";
     const runStatus = stepStatuses[item.id] || "대기";
     const stateClass = {
@@ -9467,7 +9574,7 @@ function runScenarioWorkflow(startIndex = 0){
   const runStartIndex = Math.max(0, Math.min(Number(startIndex) || 0, scenarioItems.length - 1));
   const candidateItems = scenarioItems.slice(runStartIndex);
   // 첫 번째 권한 없는 단계 찾기 → 그 이전 단계까지만 실행
-  const firstLockedIndex = candidateItems.findIndex(item => !hasPermission(item.key));
+  const firstLockedIndex = candidateItems.findIndex(item => !scenarioItemHasPermission(item));
   const runnableItems = firstLockedIndex >= 0 ? candidateItems.slice(0, firstLockedIndex) : candidateItems;
   const skippedItems  = firstLockedIndex >= 0 ? candidateItems.slice(firstLockedIndex) : [];
 
@@ -9501,7 +9608,7 @@ function runScenarioWorkflow(startIndex = 0){
   // 권한 없는 단계는 미리 "건너뜀"으로 표시
   skippedItems.forEach(item => {
     stepStatuses[item.id] = "건너뜀";
-    stepOutputs[item.id] = `권한이 없어 실행되지 않았습니다. (${permissionLabel(permissionStatus(item.key))})`;
+    stepOutputs[item.id] = `권한이 없어 실행되지 않았습니다. (${permissionLabel(scenarioItemPermissionStatus(item))})`;
   });
 
   const priorCompleted = scenarioItems.slice(0, runStartIndex).filter(item => stepStatuses[item.id] === "완료").length;
@@ -9613,8 +9720,8 @@ function runSingleScenarioItem(item){
     alert("분석 대상 기업을 선택하세요.");
     return;
   }
-  if(!hasPermission(item.key)){
-    alert(`이 AI 서비스를 실행할 권한이 없습니다. (${permissionLabel(permissionStatus(item.key))})`);
+  if(!scenarioItemHasPermission(item)){
+    alert(`이 AI 서비스를 실행할 권한이 없습니다. (${permissionLabel(scenarioItemPermissionStatus(item))})`);
     return;
   }
   const resumeSingle = () => runSingleScenarioItem(item);
@@ -10548,20 +10655,56 @@ document.addEventListener("click", (event)=>{
     let subject = subjectRaw, subjectId = "";
     const m = subjectRaw.match(/^(.*)\s*\(([^)]+)\)\s*$/);   // "이름 (C-1023)" → 이름 + 식별자 분리
     if(m){ subject = m[1].trim(); subjectId = m[2].trim(); }
-    // 이 사건(기업/개인)에 등록된 활성 업무특화 RAG → 팝업 동작방식 선택에 표시
-    const registeredRags = activeRagsForCompany(activeCanvasCompanyId).map(r => ({ id: r.id, name: r.name, meta: r.meta }));
+    // 이 사건(기업/개인)에 등록된 활성 업무특화 RAG → 팝업 동작방식 선택에 표시.
+    // 목록은 canAccessRag 통과분만이므로(사용 권한 보유) 팝업에서 설정 변경도 허용된다.
+    const registeredRags = activeRagsForCompany(activeCanvasCompanyId).map(r => ({
+      id: r.id, name: r.name, meta: r.meta,
+      perm: r.perm || "", validity: r.validity || "", expiry: r.expiry || "무기한",
+      ownerName: r.ownerName || "", createdAt: r.createdAt || "",
+    }));
     // 대상 유형(개인/기업) 추정
     let subjectType = "company";
     try { if(currentPage === "generalinv" && activeGenInvCase()?.targetType === "person") subjectType = "person"; } catch(e){ /* noop */ }
     const subjectInfo = { name: subject, type: subjectType };
     openFileRegisterPopup({ subject, subjectId, registeredRags, onSubmit: (payload) => {
       saveUploadedFile(payload);   // 사건별 업로드 영속 저장(파일 여러 개 가능)
-      // 신규 업무특화 RAG 생성을 선택했으면: RAG 등록 + 분석 프로세스 맨 앞에 검색 단계 추가
       const rag = payload && payload.rag;
+      const files = payload && payload.files && payload.files.length ? payload.files : (payload && payload.file ? [payload.file] : []);
       if(rag && (rag.mode || "new") === "new" && rag.name && rag.name.trim()){
-        const files = payload.files && payload.files.length ? payload.files : (payload.file ? [payload.file] : []);
+        // 신규 업무특화 RAG 생성: 전역 레지스트리 등록 + 분석 프로세스 맨 앞에 검색 단계 추가
         registerCustomRag(rag, files, subjectInfo);
         prependCustomRagSearchStep(rag.name.trim());
+      } else if(rag && rag.mode === "existing" && rag.existingId){
+        // 기존 RAG에 추가: 레지스트리 기록이면 자료 추가, 빌트인 샘플이면 실제 기록으로 등록 —
+        // 어느 쪽이든 시나리오의 RAG 선택 드롭다운에서 선택 가능해진다.
+        // 사용 권한 = 설정 변경 권한: 팝업에서 바꾼 검색권한·유효기간을 함께 반영한다.
+        const found = findRagById(rag.existingId);
+        if(found){
+          if(rag.existingPerm) found.rag.perm = rag.existingPerm;
+          if(rag.existingValidity){
+            if(rag.existingValidity === "custom"){
+              // 임의 설정: 날짜가 지정된 경우에만 만료일 변경
+              if(rag.existingCustomExpiry){
+                found.rag.validity = "custom";
+                found.rag.expiry = rag.existingCustomExpiry;
+              }
+            } else {
+              found.rag.validity = rag.existingValidity;
+              found.rag.expiry = ragExpiryFromValidity(rag.existingValidity);
+            }
+          }
+          appendRagFiles(found.rag, files);   // 메타(검색권한 포함)도 여기서 갱신
+          saveCanvasState();
+          prependCustomRagSearchStep(found.rag.name, found.rag.id);
+        } else if(rag.existingName){
+          registerCustomRag({
+            name: rag.existingName,
+            perm: rag.existingPerm || "org",
+            validity: rag.existingValidity || "none",
+            customExpiry: rag.existingCustomExpiry || "",
+          }, files, subjectInfo);
+          prependCustomRagSearchStep(rag.existingName);
+        }
       }
       render(currentPage);   // 표에 저장된 업로드 반영(고객·일반·특수 수사 공통)
     }});
@@ -10909,8 +11052,7 @@ document.addEventListener("click", (event)=>{
   const collapseAll = event.target.closest("[data-home-collapse-all]");
   if(collapseAll){
     const collapse = collapseAll.dataset.homeCollapseAll === "collapse";
-    const { sources } = homeSelectedAnalysisOptions();
-    [...sources, ...homeSyncPipelineOrder()].forEach(key => { homeCardCollapsed[key] = collapse; });
+    homeCollapseKeys().forEach(key => { homeCardCollapsed[key] = collapse; });
     homeRenderPromptTemplatePanels();
     return;
   }
@@ -10918,8 +11060,7 @@ document.addEventListener("click", (event)=>{
   // 모두 닫고 초기화: 모든 카드를 접고 수행 결과를 비운다(입력값은 유지)
   const resetAll = event.target.closest("[data-home-reset-all]");
   if(resetAll){
-    const { sources } = homeSelectedAnalysisOptions();
-    [...sources, ...homeSyncPipelineOrder()].forEach(key => { homeCardCollapsed[key] = true; });
+    homeCollapseKeys().forEach(key => { homeCardCollapsed[key] = true; });
     homeCardResultState = {};
     homeRunResults = {};
     homeStepStatus = {};
@@ -10967,7 +11108,7 @@ document.addEventListener("click", (event)=>{
   // LLM 사용 모드 토글 (외부LLM only → 내부LLM only → 외부LLM+내부LLM 순환)
   const llmModeBtn = event.target.closest("[data-home-llm-mode]");
   if(llmModeBtn){
-    const cur = llmModeBtn.dataset.llmMode || "ext";
+    const cur = llmModeBtn.dataset.llmMode || "ext_int";
     const i = HOME_LLM_MODES.findIndex(m => m.mode === cur);
     const next = HOME_LLM_MODES[(i + 1) % HOME_LLM_MODES.length];
     llmModeBtn.dataset.llmMode = next.mode;
