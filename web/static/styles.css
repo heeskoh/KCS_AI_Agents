@@ -595,10 +595,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* mail_share 카드 인라인: 카드가 테두리/배경을 제공하므로 패널은 단순 스택 */
 .home-ded-frame .home-mail-share-panel{display:flex;flex-direction:column;align-items:stretch;gap:8px;border:0;background:transparent;margin:0;padding:0}
 .home-ded-frame .home-mail-share-copy span{color:#475569;font-size:12px;line-height:1.4}
-/* 카드 2단 레이아웃: 좌(정보·입력) | 우(프롬프트 및 수행결과) */
+/* 카드 2단 레이아웃: 좌(정보·입력) | 우(프롬프트 및 수행결과) = 3:7 */
 .home-card-row{display:flex;gap:12px;align-items:stretch}
-.home-card-info{flex:0 0 36%;min-width:0;display:grid;gap:8px;align-content:start}
-.home-card-work{flex:1 1 64%;min-width:0;display:flex;flex-direction:column;gap:6px;border-left:1px solid #e5edf7;padding-left:12px}
+.home-card-info{flex:0 0 30%;min-width:0;display:grid;gap:8px;align-content:start}
+.home-card-work{flex:1 1 70%;min-width:0;display:flex;flex-direction:column;gap:6px;border-left:1px solid #e5edf7;padding-left:12px}
 /* '프롬프트 및 수행 결과' 헤더 라인: 좌측 라벨 + 우측 끝 작은 액션 버튼 */
 .home-card-work-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid #cfe0f5;padding-bottom:4px}
 .home-card-work-tab{font-size:12px;font-weight:800;color:#0f559c}
@@ -1555,7 +1555,8 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-title-row p{display:none}
 .scenario-status{display:none}
 .scenario-layout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:10px}
-.scenario-execution-layout{grid-template-columns:minmax(260px,3fr) minmax(520px,7fr);align-items:stretch;flex:1;min-height:0;overflow:hidden}
+/* 프롬프트 상세(좌) : 분석 실행 로그(우) = 4:6 */
+.scenario-execution-layout{grid-template-columns:minmax(260px,4fr) minmax(480px,6fr);align-items:stretch;flex:1;min-height:0;overflow:hidden}
 .scenario-workbench-v2.result-full-active .scenario-execution-layout{overflow:visible}
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config,.scenario-workbench-v2 .scenario-log{min-height:0;height:100%;overflow:hidden}
 .scenario-workbench-v2 .scenario-config{overflow-y:auto;overflow-x:hidden}

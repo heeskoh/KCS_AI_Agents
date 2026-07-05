@@ -138,8 +138,9 @@ export const SERVICE_SPECS = {
     sample: ["노드 24 · 엣지 41 — 의심 클러스터 1개 식별"],
   },
   "범죄자금내역 추적": {
-    tag: "분석지원", desc: "자금이체·현금입출금·가상계좌 내역을 시계열·소유주 중심으로 추적합니다.",
+    tag: "분석지원", desc: "자금이체·현금입출금·가상계좌 내역 파일을 입력받아 시계열·소유주 중심으로 추적하고 관계망 그래프로 표현합니다.",
     inputs: [
+      { name: "대상 기업/개인", type: "식별자", req: true, source: "시나리오·기초자료: 자동 / My AI: 직접 입력", rule: "C-#### 또는 P-#### 형식" },
       { name: "계좌내역 파일", type: "파일", req: true, source: "금융거래내역 업로드", rule: "XLS/CSV · 일자·금액·상대 필드 필수" },
       { name: "추적 기간", type: "기간", req: false, source: "기본: 전체", rule: "-" },
     ],
@@ -405,6 +406,12 @@ export const SERVICE_EDIT_META = {
     "위험 유형": { control: "choice", def: "all", options: [["all", "전체"], ["low_price", "저가신고"], ["origin", "원산지"], ["divert", "우회수입"]] },
     "검색 기간": { control: "number", def: 36, min: 1, max: 60, unit: "개월" },
   },
+  "원산지 검증": {
+    "FTA 협정": { control: "choice", def: "auto", options: [["auto", "자동 판별"], ["kr_cn", "한-중"], ["kr_asean", "한-아세안"], ["kr_us", "한-미"], ["kr_eu", "한-EU"]] },
+  },
+  "범죄수익 추적": {
+    "추적 기간": { control: "number", def: 12, min: 1, max: 36, unit: "개월" },
+  },
 
   /* P2 — 검증 입력형 */
   "웹검색": {
@@ -432,8 +439,35 @@ export const SERVICE_EDIT_META = {
    프롬프트 템플릿(composePrompt)·홈 카드 게이팅에 사용된다.
    defaultBehaviors: 상세설정 프롬프트 템플릿 조회 시 기본 동작 조합 */
 export const SERVICE_RUNTIME = {
-  "수입신고검증": { runtimeKey: "declaration_verify", defaultBehaviors: ["declaration_consistency", "missing_evidence"] },
+  "수입신고검증": { runtimeKey: "declaration_verify", defaultBehaviors: ["declaration_consistency", "missing_evidence"], defaultBehaviorLabels: ["신고 정합성", "누락 증빙"] },
   "품목분류검증": { runtimeKey: "hs_verify", defaultBehaviors: ["classification_check", "alternative_hs"], defaultBehaviorLabels: ["분류 적정성", "대체 HS 후보"] },
+  "위험Case검색": { runtimeKey: "rag_risk_select", defaultBehaviors: ["selection_rule", "risk_signal"], defaultBehaviorLabels: ["선별기준 확인", "위험신호 정리"] },
+  "원산지 검증": { runtimeKey: "origin_analysis", defaultBehaviors: ["origin_certificate", "fta_risk", "circumvention"], defaultBehaviorLabels: ["원산지증명 검토", "FTA 리스크", "우회수입 확인"] },
+  "이상거래 검증": { runtimeKey: "abnormal_trade", defaultBehaviors: ["price_pattern", "counterparty_pattern", "declaration_pattern"], defaultBehaviorLabels: ["가격 패턴", "거래상대방", "신고패턴"] },
+  "범죄수익 추적": { runtimeKey: "proceeds_tracking", defaultBehaviors: ["fund_flow", "account_trace", "concealment"], defaultBehaviorLabels: ["자금흐름", "계좌추적 단서", "은닉 가능성"] },
+  "운송경로 분석": { runtimeKey: "route_analysis", defaultBehaviors: ["route_check", "supply_chain", "transshipment"], defaultBehaviorLabels: ["운송경로", "공급망 역추적", "우회경유"] },
+  "과세가격평가": { runtimeKey: "customs_value", defaultBehaviors: ["valuation_basis", "undervaluation"], defaultBehaviorLabels: ["과세가격 근거", "저가신고 탐지"] },
+  /* ── 분석지원 AI 서비스 ── */
+  "ML 모델 실행": { runtimeKey: "ml", defaultBehaviors: ["all_models"], defaultBehaviorLabels: ["전체 모델 실행"] },
+  "관계망 분석": { runtimeKey: "network", defaultBehaviors: ["relationship", "paper_company"], defaultBehaviorLabels: ["관계망 분석", "페이퍼컴퍼니"] },
+  "범죄자금내역 추적": { runtimeKey: "fund_trace", defaultBehaviors: ["fund_flow", "transfer", "virtual_asset", "cash"], defaultBehaviorLabels: ["자금흐름내역", "계좌·송금 이체내역", "가상자산 거래내역", "현금 입출금내역"] },
+  "통신내역 분석": { runtimeKey: "comms_analysis", defaultBehaviors: ["call", "sms", "sns", "messenger"], defaultBehaviorLabels: ["통화내역", "SMS", "SNS", "메신저"] },
+  "OCR/문서인식": { runtimeKey: "ocr", defaultBehaviors: ["document_extract", "evidence_parse"], defaultBehaviorLabels: ["문서 항목 추출", "증빙 구조화"] },
+  "업무특화RAG 분석서비스": { runtimeKey: "rag_create", defaultBehaviors: ["knowledge_build"], defaultBehaviorLabels: ["지식 생성"] },
+  "관세 온톨로지": { runtimeKey: "ontology", defaultBehaviors: ["cargo_relation", "semantic_rules"], defaultBehaviorLabels: ["화물 관계 분석", "추론 규칙 생성"] },
+  "보고서 요약": { runtimeKey: "summary", defaultBehaviors: ["brief"], defaultBehaviorLabels: ["핵심 요약"] },
+  "문서 번역": { runtimeKey: "translate", defaultBehaviors: ["faithful"], defaultBehaviorLabels: ["원문 충실 번역"] },
+  /* ── 외부연계 AI 서비스 ── */
+  "웹검색": { runtimeKey: "web_search", defaultBehaviors: ["company_news", "supply_chain"], defaultBehaviorLabels: ["업체 기사", "공급망/가격"] },
+  "특허정보 조회": { runtimeKey: "patent", defaultBehaviors: ["royalty_check", "patent_lookup"], defaultBehaviorLabels: ["로열티 확인", "특허 정보 조회"] },
+  "법령 검토": { runtimeKey: "law", defaultBehaviors: ["law_basis", "precedent"], defaultBehaviorLabels: ["법령 근거", "판례/유권해석"] },
+  "내부메일 공유": { runtimeKey: "mail_share", defaultBehaviors: ["email_share"], defaultBehaviorLabels: ["이메일 공유"] },
+  /* ── 보고서 생성 및 검증 ── */
+  "보고서 생성": { runtimeKey: "report_generate", defaultBehaviors: ["full_report"], defaultBehaviorLabels: ["전체 보고서"] },
+  "보고서 검증": { runtimeKey: "report_validate", defaultBehaviors: ["evidence_validation", "risk_review"], defaultBehaviorLabels: ["근거 검증", "리스크 리뷰"] },
+  "결과통합": { runtimeKey: "result_synthesis", defaultBehaviors: ["synthesize", "final_format"], defaultBehaviorLabels: ["결과 종합", "최종 형식 적용"] },
+  "통관보고서 생성": { runtimeKey: "rag_trade", defaultBehaviors: ["trade_signal", "market_context"], defaultBehaviorLabels: ["무역 징후 확인", "시장 맥락 확인"] },
+  "표준보고서 생성": { runtimeKey: "report_standard", defaultBehaviors: ["match_template", "fill_sections"], defaultBehaviorLabels: ["템플릿 형식 적용", "섹션별 채움"] },
 };
 export function serviceRuntimeOf(displayName){
   const { key } = findServiceSpec(displayName);
@@ -446,6 +480,13 @@ const ALIASES = {
   "특허정보조회": "특허정보 조회",
   "수입신고검증 AI 서비스": "수입신고검증",
   "품목분류검증 AI 서비스": "품목분류검증",
+  "위험Case 분석": "위험Case검색",       // 시나리오 템플릿 표기
+  "위험Case검색 서비스": "위험Case검색",  // 레지스트리 표기
+  "자금흐름 관계분석": "범죄자금내역 추적",       // 시나리오 템플릿 표기(fund_trace)
+  "통신내역 관계분석": "통신내역 분석",           // 시나리오 템플릿 표기(comms_analysis)
+  "통신내역 AI 분석 서비스": "통신내역 분석",     // 레지스트리 표기
+  "범죄자금내역 추적 AI 서비스": "범죄자금내역 추적",
+  "결과통합 AI서비스": "결과통합",                // 레지스트리 표기(붙임 표기)
 };
 
 /* 공백 무시 매칭 인덱스: "관세정보 RAG" ↔ "관세정보RAG" 같은 표기 변형을 흡수 */

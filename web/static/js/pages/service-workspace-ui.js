@@ -81,8 +81,19 @@ function promptTextOf(el){
   if(!el) return "";
   return (el.isContentEditable ? el.innerText : el.value) || "";
 }
-function setPromptText(el, text){
-  if(el.isContentEditable) el.innerText = text; else el.value = text;
+/* 패턴 텍스트의 [입력값] 토큰만 기존 하이라이트 문법(.home-prompt-token)으로 감싼 HTML 생성.
+   [동작방식]·[수행 절차] 같은 섹션 헤더는 입력값이 아니므로 tokenLabels로 대상을 제한한다. */
+function promptRichHtml(text, tokenLabels){
+  let html = escapeHtml(String(text || ""));
+  (tokenLabels || []).forEach(label => {
+    const esc = escapeHtml(`[${label}]`);
+    html = html.split(esc).join(`<span class="home-prompt-token empty" data-label="${escapeHtml(label)}">${esc}</span>`);
+  });
+  return html.replace(/\n/g, "<br>");
+}
+function setPromptText(el, text, tokenLabels){
+  if(el.isContentEditable) el.innerHTML = promptRichHtml(text, tokenLabels);   // 입력값 토큰 하이라이트 유지
+  else el.value = text;
   el.dispatchEvent(new Event("input", { bubbles: true }));   // 기존 상태 동기화 경로 재사용
 }
 
@@ -157,11 +168,12 @@ function syncHomePatternPrompts(){
     const norm = s => String(s || "").replace(/[ \t]+\n/g, "\n").replace(/\n{2,}/g, "\n").trim();
     const current = promptTextOf(el).trim();
     // 자동 생성 상태 판정: 비어 있거나, 직전 자동 구성값이거나, 구형 기본 프롬프트("…수행해줘." 단문)인 경우
+    // (필수 입력값이 없는 서비스의 구형 기본형 "'서비스명'을(를) 수행해줘."도 포함)
     const isLegacyDefault = current.includes("수행해줘") && !current.startsWith("입력값")
-      && p.homeInputs.some(l => current.includes(`[${l}]`));
+      && (p.homeInputs.some(l => current.includes(`[${l}]`)) || /^'.+'을\(를\) 수행해줘\.$/.test(current));
     const isAuto = !current || norm(current) === norm(_homeAutoText[key]) || isLegacyDefault;
     if(isAuto && norm(current) !== norm(expected)){
-      setPromptText(el, expected);
+      setPromptText(el, expected, p.homeInputs);   // 입력값 토큰만 하이라이트
       _homeAutoText[key] = expected;
     } else if(norm(current) === norm(expected)){
       _homeAutoText[key] = expected;   // 이미 최신 패턴이면 기준값만 동기화
@@ -205,8 +217,19 @@ function openInputPopover(chip, key, label){
     const el = document.querySelector(`[data-home-card-prompt="${key}"]`);
     if(el){
       const token = `[${label}]`;
-      const text = promptTextOf(el);
-      setPromptText(el, text.includes(token) ? text.replace(token, val) : `${text.trim()} · ${label}: ${val}`);
+      // 하이라이트 토큰 span이 있으면 그 자리에서 값으로 교체(채워진 값도 하이라이트 유지)
+      const span = el.isContentEditable
+        ? [...el.querySelectorAll(".home-prompt-token")].find(s => s.dataset.label === label || s.textContent === token)
+        : null;
+      if(span){
+        span.textContent = val;
+        span.classList.remove("empty");
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      } else {
+        const text = promptTextOf(el);
+        setPromptText(el, text.includes(token) ? text.replace(token, val) : `${text.trim()} · ${label}: ${val}`,
+          PROMPT_PATTERNS[key]?.homeInputs || []);
+      }
     }
     chip.dataset.svcFilled = "1";   // 선택 입력에 값을 덧붙인 경우 상태 표시용
     closePopover();

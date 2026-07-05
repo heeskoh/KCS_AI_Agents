@@ -2158,7 +2158,7 @@ function giScenarioRunInstruction(step, targetType = "company"){
   const webTargetText = webTargets.length
     ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
     : "";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(step.extraPrompts)}${webTargetText}`;
+  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(step.extraPrompts)}${webTargetText}`;
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
@@ -3480,6 +3480,18 @@ const AI_SERVICE_INPUTS = {
   ontology: [
     { key:"target", label:"분석 대상", placeholder:"예: 우범여행자/화물", required:true },
   ],
+  rag_risk_select: [
+    { key:"target", label:"대상 기업/개인", placeholder:"예: C-1036 또는 P-2003", required:true },
+    { key:"risk", label:"위험 유형", placeholder:"예: 저가신고/원산지/우회수입" },
+  ],
+  fund_trace: [
+    { key:"target", label:"대상(기업/인물)", placeholder:"예: C-1002 / P-2003", required:true },
+    { key:"files", label:"자금내역 파일", placeholder:"이체·현금입출금·가상계좌 내역" },
+  ],
+  comms_analysis: [
+    { key:"target", label:"대상(인물/번호)", placeholder:"예: P-2003 / 010-****", required:true },
+    { key:"src", label:"통신 소스", placeholder:"통화/SMS/SNS/메신저" },
+  ],
   proceeds_tracking: [
     { key:"target", label:"대상(기업/인물)", placeholder:"예: C-1002 / P-2003", required:true },
     { key:"period", label:"추적 기간", placeholder:"예: 2023~2025" },
@@ -3509,6 +3521,13 @@ const AI_SERVICE_INPUTS = {
   ],
   report_validate: [
     { key:"target_report", label:"검증 대상 보고서", placeholder:"예: 직전 단계에서 생성한 보고서" },
+  ],
+  result_synthesis: [
+    { key:"format", label:"최종 결과 형식", placeholder:"예: 통합 보고서 / 요약 / 표" },
+  ],
+  rag_trade: [
+    { key:"target", label:"대상 기업/개인", placeholder:"예: C-1036 또는 P-2003", required:true },
+    { key:"scope", label:"확인 범위", placeholder:"예: 무역 징후 / 시장 맥락" },
   ],
   web_search: [
     { key:"query", label:"검색어", placeholder:"예: 업체명 + 제재" , required:true },
@@ -5753,17 +5772,19 @@ function rebuildScenarioStepMaps(){
 }
 
 function overrideTemplateArrayInPlace(targetArray, defs){
-  if(!Array.isArray(defs)) return;
-  defs.forEach(def => {
-    if(!def || !def.id) return;
-    const target = targetArray.find(t => t.id === def.id);
-    if(!target) return; // 코드에 없는 id는 빌트인 범위 밖 — 무시
-    if(def.name) target.name = def.name;
-    if(def.description != null) target.description = def.description;
-    if(Array.isArray(def.items)){
-      target.items = def.items.map((item, index) => ({ ...item, order: item.order ?? index + 1 }));
-    }
-  });
+  if(!Array.isArray(defs) || !defs.length) return;
+  // 서버 파일(data/scenario_templates.json)이 빌트인의 원본 —
+  // 코드 시드는 파일이 없을 때의 초기값이며, 파일 기준으로 목록 자체(추가·삭제 포함)를 재구성한다.
+  const next = defs
+    .filter(def => def && def.id && Array.isArray(def.items) && def.items.length)
+    .map(def => ({
+      ...def,
+      name: def.name || def.id,
+      description: def.description || "",
+      items: def.items.map((item, index) => ({ ...item, order: item.order ?? index + 1 })),
+    }));
+  if(!next.length) return;
+  targetArray.splice(0, targetArray.length, ...next);
 }
 
 function applyScenarioTemplatesOverride(data){
@@ -7906,7 +7927,7 @@ function scenarioTemplatePanel(domain = "customs"){
             <select id="templateSourceSelect" ${!hasEditing ? "disabled" : ""}>${scenarioSourceOptionsHtml()}</select>
           </label>
           <div class="scenario-field">
-            <span>동작 선택</span>
+            <span>분석범위</span>
             <div id="templateBehaviorOptions" class="scenario-behavior-options"></div>
           </div>
           <div id="templateSourceHint" class="scenario-source-hint"></div>
@@ -8241,7 +8262,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
           <div class="scenario-agent-zone">
             <div id="scenarioSourceHint" class="scenario-source-hint"></div>
             <div class="scenario-field">
-              <span>동작 선택</span>
+              <span>분석범위</span>
               <div id="scenarioBehaviorOptions" class="scenario-behavior-options"></div>
             </div>
             <div id="scenarioShareEmailPanel"></div>
@@ -8617,7 +8638,7 @@ function scenarioRunInstruction(item){
   const webTargetText = webTargets.length
     ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
     : "";
-  return `[동작 선택]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(item.extraPrompts)}${webTargetText}`;
+  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(item.extraPrompts)}${webTargetText}`;
 }
 
 function scenarioInstructionPreview(item){
@@ -8717,12 +8738,13 @@ function syncScenarioEditor(){
     const issuedItemId = item.id;
     composePrompt(item.key, item.behaviors || sourceDefaultBehaviors(item.key), targetType).then(composed => {
       const liveItem = selectedScenarioItem();
-      if(!composed || !liveItem || liveItem.id !== issuedItemId) return;
+      if(!liveItem || liveItem.id !== issuedItemId) return;
       const el = document.getElementById("scenarioInstruction");
       if(!el) return;
-      // 패턴 등록 서비스는 설명형 패턴 프롬프트로 대체(그 외는 composePrompt 원본)
+      // 패턴 등록 서비스는 상세 템플릿(composed)이 없어도 설명형 패턴 프롬프트로 대체(그 외는 composePrompt 원본)
       const finalText = finalizeScenarioPrompt(item.key,
         sourceBehaviorLabels(item.key, item.behaviors || sourceDefaultBehaviors(item.key)), composed);
+      if(!finalText) return;
       // 사용자가 직접 수정하지 않은 경우(=자동 생성값과 동일할 때)에만 교체
       const current = el.value;
       if(!current || current === _fallback || current === composed){
@@ -8785,7 +8807,8 @@ function applyScenarioSourceSelection(key){
   const _initPrompt = scenarioSuggestedInstruction(key, targetType, behaviors);
   if(instruction) instruction.value = _initPrompt;
   composePrompt(key, behaviors, targetType).then(composed => {
-    if(composed && instruction) instruction.value = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, behaviors), composed);
+    const finalText = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, behaviors), composed);
+    if(finalText && instruction) instruction.value = finalText;
   });
   const validation = document.getElementById("scenarioPromptValidation");
   if(validation) validation.innerHTML = "";
@@ -8942,8 +8965,8 @@ function updateSelectedScenarioBehaviors(){
     if(isAuto){
       // JSON 기반 최적 프롬프트 우선 적용
       return composePrompt(item.key, values, targetType).then(composed => {
-        const prompt = finalizeScenarioPrompt(item.key, sourceBehaviorLabels(item.key, values),
-          composed || scenarioSuggestedInstruction(item.key, targetType, values));
+        const prompt = finalizeScenarioPrompt(item.key, sourceBehaviorLabels(item.key, values), composed)
+          || scenarioSuggestedInstruction(item.key, targetType, values);
         item.instruction = prompt;
         // race 가드: 해당 단계가 여전히 선택돼 있을 때만 에디터 갱신
         const el = document.getElementById("scenarioInstruction");
@@ -8974,8 +8997,8 @@ function updateSelectedScenarioSource(key){
   // JSON 기반 최적 프롬프트 우선 적용 (비동기), 즉시 폴백값 설정
   item.instruction = scenarioSuggestedInstruction(key, targetType, nextBehaviors);
   composePrompt(key, nextBehaviors, targetType).then(composed => {
-    if(composed){
-      const finalText = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, nextBehaviors), composed);
+    const finalText = finalizeScenarioPrompt(key, sourceBehaviorLabels(key, nextBehaviors), composed);
+    if(finalText){
       item.instruction = finalText;
       const el = document.getElementById("scenarioInstruction");
       if(el) el.value = finalText;
