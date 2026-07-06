@@ -263,15 +263,36 @@ export const SERVICE_SPECS = {
   },
 
   /* ── 업무지식베이스(시나리오 지식 검색 단계) ── */
-  "CDW 자연어 분석": {
-    tag: "정형DB", desc: "자연어 질의를 해석해 CDW(관세 데이터 웨어하우스) 대상 SQL을 생성·실행하고 분석 결과를 제공합니다.",
+  "CDW 자연어조회": {
+    tag: "정형DB", desc: "자연어 질의를 해석해 CDW(관세 데이터 웨어하우스)에서 기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 조회합니다.",
     inputs: [
-      { name: "자연어 질의", type: "텍스트", req: true, source: "직접 입력·자동 생성 프롬프트", rule: "조회 조건(대상·기간·항목) 해석 가능해야 함" },
-      { name: "대상 기업/개인", type: "식별자", req: false, source: "조사 대상 선택", rule: "C-#### / P-#### 는 ID로 직접 필터" },
+      { name: "대상 기업/개인", type: "식별자", req: true, source: "시나리오·기초자료: 자동 / My AI: 직접 입력", rule: "C-#### 또는 P-#### 형식 (자연어 질의는 SQL로 해석·실행)" },
+      { name: "분석범위", type: "다중선택", req: true, source: "기본: 전체 선택", rule: "기업프로파일조회 · 통합위험정보조회 · 조사및소송 이력조회 · 수출입신고내역조회" },
+      { name: "조회 기간", type: "기간", req: false, source: "기본: 최근 36개월", rule: "1~60개월" },
     ],
-    output: { format: "SQL + 조회 결과 표", fields: [["생성 SQL", "실행된 질의문"], ["조회 결과", "행 단위 데이터"], ["요약", "결과 해석"]] },
-    checks: ["생성 SQL 실행 성공 여부", "결과 0건 시 조건 완화 제안"],
-    sample: ["SQL 생성·실행 완료 — 결과 12행 조회"],
+    output: { format: "통합정보 요약 표", fields: [["기업프로파일", "기본정보·규모·업종"], ["통합위험정보", "위험등급·위험지표"], ["조사·소송 이력", "심사·조사·처분·소송 기록"], ["수출입신고 내역", "건수·금액·품목·상대국"]] },
+    checks: ["대상 ID 존재 검증", "이력 없는 항목 '이력 없음' 표기 확인", "생성 SQL 실행 성공 여부(자연어 질의 시)"],
+    sample: ["기업프로파일·위험지표·신고내역 종합 조회 완료", "조사·소송 이력 없음 — 최근 심사 기록 미존재"],
+  },
+  "전자통관외부정보조회": {
+    tag: "정형DB", desc: "전자통관 시스템과 연계된 외부기관 자료(국세청 세적자료, 한국은행 수신자료)를 조회합니다.",
+    inputs: [
+      { name: "대상 기업/개인", type: "식별자", req: true, source: "시나리오·기초자료: 자동 / My AI: 직접 입력", rule: "C-#### 또는 P-#### 형식" },
+      { name: "분석범위", type: "다중선택", req: true, source: "기본: 전체 선택", rule: "국세청세적자료 · 한국은행수신자료" },
+    ],
+    output: { format: "기관 자료별 조회 표", fields: [["국세청 세적자료", "사업자 상태·과세유형·개폐업·체납"], ["한국은행 수신자료", "외환 수신 내역·상대국·신고 외 거래 징후"], ["조사 활용 포인트", "후속 확인 항목"]] },
+    checks: ["대상 ID 존재 검증", "기관 자료 미회신 항목 '자료 없음' 표기"],
+    sample: ["국세청 세적자료 조회 완료 — 체납 이력 없음", "한국은행 수신자료 — 수신 상대국 3개국 확인"],
+  },
+  "외부기관정보수집": {
+    tag: "외부연계", desc: "DART·NICE·CRETOP·KOREA PDS·KPI·KIPRIS·ORBIS·D&B 등 외부기관 사이트에서 공시·신용·시세·특허·해외기업정보를 수집합니다.",
+    inputs: [
+      { name: "대상 기업", type: "식별자", req: true, source: "조사 대상 선택", rule: "C-#### 형식" },
+      { name: "수집 기관", type: "다중선택", req: true, source: "기본: 전체 선택", rule: "DART(공시) · BizLINE(기업분석) · CRETOP(신용) · KOREA PDS(원자재가격) · KPI(물가) · KIPRIS(특허) · ORBIS(글로벌기업) · D&B(해외기업)" },
+    ],
+    output: { format: "기관별 수집정보 표", fields: [["기관/URL", "수집 대상 사이트"], ["제공정보", "공시·신용·시세·특허 등"], ["확인 포인트", "검색어·확인 항목·조사 연관성"], ["우선순위", "우선 수집 순서 제안"]] },
+    checks: ["기관별 URL 표기 확인", "실제 접속 결과 단정 금지(확인 계획 중심)"],
+    sample: ["8개 기관 수집 포인트 정리 — DART 감사보고서 우선 확인 제안"],
   },
   "기업 프로파일 조회": {
     tag: "정형DB", desc: "기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회합니다.",
@@ -439,6 +460,9 @@ export const SERVICE_EDIT_META = {
    프롬프트 템플릿(composePrompt)·홈 카드 게이팅에 사용된다.
    defaultBehaviors: 상세설정 프롬프트 템플릿 조회 시 기본 동작 조합 */
 export const SERVICE_RUNTIME = {
+  "CDW 자연어조회": { runtimeKey: "db_cdw", defaultBehaviors: ["profile_summary", "risk_focus", "audit_history", "declaration_focus"], defaultBehaviorLabels: ["기업프로파일조회", "통합위험정보조회", "조사및소송 이력조회", "수출입신고내역조회"] },
+  "전자통관외부정보조회": { runtimeKey: "db_external", defaultBehaviors: ["nts_tax_data", "bok_receipt_data"], defaultBehaviorLabels: ["국세청세적자료", "한국은행수신자료"] },
+  "외부기관정보수집": { runtimeKey: "external_agency", defaultBehaviors: ["dart", "nice_bizline", "cretop", "korea_pds", "kpi", "kipris", "orbis", "dnb"], defaultBehaviorLabels: ["금융감독원 전자공시(DART)", "NICE평가정보(BizLINE)", "한국기업데이터(CRETOP)", "코리아PDS(KOREA PDS)", "한국물가정보(KPI)", "특허정보넷(KIPRIS)", "뷰로반다익(ORBIS)", "Dun&Bradstreet(D&B)"] },
   "수입신고검증": { runtimeKey: "declaration_verify", defaultBehaviors: ["declaration_consistency", "missing_evidence"], defaultBehaviorLabels: ["신고 정합성", "누락 증빙"] },
   "품목분류검증": { runtimeKey: "hs_verify", defaultBehaviors: ["classification_check", "alternative_hs"], defaultBehaviorLabels: ["분류 적정성", "대체 HS 후보"] },
   "위험Case검색": { runtimeKey: "rag_risk_select", defaultBehaviors: ["selection_rule", "risk_signal"], defaultBehaviorLabels: ["선별기준 확인", "위험신호 정리"] },
@@ -476,6 +500,9 @@ export function serviceRuntimeOf(displayName){
 
 /* 표시명 별칭: 업로드 표에는 "문서 요약 agent" 등 변형 표기가 존재 */
 const ALIASES = {
+  "CDW 조회": "CDW 자연어조회",           // 구 표기(레거시 시나리오·아카이브)
+  "전자통관통합정보조회": "CDW 자연어조회", // 구 표기(중간 개편명)
+  "CDW 자연어 분석": "CDW 자연어조회",     // 구 표기(3세트 초기명)
   "문서 요약": "보고서 요약",
   "특허정보조회": "특허정보 조회",
   "수입신고검증 AI 서비스": "수입신고검증",

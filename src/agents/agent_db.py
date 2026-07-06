@@ -55,13 +55,13 @@ def _agent_person_db(state: CustomsState) -> CustomsState:
     print(f"[Agent] 개인 CDW 조회 시작: {person_id}")
 
     if not has_person_scope(state):
-        detail = no_target_result(state, "개인 CDW 조회")
-        return _error_state(state, "db_result", "개인 CDW 조회 대상이 지정되지 않았습니다.", detail)
+        detail = no_target_result(state, "개인 CDW 자연어조회")
+        return _error_state(state, "db_result", "개인 CDW 자연어조회 대상이 지정되지 않았습니다.", detail)
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         if not _table_exists(conn, "risk_person_profile"):
             result = (
-                "[개인 CDW 조회 결과]\n"
+                "[개인 CDW 자연어조회 결과]\n"
                 "- risk_person_profile 테이블이 없습니다.\n"
                 "- 기업 프로파일 테이블로 대체 조회하지 않았습니다."
             )
@@ -129,7 +129,7 @@ def _agent_person_db(state: CustomsState) -> CustomsState:
 
     if person.empty:
         result = (
-            "[개인 CDW 조회 결과]\n"
+            "[개인 CDW 자연어조회 결과]\n"
             f"- 조회 대상 `{person_id}`에 해당하는 우범자 프로파일이 DuckDB CDW에 없습니다.\n"
             "- 기업 프로파일 파일이나 이전 선택 기업으로 대체 조회하지 않았습니다."
         )
@@ -194,11 +194,12 @@ def _fallback_summary(company, declarations, risk) -> str:
     )
 
 
-# 동작방식(behavior)별 요약 초점 — 분석 시나리오의 CDW 동작칩 선택 시 적용.
+# 분석범위(behavior)별 요약 초점 — 분석 시나리오의 CDW 자연어조회 분석범위 선택 시 적용.
 _DB_BEHAVIOR_FOCUS = {
-    "risk_focus": "위험지표(저가신고·특수관계·FTA 오용·환급 이상·품목분류 오류·역외은닉 의심율)와 위험등급 변화 추이에 집중해 보고하세요.",
-    "declaration_focus": "최근 수입신고 내역(품목·금액·원산지·처리상태)의 패턴과 검토/검사 비중, 이상 징후에 집중해 보고하세요.",
-    "profile_summary": "기업 기본 프로파일과 최근 신고·위험지표를 균형 있게 요약하세요.",
+    "profile_summary": "기업 기본 프로파일(설립·업종·대표자·규모)과 사업 실체 파악에 집중해 보고하세요.",
+    "risk_focus": "통합 위험정보 — 위험지표(저가신고·특수관계·FTA 오용·환급 이상·품목분류 오류·역외은닉 의심율)와 위험등급 변화 추이에 집중해 보고하세요.",
+    "audit_history": "과거 심사·조사 이력(과세가격·이전가격·환급 심사)과 처분·추징·소송 관련 기록에 집중해 보고하세요. 조회 결과에 이력이 없으면 '이력 없음'으로 명시하세요.",
+    "declaration_focus": "최근 수출입신고 내역(품목·금액·원산지·처리상태)의 패턴과 검토/검사 비중, 이상 징후에 집중해 보고하세요.",
 }
 
 
@@ -241,7 +242,7 @@ def _agent_nl_db(state: CustomsState, prompt: str) -> CustomsState:
 
     rows = result.get("rows") or []
     print(f"[Agent] CDW NL→SQL 조회 완료: {len(rows)}건")
-    return {**state, "db_result": "\n\n".join(parts) or "[CDW 조회 결과]\n- 조회 결과가 없습니다."}
+    return {**state, "db_result": "\n\n".join(parts) or "[CDW 자연어조회 결과]\n- 조회 결과가 없습니다."}
 
 
 def agent_db(state: CustomsState) -> CustomsState:
@@ -266,15 +267,16 @@ def agent_db(state: CustomsState) -> CustomsState:
         if prompt.strip():
             return _agent_nl_db(state, prompt)
         result = (
-            "[CDW 조회 결과]\n"
-            "- 프롬프트에서 CDW 조회 대상이 되는 기업명, 회사ID 또는 신고번호가 확인되지 않았습니다.\n"
+            "[CDW 자연어조회 결과]\n"
+            "- 프롬프트에서 전자통관통합정보 조회 대상이 되는 기업명, 회사ID 또는 신고번호가 확인되지 않았습니다.\n"
             "- CDW에 연관정보 없음: 임의 기업의 일반 위험정보를 대신 조회하지 않습니다."
         )
-        return _error_state(state, "db_result", "CDW 조회 대상 기업이 확인되지 않았습니다.", result)
+        return _error_state(state, "db_result", "CDW 자연어조회 대상 기업이 확인되지 않았습니다.", result)
 
     behaviors = _db_behaviors(state)
     risk_history = None
     declaration_breakdown = None
+    audit_history = None
 
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         company = conn.execute(
@@ -365,6 +367,27 @@ def agent_db(state: CustomsState) -> CustomsState:
                 """,
                 [company_id],
             ).df()
+        if "audit_history" in behaviors:
+            audit_history = conn.execute(
+                """
+                SELECT '과세가격 심사' AS audit_kind, audit_date,
+                       COALESCE(audit_type, '') AS detail, result,
+                       adjusted_amount AS amount, note
+                FROM valuation_audit WHERE company_id = ?
+                UNION ALL
+                SELECT '이전가격 심사', audit_date,
+                       '이상마진율 ' || COALESCE(CAST(abnormal_margin_rate AS VARCHAR), '-'), result,
+                       recovered_amount, note
+                FROM transfer_pricing_audit WHERE company_id = ?
+                UNION ALL
+                SELECT '환급 심사', audit_date,
+                       COALESCE(finding, ''), result,
+                       recovered_amount, note
+                FROM drawback_audit WHERE company_id = ?
+                ORDER BY audit_date DESC
+                """,
+                [company_id, company_id, company_id],
+            ).df()
 
     raw_data = f"""
 [기업 프로파일]
@@ -380,10 +403,16 @@ def agent_db(state: CustomsState) -> CustomsState:
         raw_data += f"\n[위험지표 추이(최근 5)]\n{risk_history.to_string(index=False)}\n"
     if declaration_breakdown is not None and not declaration_breakdown.empty:
         raw_data += f"\n[신고 처리상태 분포]\n{declaration_breakdown.to_string(index=False)}\n"
+    if audit_history is not None:
+        raw_data += (
+            f"\n[심사·조사 이력]\n{audit_history.to_string(index=False)}\n"
+            if not audit_history.empty
+            else "\n[심사·조사 이력]\n이력 없음 (과세가격·이전가격·환급 심사 기록 미존재)\n"
+        )
 
     if company.empty:
         result = (
-            "[CDW 조회 결과]\n"
+            "[CDW 자연어조회 결과]\n"
             f"- 조회 대상 `{company_id}`에 해당하는 기업 프로파일이 DuckDB CDW에 없습니다.\n"
             "- CDW에 연관정보 없음."
         )
@@ -391,9 +420,9 @@ def agent_db(state: CustomsState) -> CustomsState:
 
     if _is_drug_investigation(prompt) and not _has_drug_related_db_text(raw_data):
         result = (
-            "[CDW 조회 결과]\n"
+            "[CDW 자연어조회 결과]\n"
             "- 요청 주제: 마약수사\n"
-            "- DuckDB CDW 조회 결과에서 마약류 수사와 직접 연결되는 기업, 신고, 품목, 위험정보를 찾지 못했습니다.\n"
+            "- 전자통관 통합정보(CDW) 조회 결과에서 마약류 수사와 직접 연결되는 기업, 신고, 품목, 위험정보를 찾지 못했습니다.\n"
             "- CDW에 연관정보 없음: 일반 수입신고 위험지표를 마약 관련 근거로 확대 해석하지 않습니다."
         )
         return {**state, "db_result": result}

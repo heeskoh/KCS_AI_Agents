@@ -2,7 +2,9 @@
   "_comment": "KCS AI Agents - 에이전트별 표준 프롬프트 인덱스. 각 파일은 agents/{serviceId}.json 에 위치합니다.",
   "version": "1.0.0",
   "agents": [
-    { "serviceId": "db_cdw",           "label": "CDW 조회",               "category": "db",       "file": "agents/db_cdw.json" },
+    { "serviceId": "db_cdw",           "label": "CDW 자연어조회",   "category": "db",       "file": "agents/db_cdw.json" },
+    { "serviceId": "db_external",      "label": "전자통관외부정보조회", "category": "db",   "file": "agents/db_external.json" },
+    { "serviceId": "external_agency",  "label": "외부기관정보수집",  "category": "external", "file": "agents/external_agency.json" },
     { "serviceId": "rag_customs",      "label": "관세정보 RAG",            "category": "rag",      "file": "agents/rag_customs.json" },
     { "serviceId": "rag_audit",        "label": "심사정보 RAG",            "category": "rag",      "file": "agents/rag_audit.json" },
     { "serviceId": "rag_investigation","label": "조사정보 RAG",            "category": "rag",      "file": "agents/rag_investigation.json" },

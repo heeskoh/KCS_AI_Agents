@@ -229,9 +229,16 @@ function agentCardHtml(id, name, desc){
     </div>`;
 }
 
+/* 업무지식베이스(정형DB·업무RAG 검색)는 기초자료 수집/등록의 AI 서비스 선택에서 제외한다.
+   지식 검색은 분석 시나리오·My AI 분석에서 수행하며, 파일 등록 단계에는 노출하지 않는다. */
+const KB_EXCLUDED = new Set([
+  "db_cdw", "db_external", "company_profile",
+  "rag_customs", "rag_audit", "rag_investigation", "rag_global", "rag_consultation",
+]);
+
 function groupsHtml(){
   return GROUPS.map((g, gi) => {
-    const agents = g.agents.filter(([id]) => id !== "rag_create");
+    const agents = g.agents.filter(([id]) => id !== "rag_create" && !KB_EXCLUDED.has(id));
     const expanded = S.expanded.has(gi);
     const recCount = agents.filter(([id]) => RECOMMEND.has(id)).length;
     const visible = expanded ? agents : agents.filter(([id]) => RECOMMEND.has(id));

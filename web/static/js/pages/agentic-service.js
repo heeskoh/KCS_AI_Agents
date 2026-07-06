@@ -47,7 +47,7 @@ export const AGENTIC_OUTPUT_FORMATS = [
   { value:"table",    label:"표(table)" },
 ];
 export const AGENTIC_TOOL_CATALOG = [
-  "웹 검색", "CDW 조회", "관세정보 RAG", "심사정보 RAG", "문서 OCR",
+  "웹 검색", "CDW 자연어조회", "관세정보 RAG", "심사정보 RAG", "문서 OCR",
   "HS 품목분류", "관계망 분석", "보고서 생성", "메일 발송",
 ];
 

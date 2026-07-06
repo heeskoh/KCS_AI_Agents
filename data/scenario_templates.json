@@ -1,39 +1,61 @@
 {
   "customs": [
     {
-      "id": "customs-basic",
-      "name": "관세조사 표준 템플릿",
-      "description": "표준 10단계 — 신고·분류·과세가격·이상거래·법령 종합 검증",
+      "id": "customs-valuation",
+      "name": "관세조사-과세가격평가 집중",
+      "description": "CDW·빅데이터·외부정보 수집 후 신고검증과 과세가격평가에 집중하는 조사 흐름",
       "items": [
         {
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약"
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회"
         },
         {
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
+          "key": "ml",
+          "type": "ml",
+          "label": "빅데이터모델 결과 수집",
           "behaviors": [
-            "regulation_basis"
+            "all_models",
+            "industry_stats"
           ],
           "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인"
+          "instruction": "빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교"
         },
         {
-          "key": "rag_audit",
-          "type": "rag_audit",
-          "label": "심사정보 RAG",
+          "key": "db_external",
+          "type": "db_external",
+          "label": "전자통관외부정보조회",
           "behaviors": [
-            "audit_case"
+            "nts_tax_data",
+            "bok_receipt_data"
           ],
           "order": 3,
-          "instruction": "심사정보와 추징 가능성 관점의 조사 포인트 정리"
+          "instruction": "국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인"
+        },
+        {
+          "key": "external_agency",
+          "type": "external_agency",
+          "label": "외부기관정보수집 AI 서비스",
+          "behaviors": [
+            "dart",
+            "nice_bizline",
+            "cretop",
+            "korea_pds",
+            "kpi",
+            "kipris",
+            "orbis",
+            "dnb"
+          ],
+          "order": 4,
+          "instruction": "DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집"
         },
         {
           "key": "declaration_verify",
@@ -43,18 +65,8 @@
             "declaration_consistency",
             "missing_evidence"
           ],
-          "order": 4,
-          "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
-        },
-        {
-          "key": "hs_verify",
-          "type": "hs_verify",
-          "label": "품목분류검증 AI 서비스",
-          "behaviors": [
-            "classification_check"
-          ],
           "order": 5,
-          "instruction": "HS 코드 분류 적정성과 대체 후보 검토"
+          "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
         },
         {
           "key": "customs_value",
@@ -65,38 +77,39 @@
             "undervaluation"
           ],
           "order": 6,
-          "instruction": "과세가격 결정 요소와 저가신고 가능성 검토"
+          "instruction": "과세가격 결정 요소(가산·공제)와 저가신고 가능성 집중 검토"
         },
         {
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
           "behaviors": [
-            "price_pattern",
-            "declaration_pattern"
+            "audit_case",
+            "recovery_point"
           ],
           "order": 7,
-          "instruction": "가격 패턴과 신고패턴 중심으로 이상거래 징후 검증"
+          "instruction": "과세가격 쟁점 관점의 유사 심사사례와 추징 포인트 정리"
         },
         {
           "key": "law",
-          "type": "agent",
+          "type": "law",
           "label": "법령 검토 AI 서비스",
           "behaviors": [
-            "law_basis"
+            "law_basis",
+            "precedent"
           ],
           "order": 8,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+          "instruction": "과세가격 결정(관세법 제30~35조) 관련 법령·판례·유권해석 근거 검토"
         },
         {
           "key": "report_generate",
           "type": "report",
           "label": "보고서 생성 AI 서비스",
           "behaviors": [
-            "full_report"
+            "issue_report"
           ],
           "order": 9,
-          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
+          "instruction": "과세가격 쟁점 중심 조사보고서 초안 작성"
         },
         {
           "key": "report_validate",
@@ -111,39 +124,62 @@
       ]
     },
     {
-      "id": "valuation-focused",
-      "name": "저가신고 집중 템플릿",
-      "description": "과세가격·이상거래 검증에 집중한 10단계",
+      "id": "customs-classification",
+      "name": "관세조사-품목분류 집중",
+      "description": "CDW·빅데이터·외부정보 수집 후 신고검증과 품목분류검증에 집중하는 조사 흐름",
       "items": [
         {
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약"
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회"
         },
         {
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
+          "key": "ml",
+          "type": "ml",
+          "label": "빅데이터모델 결과 수집",
           "behaviors": [
-            "regulation_basis"
+            "all_models",
+            "hs_risk",
+            "hs_recommend"
           ],
           "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인"
+          "instruction": "빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교"
         },
         {
-          "key": "rag_audit",
-          "type": "rag_audit",
-          "label": "심사정보 RAG",
+          "key": "db_external",
+          "type": "db_external",
+          "label": "전자통관외부정보조회",
           "behaviors": [
-            "audit_case"
+            "nts_tax_data",
+            "bok_receipt_data"
           ],
           "order": 3,
-          "instruction": "심사정보와 추징 가능성 관점의 조사 포인트 정리"
+          "instruction": "국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인"
+        },
+        {
+          "key": "external_agency",
+          "type": "external_agency",
+          "label": "외부기관정보수집 AI 서비스",
+          "behaviors": [
+            "dart",
+            "nice_bizline",
+            "cretop",
+            "korea_pds",
+            "kpi",
+            "kipris",
+            "orbis",
+            "dnb"
+          ],
+          "order": 4,
+          "instruction": "DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집"
         },
         {
           "key": "declaration_verify",
@@ -153,7 +189,7 @@
             "declaration_consistency",
             "missing_evidence"
           ],
-          "order": 4,
+          "order": 5,
           "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
         },
         {
@@ -161,52 +197,43 @@
           "type": "hs_verify",
           "label": "품목분류검증 AI 서비스",
           "behaviors": [
-            "classification_check"
-          ],
-          "order": 5,
-          "instruction": "HS 코드 분류 적정성과 대체 후보 검토"
-        },
-        {
-          "key": "customs_value",
-          "type": "customs_value",
-          "label": "과세가격평가 AI 서비스",
-          "behaviors": [
-            "valuation_basis",
-            "undervaluation"
+            "classification_check",
+            "alternative_hs"
           ],
           "order": 6,
-          "instruction": "과세가격 결정 요소와 저가신고 가능성 검토"
+          "instruction": "HS 분류 적정성과 대체 후보(세율 차이) 집중 검토"
         },
         {
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
           "behaviors": [
-            "price_pattern",
-            "declaration_pattern"
+            "audit_case",
+            "recovery_point"
           ],
           "order": 7,
-          "instruction": "가격 패턴과 신고패턴 중심으로 이상거래 징후 검증"
+          "instruction": "품목분류 오류·재분류 관점의 유사 심사사례와 추징 포인트 정리"
         },
         {
           "key": "law",
-          "type": "agent",
+          "type": "law",
           "label": "법령 검토 AI 서비스",
           "behaviors": [
-            "law_basis"
+            "law_basis",
+            "precedent"
           ],
           "order": 8,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+          "instruction": "품목분류(관세법 제86조, 관세율표 해석통칙) 관련 법령·판례 근거 검토"
         },
         {
           "key": "report_generate",
           "type": "report",
           "label": "보고서 생성 AI 서비스",
           "behaviors": [
-            "full_report"
+            "issue_report"
           ],
           "order": 9,
-          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
+          "instruction": "품목분류 쟁점 중심 조사보고서 초안 작성"
         },
         {
           "key": "report_validate",
@@ -221,39 +248,61 @@
       ]
     },
     {
-      "id": "classification-focused",
-      "name": "품목분류 집중 템플릿",
-      "description": "HS 분류 적정성 검증에 집중한 8단계",
+      "id": "customs-forex-audit",
+      "name": "관세조사-외환심사 집중",
+      "description": "CDW·빅데이터·외환 수신자료 수집 후 신고검증과 이상거래 검증에 집중하는 조사 흐름",
       "items": [
         {
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약"
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회"
         },
         {
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
+          "key": "ml",
+          "type": "ml",
+          "label": "빅데이터모델 결과 수집",
           "behaviors": [
-            "regulation_basis"
+            "all_models",
+            "industry_stats"
           ],
           "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인"
+          "instruction": "빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교"
         },
         {
-          "key": "rag_audit",
-          "type": "rag_audit",
-          "label": "심사정보 RAG",
+          "key": "db_external",
+          "type": "db_external",
+          "label": "전자통관외부정보조회",
           "behaviors": [
-            "audit_case"
+            "nts_tax_data",
+            "bok_receipt_data"
           ],
           "order": 3,
-          "instruction": "심사정보와 추징 가능성 관점의 조사 포인트 정리"
+          "instruction": "국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인"
+        },
+        {
+          "key": "external_agency",
+          "type": "external_agency",
+          "label": "외부기관정보수집 AI 서비스",
+          "behaviors": [
+            "dart",
+            "nice_bizline",
+            "cretop",
+            "korea_pds",
+            "kpi",
+            "kipris",
+            "orbis",
+            "dnb"
+          ],
+          "order": 4,
+          "instruction": "DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집"
         },
         {
           "key": "declaration_verify",
@@ -263,38 +312,52 @@
             "declaration_consistency",
             "missing_evidence"
           ],
-          "order": 4,
+          "order": 5,
           "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
         },
         {
-          "key": "hs_verify",
-          "type": "hs_verify",
-          "label": "품목분류검증 AI 서비스",
+          "key": "abnormal_trade",
+          "type": "abnormal_trade",
+          "label": "이상거래 검증 AI 서비스",
           "behaviors": [
-            "classification_check"
+            "price_pattern",
+            "counterparty_pattern",
+            "declaration_pattern"
           ],
-          "order": 5,
-          "instruction": "HS 코드 분류 적정성과 대체 후보 검토"
+          "order": 6,
+          "instruction": "외환 수수 내역과 연계해 가격·거래상대방·신고 패턴의 이상 징후 검증"
+        },
+        {
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
+          "behaviors": [
+            "audit_case",
+            "recovery_point"
+          ],
+          "order": 7,
+          "instruction": "외환 수수-신고금액 불일치 관점의 유사 심사사례와 추징 포인트 정리"
         },
         {
           "key": "law",
-          "type": "agent",
+          "type": "law",
           "label": "법령 검토 AI 서비스",
           "behaviors": [
-            "law_basis"
+            "law_basis",
+            "precedent"
           ],
-          "order": 6,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+          "order": 8,
+          "instruction": "외국환거래법·관세법상 가격조작·허위신고 관련 법령·판례 근거 검토"
         },
         {
           "key": "report_generate",
           "type": "report",
           "label": "보고서 생성 AI 서비스",
           "behaviors": [
-            "full_report"
+            "issue_report"
           ],
-          "order": 7,
-          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
+          "order": 9,
+          "instruction": "외환심사 쟁점 중심 조사보고서 초안 작성"
         },
         {
           "key": "report_validate",
@@ -303,45 +366,67 @@
           "behaviors": [
             "evidence_validation"
           ],
-          "order": 8,
+          "order": 10,
           "instruction": "보고서의 근거 충실성과 누락 증빙 검증"
         }
       ]
     },
     {
-      "id": "origin-violation",
-      "name": "원산지위반 집중 템플릿",
-      "description": "원산지·운송경로 검증에 집중한 10단계",
+      "id": "customs-refund",
+      "name": "관세조사-관세환급 집중",
+      "description": "CDW·빅데이터·외부정보 수집 후 환급 근거가 되는 과세가격 적정성에 집중하는 조사 흐름",
       "items": [
         {
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약"
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회"
         },
         {
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
+          "key": "ml",
+          "type": "ml",
+          "label": "빅데이터모델 결과 수집",
           "behaviors": [
-            "regulation_basis"
+            "all_models",
+            "industry_stats"
           ],
           "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인"
+          "instruction": "빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교"
         },
         {
-          "key": "rag_audit",
-          "type": "rag_audit",
-          "label": "심사정보 RAG",
+          "key": "db_external",
+          "type": "db_external",
+          "label": "전자통관외부정보조회",
           "behaviors": [
-            "audit_case"
+            "nts_tax_data",
+            "bok_receipt_data"
           ],
           "order": 3,
-          "instruction": "심사정보와 추징 가능성 관점의 조사 포인트 정리"
+          "instruction": "국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인"
+        },
+        {
+          "key": "external_agency",
+          "type": "external_agency",
+          "label": "외부기관정보수집 AI 서비스",
+          "behaviors": [
+            "dart",
+            "nice_bizline",
+            "cretop",
+            "korea_pds",
+            "kpi",
+            "kipris",
+            "orbis",
+            "dnb"
+          ],
+          "order": 4,
+          "instruction": "DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집"
         },
         {
           "key": "declaration_verify",
@@ -351,7 +436,131 @@
             "declaration_consistency",
             "missing_evidence"
           ],
+          "order": 5,
+          "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
+        },
+        {
+          "key": "customs_value",
+          "type": "customs_value",
+          "label": "과세가격평가 AI 서비스",
+          "behaviors": [
+            "valuation_basis",
+            "undervaluation"
+          ],
+          "order": 6,
+          "instruction": "환급 신청의 근거가 되는 과세가격·납부세액의 적정성 집중 검토"
+        },
+        {
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
+          "behaviors": [
+            "audit_case",
+            "recovery_point"
+          ],
+          "order": 7,
+          "instruction": "관세환급 이상·과다환급 관점의 유사 심사사례와 추징 포인트 정리"
+        },
+        {
+          "key": "law",
+          "type": "law",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis",
+            "precedent"
+          ],
+          "order": 8,
+          "instruction": "관세환급특례법·관세법상 환급요건 관련 법령·판례 근거 검토"
+        },
+        {
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 생성 AI 서비스",
+          "behaviors": [
+            "issue_report"
+          ],
+          "order": 9,
+          "instruction": "관세환급 쟁점 중심 조사보고서 초안 작성"
+        },
+        {
+          "key": "report_validate",
+          "type": "validation",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "order": 10,
+          "instruction": "보고서의 근거 충실성과 누락 증빙 검증"
+        }
+      ]
+    },
+    {
+      "id": "customs-requirement",
+      "name": "관세조사-통관요건 집중",
+      "description": "CDW·빅데이터·외부정보 수집 후 통관요건 판정의 기초인 품목분류에 집중하는 조사 흐름",
+      "items": [
+        {
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "order": 1,
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회"
+        },
+        {
+          "key": "ml",
+          "type": "ml",
+          "label": "빅데이터모델 결과 수집",
+          "behaviors": [
+            "all_models",
+            "hs_risk",
+            "hs_recommend"
+          ],
+          "order": 2,
+          "instruction": "빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교"
+        },
+        {
+          "key": "db_external",
+          "type": "db_external",
+          "label": "전자통관외부정보조회",
+          "behaviors": [
+            "nts_tax_data",
+            "bok_receipt_data"
+          ],
+          "order": 3,
+          "instruction": "국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인"
+        },
+        {
+          "key": "external_agency",
+          "type": "external_agency",
+          "label": "외부기관정보수집 AI 서비스",
+          "behaviors": [
+            "dart",
+            "nice_bizline",
+            "cretop",
+            "korea_pds",
+            "kpi",
+            "kipris",
+            "orbis",
+            "dnb"
+          ],
           "order": 4,
+          "instruction": "DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집"
+        },
+        {
+          "key": "declaration_verify",
+          "type": "declaration_verify",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency",
+            "missing_evidence"
+          ],
+          "order": 5,
           "instruction": "첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인"
         },
         {
@@ -359,52 +568,43 @@
           "type": "hs_verify",
           "label": "품목분류검증 AI 서비스",
           "behaviors": [
-            "classification_check"
-          ],
-          "order": 5,
-          "instruction": "HS 코드 분류 적정성과 대체 후보 검토"
-        },
-        {
-          "key": "origin_analysis",
-          "type": "origin_analysis",
-          "label": "원산지 검증 AI 서비스",
-          "behaviors": [
-            "origin_certificate",
-            "fta_risk"
+            "classification_check",
+            "alternative_hs"
           ],
           "order": 6,
-          "instruction": "원산지 증빙과 FTA 적용 적정성 검토"
+          "instruction": "통관요건(허가·승인·세관장확인 대상) 판정의 기초가 되는 품목분류 적정성 집중 검토"
         },
         {
-          "key": "route_analysis",
-          "type": "route_analysis",
-          "label": "운송경로 분석 AI 서비스",
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
           "behaviors": [
-            "route_check",
-            "transshipment"
+            "audit_case",
+            "recovery_point"
           ],
           "order": 7,
-          "instruction": "운송경로를 역추적해 우회수입 가능성 탐지"
+          "instruction": "수입요건 미구비·요건회피 관점의 유사 심사사례와 추징 포인트 정리"
         },
         {
           "key": "law",
-          "type": "agent",
+          "type": "law",
           "label": "법령 검토 AI 서비스",
           "behaviors": [
-            "law_basis"
+            "law_basis",
+            "precedent"
           ],
           "order": 8,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색"
+          "instruction": "세관장확인 대상 수입요건(관세법 제226조)·개별법령 요건 관련 법령·판례 근거 검토"
         },
         {
           "key": "report_generate",
           "type": "report",
           "label": "보고서 생성 AI 서비스",
           "behaviors": [
-            "full_report"
+            "issue_report"
           ],
           "order": 9,
-          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합"
+          "instruction": "통관요건 쟁점 중심 조사보고서 초안 작성"
         },
         {
           "key": "report_validate",
@@ -429,14 +629,17 @@
           "id": "9eab4ca3-093d-4444-bbdb-e2e08ccbab0e",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -636,14 +839,17 @@
           "id": "69f416d9-dc17-4d16-9761-d58ddb9b9e3c",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -843,14 +1049,17 @@
           "id": "e2c37a8a-03f0-49ce-a881-987546f40fbb",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1070,14 +1279,17 @@
           "id": "53ba2a2b-807c-40c5-82b8-7c4adb1da3a7",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1257,14 +1469,17 @@
           "id": "839da016-cc05-4709-a2b0-d428978d6294",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1446,14 +1661,17 @@
           "id": "3c3709ae-835f-4e7c-97df-1c801e1e9120",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1654,14 +1872,17 @@
           "id": "b57fb6c0-828e-414f-ad2b-9149632cb770",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1801,14 +2022,17 @@
           "id": "364b023d-4785-4b0d-afe0-6d0b5edd3ea9",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -1968,14 +2192,17 @@
           "id": "4cfd906e-396a-4900-805f-fa82c5023ec1",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -2196,14 +2423,17 @@
           "id": "443a5df3-c65d-4207-b944-1b3d14d41334",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -2405,14 +2635,17 @@
           "id": "0fa65f27-bbf0-4468-ae98-6c8f38b295c3",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -2597,14 +2830,17 @@
           "id": "8b4a330d-43cf-4295-a718-8425bbc26fce",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -2789,14 +3025,17 @@
           "id": "402ab740-4a72-4374-8bec-06ff57645356",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -2981,14 +3220,17 @@
           "id": "80029962-81a2-4901-b091-b2b562e44052",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
@@ -3173,14 +3415,17 @@
           "id": "6456dd43-de24-4379-b9c8-8f592d88479d",
           "key": "db_cdw",
           "type": "db",
-          "label": "CDW 조회",
+          "label": "CDW 자연어조회",
           "behaviors": [
-            "profile_summary"
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
           ],
           "order": 1,
-          "instruction": "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
-          "behaviorLabel": "기업/신고 요약",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],

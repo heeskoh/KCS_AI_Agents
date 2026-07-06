@@ -857,13 +857,24 @@ const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 const AI_SERVICE_REGISTRY = {
   // ── [업무지식베이스] 정형DB(Text-to-SQL) + 업무 영역별 RAG ──
   db_cdw: {
-    label: "CDW 자연어 분석", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
-    defaultInstruction: "관세청 내부직원이 자연어로 질문하면, 시스템이 이를 해석해 CDW(관세 데이터 웨어하우스) 대상 SQL을 생성·실행하고 분석 결과를 제공",
+    label: "CDW 자연어조회", type: "db", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "전자통관 통합정보(CDW)에서 기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 조회하고, 자연어 질의는 SQL로 해석·실행해 분석 결과를 제공",
     behaviorOptions: [
-      { value: "profile_summary", label: "기업/신고 요약" },
-      { value: "risk_focus", label: "위험지표 중심" },
-      { value: "declaration_focus", label: "신고내역 중심" },
+      { value: "profile_summary", label: "기업프로파일조회" },
+      { value: "risk_focus", label: "통합위험정보조회" },
+      { value: "audit_history", label: "조사및소송 이력조회" },
+      { value: "declaration_focus", label: "수출입신고내역조회" },
     ],
+    defaultBehaviors: ["profile_summary", "risk_focus", "audit_history", "declaration_focus"],
+  },
+  db_external: {
+    label: "전자통관외부정보조회", type: "db_external", group: DB_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "전자통관 연계 외부기관 자료(국세청 세적자료, 한국은행 수신자료)를 조회해 대상의 세정·외환 기초정보를 확인",
+    behaviorOptions: [
+      { value: "nts_tax_data", label: "국세청세적자료" },
+      { value: "bok_receipt_data", label: "한국은행수신자료" },
+    ],
+    defaultBehaviors: ["nts_tax_data", "bok_receipt_data"],
   },
   company_profile: {
     label: "기업 프로파일 조회", type: "company", group: DB_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
@@ -1075,6 +1086,21 @@ const AI_SERVICE_REGISTRY = {
       { value: "market_context", label: "시장 맥락 확인" },
     ],
   },
+  external_agency: {
+    label: "외부기관정보수집 AI 서비스", type: "external_agency", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "금융감독원 DART, NICE BizLINE, CRETOP, KOREA PDS, KPI, KIPRIS, ORBIS, D&B 등 외부기관 사이트에서 공시·신용·시세·특허·해외기업정보를 수집",
+    behaviorOptions: [
+      { value: "dart", label: "금융감독원 전자공시(DART)" },
+      { value: "nice_bizline", label: "NICE평가정보(BizLINE)" },
+      { value: "cretop", label: "한국기업데이터(CRETOP)" },
+      { value: "korea_pds", label: "코리아PDS(KOREA PDS)" },
+      { value: "kpi", label: "한국물가정보(KPI)" },
+      { value: "kipris", label: "특허정보넷(KIPRIS)" },
+      { value: "orbis", label: "뷰로반다익(ORBIS)" },
+      { value: "dnb", label: "Dun&Bradstreet(D&B)" },
+    ],
+    defaultBehaviors: ["dart", "nice_bizline", "cretop", "korea_pds", "kpi", "kipris", "orbis", "dnb"],
+  },
   patent: {
     label: "특허정보 조회 AI 서비스", type: "patent", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "특허/로열티 관련 거래와 과세가격 반영 여부 확인",
@@ -1199,8 +1225,17 @@ const targetConfig = (companyPrompt, personPrompt = companyPrompt, supports = { 
 
 const AI_SERVICE_TARGET_CONFIG = {
   db_cdw: targetConfig(
-    "기업 프로파일, 최근 수입신고, 위험지표를 종합 요약",
+    "기업 프로파일, 통합 위험정보, 조사·소송 이력, 수출입신고 내역을 종합 조회",
     "우범자 프로파일, 여행·반입 이력, 위험지표를 종합 요약"
+  ),
+  db_external: targetConfig(
+    "전자통관 연계 외부기관 자료(국세청 세적자료, 한국은행 수신자료)를 조회",
+    "수사 대상 개인의 세적·외환 수신자료를 조회"
+  ),
+  external_agency: targetConfig(
+    "DART·NICE·CRETOP 등 외부기관 사이트에서 공시·신용·시세·특허·해외기업정보를 수집",
+    "외부기관 사이트에서 개인 연관 기업·지식재산 정보를 수집",
+    { company:true, person:false }
   ),
   company_profile: targetConfig(
     "기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회",
@@ -1352,25 +1387,25 @@ const ALL_INV_PAGES = ["investigation", "generalinv", "lawsearch", "fxsearch", "
 const userGroups = [
   // ── 정보국 ──────────────────────────────────────────────────────────────
   {id:"g01",org:"정보국",team:"정보기획담당관", isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS, pages:[...ALL_INV_PAGES]},
-  {id:"g02",org:"정보국",team:"인공지능혁신팀", isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch"]},
-  {id:"g03",org:"정보국",team:"시스템운영팀",   isAdmin:false, rag:["db_cdw","rag_customs"],              agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
-  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","rag_customs","rag_audit"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
+  {id:"g02",org:"정보국",team:"인공지능혁신팀", isAdmin:false, rag:["db_cdw","db_external","rag_customs"],              agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch"]},
+  {id:"g03",org:"정보국",team:"시스템운영팀",   isAdmin:false, rag:["db_cdw","db_external","rag_customs"],              agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
+  {id:"g04",org:"정보국",team:"연구개발장비팀", isAdmin:false, rag:["db_cdw","db_external","rag_customs","rag_audit"],  agents:["ocr","patent","web_search","rag_create","law","report_generate","report_validate"], pages:["model"]},
   {id:"g05",org:"정보국",team:"데이터담당관",   isAdmin:true,  rag:ALL_RAG,                              agents:ALL_AGENTS, pages:["model"]},
   // ── 본청 업무분야 ────────────────────────────────────────────────────────
   {id:"g06",org:"본청",team:"통관 분야", isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g07",org:"본청",team:"감시분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g08",org:"본청",team:"조사분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["investigation","case","model"]},
   {id:"g09",org:"본청",team:"수사분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_investigation"],
+    rag:["db_cdw","db_external","rag_customs","rag_investigation"],
     agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch","case","model"]},
   {id:"g10",org:"본청",team:"국제협력",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_global"],
+    rag:["db_cdw","db_external","rag_customs","rag_global"],
     agents:["ocr","web_search","rag_create","law","report_generate","report_validate"], pages:["case"]},
   {id:"g11",org:"본청",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
@@ -1378,19 +1413,19 @@ const userGroups = [
   {id:"g12",org:"본청",team:"운영·지원", isAdmin:true,  rag:ALL_RAG, agents:ALL_AGENTS, pages:[...ALL_INV_PAGES]},
   // ── 세관 업무분야 ────────────────────────────────────────────────────────
   {id:"g13",org:"세관",team:"통관 분야", isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","web_search","declaration_verify","hs_verify","rag_create","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g14",org:"세관",team:"감시분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","ml","network","web_search","declaration_verify","law","report_generate","report_validate"], pages:["case","report"]},
   {id:"g15",org:"세관",team:"조사분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_audit"],
+    rag:["db_cdw","db_external","rag_customs","rag_audit"],
     agents:["ocr","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["investigation","case","model"]},
   {id:"g16",org:"세관",team:"수사분야",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_investigation"],
+    rag:["db_cdw","db_external","rag_customs","rag_investigation"],
     agents:["ocr","ml","network","web_search","declaration_verify","hs_verify","customs_value","law","report_generate","report_validate"], pages:["generalinv","lawsearch","fxsearch","case","model"]},
   {id:"g17",org:"세관",team:"국제협력",  isAdmin:false,
-    rag:["db_cdw","rag_customs","rag_global"],
+    rag:["db_cdw","db_external","rag_customs","rag_global"],
     agents:["ocr","web_search","rag_create","law","report_generate","report_validate"], pages:["case"]},
   {id:"g18",org:"세관",team:"정보분석",  isAdmin:false,
     rag:ALL_RAG,
@@ -1449,6 +1484,8 @@ function sourceDefaultBehavior(key){
 }
 
 function sourceDefaultBehaviors(key){
+  const source = scenarioSourceByKey(key);
+  if(Array.isArray(source?.defaultBehaviors) && source.defaultBehaviors.length) return [...source.defaultBehaviors];
   return [sourceDefaultBehavior(key)];
 }
 
@@ -1646,52 +1683,94 @@ function extraPromptsRunText(extraPrompts){
     : "";
 }
 
+/* 관세조사 집중형 템플릿 5종 — 공통 수집 단계(CDW·빅데이터·전자통관외부·외부기관·신고검증) 뒤에
+   집중 검증 단계가 붙고, 심사정보 RAG → 법령 검토 → 보고서 생성/검증으로 마무리한다.
+   (서버 파일 data/scenario_templates.json 의 customs 섹션과 동일하게 유지할 것) */
+const customsTemplateCommonHead = (mlBehaviors) => [
+  { key:"db_cdw", type:"db", label:"CDW 자연어조회", behaviors:["profile_summary","risk_focus","audit_history","declaration_focus"], order:1, instruction:"기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회" },
+  { key:"ml", type:"ml", label:"빅데이터모델 결과 수집", behaviors:mlBehaviors, order:2, instruction:"빅데이터 위험모델 전체 실행 결과를 수집해 대상 기업의 위험 패턴 비교" },
+  { key:"db_external", type:"db_external", label:"전자통관외부정보조회", behaviors:["nts_tax_data","bok_receipt_data"], order:3, instruction:"국세청 세적자료·한국은행 수신자료로 세정·외환 기초정보 확인" },
+  { key:"external_agency", type:"external_agency", label:"외부기관정보수집 AI 서비스", behaviors:["dart","nice_bizline","cretop","korea_pds","kpi","kipris","orbis","dnb"], order:4, instruction:"DART·NICE·CRETOP 등 외부기관 사이트의 공시·신용·시세·특허 정보 수집" },
+  { key:"declaration_verify", type:"declaration_verify", label:"수입신고검증 AI 서비스", behaviors:["declaration_consistency","missing_evidence"], order:5, instruction:"첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인" },
+];
+const customsTemplateCommonTail = (ragInstr, lawInstr, reportInstr) => [
+  { key:"rag_audit", type:"rag_audit", label:"심사정보 RAG", behaviors:["audit_case","recovery_point"], order:7, instruction:ragInstr },
+  { key:"law", type:"law", label:"법령 검토 AI 서비스", behaviors:["law_basis","precedent"], order:8, instruction:lawInstr },
+  { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["issue_report"], order:9, instruction:reportInstr },
+  { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:10, instruction:"보고서의 근거 충실성과 누락 증빙 검증" },
+];
+const ML_BEHAVIORS_STD = ["all_models","industry_stats"];
+const ML_BEHAVIORS_HS = ["all_models","hs_risk","hs_recommend"];
+
 const scenarioTemplates = [
   {
-    id: "customs-basic",
-    name: "관세조사 기본 템플릿",
-    description: "신고내역, 관세·심사정보, 신고검증, 품목분류, 과세가격, 보고서 생성·검증을 순차 실행하는 기본 조사 흐름",
+    id: "customs-valuation",
+    name: "관세조사-과세가격평가 집중",
+    description: "CDW·빅데이터·외부정보 수집 후 신고검증과 과세가격평가에 집중하는 조사 흐름",
     items: [
-      { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["profile_summary"], order:1, instruction:"신고내역 중심 · 기업 프로파일과 최근 수입신고를 요약" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis"], order:2, instruction:"관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인" },
-      { key:"rag_audit", type:"rag_audit", label:"심사정보 RAG", behaviors:["audit_case"], order:3, instruction:"심사정보와 추징 가능성 관점의 조사 포인트 정리" },
-      { key:"declaration_verify", type:"declaration_verify", label:"수입신고검증 AI 서비스", behaviors:["declaration_consistency","missing_evidence"], order:4, instruction:"첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인" },
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check"], order:5, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
-      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
-      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:7, instruction:"보고서 대상 자료를 공식 조사보고서 초안으로 통합" },
-      { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:8, instruction:"보고서의 근거 충실성과 누락 증빙 검증" },
+      ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
+      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"과세가격 결정 요소(가산·공제)와 저가신고 가능성 집중 검토" },
+      ...customsTemplateCommonTail(
+        "과세가격 쟁점 관점의 유사 심사사례와 추징 포인트 정리",
+        "과세가격 결정(관세법 제30~35조) 관련 법령·판례·유권해석 근거 검토",
+        "과세가격 쟁점 중심 조사보고서 초안 작성",
+      ),
     ],
   },
   {
-    id: "valuation-focused",
-    name: "저가신고 집중 템플릿",
-    description: "과세가격, 신고검증, 이상거래 검토에 집중해 보고서 생성·검증까지 수행하는 조사 흐름",
+    id: "customs-classification",
+    name: "관세조사-품목분류 집중",
+    description: "CDW·빅데이터·외부정보 수집 후 신고검증과 품목분류검증에 집중하는 조사 흐름",
     items: [
-      { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["risk_focus","declaration_focus"], order:1, instruction:"위험지표와 신고내역을 함께 상세 확인" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis","case_comparison"], order:2, instruction:"관련 관세정보와 유사사례를 함께 확인" },
-      { key:"rag_audit", type:"rag_audit", label:"심사정보 RAG", behaviors:["audit_case"], order:3, instruction:"심사정보와 추징 가능성 관점의 조사 포인트 정리" },
-      { key:"declaration_verify", type:"declaration_verify", label:"수입신고검증 AI 서비스", behaviors:["declaration_consistency","missing_evidence"], order:4, instruction:"첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 누락 증빙 확인" },
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check"], order:5, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
-      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"과세가격 결정 요소와 저가신고 가능성 검토" },
-      { key:"abnormal_trade", type:"abnormal_trade", label:"이상거래 검증 AI 서비스", behaviors:["price_pattern","declaration_pattern"], order:7, instruction:"가격 패턴과 신고패턴 중심으로 이상거래 징후 검증" },
-      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["issue_report"], order:8, instruction:"저가신고 쟁점 중심 보고서 초안 작성" },
-      { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:9, instruction:"보고서의 근거 충실성과 누락 증빙 검증" },
+      ...customsTemplateCommonHead(ML_BEHAVIORS_HS),
+      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, instruction:"HS 분류 적정성과 대체 후보(세율 차이) 집중 검토" },
+      ...customsTemplateCommonTail(
+        "품목분류 오류·재분류 관점의 유사 심사사례와 추징 포인트 정리",
+        "품목분류(관세법 제86조, 관세율표 해석통칙) 관련 법령·판례 근거 검토",
+        "품목분류 쟁점 중심 조사보고서 초안 작성",
+      ),
     ],
   },
   {
-    id: "classification-origin",
-    name: "품목분류·원산지 템플릿",
-    description: "HS 분류, 원산지, 운송경로 검토에 맞춰 보고서 생성·검증까지 수행하는 조사 흐름",
+    id: "customs-forex-audit",
+    name: "관세조사-외환심사 집중",
+    description: "CDW·빅데이터·외환 수신자료 수집 후 신고검증과 이상거래 검증에 집중하는 조사 흐름",
     items: [
-      { key:"db_cdw", type:"db", label:"CDW 조회", behaviors:["declaration_focus"], order:1, instruction:"품목, 원산지, 신고가격 중심으로 최근 신고내역 확인" },
-      { key:"rag_customs", type:"rag_customs", label:"관세정보 RAG", behaviors:["regulation_basis"], order:2, instruction:"품목분류와 원산지 관련 관세정보 확인" },
-      { key:"rag_audit", type:"rag_audit", label:"심사정보 RAG", behaviors:["audit_case"], order:3, instruction:"품목분류·원산지 관련 심사사례와 조사 포인트 정리" },
-      { key:"declaration_verify", type:"declaration_verify", label:"수입신고검증 AI 서비스", behaviors:["declaration_consistency"], order:4, instruction:"첨부문서 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치 확인" },
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:5, instruction:"HS 코드 분류 적정성과 대체 후보 검토" },
-      { key:"origin_analysis", type:"origin_analysis", label:"원산지 검증 AI 서비스", behaviors:["origin_certificate","fta_risk"], order:6, instruction:"원산지 증빙과 FTA 적용 적정성 검토" },
-      { key:"route_analysis", type:"route_analysis", label:"운송경로 분석 AI 서비스", behaviors:["route_check","transshipment"], order:7, instruction:"운송경로를 역추적해 우회수입 가능성 탐지" },
-      { key:"report_generate", type:"report", label:"보고서 생성 AI 서비스", behaviors:["full_report"], order:8, instruction:"보고서 대상 자료를 공식 조사보고서 초안으로 통합" },
-      { key:"report_validate", type:"validation", label:"보고서 검증 AI 서비스", behaviors:["evidence_validation"], order:9, instruction:"근거 충실성과 누락 증빙 검증" },
+      ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
+      { key:"abnormal_trade", type:"abnormal_trade", label:"이상거래 검증 AI 서비스", behaviors:["price_pattern","counterparty_pattern","declaration_pattern"], order:6, instruction:"외환 수수 내역과 연계해 가격·거래상대방·신고 패턴의 이상 징후 검증" },
+      ...customsTemplateCommonTail(
+        "외환 수수-신고금액 불일치 관점의 유사 심사사례와 추징 포인트 정리",
+        "외국환거래법·관세법상 가격조작·허위신고 관련 법령·판례 근거 검토",
+        "외환심사 쟁점 중심 조사보고서 초안 작성",
+      ),
+    ],
+  },
+  {
+    id: "customs-refund",
+    name: "관세조사-관세환급 집중",
+    description: "CDW·빅데이터·외부정보 수집 후 환급 근거가 되는 과세가격 적정성에 집중하는 조사 흐름",
+    items: [
+      ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
+      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"환급 신청의 근거가 되는 과세가격·납부세액의 적정성 집중 검토" },
+      ...customsTemplateCommonTail(
+        "관세환급 이상·과다환급 관점의 유사 심사사례와 추징 포인트 정리",
+        "관세환급특례법·관세법상 환급요건 관련 법령·판례 근거 검토",
+        "관세환급 쟁점 중심 조사보고서 초안 작성",
+      ),
+    ],
+  },
+  {
+    id: "customs-requirement",
+    name: "관세조사-통관요건 집중",
+    description: "CDW·빅데이터·외부정보 수집 후 통관요건 판정의 기초인 품목분류에 집중하는 조사 흐름",
+    items: [
+      ...customsTemplateCommonHead(ML_BEHAVIORS_HS),
+      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, instruction:"통관요건(허가·승인·세관장확인 대상) 판정의 기초가 되는 품목분류 적정성 집중 검토" },
+      ...customsTemplateCommonTail(
+        "수입요건 미구비·요건회피 관점의 유사 심사사례와 추징 포인트 정리",
+        "세관장확인 대상 수입요건(관세법 제226조)·개별법령 요건 관련 법령·판례 근거 검토",
+        "통관요건 쟁점 중심 조사보고서 초안 작성",
+      ),
     ],
   },
 ];
@@ -2558,7 +2637,7 @@ const giScenarioTemplates = [
   {
     id:"t7",
     name:"기타 수사 템플릿",
-    description:"공통 CDW 조회를 시작점으로 구성하는 기본 수사 흐름",
+    description:"공통 CDW 자연어조회를 시작점으로 구성하는 기본 수사 흐름",
     items: giTemplateItems([
       giTemplateStep("gi_cdw"),
     ]),
@@ -3117,7 +3196,8 @@ function coachFileLinkSummaries(){
 
 /* ── 홈 분석 실행 (실제 워크플로 스트리밍) ── */
 const HOME_DEFAULT_AGENTS = [
-  { type:"db",                 label:"CDW 조회",              key:"db_cdw" },
+  { type:"db",                 label:"CDW 자연어조회",              key:"db_cdw" },
+  { type:"db_external",        label:"전자통관외부정보조회",        key:"db_external" },
   { type:"company",            label:"기업 프로파일 조회",      key:"company_profile" },
   { type:"rag_customs",        label:"관세정보 RAG",           key:"rag_customs" },
   { type:"rag_audit",          label:"심사정보 RAG",          key:"rag_audit" },
@@ -3134,6 +3214,7 @@ const HOME_DEFAULT_AGENTS = [
   { type:"abnormal_trade",     label:"이상거래 검증 AI 서비스",   key:"abnormal_trade" },
   { type:"proceeds_tracking",  label:"범죄수익 추적 AI 서비스",   key:"proceeds_tracking" },
   { type:"route_analysis",     label:"운송경로 분석 AI 서비스",   key:"route_analysis" },
+  { type:"external_agency",    label:"외부기관정보수집 AI 서비스", key:"external_agency" },
   { type:"patent",             label:"특허정보 조회 AI 서비스",   key:"patent" },
   { type:"law",                label:"법령 검토 AI 서비스",       key:"law" },
   { type:"ocr",                label:"OCR/문서인식 AI 서비스",    key:"ocr" },
@@ -3183,9 +3264,36 @@ function homeCardCollapseToggleHtml(key){
 }
 
 // 업무지식베이스(검색) 카드의 기본 프롬프트 — 실제 조건은 카드 프롬프트에서 직접 작성한다.
+// 업무지식베이스 카드의 현재 분석범위(behavior) 라벨 목록 — 미선택이면 시나리오와 동일한 기본값 사용.
+function homeSourceBehaviorLabels(key){
+  const opts = AI_SERVICE_REGISTRY[key]?.behaviorOptions || [];
+  const st = homePromptTemplateState[key];
+  const values = (st?.behaviors && st.behaviors.length) ? st.behaviors : sourceDefaultBehaviors(key);
+  return values.map(v => opts.find(o => o.value === v)?.label || v).filter(Boolean);
+}
+
+// 업무지식베이스 카드 기본 프롬프트 — 분석 시나리오와 동일하게 [분석범위] + 검색 조건([입력값] 토큰)으로 구성.
 function homeSourceCardPromptDefault(key){
-  const label = AI_SERVICE_REGISTRY[key]?.label || key;
-  return `${label}에서 원하는 조건의 자료를 조회해줘.`;
+  const svc = AI_SERVICE_REGISTRY[key];
+  const label = svc?.label || key;
+  if(!(svc?.behaviorOptions?.length)) return `${label}에서 원하는 조건의 자료를 조회해줘.`;
+  const labels = homeSourceBehaviorLabels(key);
+  if(!labels.length) return `${label}에서 원하는 조건의 자료를 조회해줘.`;
+  const defs = homeServiceInputDefs(key);
+  const tokens = defs.map(d => `${d.label} [${d.label}]`).join(" · ");
+  return `[분석범위]\n- ${labels.join("\n- ")}\n\n${label} 지식베이스입니다. 선택한 분석범위에 따라 조회하고 핵심 결과를 정리합니다.\n검색 조건: ${tokens} (값을 채우거나 문장으로 작성하세요)`;
+}
+
+// 업무지식베이스 카드 프롬프트의 [입력값] 토큰을 하이라이트 span으로 렌더 (필수 입력값 표시용).
+function homeSourcePromptInnerHtml(key, text){
+  let html = escapeHtml(text);
+  homeServiceInputDefs(key).forEach(d => {
+    const tok = escapeHtml(`[${d.label}]`);
+    html = html.split(tok).join(
+      `<span class="home-prompt-token empty${d.required ? " req" : ""}" data-field="${escapeHtml(d.key)}" data-label="${escapeHtml(d.label)}">${tok}</span>`
+    );
+  });
+  return html;
 }
 
 // AI 분석서비스 카드 프롬프트에 노출할 입력 필드(필수). 값은 프롬프트의 [입력값 이름] 토큰으로 채운다.
@@ -3446,6 +3554,26 @@ function homeDataSourceIntro(key){
 
 // AI 서비스별 필수 입력 필드 정의 (key: 서비스키, value: [{key,label,placeholder,required}])
 const AI_SERVICE_INPUTS = {
+  // ── 업무지식베이스(정형DB·업무RAG) — 홈 카드 필수 입력값 하일라이트용 ──
+  db_cdw: [
+    { key:"target", label:"대상 기업/개인", placeholder:"예: C-1002 또는 P-2003", required:true },
+    { key:"cond", label:"검색 조건", placeholder:"예: 최근 3년 수입신고 중 원산지 변경 건" },
+  ],
+  db_external: [
+    { key:"target", label:"대상 기업/개인", placeholder:"예: C-1002", required:true },
+  ],
+  rag_customs: [
+    { key:"q", label:"질의/쟁점", placeholder:"예: 저가신고 과세가격 결정 근거", required:true },
+  ],
+  rag_audit: [
+    { key:"q", label:"질의/쟁점", placeholder:"예: 유사 업종 추징 사례", required:true },
+  ],
+  rag_investigation: [
+    { key:"q", label:"질의/쟁점", placeholder:"예: 우회수입 조사 절차", required:true },
+  ],
+  rag_global: [
+    { key:"q", label:"질의/쟁점", placeholder:"예: 해외 세관 공조 사례", required:true },
+  ],
   customs_value: [
     { key:"target", label:"대상 기업/신고", placeholder:"예: C-1002 또는 신고번호", required:true },
     { key:"period", label:"조사기간", placeholder:"예: 2023.01~2025.03" },
@@ -3818,14 +3946,27 @@ function homeCardWorkPanel(key, kind, gi = 0){
         title="입력값(하이라이트)과 프롬프트를 직접 수정할 수 있습니다.">${inner}</div>`;
   } else {
     const promptText = homeCardPromptText(key, kind);
-    promptEl = `<textarea class="home-card-prompt" data-home-card-prompt="${escapeHtml(key)}" data-kind="source" rows="3"
-        placeholder="자동 등록된 프롬프트입니다. 필요 시 수정하세요.">${escapeHtml(promptText)}</textarea>`;
+    // 분석범위가 있는 업무지식베이스: 시나리오와 동일하게 [입력값] 토큰을 하이라이트한 contenteditable.
+    if(AI_SERVICE_REGISTRY[key]?.behaviorOptions?.length){
+      const st = homeCardPromptState[key];
+      const inner = st && st.edited ? escapeHtml(st.text) : homeSourcePromptInnerHtml(key, promptText);
+      promptEl = `<div class="home-card-prompt home-card-prompt-rich" contenteditable="true"
+          data-home-card-prompt="${escapeHtml(key)}" data-kind="source"
+          title="입력값(하이라이트)과 프롬프트를 직접 수정할 수 있습니다.">${inner}</div>`;
+    } else {
+      promptEl = `<textarea class="home-card-prompt" data-home-card-prompt="${escapeHtml(key)}" data-kind="source" rows="3"
+          placeholder="자동 등록된 프롬프트입니다. 필요 시 수정하세요.">${escapeHtml(promptText)}</textarea>`;
+    }
   }
+  // 업무지식베이스 카드: 프롬프트 지우기 · 기본값 채우기 버튼 제공.
+  const kbPromptBtns = kind === "source" ? `
+          <button type="button" class="home-mini-btn" data-home-prompt-clear="${escapeHtml(key)}" title="프롬프트를 비웁니다">지우기</button>
+          <button type="button" class="home-mini-btn" data-home-prompt-default="${escapeHtml(key)}" title="선택한 분석범위 기준 기본 프롬프트로 채웁니다">기본값 채우기</button>` : "";
   return `
     <div class="home-card-work">
       <div class="home-card-work-head">
         <div class="home-card-work-tab">프롬프트 및 수행 결과</div>
-        <div class="home-card-actions">
+        <div class="home-card-actions">${kbPromptBtns}
           <button type="button" class="home-mini-btn home-card-coach-btn" data-home-card-coach="${escapeHtml(key)}" title="필수 입력값·프롬프트를 점검하고 재구성안을 제시합니다">AI코칭</button>
           <button type="button" class="home-mini-btn home-run-single" data-home-run-single="${escapeHtml(key)}">단일 수행</button>
           ${homeCardCollapseToggleHtml(key)}
@@ -3837,10 +3978,18 @@ function homeCardWorkPanel(key, kind, gi = 0){
   `;
 }
 
-// 데이터소스 소개 카드 (자연어 조회 대상) — 좌: 안내+검색조건 / 우: 프롬프트+수행결과
+// 데이터소스 소개 카드 (자연어 조회 대상) — 좌: 안내+분석범위+입력값 / 우: 프롬프트+수행결과
 function homeDataSourceCardHtml(key, order){
   const svc = AI_SERVICE_REGISTRY[key];
   const collapsed = !!homeCardCollapsed[key];
+  // 분석 시나리오와 동일한 분석범위 칩 — 토글 시 (미편집 상태의) 기본 프롬프트가 재구성된다.
+  const opts = svc?.behaviorOptions || [];
+  const st = homePromptTemplateState[key];
+  const scopeChips = opts.length ? opts.map(opt => {
+    const on = (st?.behaviors || sourceDefaultBehaviors(key)).includes(opt.value);
+    return `<button type="button" class="home-tpl-chip${on ? " on" : ""}"
+      data-home-tpl-behavior="${escapeHtml(key)}" data-behavior="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</button>`;
+  }).join("") : "";
   return `
     <div class="home-svc-panel home-source-card home-card-row${collapsed ? " is-collapsed" : ""}" data-home-source-card="${escapeHtml(key)}">
       <div class="home-card-info">
@@ -3850,6 +3999,8 @@ function homeDataSourceCardHtml(key, order){
           <span class="home-source-badge">업무지식베이스</span>
         </div>
         <p class="home-source-desc">${escapeHtml(homeDataSourceIntro(key))} 원하시는 정보의 조건을 오른쪽 프롬프트에 입력하세요.</p>
+        ${scopeChips ? `<div class="home-tpl-chips home-kb-scope"><span class="home-kb-scope-hd">분석범위</span>${scopeChips}</div>` : ""}
+        ${homeInputChipsHtml(key)}
         <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록, 특정인이 작성한 보고서 중 최신 10건</p>
       </div>
       ${homeCardWorkPanel(key, "source")}
@@ -3879,7 +4030,7 @@ function homeAwaitCardResult(key, timeoutMs = 120000){
 }
 
 // 통합 지식 검색: 백엔드 의도분석으로 실행계획을 받아 KB를 '순차' 실행.
-// 의존 단계는 선행 KB 결과를 질의에 주입(CDW 조회 → 그 결과로 RAG 검색 등).
+// 의존 단계는 선행 KB 결과를 질의에 주입(CDW 자연어조회 → 그 결과로 RAG 검색 등).
 async function homeRunIntegratedSearch(enabled, btn){
   const planEl = document.querySelector("[data-home-isch-plan]");
   const promptText = homeIntegratedPromptText.trim();
@@ -3954,6 +4105,20 @@ function homeIntegratedSourceFrameHtml(sources){
       </div>`;
   }).join("");
   const ph = "예) HS 8517 품목 수입신고 중 위험지표가 높은 기업 최신 10건과 유사 심사사례 보고서를 함께 찾아줘.";
+  // 프롬프트 조합 가이드 — 켜진 업무지식베이스가 2개 이상이면 소스별 실행방식·작성 팁을 안내.
+  const enabledForGuide = homeIschEnabledSources(sources);
+  const guide = enabledForGuide.length >= 2 ? `
+        <div class="home-isch-guide">
+          <div class="home-isch-guide-hd">🧩 프롬프트 조합 가이드 <span>— 켜진 지식베이스 ${enabledForGuide.length}개가 하나의 질의로 함께 실행됩니다</span></div>
+          <ul class="home-isch-guide-list">
+            ${enabledForGuide.map(k => {
+              const svc = AI_SERVICE_REGISTRY[k];
+              const kindLabel = homeSourceKind(k) === "db" ? "자연어→SQL" : "문서검색";
+              return `<li><b>${escapeHtml(svc?.label || k)}</b> <em class="${homeSourceKind(k)}">${kindLabel}</em> — ${escapeHtml(svc?.defaultInstruction || homeDataSourceIntro(k))}</li>`;
+            }).join("")}
+          </ul>
+          <p class="home-isch-guide-tip">작성 팁: ① 분석대상(기업·품목·기간)을 먼저 쓰고 ② 각 지식베이스에서 확인할 내용을 한 문장씩 이어 쓰면, 의도분석이 소스별 실행계획(순서·연계)으로 자동 분해합니다. '기본값 채우기'를 누르면 켜진 소스 기준의 질의 골격이 채워집니다.</p>
+        </div>` : "";
   return `
     <div class="home-svc-panel home-isch-frame${collapsed ? " is-collapsed" : ""}" data-home-source-card="__integrated__">
       <div class="home-isch-head">
@@ -3961,6 +4126,8 @@ function homeIntegratedSourceFrameHtml(sources){
         <strong class="home-frame-title">통합 지식 검색</strong>
         <span class="home-source-badge">업무지식베이스</span>
         <div class="home-card-actions home-isch-actions">
+          <button type="button" class="home-mini-btn" data-home-isch-clear title="통합 질의를 비웁니다">지우기</button>
+          <button type="button" class="home-mini-btn" data-home-isch-default title="켜진 지식베이스 기준 질의 골격을 채웁니다">기본값 채우기</button>
           <button type="button" class="home-mini-btn home-card-coach-btn" data-home-isch-coach title="질의를 점검하고 재구성안을 제시합니다">AI코칭</button>
           <button type="button" class="home-mini-btn home-run-single" data-home-isch-run title="켜진 업무지식베이스에 통합 질의를 동시 실행">AI분석실행</button>
           ${homeCardCollapseToggleHtml("__integrated__")}
@@ -3969,6 +4136,7 @@ function homeIntegratedSourceFrameHtml(sources){
       <div class="home-isch-body">
         <p class="home-isch-desc">검색할 지식 소스를 선택하세요. 자연어 질의는 정형DB에서는 <b class="db">자연어→SQL</b>로, 업무 RAG에서는 <b class="rag">의미 기반 문서검색</b>으로 실행됩니다.</p>
         <div class="home-isch-chips">${chips}</div>
+        ${guide}
         <textarea class="home-isch-prompt" data-home-integrated-prompt placeholder="${escapeHtml(ph)}">${escapeHtml(homeIntegratedPromptText)}</textarea>
         <p class="home-source-example">검색 조건 예) 품목이 ~인 기업목록 · 특정인이 작성한 보고서 중 최신 10건 · 위험지표 상위 기업의 사후심사 사례</p>
         <div class="home-isch-plan" data-home-isch-plan hidden></div>
@@ -3976,6 +4144,19 @@ function homeIntegratedSourceFrameHtml(sources){
       </div>
     </div>
   `;
+}
+
+// 통합 지식 검색 기본 질의 골격 — 켜진 지식베이스별 확인 내용을 한 문장씩 이어 쓴다.
+function homeIschDefaultPrompt(enabled){
+  if(!enabled.length) return "";
+  const parts = enabled.map(k => {
+    const svc = AI_SERVICE_REGISTRY[k];
+    const label = svc?.label || k;
+    return homeSourceKind(k) === "db"
+      ? `${label}에서 관련 데이터를 조회하고`
+      : `${label}에서 관련 규정·사례를 검색하고`;
+  });
+  return `분석대상 [대상 기업/품목/기간]에 대해 ${parts.join(", ")} 핵심 결과를 종합해줘.`;
 }
 
 // 단일 AI 서비스 수행 프레임 (순서 배지 + ▲▼ + 기능 설명 + 동작칩 + 필수 입력값)
@@ -4038,14 +4219,20 @@ function homeRenderPromptTemplatePanels(){
   if(!container) return;
   const { sources } = homeSelectedAnalysisOptions();
   const aiOrder = homeSyncPipelineOrder();
-  // 선택 해제된 AI 서비스는 상태에서 제거
-  Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key)) delete homePromptTemplateState[key]; });
+  // 선택 해제된 AI 서비스·업무지식베이스는 상태에서 제거
+  Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key) && !sources.includes(key)) delete homePromptTemplateState[key]; });
   Object.keys(homeCardCollapsed).forEach(key => { if(key !== "__integrated__" && !sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
   Object.keys(homeCardResultState).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardResultState[key]; });
   // 신규 AI 서비스 동작칩 상태 초기화
   aiOrder.forEach(key => {
     if(homeServiceHasInlineTemplate(key) && !homePromptTemplateState[key]){
       homePromptTemplateState[key] = { behaviors: homeTemplateDefaultBehaviors(key), text: "", edited: false };
+    }
+  });
+  // 신규 업무지식베이스 분석범위 상태 초기화 — 시나리오와 동일한 기본 선택(defaultBehaviors)
+  sources.forEach(key => {
+    if((AI_SERVICE_REGISTRY[key]?.behaviorOptions?.length || 0) > 0 && !homePromptTemplateState[key]){
+      homePromptTemplateState[key] = { behaviors: sourceDefaultBehaviors(key), text: "", edited: false };
     }
   });
 
@@ -4769,7 +4956,7 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     rag_audit: true,
     bigdata_enabled: false,
     llm_mode: homeLlmMode(),
-    myai_mode: true,   // MyAI 분석: CDW 조회를 자연어→SQL로 직접 수행(정형 위험요약 대체 안 함)
+    myai_mode: true,   // MyAI 분석: CDW 자연어조회를 자연어→SQL로 직접 수행(정형 위험요약 대체 안 함)
     user_prompt: prompt,
     upload_session_id: coachUploadSessionId || undefined,
     uploaded_files: coachAttachedFiles,
@@ -4897,7 +5084,7 @@ function homePromptEchoHtml(prompt){
 // ── DB조회: NL→SQL 실행 후 결과 표시 ─────────────────────────────────────────
 async function homeRunDbQuery(prompt, services, btn, resultBox, isOnly){
   const SERVICE_META = {
-    db_cdw:          { label: "CDW 조회",        useNeo4j: false },
+    db_cdw:          { label: "CDW 자연어조회",        useNeo4j: false },
     company_profile: { label: "기업 프로파일 조회", useNeo4j: false },
   };
 
@@ -4974,7 +5161,7 @@ async function homeRunDbQuery(prompt, services, btn, resultBox, isOnly){
 }
 
 /* resultBox.innerHTML 재작성 시 이미 렌더된 DB 조회 결과(.home-db-results)를 보존한다.
-   CDW 조회 + 다른 AI서비스 동시 선택 시 agents 모드 렌더가 DB 결과를 지우는 문제 방지 */
+   CDW 자연어조회 + 다른 AI서비스 동시 선택 시 agents 모드 렌더가 DB 결과를 지우는 문제 방지 */
 function homePreserveDbResults(resultBox, render){
   const dbResults = resultBox?.querySelector(".home-db-results");
   render();
@@ -10052,6 +10239,23 @@ document.addEventListener("click", (event) => {
     homeRunIntegratedSearch(enabled, ischRun);
     return;
   }
+  // 통합 지식 검색: 질의 지우기 / 기본값(질의 골격) 채우기
+  const ischClear = event.target?.closest?.("[data-home-isch-clear]");
+  const ischDefault = event.target?.closest?.("[data-home-isch-default]");
+  if(ischClear || ischDefault){
+    const { sources } = homeSelectedAnalysisOptions();
+    const enabled = homeIschEnabledSources(sources);
+    homeIntegratedPromptText = ischClear ? "" : homeIschDefaultPrompt(enabled);
+    const ta = document.querySelector("[data-home-integrated-prompt]");
+    if(ta){ ta.value = homeIntegratedPromptText; ta.focus(); }
+    enabled.forEach(key => {
+      homeCardPromptState[key] = { text: homeIntegratedPromptText, edited: true };
+      const hid = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+      if(hid && hid !== ta) hid.value = homeIntegratedPromptText;
+    });
+    homeSyncCombinedPrompt();
+    return;
+  }
   // 통합 지식 검색: 업무지식베이스 토글(통합수행 대상 포함/제외)
   const ischToggle = event.target?.closest?.("[data-home-isch-toggle]");
   if(ischToggle){
@@ -11113,7 +11317,7 @@ document.addEventListener("click", (event)=>{
     return;
   }
 
-  // AI 서비스 카드: 동작(behavior) 칩 토글
+  // AI 서비스·업무지식베이스 카드: 동작(분석범위) 칩 토글
   const tplChip = event.target.closest("[data-home-tpl-behavior]");
   if(tplChip){
     const key = tplChip.dataset.homeTplBehavior;
@@ -11123,8 +11327,51 @@ document.addEventListener("click", (event)=>{
       const has = st.behaviors.includes(value);
       st.behaviors = has ? st.behaviors.filter(v => v !== value) : [...st.behaviors, value];
       tplChip.classList.toggle("on", !has);
+      // 업무지식베이스: 분석범위 변경 시 (직접 편집 전이면) 기본 프롬프트를 재구성해 반영
+      if(homeIsDataSourceKey(key)){
+        const cst = homeCardPromptState[key];
+        if(!cst || !cst.edited){
+          const def = homeSourceCardPromptDefault(key);
+          homeCardPromptState[key] = { text: def, edited: false };
+          const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+          if(el){
+            if(el.isContentEditable) el.innerHTML = homeSourcePromptInnerHtml(key, def);
+            else el.value = def;
+          }
+        }
+      }
       homeSyncCombinedPrompt();
     }
+    return;
+  }
+
+  // 업무지식베이스 카드: 프롬프트 지우기
+  const promptClear = event.target.closest("[data-home-prompt-clear]");
+  if(promptClear){
+    const key = promptClear.dataset.homePromptClear;
+    homeCardPromptState[key] = { text: "", edited: true };
+    const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+    if(el){
+      if(el.isContentEditable) el.innerHTML = "";
+      else el.value = "";
+      el.focus();
+    }
+    homeSyncCombinedPrompt();
+    return;
+  }
+
+  // 업무지식베이스 카드: 프롬프트 기본값 채우기 (선택한 분석범위 기준)
+  const promptDefault = event.target.closest("[data-home-prompt-default]");
+  if(promptDefault){
+    const key = promptDefault.dataset.homePromptDefault;
+    const def = homeCardPromptDefault(key, homeIsDataSourceKey(key) ? "source" : "agent");
+    homeCardPromptState[key] = { text: def, edited: false };
+    const el = document.querySelector(`[data-home-card-prompt="${cssString(key)}"]`);
+    if(el){
+      if(el.isContentEditable) el.innerHTML = homeSourcePromptInnerHtml(key, def);
+      else el.value = def;
+    }
+    homeSyncCombinedPrompt();
     return;
   }
 

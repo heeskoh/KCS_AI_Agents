@@ -17,6 +17,7 @@ from src.agents.agent_company import agent_company
 from src.agents.agent_customs_value import agent_customs_value
 from src.agents.agent_db import agent_db
 from src.agents.agent_declaration_verify import agent_declaration_verify
+from src.agents.agent_external_info import agent_external_agency, agent_uni_external
 from src.agents.agent_hs_verify import agent_hs_verify
 from src.agents.agent_law import agent_law
 from src.agents.agent_mail_share import agent_mail_share
@@ -79,7 +80,9 @@ def _rag_runner(label: str, source_key: str) -> AgentRunner:
 
 AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("company", "기업 프로파일 조회", agent_company, "company_result", "company_agent", ("company_lookup", "company_profile")),
-    AgentModule("db", "CDW 조회", agent_db, "db_result", "db_agent", ("db_cdw", "cdw")),
+    AgentModule("db", "CDW 자연어조회", agent_db, "db_result", "db_agent", ("db_cdw", "cdw")),
+    AgentModule("db_external", "전자통관외부정보조회", agent_uni_external, "db_external_result", "db_external_agent", ("uni_external",)),
+    AgentModule("external_agency", "외부기관정보수집", agent_external_agency, "external_agency_result", "external_agency_agent", ("agency_collect",)),
     AgentModule("rag_customs", "관세정보 RAG", result_key="rag_result", node_prefix="rag_customs_agent", runner_factory=_rag_runner),
     AgentModule("rag_trade", "무역정보 RAG", result_key="rag_result", node_prefix="rag_trade_agent", runner_factory=_rag_runner),
     AgentModule("rag_audit", "심사정보 RAG", result_key="rag_result", node_prefix="rag_audit_agent", runner_factory=_rag_runner),

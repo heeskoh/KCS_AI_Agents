@@ -1,0 +1,38 @@
+{
+  "serviceId": "external_agency",
+  "label": "외부기관정보수집",
+  "agentId": "external_agency",
+  "category": "external",
+  "supports": { "company": true, "person": false },
+  "defaultPrompts": {
+    "company": "DART·NICE·CRETOP 등 외부기관 사이트에서 공시·신용·시세·특허·해외기업정보를 수집",
+    "person": "외부기관정보수집은 개인 대상에서 사용하지 않습니다."
+  },
+  "behaviorOptions": [
+    { "value": "dart",         "label": "금융감독원 전자공시(DART)" },
+    { "value": "nice_bizline", "label": "NICE평가정보(BizLINE)" },
+    { "value": "cretop",       "label": "한국기업데이터(CRETOP)" },
+    { "value": "korea_pds",    "label": "코리아PDS(KOREA PDS)" },
+    { "value": "kpi",          "label": "한국물가정보(KPI)" },
+    { "value": "kipris",       "label": "특허정보넷(KIPRIS)" },
+    { "value": "orbis",        "label": "뷰로반다익(ORBIS)" },
+    { "value": "dnb",          "label": "Dun&Bradstreet(D&B)" }
+  ],
+  "compositePrompts": {
+    "company": {
+      "default": "당신은 대한민국 관세청 조사관입니다. 아래 외부기관 정보원에서 조사 대상 기업 관련 정보를 수집하고 기관별 확인 포인트와 우선 수집 순서를 정리하십시오.\n\n[수집 대상 기관]\n- 금융감독원 전자공시시스템(DART) · http://dart.fss.or.kr · 감사보고서, 사업보고서 등 공시서류, 산업군별 공시업체 정보\n- NICE평가정보 BizLINE · https://www.nicebizline.com · 기업개요, 사업내용, 재무제표, 재무분석, 기업분석 보고서\n- 한국기업데이터 CRETOP · http://www.cretop.com · 기업개요, 사업내용, 재무정보, 신용정보, 신용조사 리포트\n- 코리아PDS(KOREA PDS) · http://www.koreapds.com · 주요 원자재 거래가격 및 통계, 원자재 수급 관련 시장정보\n- 한국물가정보(KPI) · http://www.kpi.or.kr · 원자재 국제 동향, 시세\n- 특허정보넷(KIPRIS) · http://www.kipris.or.kr · 지식재산권 등 출원 정보\n- 뷰로반다익(ORBIS) · https://orbis.bvdinfo.com · 기업현황, 지배구조, 재무제표, 특허정보, 공시된 연간 보고서\n- Dun&Bradstreet(D&B) · https://solutions.dnb.com/grs · 해외기업정보조회, 특정기업현지보고서\n\n[수행 절차]\n1. 선택된 기관별로 검색어(회사명·사업자번호·대표자·품목)와 확인 항목을 정리하십시오.\n2. 조사 쟁점(과세가격·원산지·특수관계·로열티)과의 연관성을 기관별로 제시하십시오.\n3. 우선 수집 순서를 근거와 함께 제안하십시오.\n\n[출력 형식]\n- 기관별 확인 포인트 (기관·URL·검색어·확인 항목)\n- 우선 수집 순서 및 근거\n\n[유의사항]\n- 실제 사이트 접속 결과가 아니므로 조회 값을 단정하지 말고 확인 계획 중심으로 기술하십시오.",
+
+      "dart": "금융감독원 전자공시시스템(DART, http://dart.fss.or.kr)에서 감사보고서·사업보고서 등 공시서류와 산업군별 공시업체 정보를 확인하십시오. 매출·매입 규모, 특수관계자 거래 주석, 해외 관계법인 현황을 수입신고 금액과 대조하는 데 활용합니다.",
+      "nice_bizline": "NICE평가정보 BizLINE(https://www.nicebizline.com)에서 기업개요·사업내용·재무제표·재무분석·기업분석 보고서를 확인하십시오. 재무 규모 대비 수출입 활동의 정합성 평가에 활용합니다.",
+      "cretop": "한국기업데이터 CRETOP(http://www.cretop.com)에서 기업개요·사업내용·재무정보·신용정보·신용조사 리포트를 확인하십시오. 신용등급 변동·연체 이력과 위험지표의 연관성 확인에 활용합니다.",
+      "korea_pds": "코리아PDS(http://www.koreapds.com)에서 주요 원자재 거래가격·통계와 원자재 수급 관련 시장정보를 확인하십시오. 신고가격의 국제 시세 대비 적정성(저가신고 탐지) 검토에 활용합니다.",
+      "kpi": "한국물가정보(http://www.kpi.or.kr)에서 원자재 국제 동향·시세를 확인하십시오. 수입 품목 신고가격과 시세의 편차 분석에 활용합니다.",
+      "kipris": "특허정보넷 KIPRIS(http://www.kipris.or.kr)에서 지식재산권 출원 정보를 확인하십시오. 로열티·기술사용료 지급 대상 권리의 실재성과 과세가격 가산요소 검토에 활용합니다.",
+      "orbis": "뷰로반다익 ORBIS(https://orbis.bvdinfo.com)에서 기업현황·지배구조·재무제표·특허정보·공시된 연간 보고서를 확인하십시오. 해외 모회사·관계법인 지배구조와 특수관계 거래 검토에 활용합니다.",
+      "dnb": "Dun&Bradstreet(https://solutions.dnb.com/grs)에서 해외기업정보조회·특정기업현지보고서를 확인하십시오. 해외 거래상대방의 실체성(페이퍼컴퍼니 여부) 검증에 활용합니다."
+    },
+    "person": {
+      "default": "외부기관정보수집은 개인 대상에서 사용하지 않습니다."
+    }
+  }
+}

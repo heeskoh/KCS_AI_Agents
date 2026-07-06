@@ -14,7 +14,9 @@ def _cfg(company: str, person: str | None = None, supports: dict[str, bool] | No
 
 
 AI_SERVICE_TARGET_CONFIG: dict[str, dict[str, Any]] = {
-    "db_cdw": _cfg("기업 프로파일, 최근 수입신고, 위험지표를 종합 요약", "우범자 프로파일, 여행·반입 이력, 위험지표를 종합 요약"),
+    "db_cdw": _cfg("기업 프로파일, 통합 위험정보, 조사·소송 이력, 수출입신고 내역을 종합 조회", "우범자 프로파일, 여행·반입 이력, 위험지표를 종합 요약"),
+    "db_external": _cfg("전자통관 연계 외부기관 자료(국세청 세적자료, 한국은행 수신자료)를 조회", "수사 대상 개인의 세적·외환 수신자료를 조회"),
+    "external_agency": _cfg("DART·NICE·CRETOP 등 외부기관 사이트에서 공시·신용·시세·특허·해외기업정보를 수집", "외부기관 사이트에서 개인 연관 기업·지식재산 정보를 수집", {"company": True, "person": False}),
     "company_profile": _cfg("기업 기본정보, 위험등급, 수입실적, 최근 신고·검사 이력을 조회", "기업 프로파일 조회는 개인 대상에서 사용하지 않습니다.", {"company": True, "person": False}),
     "rag_customs": _cfg("관세 업무 정보에서 과세가격, 원산지, 품목분류 관련 근거 확인", "휴대품, 여행자 통관, 조사 절차 관련 규정 근거 확인"),
     "rag_trade": _cfg("통관/무역 정보에서 이상 징후와 참고 근거 확인", "개인 반입·운송·거래 정보에서 이상 징후와 참고 근거 확인"),

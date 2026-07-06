@@ -19,6 +19,8 @@ class CustomsState(TypedDict, total=False):
     # Core agent results
     company_result: Optional[str]           # 기업 기본정보             (agent_company)
     db_result: Optional[str]                # CDW 수입신고 종합          (agent_db)
+    db_external_result: Optional[str]       # 전자통관외부정보조회        (agent_uni_external)
+    external_agency_result: Optional[str]   # 외부기관정보수집           (agent_external_agency)
     rag_result: Optional[str]               # RAG 결과 누적              (agent_rag_source)
     audit_search_result: Optional[str]      # 감사/조사 RAG 검색         (agent_audit_search)
     bigdata_result: Optional[str]           # 빅데이터 통계 (legacy)     (agent_bigdata)

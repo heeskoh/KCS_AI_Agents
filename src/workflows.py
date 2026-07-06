@@ -148,7 +148,7 @@ def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
         add_default_step("company", "기업 프로파일 조회")
 
     if scenario.get("db_query", True):
-        add_default_step("db", "CDW 조회")
+        add_default_step("db", "CDW 자연어조회")
 
     rag_flags = {
         "rag_customs_public": ("rag_customs", "관세정보 RAG"),
