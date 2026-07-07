@@ -456,29 +456,30 @@ function cyElements(graph){
     const isCore = coreSet.has(n.id);
     const score = nodeRiskScore(n.properties);
     const tier = riskTier(score);
-    const baseW = isCore ? 72 : 52;
-    // 아이콘 크기(×0.7 — 직전 0.35 대비 가로세로 2배)
-    const w = Math.round((baseW + (tier === "high" ? 16 : tier === "mid" ? 8 : 0)) * 0.7);
+    // 미니멀 아이콘: 작은 솔리드 도형(중심 20px·일반 16px) + 위험도만큼 소폭 확대
+    const baseW = isCore ? 20 : 16;
+    const w = baseW + (tier === "high" ? 6 : tier === "mid" ? 3 : 0);
     return {
       data: {
         id: n.id,
         name: n.name,
         typeKo: nodeLabelKo(n.label),
         color: nodeColor(n.label),
-        // 채움은 원색의 연한 파스텔톤, 라인(테두리)은 원색 그대로(진하게)
-        pcolor: pastel(nodeColor(n.label), 0.8),
+        // 채움은 유형 원색 솔리드(파스텔 제거) — 작은 도형에서도 유형 구분이 되도록.
+        // 중심(조사 대상) 노드만 파란색으로 별도 강조.
+        pcolor: isCore ? "#0000FF" : nodeColor(n.label),
         // 노드 유형별 도형(박스/육각형/삼각형/원) + 라벨 하단 배치(가독성)
         shape: nodeShape(n.label),
         isBox: nodeShape(n.label) === "round-rectangle" ? 1 : 0,
-        boxW: Math.round(w * 0.8),  // 박스는 원형보다 약간 작게
+        boxW: Math.round(w * 0.9),  // 박스는 원형보다 약간 작게
         ring: isCore ? 3 : (directIds.has(n.id) ? 2 : 1),
         core: isCore ? 1 : 0,
         risk: Number.isFinite(score) ? Math.round(score) : null,
         riskTier: tier,
         w,
-        // 라인(테두리)은 아이템 원색 그대로(진하게), 굵기는 가늘게. 중심 노드만 강조 빨강.
-        bcolor: isCore ? "#dc2626" : nodeColor(n.label),
-        bwidth: isCore ? 2.5 : 1.5,
+        // 테두리는 기본 없음 — 중심(조사 대상) 노드는 형광 노란색(굵게), 고위험은 빨간 라인으로 강조
+        bcolor: isCore ? "#ffff00" : (tier === "high" ? "#dc2626" : "#ffffff"),
+        bwidth: isCore ? 4 : (tier === "high" ? 1.5 : 0),
         props: n.properties || {},
       },
     };
@@ -503,12 +504,12 @@ const CY_STYLE = [
       // 유형별 도형 + 라벨을 아이콘 아래로(가독성)
       "shape": "data(shape)",
       "label": "data(name)",
-      "color": "#414141",
-      "font-size": "12px",
+      "color": "#333d4e",
+      "font-size": "11px",
       "font-weight": 400,
       "text-valign": "bottom",
       "text-halign": "center",
-      "text-margin-y": 4,
+      "text-margin-y": 3,
       "text-wrap": "ellipsis",
       "text-max-width": "92px",
       "text-outline-width": 0,
@@ -531,19 +532,19 @@ const CY_STYLE = [
   // A1: 검색 결과 — 비매칭 흐림 + 매칭 강조
   { selector: ".search-dim", style: { "opacity": .12 } },
   { selector: ".search-hit", style: {
-      "border-color": "#facc15", "border-width": 6,
+      "border-color": "#facc15", "border-width": 3,
       "color": "#0066FF", "font-weight": 800,
   }},
   // 분석 기법 강조
   { selector: ".analysis-dim", style: { "opacity": .12 } },
   { selector: ".analysis-hit", style: {
-      "border-color": "#16a34a", "border-width": 6,
+      "border-color": "#16a34a", "border-width": 3,
       "color": "#0066FF", "font-weight": 800,
   }},
   // 정렬용 다중 선택 — 파란 후광(검색=노랑·분석=초록과 구분)
   { selector: "node:selected", style: {
-      "border-color": "#2563eb", "border-width": 5,
-      "overlay-color": "#2563eb", "overlay-opacity": .14, "overlay-padding": 6,
+      "border-color": "#2563eb", "border-width": 3,
+      "overlay-color": "#2563eb", "overlay-opacity": .14, "overlay-padding": 4,
       "color": "#1d4ed8", "font-weight": 800,
   }},
   // 파일 등록 엣지 — 점선·자홍색으로 Neo4j 관계와 구분

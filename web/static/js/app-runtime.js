@@ -29,7 +29,7 @@ import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
 import { openFileRegisterPopup } from "./pages/file-register-popup.js";
 import "./pages/service-detail-popup.js";   // AI 서비스 상세 팝업(신규) — self-init, 기존 코드 무변경
 import { serviceInputStripHtml } from "./pages/service-workspace-ui.js";   // 3세트 UI 입력값 스트립(신규)
-import { finalizeScenarioPrompt } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
+import { finalizeScenarioPrompt, patternBehaviorDescription } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -1661,6 +1661,10 @@ function normalizeScenarioItem(item, index = 0){
     // 업무특화 RAG 단계(검색·생성): 대상 RAG 식별자/이름 보존 (구버전은 라벨에서 이름 복구)
     ragId: (key === "rag_custom_search" || key === "rag_create") ? (item.ragId || item.rag_id || "") : "",
     ragName: (key === "rag_custom_search" || key === "rag_create") ? (item.ragName || item.rag_name || legacyRagName || "") : "",
+    // 분석범위별 개별 프롬프트(리뷰 모드 상세설정) — 현재 유효한 동작 값만 보존
+    behaviorPrompts: (item.behaviorPrompts && typeof item.behaviorPrompts === "object")
+      ? Object.fromEntries(Object.entries(item.behaviorPrompts).filter(([value, text]) => validBehaviorValues.has(value) && text))
+      : {},
   };
 }
 
@@ -1901,6 +1905,9 @@ let openedSteps = new Set();
 let expandedResultStepId = null;
 let scenarioInitialized = false;
 let scenarioLoadedForCompany = null;
+// 리뷰 모드(관세조사 "분석 시나리오 확인 및 설정") 여부 — sharedScenarioWorkbenchHtml 렌더 시 갱신.
+// true면 우측 패널은 선택된 AI 서비스의 결과만, 좌측은 분석범위별 개별 프롬프트 편집을 표시한다.
+let scenarioReviewMode = false;
 let editingTemplateId = null;
 let templateEditorItems = [];
 let templateEditorSelectedId = null;
@@ -1970,6 +1977,7 @@ const customsDeps = {
   scenarioTemplateOptionsHtml,
   scenarioTemplatePanel,
   scenarioWorkbenchV2,
+  scenarioReviewWorkbench,
   getScenarioCompanies: () => scenarioCompanies,
 };
 const customsInvestigation = createCustomsInvestigation(customsDeps);
@@ -2676,6 +2684,10 @@ let customCanvasJobs = [];
 let userPermissions = {...defaultUserPermissions};
 let canvasJobOverrides = {};
 let canvasRunArchives = {};
+// 사전 준비된 분석 결과(읽기전용, data/prepared_analysis_results.json) —
+// 관세조사 "분석 시나리오 확인 및 설정" 화면이 실시간 실행 없이 표시하는 아카이브.
+// 사용자가 직접 실행한 canvasRunArchives가 항상 우선한다.
+let preparedRunArchives = {};
 let hiddenCanvasJobsByUser = {};
 let userWorkspaces = {};
 let overviewArchiveOpen = false;
@@ -5529,6 +5541,9 @@ async function loadCanvasState(){
     }
     if(saved.canvasJobOverrides && typeof saved.canvasJobOverrides === "object") canvasJobOverrides = saved.canvasJobOverrides;
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
+    // 사전 준비된 분석 결과 로드(서버 읽기전용 파일 — workspace_state에는 저장되지 않음)
+    const prepared = await fetchJsonStore("/api/prepared_results");
+    if(prepared && typeof prepared.archives === "object" && prepared.archives) preparedRunArchives = prepared.archives;
     if(saved.hiddenCanvasJobsByUser && typeof saved.hiddenCanvasJobsByUser === "object") hiddenCanvasJobsByUser = saved.hiddenCanvasJobsByUser;
     if(saved.userWorkspaces && typeof saved.userWorkspaces === "object") userWorkspaces = saved.userWorkspaces;
     if(saved.agenticServicesByGroup && typeof saved.agenticServicesByGroup === "object") agenticServicesByGroup = saved.agenticServicesByGroup;
@@ -5830,6 +5845,9 @@ function restoreUserWorkspace(userId){
 function getCompanyScenario(companyId){
   const saved = companyScenarios[companyId];
   if(saved && saved.length) return saved.map((item, index) => normalizeScenarioItem({...item}, index));
+  // 사전 준비된 결과가 있으면 그 시나리오 구성을 사용 — stepOutputs 키(item.id)와 일치해야 결과가 표시된다
+  const prepared = preparedRunArchives[companyId];
+  if(prepared?.scenarioItems?.length) return prepared.scenarioItems.map((item, index) => normalizeScenarioItem({...item}, index));
   return cloneTemplateItems("customs-basic");
 }
 
@@ -7103,7 +7121,8 @@ function activeCanvasCompany(companyIdOverride = activeCanvasCompanyId){
 }
 
 function currentRunArchive(companyId = activeCanvasCompanyId){
-  return canvasRunArchives[companyId] || null;
+  // 본인이 직접 실행한 아카이브 우선, 없으면 사전 준비된 결과로 폴백
+  return canvasRunArchives[companyId] || preparedRunArchives[companyId] || null;
 }
 
 function hasMeaningfulArchiveResults(archive){
@@ -7204,6 +7223,29 @@ function archiveCanvasJob(companyId){
   });
 }
 
+/* 아카이브의 stepOutputs/stepStatuses를 현재 시나리오 항목 id 기준으로 재매핑한다.
+   사전 준비 아카이브(prep-* id)와 사용자 저장 시나리오(companyScenarios)의 항목 id가
+   달라도, 같은 AI 서비스(key)를 순서대로 매칭해 결과를 표시할 수 있게 한다.
+   id가 이미 일치하는 아카이브(본인 실행분)는 원본 그대로 반환한다. */
+function remapArchiveResults(archive, items){
+  const outputs = archive?.stepOutputs ? {...archive.stepOutputs} : {};
+  const statuses = archive?.stepStatuses ? {...archive.stepStatuses} : {};
+  const archiveItems = Array.isArray(archive?.scenarioItems) ? archive.scenarioItems : [];
+  if(!archiveItems.length || !Array.isArray(items) || !items.length) return { outputs, statuses };
+  if(items.some(item => outputs[item.id] !== undefined || statuses[item.id] !== undefined)) return { outputs, statuses };
+  const pending = [...archiveItems].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const remappedOutputs = {};
+  const remappedStatuses = {};
+  items.forEach(item => {
+    const index = pending.findIndex(candidate => candidate.key === item.key);
+    if(index < 0) return;
+    const [match] = pending.splice(index, 1);
+    if(outputs[match.id] !== undefined) remappedOutputs[item.id] = outputs[match.id];
+    if(statuses[match.id] !== undefined) remappedStatuses[item.id] = statuses[match.id];
+  });
+  return { outputs: remappedOutputs, statuses: remappedStatuses };
+}
+
 function loadCompanyRunArchive(companyId){
   const archive = currentRunArchive(companyId);
   if(!archive){
@@ -7217,8 +7259,9 @@ function loadCompanyRunArchive(companyId){
   }
   latestReport = archive.latestReport || "보고서가 아직 생성되지 않았습니다.";
   latestValidation = archive.latestValidation || "검증 결과가 아직 없습니다.";
-  stepOutputs = archive.stepOutputs ? {...archive.stepOutputs} : {};
-  stepStatuses = archive.stepStatuses ? {...archive.stepStatuses} : {};
+  const remapped = remapArchiveResults(archive, getCompanyScenario(companyId));
+  stepOutputs = remapped.outputs;
+  stepStatuses = remapped.statuses;
   openedSteps = new Set(Object.keys(stepOutputs));
   expandedResultStepId = null;
 }
@@ -8403,12 +8446,18 @@ function initTemplateEditor(){
    ═══════════════════════════════════════════════════════════════ */
 function sharedScenarioWorkbenchHtml(ctx = {}){
   const archived          = ctx.archived          || false;
+  // reviewMode: 실시간 실행 없이 사전 준비된 결과를 확인하는 설정/결과 화면(관세조사).
+  // 실행·초기화 버튼을 렌더하지 않고 "분석 재수행 요청"(모의 접수)만 노출한다.
+  const reviewMode        = ctx.reviewMode        || false;
+  const reviewNoteHtml    = ctx.reviewNoteHtml    || "";
   const titleHtml         = ctx.titleHtml         || "조사 및 수사 분석 단계";
   const subtitleHtml      = ctx.subtitleHtml       || "";
   const templateOptionsHtml = ctx.templateOptionsHtml || scenarioTemplateOptionsHtml();
+  // 워크벤치 렌더의 단일 통과 지점 — 이후 renderScenarioSteps/syncScenarioEditor가 모드별로 분기한다
+  scenarioReviewMode = reviewMode;
 
   return `
-    <section class="card scenario-workbench scenario-workbench-v2">
+    <section class="card scenario-workbench scenario-workbench-v2${reviewMode ? " scenario-review-mode" : ""}">
       <div class="scenario-work-header">
         <div class="scenario-title-row">
           <div>
@@ -8455,12 +8504,19 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             <div id="scenarioShareEmailPanel"></div>
             <div id="scenarioWebTargetPanel"></div>
             <div id="scenarioRagPanel"></div>
+            ${reviewMode ? `
+            <div class="scenario-field scenario-behavior-prompt-field">
+              <span>분석범위별 상세설정</span>
+              <div id="scenarioBehaviorPromptList" class="scenario-behavior-prompt-list"></div>
+            </div>
+            ` : `
             <label class="scenario-field">
               <span>자동 생성 프롬프트</span>
               <textarea id="scenarioInstruction"
                 class="scenario-prompt-editor"
                 placeholder="선택한 AI 서비스와 동작 조건에 맞춰 최적 프롬프트가 자동 생성됩니다. 필요하면 직접 수정하세요."></textarea>
             </label>
+            `}
           </div>
           <div id="scenarioPromptValidation" class="scenario-prompt-validation"></div>
           <div class="scenario-prompt-actions">
@@ -8468,19 +8524,26 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
               ${archived ? "disabled" : ""}>프롬프트 변경 적용</button>
             <button id="scenarioValidatePromptButton" type="button" class="btn secondary"
               ${archived ? "disabled" : ""}>프롬프트 검증</button>
+            ${reviewMode ? `
+            <button id="scenarioRerunRequestButton" type="button" class="btn primary"
+              ${archived ? "disabled" : ""}>분석 재수행 요청</button>
+            ` : `
             <button id="scenarioRunSelectedButton" type="button" class="btn primary"
               ${archived ? "disabled" : ""}>▶ 이 AI서비스만 실행</button>
+            `}
           </div>
         </aside>
 
         <section class="scenario-log">
           <div class="scenario-log-head">
-            <h3>분석 실행 로그</h3>
+            <h3>${reviewMode ? "분석 결과" : "분석 실행 로그"}</h3>
             <div class="scenario-log-actions">
+              ${reviewMode ? reviewNoteHtml : `
               <button id="scenarioRunButton" type="button" class="btn"
                 ${archived ? "disabled" : ""}>단계별 자동실행</button>
               <button id="scenarioClearButton" type="button" class="btn secondary"
                 ${archived ? "disabled" : ""}>결과 지우기</button>
+              `}
             </div>
           </div>
           <div id="scenarioClarify" class="scenario-clarify-slot"></div>
@@ -8499,6 +8562,24 @@ function scenarioWorkbenchV2(){
     archived,
     titleHtml:    "조사 및 수사 분석 단계",
     subtitleHtml: `수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">${archived ? "아카이브된 작업은 복원 후 다시 분석할 수 있습니다." : "단계를 추가·삭제·순서 변경하여 맞춤형 시나리오를 구성할 수 있습니다."}</em>`,
+    templateOptionsHtml: scenarioTemplateOptionsHtml(),
+  });
+}
+
+/* 관세조사 — 분석 시나리오 확인 및 설정 (리뷰 모드: 사전 준비된 결과 확인 + 설정 편집) */
+function scenarioReviewWorkbench(){
+  const company = activeCanvasCompany();
+  const archived = isCompanyArchived(company.company_id);
+  const archive = currentRunArchive(company.company_id);
+  const preparedNote = archive
+    ? `<span class="muted" style="font-size:12px">사전 준비된 분석 결과 · ${escapeHtml(archive.savedAt || "")}</span>`
+    : `<span class="muted" style="font-size:12px">준비된 분석 결과가 없습니다</span>`;
+  return sharedScenarioWorkbenchHtml({
+    archived,
+    reviewMode: true,
+    reviewNoteHtml: preparedNote,
+    titleHtml:    "분석 시나리오 확인 및 설정",
+    subtitleHtml: `사전 수행된 분석 결과를 단계별로 확인하고, 분석 시나리오 구성·분석범위·프롬프트를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">설정을 변경한 뒤 "분석 재수행 요청"으로 재분석을 접수할 수 있습니다.</em>`,
     templateOptionsHtml: scenarioTemplateOptionsHtml(),
   });
 }
@@ -8847,11 +8928,12 @@ function initScenarioWorkbench(){
   // Only reload scenario data when company changes; preserve stepOutputs/stepStatuses otherwise
   if(scenarioLoadedForCompany !== activeCanvasCompanyId){
     scenarioLoadedForCompany = activeCanvasCompanyId;
-    const archive = canvasRunArchives[activeCanvasCompanyId];
+    const archive = currentRunArchive(activeCanvasCompanyId);
     scenarioItems = getCompanyScenario(activeCanvasCompanyId);
     if(archive){
-      stepOutputs = {...(archive.stepOutputs || {})};
-      stepStatuses = {...(archive.stepStatuses || {})};
+      const remapped = remapArchiveResults(archive, scenarioItems);
+      stepOutputs = remapped.outputs;
+      stepStatuses = remapped.statuses;
       latestReport = archive.latestReport || "보고서가 아직 생성되지 않았습니다.";
       latestValidation = archive.latestValidation || "검증 결과가 아직 없습니다.";
     }else{
@@ -8866,8 +8948,10 @@ function initScenarioWorkbench(){
   if(scenarioInitialized) return;
   scenarioInitialized = true;
 
-  document.getElementById("scenarioRunButton").addEventListener("click", runScenarioWorkflow);
-  document.getElementById("scenarioClearButton").addEventListener("click", clearScenarioResults);
+  // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 실행·초기화 버튼이 렌더되지 않는다 — 옵셔널 바인딩
+  document.getElementById("scenarioRunButton")?.addEventListener("click", runScenarioWorkflow);
+  document.getElementById("scenarioClearButton")?.addEventListener("click", clearScenarioResults);
+  document.getElementById("scenarioRerunRequestButton")?.addEventListener("click", requestScenarioRerun);
   document.getElementById("scenarioTemplateApplyButton")?.addEventListener("click", applySelectedScenarioTemplate);
   document.getElementById("scenarioSaveButton")?.addEventListener("click", () => {
     const defaultName = `${activeCanvasCompany()?.company_name || "기업"} 분석 템플릿`;
@@ -8906,6 +8990,75 @@ function initScenarioWorkbench(){
   renderScenarioSteps();
 }
 
+/* 분석범위(동작) 하나에 대한 짧은 설명 — 패턴 등록분 우선, 없으면 기본 문구 */
+function scenarioBehaviorDescription(key, behaviorValue){
+  const label = sourceBehaviorLabel(key, behaviorValue);
+  return patternBehaviorDescription(key, label)
+    || `'${label}' 관점의 조회·분석을 수행합니다.`;
+}
+
+/* 리뷰 모드 전용: 선택된 AI 서비스의 분석범위마다 설명 + 개별 프롬프트 편집 블록을 렌더한다.
+   개별 프롬프트는 item.behaviorPrompts[동작값]에 저장되며, 없으면 해당 동작 단독의
+   composePrompt(상세설정 템플릿)로 자동 생성해 채운다. */
+function renderBehaviorPromptBlocks(item){
+  const box = document.getElementById("scenarioBehaviorPromptList");
+  if(!box) return;
+  if(!item){
+    box.innerHTML = `<div class="empty-state">AI 서비스 단계를 먼저 선택하세요.</div>`;
+    return;
+  }
+  const targetType = item.target_type || item.targetType || "company";
+  const behaviors = Array.isArray(item.behaviors) && item.behaviors.length
+    ? item.behaviors
+    : sourceDefaultBehaviors(item.key);
+  box.innerHTML = behaviors.map(value => {
+    const label = sourceBehaviorLabel(item.key, value);
+    const desc = scenarioBehaviorDescription(item.key, value);
+    const saved = item.behaviorPrompts?.[value] || "";
+    return `
+      <div class="scenario-behavior-prompt">
+        <div class="scenario-behavior-prompt-head">
+          <strong>${escapeHtml(label)}</strong>
+          <span>${escapeHtml(desc)}</span>
+        </div>
+        <textarea class="scenario-prompt-editor" data-behavior-prompt="${escapeHtml(value)}"
+          placeholder="'${escapeHtml(label)}' 분석범위의 개별 프롬프트가 자동 생성됩니다. 필요하면 직접 수정하세요.">${escapeHtml(saved)}</textarea>
+      </div>
+    `;
+  }).join("");
+
+  // 저장된 개별 프롬프트가 없는 동작은 동작 단독 composePrompt로 자동 생성해 채운다
+  const issuedItemId = item.id;
+  behaviors.forEach(value => {
+    if(item.behaviorPrompts?.[value]) return;
+    composePrompt(item.key, [value], targetType).then(composed => {
+      const liveItem = selectedScenarioItem();
+      if(!liveItem || liveItem.id !== issuedItemId) return;
+      const el = document.querySelector(`#scenarioBehaviorPromptList textarea[data-behavior-prompt="${CSS.escape(value)}"]`);
+      if(!el || el.value.trim()) return;
+      el.value = composed || scenarioSuggestedInstruction(item.key, targetType, [value]);
+    });
+  });
+}
+
+/* 리뷰 모드 전용: 분석범위별 개별 프롬프트 textarea 값을 {동작값: 프롬프트}로 수집 */
+function collectBehaviorPrompts(){
+  const prompts = {};
+  document.querySelectorAll("#scenarioBehaviorPromptList textarea[data-behavior-prompt]").forEach(el => {
+    const value = el.dataset.behaviorPrompt;
+    if(value) prompts[value] = el.value.trim();
+  });
+  return prompts;
+}
+
+/* 리뷰 모드 전용: 분석범위별 개별 프롬프트를 실행용 통합 지시문으로 병합 */
+function mergeBehaviorPrompts(item, prompts){
+  return Object.entries(prompts)
+    .filter(([, text]) => text)
+    .map(([value, text]) => `[분석범위: ${sourceBehaviorLabel(item.key, value)}]\n${text}`)
+    .join("\n\n");
+}
+
 function syncScenarioEditor(){
   const item = selectedScenarioItem();
   const quickSourceSelect = document.getElementById("scenarioQuickSourceSelect");
@@ -8917,28 +9070,33 @@ function syncScenarioEditor(){
   if(item) syncBehaviorOptions(item.key, item.behaviors || sourceDefaultBehaviors(item.key));
   if(!item) syncBehaviorOptions("db_cdw", []);
   // 즉시 폴백값 설정 후 JSON 기반 최적 프롬프트로 교체
-  const _fallback = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
-  if(instruction) instruction.value = _fallback;
-  if(item?.key){
-    // race 가드: promise 발행 시점의 단계가 resolve 시점에도 선택돼 있어야 적용.
-    // (이 가드 없이는 단계 A의 늦은 응답이 단계 B 화면/데이터에 A의 프롬프트를 덮어쓴다)
-    const issuedItemId = item.id;
-    composePrompt(item.key, item.behaviors || sourceDefaultBehaviors(item.key), targetType).then(composed => {
-      const liveItem = selectedScenarioItem();
-      if(!liveItem || liveItem.id !== issuedItemId) return;
-      const el = document.getElementById("scenarioInstruction");
-      if(!el) return;
-      // 패턴 등록 서비스는 상세 템플릿(composed)이 없어도 설명형 패턴 프롬프트로 대체(그 외는 composePrompt 원본)
-      const finalText = finalizeScenarioPrompt(item.key,
-        sourceBehaviorLabels(item.key, item.behaviors || sourceDefaultBehaviors(item.key)), composed);
-      if(!finalText) return;
-      // 사용자가 직접 수정하지 않은 경우(=자동 생성값과 동일할 때)에만 교체
-      const current = el.value;
-      if(!current || current === _fallback || current === composed){
-        el.value = finalText;
-        liveItem.instruction = finalText;
-      }
-    });
+  if(scenarioReviewMode){
+    // 리뷰 모드: 통합 프롬프트 대신 분석범위별 설명·개별 프롬프트 블록을 렌더한다
+    renderBehaviorPromptBlocks(item);
+  }else{
+    const _fallback = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
+    if(instruction) instruction.value = _fallback;
+    if(item?.key){
+      // race 가드: promise 발행 시점의 단계가 resolve 시점에도 선택돼 있어야 적용.
+      // (이 가드 없이는 단계 A의 늦은 응답이 단계 B 화면/데이터에 A의 프롬프트를 덮어쓴다)
+      const issuedItemId = item.id;
+      composePrompt(item.key, item.behaviors || sourceDefaultBehaviors(item.key), targetType).then(composed => {
+        const liveItem = selectedScenarioItem();
+        if(!liveItem || liveItem.id !== issuedItemId) return;
+        const el = document.getElementById("scenarioInstruction");
+        if(!el) return;
+        // 패턴 등록 서비스는 상세 템플릿(composed)이 없어도 설명형 패턴 프롬프트로 대체(그 외는 composePrompt 원본)
+        const finalText = finalizeScenarioPrompt(item.key,
+          sourceBehaviorLabels(item.key, item.behaviors || sourceDefaultBehaviors(item.key)), composed);
+        if(!finalText) return;
+        // 사용자가 직접 수정하지 않은 경우(=자동 생성값과 동일할 때)에만 교체
+        const current = el.value;
+        if(!current || current === _fallback || current === composed){
+          el.value = finalText;
+          liveItem.instruction = finalText;
+        }
+      });
+    }
   }
   if(hint && item){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
@@ -9093,8 +9251,26 @@ function updateSelectedScenarioInstruction(value){
 function applySelectedScenarioPrompt(){
   if(isCompanyArchived()) return;
   const item = selectedScenarioItem();
-  const instruction = document.getElementById("scenarioInstruction");
   const validation = document.getElementById("scenarioPromptValidation");
+  if(scenarioReviewMode){
+    // 리뷰 모드: 분석범위별 개별 프롬프트를 저장하고 실행용 통합 지시문으로 병합
+    if(!item) return;
+    const prompts = collectBehaviorPrompts();
+    const empty = Object.entries(prompts).filter(([, text]) => !text);
+    if(empty.length){
+      const labels = empty.map(([value]) => sourceBehaviorLabel(item.key, value));
+      if(validation) validation.innerHTML = `<div class="prompt-validation-msg warn">개별 프롬프트를 입력한 뒤 적용하세요: ${escapeHtml(labels.join(", "))}</div>`;
+      return;
+    }
+    item.behaviorPrompts = prompts;
+    item.instruction = mergeBehaviorPrompts(item, prompts) || item.instruction;
+    saveCompanyScenario();
+    renderScenarioList();
+    renderScenarioSteps();
+    if(validation) validation.innerHTML = `<div class="prompt-validation-msg good">분석범위별 프롬프트 ${Object.keys(prompts).length}건이 등록되었습니다. 재수행 요청 시 적용됩니다.</div>`;
+    return;
+  }
+  const instruction = document.getElementById("scenarioInstruction");
   if(!item || !instruction) return;
   const value = instruction.value.trim();
   if(!value){
@@ -9111,8 +9287,24 @@ function applySelectedScenarioPrompt(){
 
 function validateSelectedScenarioPrompt(){
   const item = selectedScenarioItem();
-  const instruction = document.getElementById("scenarioInstruction");
   const validation = document.getElementById("scenarioPromptValidation");
+  if(scenarioReviewMode){
+    // 리뷰 모드: 분석범위별 개별 프롬프트 각각을 점검
+    if(!item || !validation) return;
+    const prompts = collectBehaviorPrompts();
+    const messages = [];
+    Object.entries(prompts).forEach(([value, text]) => {
+      const label = sourceBehaviorLabel(item.key, value);
+      if(!text) messages.push(`'${label}' 프롬프트가 비어 있습니다.`);
+      else if(text.length < 20) messages.push(`'${label}' 프롬프트가 너무 짧아 분석 범위가 불명확할 수 있습니다.`);
+    });
+    if(!Object.keys(prompts).length) messages.push("검증할 분석범위 프롬프트가 없습니다.");
+    validation.innerHTML = messages.length
+      ? `<div class="prompt-validation-msg warn">${escapeHtml(messages.join(" "))}</div>`
+      : `<div class="prompt-validation-msg good">분석범위 ${Object.keys(prompts).length}건 모두 선택된 AI 서비스와 동작 조건에 맞는 프롬프트입니다.</div>`;
+    return;
+  }
+  const instruction = document.getElementById("scenarioInstruction");
   if(!item || !instruction || !validation) return;
   const value = instruction.value.trim();
   const behaviorLabels = sourceBehaviorLabels(item.key, selectedBehaviorValues().length ? selectedBehaviorValues() : item.behaviors);
@@ -9247,6 +9439,8 @@ function renderScenarioList(){
       selectedScenarioId = chip.dataset.scenarioId;
       renderScenarioList();
       syncScenarioEditor();
+      // 리뷰 모드: 우측 결과 패널이 선택된 AI 서비스를 따라가도록 갱신
+      if(scenarioReviewMode) renderScenarioSteps();
     });
     chip.addEventListener("dragstart", event => event.dataTransfer.setData("text/plain", chip.dataset.scenarioId));
     chip.addEventListener("dragover", event => event.preventDefault());
@@ -9284,15 +9478,28 @@ function renderScenarioSteps(){
     return;
   }
   normalizeScenarioOrder();
-  target.innerHTML = scenarioItems.map(item => {
-    const open = openedSteps.has(item.id);
+  // 리뷰 모드: 전체 로그 아코디언 대신 상단 카드에서 선택된 AI 서비스의 결과만 펼쳐 보여준다
+  const visibleItems = scenarioReviewMode
+    ? scenarioItems.filter(item => item.id === selectedScenarioId)
+    : scenarioItems;
+  if(scenarioReviewMode && !visibleItems.length){
+    target.innerHTML = `<div class="empty-state">상단 단계 카드에서 AI 서비스를 선택하면 해당 결과가 표시됩니다.</div>`;
+    return;
+  }
+  target.innerHTML = visibleItems.map(item => {
+    const open = scenarioReviewMode ? true : openedSteps.has(item.id);
     const full = expandedResultStepId === item.id;
     const hasOutput = Boolean(stepOutputs[item.id]);
     const status = stepStatuses[item.id] || "대기";
     const output = stepOutputs[item.id] || "아직 실행 결과가 없습니다.";
     const canRerunFromStep = status === "오류";
-    return `
-      <section class="scenario-step ${item.type} ${open ? "open" : ""} ${full ? "result-full" : ""}">
+    // 리뷰 모드: 항상 펼침 상태이므로 접기 토글·상태 배지·전체결과보기 버튼 없이 서비스명만 표시
+    const headHtml = scenarioReviewMode ? `
+        <div class="scenario-step-head">
+          <div class="scenario-step-toggle" style="cursor:default">
+            <span>${escapeHtml(normalizeReportValidationLabel(item.label))}</span>
+          </div>
+        </div>` : `
         <div class="scenario-step-head">
           <button type="button" class="scenario-step-toggle" data-step-id="${item.id}">
             <span>${escapeHtml(normalizeReportValidationLabel(item.label))}</span>
@@ -9303,7 +9510,10 @@ function renderScenarioSteps(){
           <button type="button" class="scenario-step-full" data-full-step-id="${item.id}" ${hasOutput ? "" : "disabled"}>
             ${full ? "전체결과 닫기" : "전체결과보기"}
           </button>
-        </div>
+        </div>`;
+    return `
+      <section class="scenario-step ${item.type} ${open ? "open" : ""} ${full ? "result-full" : ""}">
+        ${headHtml}
         <div class="scenario-step-body markdown-output">${markdownToHtml(output)}</div>
       </section>
     `;
@@ -9432,6 +9642,37 @@ function clearScenarioResults(){
   renderScenarioList();
   renderScenarioSteps();
   saveIntermediateResults(activeCanvasCompanyId);
+}
+
+/* 분석 재수행 요청(리뷰 모드 전용) — 실시간 실행 없이 재분석 접수만 기록하는 모의 처리.
+   실제 분석은 배치(사전 준비 결과 생성)로 수행되며 화면은 접수 상태만 표시한다. */
+function requestScenarioRerun(){
+  if(isCompanyArchived()){
+    alert("아카이브된 작업은 복원 후 재수행을 요청할 수 있습니다.");
+    return;
+  }
+  const companyId = activeCanvasCompanyId;
+  if(!companyId){
+    alert("분석 대상 기업을 선택하세요.");
+    return;
+  }
+  saveCompanyScenario();
+  patchCanvasJob(companyId, {
+    scenarioChanged: false,
+    status: { label:"재수행 요청", tone:"review" },
+    updated:"방금",
+  });
+  setScenarioStatus("재수행 요청 접수");
+  const clarifySlot = document.getElementById("scenarioClarify");
+  if(clarifySlot){
+    clarifySlot.innerHTML = `
+      <div class="scenario-clarify-note" style="padding:10px 12px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:8px;color:#075985;font-size:13px">
+        분석 재수행이 접수되었습니다. 현재 시나리오 구성(단계 ${scenarioItems.length}개)으로 재분석이 예약되며,
+        완료 후 이 화면과 "분석 보고서 및 검증" 탭의 결과가 갱신됩니다.
+      </div>
+    `;
+  }
+  saveCanvasState();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -10033,7 +10274,7 @@ function render(page="home"){
   const contentEl = document.getElementById("content");
   const fillPage = page === "agentic" ||
                    (page === "canvas" && canvasTab === "report") ||
-                   ((page === "investigation" || pageTemplate === "customs") && customsState.investigationTab === "scenario") ||
+                   ((page === "investigation" || pageTemplate === "customs") && (customsState.investigationTab === "scenario" || customsState.investigationTab === "network")) ||
                    ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench")) ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);

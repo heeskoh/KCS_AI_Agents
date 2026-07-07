@@ -1700,6 +1700,7 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     PROMPT_OVERRIDES_PATH = DATA_DIR / "prompt_overrides.json"
     NETWORK_SCENARIOS_PATH = DATA_DIR / "network_scenarios.json"
     SERVICE_SETTINGS_PATH = DATA_DIR / "service_settings.json"
+    PREPARED_RESULTS_PATH = DATA_DIR / "prepared_analysis_results.json"
     _workspace_lock = threading.Lock()
 
     def _read_json_store(self, path) -> dict | None:
@@ -1863,6 +1864,13 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/scenario_templates":
             # 수사유형별 빌트인 시나리오 템플릿(관세·일반·마약) — data/scenario_templates.json
             state = self._read_json_store(self.SCENARIO_TEMPLATES_PATH)
+            if state is not None:
+                self._send_json({"state": state})
+            return
+        if parsed.path == "/api/prepared_results":
+            # 사전 준비된 분석 결과 아카이브(관세조사 리뷰 화면용, 읽기전용)
+            #  — data/prepared_analysis_results.json (tools/build_prepared_results.py 로 생성)
+            state = self._read_json_store(self.PREPARED_RESULTS_PATH)
             if state is not None:
                 self._send_json({"state": state})
             return

@@ -1,5 +1,6 @@
 import { dashboardSubtab } from "./dashboard.js";
 import { dataSubtab } from "./data.js";
+import { networkSubtab } from "./network.js";
 import { ongoingSubtab } from "./ongoing.js";
 import { profileSubtab } from "./profile.js";
 import { reportSubtab } from "./report.js";
@@ -13,6 +14,7 @@ export const CUSTOMS_SUBTABS = [
   profileSubtab,
   dataSubtab,
   scenarioSubtab,
+  networkSubtab,
   reportSubtab,
   dashboardSubtab,
   templatesSubtab,

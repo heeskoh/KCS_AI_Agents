@@ -1599,6 +1599,14 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-config .scenario-field textarea,.scenario-agent-zone .scenario-field textarea{min-height:80px}
 .scenario-agent-zone .scenario-prompt-editor{flex:1;min-height:120px;border-color:#38bdf8;border-radius:10px;font-size:15px;line-height:1.7;background:#fff;overflow-y:auto;resize:none}
 .scenario-behavior-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+/* 리뷰 모드: 분석범위별 설명 + 개별 프롬프트 편집 블록 */
+.scenario-behavior-prompt-field{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
+.scenario-behavior-prompt-list{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto}
+.scenario-behavior-prompt{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff}
+.scenario-behavior-prompt-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.scenario-behavior-prompt-head strong{color:#123c85;font-size:12px;font-weight:900;white-space:nowrap}
+.scenario-behavior-prompt-head span{color:var(--muted);font-size:11px;line-height:1.4}
+.scenario-behavior-prompt .scenario-prompt-editor{min-height:96px;font-size:13px;line-height:1.6;flex:none}
 .scenario-behavior-check{display:flex;align-items:center;gap:5px;padding:4px 6px;border:1px solid #d8e5fb;border-radius:8px;background:#f8fbff;color:#123c85;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scenario-behavior-check input{accent-color:var(--blue)}
 .scenario-source-hint{margin:0 0 8px;padding:7px 10px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff}
@@ -1741,6 +1749,18 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-execution-layout .scenario-log.result-full-active{height:auto;min-height:100%;overflow:visible}
 .scenario-step-accordion{min-height:0;overflow:auto;border:1px solid var(--line);border-radius:13px}
 .scenario-step-accordion.result-full-active{overflow:visible}
+/* 리뷰 모드: 선택된 단계 1개의 결과가 프레임 전체를 채우고, 내용이 넘칠 때만 스크롤 */
+.scenario-review-mode .scenario-log{display:flex;flex-direction:column}
+.scenario-review-mode .scenario-log .scenario-clarify-slot{flex:none}
+.scenario-review-mode .scenario-step-accordion:not(.result-full-active){flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.scenario-review-mode .scenario-step:not(.result-full){flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:0}
+.scenario-review-mode .scenario-step:not(.result-full) .scenario-step-head{flex:none}
+.scenario-review-mode .scenario-step.open:not(.result-full) .scenario-step-body{flex:1;min-height:0;max-height:none;overflow:auto}
+/* 리뷰 모드: 결과 박스 프레임은 강조색 테두리(배경 유지), 본문은 밝은 배경 + 어두운 글자 */
+.scenario-review-mode .scenario-step-accordion{border-color:#38bdf8}
+.scenario-review-mode .scenario-step-body{background:#fff;color:#22304a;font-family:'Noto Sans KR',Consolas,monospace}
+.scenario-review-mode .scenario-step-body.markdown-output,.scenario-review-mode .scenario-step-body .markdown-output,.scenario-review-mode .scenario-step-body p,.scenario-review-mode .scenario-step-body li,.scenario-review-mode .scenario-step-body h1,.scenario-review-mode .scenario-step-body h2,.scenario-review-mode .scenario-step-body h3,.scenario-review-mode .scenario-step-body h4,.scenario-review-mode .scenario-step-body strong,.scenario-review-mode .scenario-step-body em{color:#22304a}
+.scenario-review-mode .scenario-step-body code{background:#eef4ff;color:#123c85}
 .empty-state{padding:18px;color:var(--muted);font-weight:700}
 .scenario-step{border-bottom:1px solid var(--line)}
 .scenario-step:last-child{border-bottom:0}

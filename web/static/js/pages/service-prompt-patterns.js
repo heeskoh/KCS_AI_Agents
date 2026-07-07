@@ -372,6 +372,11 @@ export function isPatternService(serviceKey){
   return !!PROMPT_PATTERNS[serviceKey];
 }
 
+/* 분석범위(동작) 라벨별 짧은 설명 — 등록되지 않은 서비스/동작은 빈 문자열 */
+export function patternBehaviorDescription(serviceKey, behaviorLabel){
+  return PROMPT_PATTERNS[serviceKey]?.behaviorDesc?.[behaviorLabel] || "";
+}
+
 /* 상세설정 프롬프트 템플릿에서 역할 문단("당신은 …")만 제거하고 상세 동작(수행 절차·출력 형식 등)은 보존 */
 export function stripRole(text){
   const t = String(text || "").trim();

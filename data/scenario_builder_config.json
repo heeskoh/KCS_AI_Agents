@@ -53,6 +53,7 @@
         "profile",
         "data",
         "scenario",
+        "network",
         "report",
         "dashboard"
       ]

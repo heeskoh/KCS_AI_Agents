@@ -24,7 +24,7 @@ export function createCustomsInvestigation(deps){
     const tab = deps.getInvestigationTab();
     const workTabs = tabs.filter(item => item.group !== "tools");
     const toolTabs = tabs.filter(item => item.group === "tools");
-    const isFullHeight = tab === "scenario" || tab === "report" || tab === "templates";
+    const isFullHeight = tab === "scenario" || tab === "network" || tab === "report" || tab === "templates";
     // 조사 대상이 선택돼야 기업프로파일 이후 서브탭이 활성화된다.
     const activeCase = activeCustomsCase();
     const activeCompanyId = activeCase?.company_id || "";
