@@ -290,6 +290,31 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
+    /* ── 수사정보 분석 탭 (3단: Chat/시각화/정보카드) ─────────────── */
+    const giInsightView = event.target.closest("[data-gi-insight-view]");
+    if(giInsightView){
+      generalInvestigationState.insightView = giInsightView.dataset.giInsightView;
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giInsightGroup = event.target.closest("[data-gi-insight-group]");
+    if(giInsightGroup){
+      const id = giInsightGroup.dataset.giInsightGroup;
+      const open = generalInvestigationState.insightGroupsOpen;
+      open[id] = open[id] === false;   // 기본 펼침 → 토글
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giInsightCite = event.target.closest("[data-gi-insight-cite]");
+    if(giInsightCite){
+      // 카드 클릭 → 좌측 대화 입력에 인용 삽입 (재렌더 없이 입력만 갱신)
+      const chat = document.getElementById("giInsightChat");
+      if(chat?.insertCite) chat.insertCite(giInsightCite.dataset.giInsightCite || "");
+      return;
+    }
+
     const giCase = event.target.closest("[data-gi-case]");
     if(giCase){
       // 수사 개편: 사건 선택 시 프로파일로 점프하지 않고 진행중인 수사 탭에서 상세를 연다

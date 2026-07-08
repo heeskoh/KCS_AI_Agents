@@ -14,4 +14,7 @@ export const generalInvestigationState = {
   activeLeadId: null,
   leadDraftStreaming: false,
   crimeDraft: null,
+  // 수사정보 분석 탭 UI 상태
+  insightView: "network",
+  insightGroupsOpen: {},
 };

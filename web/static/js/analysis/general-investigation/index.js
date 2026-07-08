@@ -22,7 +22,7 @@ export function createGeneralInvestigation(deps){
       ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.caseId))
       : "";
     return `
-      <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
+      <section class="card gi-hub${(tab==="workbench"||tab==="report"||tab==="insight") ? " gi-hub-full" : ""}">
         <div class="gi-page-head">
           <div>
             <h2>관세수사 분석</h2>

@@ -32,6 +32,7 @@ import { serviceInputStripHtml } from "./pages/service-workspace-ui.js";   // 3�
 import { getServiceSettings, settingValueLabel, setServiceSetting } from "./pages/service-config-popup.js";   // 리뷰모드 인라인 설정 UI
 import { findServiceSpec, SERVICE_EDIT_META } from "./pages/service-specs.js";
 import { finalizeScenarioPrompt, patternBehaviorDescription } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
+import { bindGiInsightChat } from "./analysis/general-investigation/insight.js";   // 수사정보 분석 탭 Chat 바인딩
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -2082,6 +2083,9 @@ const genDeps = {
       `<option value="${escapeHtml(tpl.id)}"${tpl.id === giDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
     ).join(""),
   sharedScenarioWorkbenchHtml,
+  // 수사정보 분석(insight) 탭 deps
+  getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
+  saveCanvasState,
 };
 const generalInvestigation = createGeneralInvestigation(genDeps);
 
@@ -2108,6 +2112,8 @@ genDeps.buildSubtabsForPage = page => {
   if(aCase?.giSteps?.some(s => s.sourceKey === "network")){
     if(!options.appendIds.includes("network")) options.appendIds.push("network");
   }
+  // 수사정보 분석 탭 — 설정(enabledSubtabs)에 없어도 활성 사건이 있으면 노출(폴백)
+  if(aCase && !options.appendIds.includes("insight")) options.appendIds.push("insight");
   return unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, options);
 };
 specialDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(page, "special", scenarioBuilderConfig, adminSubtabOptions());
@@ -10599,7 +10605,7 @@ function render(page="home"){
   const fillPage = page === "agentic" ||
                    (page === "canvas" && canvasTab === "report") ||
                    ((page === "investigation" || pageTemplate === "customs") && (customsState.investigationTab === "scenario" || customsState.investigationTab === "network")) ||
-                   ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench")) ||
+                   ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench" || generalInvestigationState.generalInvTab === "insight")) ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : (customAnalysisPage(page) || pages.home());
@@ -10633,6 +10639,10 @@ function render(page="home"){
     if(generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench"){
       scenarioInitialized = false;
       initGiScenarioWorkbench();
+    }
+    // 수사정보 분석 탭 — Chat 스레드 바인딩(렌더 후)
+    if(generalInvestigationState.generalInvTab === "insight"){
+      bindGiInsightChat(genDeps);
     }
     // 템플릿 편집 탭 — 관세 편집기를 일반수사 도메인으로 재사용 (조직 관리자 전용)
     if(generalInvestigationState.generalInvTab === "templates" && isCurrentUserAdmin()){

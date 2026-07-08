@@ -27,7 +27,7 @@ export const DEFAULT_ANALYSIS_SCENARIOS = {
     title: "관세수사 분석",
     template: "general-investigation",
     defaultTab: "cases",
-    enabledSubtabs: ["cases", "profile", "data", "workbench", "report"],
+    enabledSubtabs: ["cases", "profile", "data", "workbench", "insight", "report"],
   },
   lawsearch: {
     page: "lawsearch",

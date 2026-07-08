@@ -1117,6 +1117,52 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .gi-lead-draft-stream::after{content:"▍";animation:giCursorBlink 1s step-start infinite}
 @keyframes giCursorBlink{50%{opacity:0}}
 .gi-lead-editor-doc textarea{min-height:200px}
+
+/* ── 수사정보 분석 탭: 3단(Chat | 시각화 | 정보카드) ─────────────────── */
+.gi-insight-page{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}
+.gi-insight-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex:none}
+.gi-insight-head strong{font-size:14px;color:#123c85}
+.gi-insight-head p{margin:2px 0 0;font-size:12px}
+.gi-insight-target{display:flex;align-items:center;gap:8px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff;padding:6px 12px}
+.gi-insight-target b{font-size:13px;color:#123c85}
+.gi-insight-target small{color:#92400e;font-weight:700}
+.gi-insight-layout{display:grid;grid-template-columns:340px minmax(0,1fr) 360px;gap:12px;flex:1;min-height:0}
+.gi-insight-chat-col,.gi-insight-center-col,.gi-insight-cards-col{display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}
+.gi-insight-col-head{flex:none;display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);background:#f8fbff}
+.gi-insight-col-head strong{font-size:12.5px;color:#123c85}
+.gi-insight-center-body{flex:1;min-height:0;overflow:auto;position:relative}
+.gi-insight-center-body .profile-net-frame{height:100%;border:0;border-radius:0}
+.gi-insight-leads-view{padding:12px;overflow-y:auto;height:100%}
+.gi-insight-view-tabs{display:flex;gap:5px}
+.gi-insight-view-tab{border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer}
+.gi-insight-view-tab.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+/* 우측: 정보 그룹 카드 */
+.gi-insight-groups{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.gi-insight-group{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.gi-insight-group-head{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#f8fbff;padding:8px 10px;cursor:pointer;text-align:left}
+.gi-insight-group-head strong{font-size:12px;color:#123c85}
+.gi-insight-group-head span{margin-left:auto;font-size:11px;color:var(--muted);font-weight:700}
+.gi-insight-group-head i{font-style:normal;color:#94a3b8}
+.gi-insight-group-body{display:flex;flex-direction:column;gap:6px;padding:8px}
+.gi-insight-card{display:grid;gap:2px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;padding:8px 10px;text-align:left;cursor:pointer}
+.gi-insight-card:hover{border-color:#93c5fd;background:#f4f8ff}
+.gi-insight-card strong{font-size:12px;color:#1e3a8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gi-insight-card span{font-size:10.5px;color:#8590a6;font-weight:700}
+.gi-insight-card p{margin:2px 0 0;font-size:11px;color:#4b5a74;line-height:1.4}
+.gi-insight-empty{padding:8px;font-size:11px;color:var(--muted)}
+/* Chat 스레드 */
+.chat-thread{display:flex;flex-direction:column;flex:1;min-height:0}
+.chat-thread-list{flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.chat-thread-empty{color:var(--muted);font-size:12px;padding:8px}
+.chat-bubble{max-width:88%;border-radius:12px;padding:8px 11px;font-size:12.5px;line-height:1.55}
+.chat-bubble.user{align-self:flex-end;background:#2f6fed;color:#fff;border-bottom-right-radius:4px}
+.chat-bubble.user .chat-bubble-body{color:#fff}
+.chat-bubble.assistant{align-self:flex-start;background:#f1f5fb;color:#22304a;border-bottom-left-radius:4px}
+.chat-bubble .markdown-output p{margin:4px 0}
+.chat-thread-input{flex:none;display:flex;gap:6px;padding:9px;border-top:1px solid var(--line);background:#fcfdff}
+.chat-thread-input textarea{flex:1;min-width:0;border:1px solid #d8e0ec;border-radius:9px;padding:7px 10px;font-size:12.5px;font-family:inherit;resize:none;line-height:1.5}
+.chat-thread-input .btn{flex:none;align-self:flex-end}
+@media(max-width:1280px){.gi-insight-layout{grid-template-columns:300px minmax(0,1fr) 300px}}
 /* 등록 폼 */
 .gi-reg-form{border:1px solid var(--line);border-radius:14px;padding:18px;background:#f8fbff}
 .gi-reg-title{margin:0 0 14px;font-size:15px;color:#123c85}
