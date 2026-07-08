@@ -6,7 +6,7 @@ export const pageNames = {
   agentic:"AI Agentic 서비스",
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
-  generalinv:"일반수사분석",
+  generalinv:"관세수사분석",
   profile:"기업 위험도 대시보드",
   classification:"품목분류",
   lawsearch:"마약수사분석",

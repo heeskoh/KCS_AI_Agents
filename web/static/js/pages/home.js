@@ -2,11 +2,10 @@ import { escapeHtml } from "../core/dom.js";
 
 const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 AI 서비스를 선택해 주세요.";
 
+// 2026-07 개편: 마약수사·외환수사 바로가기 제거, 일반수사 → 관세수사 명칭 변경(전면 개편 예정)
 const WORK_SHORTCUTS = [
   { className: "sky", page: "investigation", label: "관세조사", image: "Customs_Aduit.png" },
-  { className: "rose", page: "generalinv", label: "일반수사", image: "General_Inv.png" },
-  { className: "purple", page: "lawsearch", label: "마약수사", image: "Drug_Inv.png" },
-  { className: "teal", page: "fxsearch", label: "외환수사", image: "Foreigncash.png" },
+  { className: "rose", page: "generalinv", label: "관세수사", image: "General_Inv.png" },
   { className: "olive", page: "case", label: "국제정보", image: "Global.png" },
   { className: "lime", page: "model", label: "관계망 분석", image: "Ontology.png" },
 ];

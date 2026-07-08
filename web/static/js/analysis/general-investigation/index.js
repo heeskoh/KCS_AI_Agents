@@ -25,8 +25,8 @@ export function createGeneralInvestigation(deps){
       <section class="card gi-hub${(tab==="workbench"||tab==="report") ? " gi-hub-full" : ""}">
         <div class="gi-page-head">
           <div>
-            <h2>일반수사 분석</h2>
-            <p class="muted">관세청 조사국이 수행하는 일반수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
+            <h2>관세수사 분석</h2>
+            <p class="muted">관세청 조사국이 수행하는 관세수사 대상을 등록하고, 수사 유형별 표준 분석시나리오에 따라 수사를 진행합니다.</p>
           </div>
           ${aCase ? `
             <div class="gi-active-badge">

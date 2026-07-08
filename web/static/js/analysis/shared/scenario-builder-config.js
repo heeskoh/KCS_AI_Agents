@@ -6,7 +6,7 @@ export const SCENARIO_BUILDER_CONFIG_VERSION = 1;
 export const DEFAULT_ANALYSIS_BUTTONS = [
   { className: "red", page: "profile", label: "기업 위험도 대시보드" },
   { className: "sky", page: "investigation", label: "관세 조사 분석" },
-  { className: "rose", page: "generalinv", label: "일반 수사 분석" },
+  { className: "rose", page: "generalinv", label: "관세수사 분석" },
   { className: "purple", page: "lawsearch", label: "마약 수사 분석" },
   { className: "teal", page: "fxsearch", label: "외환 수사 분석" },
   { className: "olive", page: "case", label: "국제 정보분석" },
@@ -24,7 +24,7 @@ export const DEFAULT_ANALYSIS_SCENARIOS = {
   },
   generalinv: {
     page: "generalinv",
-    title: "일반 수사 분석",
+    title: "관세수사 분석",
     template: "general-investigation",
     defaultTab: "cases",
     enabledSubtabs: ["cases", "profile", "data", "workbench", "report"],

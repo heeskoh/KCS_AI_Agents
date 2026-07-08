@@ -14,7 +14,7 @@
     {
       "className": "rose",
       "page": "generalinv",
-      "label": "일반 수사 분석"
+      "label": "관세수사 분석"
     },
     {
       "className": "purple",
@@ -60,7 +60,7 @@
     },
     "generalinv": {
       "page": "generalinv",
-      "title": "일반 수사 분석",
+      "title": "관세수사 분석",
       "template": "general-investigation",
       "defaultTab": "cases",
       "enabledSubtabs": [
