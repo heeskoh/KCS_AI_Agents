@@ -1,5 +1,7 @@
 import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
+import { CRIME_TAXONOMY, crimeCategoryById, crimeSummary } from "./crime-taxonomy.js";
+import { leadTimelineHtml, leadRegisterFormHtml, leadDraftEditorHtml } from "./leads.js";
 
 export function renderCasesPanel(deps){
   // 캔버스와 동일하게 로그인 사용자가 소유/담당한 수사만 표시 (관세조사와 동작 일치)
@@ -29,6 +31,11 @@ export function renderCasesPanel(deps){
         ${filtered.map(c => genInvCaseCard(deps, c)).join("") ||
           `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
       </div>
+
+      ${(() => {
+        const aCase = filtered.find(c => c.caseId === generalInvestigationState.activeGenInvCaseId);
+        return aCase ? giCaseDetailHtml(deps, aCase) : "";
+      })()}
 
       ${(() => {
         const archivedForUser = generalInvestigationState.archivedGenInvCases.filter(c =>
@@ -88,7 +95,20 @@ function genInvCaseCard(deps, c){
           <button class="btn-inline-action job-remove-action" data-gi-remove-case="${escapeHtml(c.caseId)}" title="삭제">삭제</button>
         </div>
       </div>
-      <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+      <div class="gi-case-chip-row">
+        <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+        ${(() => {
+          const crime = crimeSummary(c.crimes);
+          return crime
+            ? `<span class="gi-crime-chip">${escapeHtml(crime)}</span>`
+            : `<span class="gi-crime-chip empty">혐의 미지정</span>`;
+        })()}
+        ${(() => {
+          const leads = c.leads || [];
+          const confirmed = leads.filter(lead => lead.confirmed).length;
+          return `<span class="gi-lead-chip">단서 ${leads.length}건 · 확정 ${confirmed}건</span>`;
+        })()}
+      </div>
       <div class="job-progress"><i style="width:${c.status.pct}%"></i></div>
       <div class="job-meta">
         <span>${c.status.done}/${c.status.total} 단계</span>
@@ -99,6 +119,77 @@ function genInvCaseCard(deps, c){
         <span class="muted">${escapeHtml(c.updated)}</span>
       </div>
     </article>
+  `;
+}
+
+/* ── 사건 상세 — 혐의 범죄 선택 + 수사단서 이력·문서 작성 ─────────────────
+   수사는 Case별 상세가 중요: 대상 선택 후 단서 경로(6종)별 자료를 축적하고
+   경로별 보고서를 단계적으로 생성한다. 혐의 확정 시 분석 시나리오가 매핑된다. */
+function giCaseDetailHtml(deps, aCase){
+  const state = generalInvestigationState;
+  const type = deps.genInvTypeById(aCase.invTypeId);
+  const activeLead = (aCase.leads || []).find(lead => lead.id === state.activeLeadId) || null;
+  return `
+    <div class="gi-case-detail">
+      <div class="gi-case-detail-head">
+        <div>
+          <span class="gi-case-no">${escapeHtml(aCase.caseId)}</span>
+          <h3>${escapeHtml(aCase.targetName)}</h3>
+          <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
+        </div>
+        <div class="gi-case-detail-actions">
+          <button type="button" class="btn secondary" data-gi-tab="profile">수사 프로파일</button>
+          <button type="button" class="btn secondary" data-gi-tab="scenario">분석 시나리오</button>
+        </div>
+      </div>
+
+      ${crimeSelectorHtml(aCase, state)}
+
+      <div class="gi-case-detail-grid">
+        <div class="gi-lead-col">
+          <h4>수사단서 이력 <span class="muted">(${(aCase.leads || []).length}건)</span></h4>
+          ${leadTimelineHtml(aCase, state.activeLeadId)}
+        </div>
+        <div class="gi-lead-col">
+          <h4>${activeLead ? "단서 문서 작성" : "수사단서 등록"}</h4>
+          ${activeLead
+            ? leadDraftEditorHtml(activeLead, state.leadDraftStreaming)
+            : leadRegisterFormHtml(aCase, state)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function crimeSelectorHtml(aCase, state){
+  const confirmed = aCase.crimes && aCase.crimes.categoryId ? aCase.crimes : null;
+  const draft = state.crimeDraft || confirmed || { categoryId: null, offenseIds: [] };
+  const category = crimeCategoryById(draft.categoryId);
+  return `
+    <div class="gi-crime-selector">
+      <div class="gi-crime-selector-head">
+        <strong>혐의 범죄</strong>
+        ${confirmed
+          ? `<span class="gi-crime-chip">${escapeHtml(crimeSummary(confirmed))}</span>`
+          : `<span class="gi-crime-chip empty">미지정 — 대분류와 죄명을 선택 후 확정하세요</span>`}
+        <span class="muted">혐의 확정 시 관련 분석 시나리오(정보분석 워크스페이스)가 자동 구성됩니다.</span>
+      </div>
+      <div class="gi-crime-cats">
+        ${CRIME_TAXONOMY.map(cat => `
+          <button type="button" class="gi-crime-cat-btn${cat.id === draft.categoryId ? " active" : ""}"
+            data-gi-crime-cat="${escapeHtml(cat.id)}">${cat.num} ${escapeHtml(cat.label)}</button>
+        `).join("")}
+      </div>
+      ${category ? `
+        <div class="gi-crime-offenses">
+          ${category.offenses.map(offense => `
+            <button type="button" class="gi-crime-offense-btn${(draft.offenseIds || []).includes(offense.id) ? " on" : ""}"
+              data-gi-crime-offense="${escapeHtml(offense.id)}">${escapeHtml(offense.label)}</button>
+          `).join("")}
+          <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 확정</button>
+        </div>
+      ` : ""}
+    </div>
   `;
 }
 

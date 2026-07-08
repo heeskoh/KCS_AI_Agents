@@ -623,10 +623,10 @@
     {
       "id": "t1",
       "name": "관세포탈 수사 템플릿",
-      "description": "10단계 — 신고·분류·과세가격·이상거래 검증",
+      "description": "과세가격, 신고검증, 품목분류, 이상거래, 법령 검토를 연결하는 수사 흐름",
       "items": [
         {
-          "id": "9eab4ca3-093d-4444-bbdb-e2e08ccbab0e",
+          "id": "98267153-9804-42bb-8d13-453b6fee9e5d",
           "key": "db_cdw",
           "type": "db",
           "label": "CDW 자연어조회",
@@ -636,7 +636,6 @@
             "audit_history",
             "declaration_focus"
           ],
-          "order": 1,
           "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
           "behavior": "profile_summary",
           "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
@@ -646,97 +645,17 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 1
         },
         {
-          "id": "3d2c1b61-e7f1-4d3b-acd1-7bf519c2df23",
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
-          "behaviors": [
-            "regulation_basis"
-          ],
-          "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
-          "behavior": "regulation_basis",
-          "behaviorLabel": "",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "54ef6e7f-25fa-44a3-920e-557b1043e734",
-          "key": "rag_investigation",
-          "type": "rag",
-          "label": "조사정보 RAG",
-          "behaviors": [
-            "investigation_plan"
-          ],
-          "order": 3,
-          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
-          "behavior": "investigation_plan",
-          "behaviorLabel": "조사계획 수립",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "79f71372-775b-46e7-a56d-0dfb939acb82",
-          "key": "declaration_verify",
-          "type": "agent",
-          "label": "수입신고검증 AI 서비스",
-          "behaviors": [
-            "declaration_consistency"
-          ],
-          "order": 4,
-          "instruction": "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
-          "behavior": "declaration_consistency",
-          "behaviorLabel": "신고 정합성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "c6d5d8de-76b4-49ee-826e-d54f4833bccc",
-          "key": "hs_verify",
-          "type": "agent",
-          "label": "품목분류검증 AI 서비스",
-          "behaviors": [
-            "classification_check"
-          ],
-          "order": 5,
-          "instruction": "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
-          "behavior": "classification_check",
-          "behaviorLabel": "분류 적정성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "ba1f8a62-e12a-454b-884e-0db159b7e318",
+          "id": "51370624-2124-496b-a390-6f359816b9cf",
           "key": "customs_value",
           "type": "agent",
           "label": "과세가격평가 AI 서비스",
           "behaviors": [
             "valuation_basis"
           ],
-          "order": 6,
           "instruction": "과세가격 결정 요소와 저가신고 가능성 검토",
           "behavior": "valuation_basis",
           "behaviorLabel": "과세가격 근거",
@@ -746,187 +665,29 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 2
         },
         {
-          "id": "d62b4071-ed5d-4764-81e2-45309309ba2f",
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
           "behaviors": [
-            "global_signal"
+            "audit_case",
+            "recovery_point"
           ],
-          "order": 7,
-          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
-          "behavior": "global_signal",
-          "behaviorLabel": "국제협력 위험신호",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
+          "instruction": "과세가격 쟁점 관점의 유사 심사사례와 추징 포인트 정리",
+          "id": "d7d4aa58-0d5d-4340-981d-1b23b2bee3ab",
+          "order": 3
         },
         {
-          "id": "0555d0eb-657d-4a0e-b940-5306df98c6ca",
-          "key": "law",
-          "type": "agent",
-          "label": "법령 검토 AI 서비스",
-          "behaviors": [
-            "law_basis"
-          ],
-          "order": 8,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
-          "behavior": "law_basis",
-          "behaviorLabel": "법령 근거",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "eed62787-20c8-48e0-9d69-b95e50ca2f5c",
-          "key": "report_generate",
-          "type": "report",
-          "label": "보고서 작성",
-          "behaviors": [
-            "full_report"
-          ],
-          "order": 9,
-          "instruction": "증거 정리",
-          "behavior": "full_report",
-          "behaviorLabel": "전체 보고서",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "3f39c734-b087-4eeb-9c00-7ff970ae198c",
-          "key": "report_validate",
-          "type": "approve",
-          "label": "보고서 검증 AI 서비스",
-          "behaviors": [
-            "evidence_validation"
-          ],
-          "order": 10,
-          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
-          "behavior": "evidence_validation",
-          "behaviorLabel": "근거 검증",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        }
-      ]
-    },
-    {
-      "id": "t2",
-      "name": "밀수입·밀수출 수사 템플릿",
-      "description": "10단계 — 국제협력·운송경로·이상거래 검증",
-      "items": [
-        {
-          "id": "69f416d9-dc17-4d16-9761-d58ddb9b9e3c",
-          "key": "db_cdw",
-          "type": "db",
-          "label": "CDW 자연어조회",
-          "behaviors": [
-            "profile_summary",
-            "risk_focus",
-            "audit_history",
-            "declaration_focus"
-          ],
-          "order": 1,
-          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
-          "behavior": "profile_summary",
-          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "394e43c9-cebd-4884-b4c9-70ea2a1b26cc",
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
-          "behaviors": [
-            "regulation_basis"
-          ],
-          "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
-          "behavior": "regulation_basis",
-          "behaviorLabel": "",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "1bc60919-f8e8-4826-8deb-0d45e86c1aa8",
-          "key": "rag_investigation",
-          "type": "rag",
-          "label": "조사정보 RAG",
-          "behaviors": [
-            "investigation_plan"
-          ],
-          "order": 3,
-          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
-          "behavior": "investigation_plan",
-          "behaviorLabel": "조사계획 수립",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "98d1010a-67d4-4c9f-abce-28b3c06f6a8b",
-          "key": "rag_global",
-          "type": "rag_global",
-          "label": "국제협력 RAG",
-          "behaviors": [
-            "global_signal"
-          ],
-          "order": 4,
-          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
-          "behavior": "global_signal",
-          "behaviorLabel": "국제협력 위험신호",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "a554ee4d-120a-42b8-bb81-3f6df169b314",
+          "id": "0194072c-e281-4d75-8b56-673a8ea67e67",
           "key": "declaration_verify",
           "type": "agent",
           "label": "수입신고검증 AI 서비스",
           "behaviors": [
             "declaration_consistency"
           ],
-          "order": 5,
           "instruction": "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
           "behavior": "declaration_consistency",
           "behaviorLabel": "신고 정합성",
@@ -936,207 +697,37 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 4
         },
         {
-          "id": "2233fd47-279f-4f57-a518-2186dc858734",
-          "key": "route_analysis",
+          "id": "caf1bba2-26bc-410e-b614-8a2f5baa1d4f",
+          "key": "customs_value",
           "type": "agent",
-          "label": "운송경로 분석 AI 서비스",
+          "label": "과세가격평가 AI 서비스",
           "behaviors": [
-            "route_check"
+            "valuation_basis"
           ],
-          "order": 6,
-          "instruction": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
-          "behavior": "route_check",
-          "behaviorLabel": "운송경로",
+          "instruction": "과세가격 결정 요소와 저가신고 가능성 검토",
+          "behavior": "valuation_basis",
+          "behaviorLabel": "과세가격 근거",
           "targetType": "company",
           "target_type": "company",
           "extraPrompts": [],
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 5
         },
         {
-          "id": "e25d4630-cf40-4380-8987-173165226f27",
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
-          "behaviors": [
-            "global_signal"
-          ],
-          "order": 7,
-          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
-          "behavior": "global_signal",
-          "behaviorLabel": "국제협력 위험신호",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "2d212b1e-72f6-4618-b2f0-99a6b44a260e",
-          "key": "law",
-          "type": "agent",
-          "label": "법령 검토 AI 서비스",
-          "behaviors": [
-            "law_basis"
-          ],
-          "order": 8,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
-          "behavior": "law_basis",
-          "behaviorLabel": "법령 근거",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "4b50a30f-c0dc-4b70-902a-06972abfaf00",
-          "key": "report_generate",
-          "type": "report",
-          "label": "보고서 작성",
-          "behaviors": [
-            "full_report"
-          ],
-          "order": 9,
-          "instruction": "증거 정리",
-          "behavior": "full_report",
-          "behaviorLabel": "전체 보고서",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "254f6415-53eb-4f20-bc18-45eff2d4df62",
-          "key": "report_validate",
-          "type": "approve",
-          "label": "보고서 검증 AI 서비스",
-          "behaviors": [
-            "evidence_validation"
-          ],
-          "order": 10,
-          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
-          "behavior": "evidence_validation",
-          "behaviorLabel": "근거 검증",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        }
-      ]
-    },
-    {
-      "id": "t3",
-      "name": "원산지 위반 수사 템플릿",
-      "description": "11단계 — 원산지·운송경로·이상거래 검증",
-      "items": [
-        {
-          "id": "e2c37a8a-03f0-49ce-a881-987546f40fbb",
-          "key": "db_cdw",
-          "type": "db",
-          "label": "CDW 자연어조회",
-          "behaviors": [
-            "profile_summary",
-            "risk_focus",
-            "audit_history",
-            "declaration_focus"
-          ],
-          "order": 1,
-          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
-          "behavior": "profile_summary",
-          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "f29d5ef5-1d61-4e07-b23d-e505756e4529",
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
-          "behaviors": [
-            "regulation_basis"
-          ],
-          "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
-          "behavior": "regulation_basis",
-          "behaviorLabel": "",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "30293226-310e-4981-b12b-8616e3af1765",
-          "key": "rag_investigation",
-          "type": "rag",
-          "label": "조사정보 RAG",
-          "behaviors": [
-            "investigation_plan"
-          ],
-          "order": 3,
-          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
-          "behavior": "investigation_plan",
-          "behaviorLabel": "조사계획 수립",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "bf54817f-757a-4397-8c58-180c323ea43b",
-          "key": "declaration_verify",
-          "type": "agent",
-          "label": "수입신고검증 AI 서비스",
-          "behaviors": [
-            "declaration_consistency"
-          ],
-          "order": 4,
-          "instruction": "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
-          "behavior": "declaration_consistency",
-          "behaviorLabel": "신고 정합성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "49934f22-cb15-4b02-99d9-65d9b4841a82",
+          "id": "e1ea9445-9e9f-4660-8ef4-4e2d7fff2004",
           "key": "hs_verify",
           "type": "agent",
           "label": "품목분류검증 AI 서비스",
           "behaviors": [
             "classification_check"
           ],
-          "order": 5,
           "instruction": "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
           "behavior": "classification_check",
           "behaviorLabel": "분류 적정성",
@@ -1146,17 +737,368 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 6
         },
         {
-          "id": "f368beee-1418-47d1-9a80-635426993c4c",
+          "id": "778f354e-e6ba-47ee-a116-2407d0899b07",
+          "key": "abnormal_trade",
+          "type": "abnormal_trade",
+          "label": "이상거래 검증 AI 서비스",
+          "behaviors": [
+            "global_signal"
+          ],
+          "instruction": "이상거래 검증 AI 서비스 신규 구성",
+          "behavior": "global_signal",
+          "behaviorLabel": "국제협력 위험신호",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "3069c53e-f11c-43ae-b72c-0b62236ba775",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        },
+        {
+          "id": "b515a47a-e1ef-45f6-9fef-62a3e8ce0586",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 9
+        },
+        {
+          "id": "1aac143d-353a-40fd-bce6-cee6152e1702",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "t2",
+      "name": "밀수입·밀수출 수사 템플릿",
+      "description": "신고검증, 운송경로, 관계망, 범죄수익, 조사·국제 RAG를 연결하는 수사 흐름",
+      "items": [
+        {
+          "id": "88ee69fc-4ad2-42ff-a803-b006386844d4",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "834469f7-8cb2-46dd-adb9-4976463ab817",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "12516167-fe29-486d-bf34-e456f71edfb0",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "instruction": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 3
+        },
+        {
+          "key": "network",
+          "type": "agent",
+          "label": "관계망 분석 AI 서비스",
+          "behaviors": [
+            "relation_map"
+          ],
+          "instruction": "관계망 분석 AI 서비스 실행",
+          "id": "ba517581-4f1e-42f6-9d7e-ecaa0dfe3eb8",
+          "order": 4
+        },
+        {
+          "id": "b451f2c0-87d0-4c42-aac8-91afc7ed9659",
+          "key": "proceeds_tracking",
+          "type": "agent",
+          "label": "범죄수익 추적 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "instruction": "자금흐름, 계좌 추적 연계",
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 5
+        },
+        {
+          "id": "5cb103e1-7621-4ab4-ab3e-3d16f1badfe3",
+          "key": "rag_investigation",
+          "type": "rag",
+          "label": "조사정보 RAG",
+          "behaviors": [
+            "investigation_plan"
+          ],
+          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+          "behavior": "investigation_plan",
+          "behaviorLabel": "조사계획 수립",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 6
+        },
+        {
+          "id": "7d8a46e7-00d8-4f0a-ad14-d8468dc6946d",
+          "key": "rag_global",
+          "type": "rag_global",
+          "label": "국제협력 RAG",
+          "behaviors": [
+            "global_signal"
+          ],
+          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
+          "behavior": "global_signal",
+          "behaviorLabel": "국제협력 위험신호",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "989241d0-fdf3-472a-b998-a1c3c4198822",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        },
+        {
+          "id": "afafb737-ba33-451b-b3d3-16ac1681daa9",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 9
+        },
+        {
+          "id": "89da2ea0-275b-41e3-892e-b485586aa59b",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "t3",
+      "name": "원산지 위반 수사 템플릿",
+      "description": "신고검증, 운송경로, 원산지, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+      "items": [
+        {
+          "id": "d7a00654-3d97-4fce-b075-f130a2d2381b",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "3af8f9c3-cbaf-48a3-96b0-fa09573af29a",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "b6859b91-338e-4622-bb67-db4836420948",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "instruction": "우회수입 탐지",
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 3
+        },
+        {
+          "id": "3d8d4e2c-4558-4e0a-b551-c465cba91a36",
           "key": "origin_analysis",
           "type": "agent",
           "label": "원산지 검증 AI 서비스",
           "behaviors": [
             "origin_certificate"
           ],
-          "order": 6,
           "instruction": "원산지 증빙과 FTA 적용, 우회수입 가능성을 시뮬레이션 분석",
           "behavior": "origin_certificate",
           "behaviorLabel": "원산지증명 검토",
@@ -1166,167 +1108,17 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 4
         },
         {
-          "id": "bf2bc98d-5dde-4ecb-82e7-6d367850a931",
-          "key": "route_analysis",
-          "type": "agent",
-          "label": "운송경로 분석 AI 서비스",
-          "behaviors": [
-            "route_check"
-          ],
-          "order": 7,
-          "instruction": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
-          "behavior": "route_check",
-          "behaviorLabel": "운송경로",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "23de0efd-f834-4cd4-88ba-7fcff2d22347",
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
-          "behaviors": [
-            "global_signal"
-          ],
-          "order": 8,
-          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
-          "behavior": "global_signal",
-          "behaviorLabel": "국제협력 위험신호",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "3ee4c726-06ce-4519-8190-34b08b2a86ff",
-          "key": "law",
-          "type": "agent",
-          "label": "법령 검토 AI 서비스",
-          "behaviors": [
-            "law_basis"
-          ],
-          "order": 9,
-          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
-          "behavior": "law_basis",
-          "behaviorLabel": "법령 근거",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "89d8d9df-6b29-4bf4-96a2-184240957806",
-          "key": "report_generate",
-          "type": "report",
-          "label": "보고서 작성",
-          "behaviors": [
-            "full_report"
-          ],
-          "order": 10,
-          "instruction": "증거 정리",
-          "behavior": "full_report",
-          "behaviorLabel": "전체 보고서",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "bb8c33db-ad88-4ac9-9549-690723927b8f",
-          "key": "report_validate",
-          "type": "approve",
-          "label": "보고서 검증 AI 서비스",
-          "behaviors": [
-            "evidence_validation"
-          ],
-          "order": 11,
-          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
-          "behavior": "evidence_validation",
-          "behaviorLabel": "근거 검증",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        }
-      ]
-    },
-    {
-      "id": "t4",
-      "name": "지식재산권 침해 수사 템플릿",
-      "description": "9단계 — 품목·이상거래·특허정보 검증",
-      "items": [
-        {
-          "id": "53ba2a2b-807c-40c5-82b8-7c4adb1da3a7",
-          "key": "db_cdw",
-          "type": "db",
-          "label": "CDW 자연어조회",
-          "behaviors": [
-            "profile_summary",
-            "risk_focus",
-            "audit_history",
-            "declaration_focus"
-          ],
-          "order": 1,
-          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
-          "behavior": "profile_summary",
-          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "d86a7d45-a475-446a-a616-f39b69be2350",
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
-          "behaviors": [
-            "regulation_basis"
-          ],
-          "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
-          "behavior": "regulation_basis",
-          "behaviorLabel": "",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "001d5e69-a4a3-4b4d-a240-c80a02c08c8d",
+          "id": "64eb5d9b-8e1f-4ee0-83a9-c51c0f342a65",
           "key": "rag_investigation",
           "type": "rag",
           "label": "조사정보 RAG",
           "behaviors": [
             "investigation_plan"
           ],
-          "order": 3,
           "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
           "behavior": "investigation_plan",
           "behaviorLabel": "조사계획 수립",
@@ -1336,57 +1128,17 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 5
         },
         {
-          "id": "2ee7ca2d-a75c-444f-9801-3827e62f4959",
-          "key": "declaration_verify",
-          "type": "agent",
-          "label": "수입신고검증 AI 서비스",
-          "behaviors": [
-            "declaration_consistency"
-          ],
-          "order": 4,
-          "instruction": "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
-          "behavior": "declaration_consistency",
-          "behaviorLabel": "신고 정합성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "0f9bad29-c58b-4e51-a2af-e5d5779e4698",
-          "key": "hs_verify",
-          "type": "agent",
-          "label": "품목분류검증 AI 서비스",
-          "behaviors": [
-            "classification_check"
-          ],
-          "order": 5,
-          "instruction": "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
-          "behavior": "classification_check",
-          "behaviorLabel": "분류 적정성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "0219cfc6-01c2-4a9e-92d3-bf655d723496",
-          "key": "abnormal_trade",
-          "type": "abnormal_trade",
-          "label": "이상거래 검증 AI 서비스",
+          "id": "3e062110-0885-4148-a148-373b5b803f74",
+          "key": "rag_global",
+          "type": "rag_global",
+          "label": "국제협력 RAG",
           "behaviors": [
             "global_signal"
           ],
-          "order": 6,
           "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
           "behavior": "global_signal",
           "behaviorLabel": "국제협력 위험신호",
@@ -1396,17 +1148,297 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 6
         },
         {
-          "id": "87750d26-4813-41ec-a5a4-2a843731424c",
+          "id": "131106a3-7ec9-4da0-83d3-d05a1220e084",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "b0d59537-0c6b-4128-9eb8-ca596fbd8ea9",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        },
+        {
+          "id": "822aa38c-5dc5-4d04-bd62-522c89245ed3",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 9
+        }
+      ]
+    },
+    {
+      "id": "t4",
+      "name": "외환·자금세탁 범죄 수사 템플릿",
+      "description": "신고검증, 범죄수익 추적, 조사·국제 RAG, 법령 검토를 연결하는 수사 흐름",
+      "items": [
+        {
+          "id": "1260b0ce-39e0-41f7-969e-80549fa190c4",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "9c459237-2d87-4d34-a059-b969281e0adf",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "b5e97bc4-b2db-4d65-9d35-7f1cabf0fed8",
+          "key": "proceeds_tracking",
+          "type": "agent",
+          "label": "범죄수익 추적 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "instruction": "자금흐름, 계좌 추적 연계",
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 3
+        },
+        {
+          "id": "f474c874-85c7-4fb9-a30a-fc5d61e47590",
+          "key": "rag_investigation",
+          "type": "rag",
+          "label": "조사정보 RAG",
+          "behaviors": [
+            "investigation_plan"
+          ],
+          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+          "behavior": "investigation_plan",
+          "behaviorLabel": "조사계획 수립",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 4
+        },
+        {
+          "id": "1ceaa359-b05b-4236-9e09-c83486dba765",
+          "key": "rag_global",
+          "type": "rag_global",
+          "label": "국제협력 RAG",
+          "behaviors": [
+            "global_signal"
+          ],
+          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
+          "behavior": "global_signal",
+          "behaviorLabel": "국제협력 위험신호",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 5
+        },
+        {
+          "id": "e88ca58a-2efd-43d5-92b2-34c21e36432c",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 6
+        },
+        {
+          "id": "6e9c6f2f-a88c-4398-8470-87e2d60420d3",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "b904a798-299b-4dea-bde1-de649daa8753",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        }
+      ]
+    },
+    {
+      "id": "t5",
+      "name": "지식재산권 침해 수사 템플릿",
+      "description": "신고검증, 특허정보, 품목분류, 운송경로, 심사 RAG를 연결하는 수사 흐름",
+      "items": [
+        {
+          "id": "a41085d4-1a8b-458e-869d-2fd3a3bcd506",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "150f967e-a86a-48cf-8ca8-405605358820",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "bf223199-9c32-427a-9995-dee3f14a332f",
           "key": "patent",
           "type": "agent",
           "label": "특허정보 조회 AI 서비스",
           "behaviors": [
             "royalty_check"
           ],
-          "order": 7,
           "instruction": "권리자 정보 확인",
           "behavior": "royalty_check",
           "behaviorLabel": "로열티 확인",
@@ -1416,168 +1448,18 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 3
         },
         {
-          "id": "23dc075c-247a-4c49-909b-d9f04ee0d000",
-          "key": "report_generate",
-          "type": "report",
-          "label": "보고서 작성",
-          "behaviors": [
-            "full_report"
-          ],
-          "order": 8,
-          "instruction": "증거 정리",
-          "behavior": "full_report",
-          "behaviorLabel": "전체 보고서",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "abe9e01c-992b-45e9-84c9-95ebe6213db8",
-          "key": "report_validate",
-          "type": "approve",
-          "label": "보고서 검증 AI 서비스",
-          "behaviors": [
-            "evidence_validation"
-          ],
-          "order": 9,
-          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
-          "behavior": "evidence_validation",
-          "behaviorLabel": "근거 검증",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        }
-      ]
-    },
-    {
-      "id": "t5",
-      "name": "전략물자·수출통제 위반 수사 템플릿",
-      "description": "9단계 — 국제협력·품목분류·법령 검증",
-      "items": [
-        {
-          "id": "839da016-cc05-4709-a2b0-d428978d6294",
-          "key": "db_cdw",
-          "type": "db",
-          "label": "CDW 자연어조회",
-          "behaviors": [
-            "profile_summary",
-            "risk_focus",
-            "audit_history",
-            "declaration_focus"
-          ],
-          "order": 1,
-          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
-          "behavior": "profile_summary",
-          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "ecd0febe-3c97-46dd-96da-789247bf6726",
-          "key": "rag_customs",
-          "type": "rag_customs",
-          "label": "관세정보 RAG",
-          "behaviors": [
-            "regulation_basis"
-          ],
-          "order": 2,
-          "instruction": "관세정보 근거 확인 · 과세가격, 원산지, 품목분류 관련 근거 확인",
-          "behavior": "regulation_basis",
-          "behaviorLabel": "",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "76e269d3-ec46-41c3-b24c-205a3d1a0906",
-          "key": "rag_investigation",
-          "type": "rag",
-          "label": "조사정보 RAG",
-          "behaviors": [
-            "investigation_plan"
-          ],
-          "order": 3,
-          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
-          "behavior": "investigation_plan",
-          "behaviorLabel": "조사계획 수립",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "9f65b6a2-5d07-4df4-8f3c-2ada870efe44",
-          "key": "rag_global",
-          "type": "rag_global",
-          "label": "국제협력 RAG",
-          "behaviors": [
-            "global_signal"
-          ],
-          "order": 4,
-          "instruction": "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
-          "behavior": "global_signal",
-          "behaviorLabel": "국제협력 위험신호",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "bd238f6d-4eff-4772-aaa7-0ee75f060554",
-          "key": "declaration_verify",
-          "type": "agent",
-          "label": "수입신고검증 AI 서비스",
-          "behaviors": [
-            "declaration_consistency"
-          ],
-          "order": 5,
-          "instruction": "첨부문서(세금계산서·적하목록) 추출값과 수입신고DB를 비교해 품명·중량·가격 불일치와 화물 이상 패턴 확인",
-          "behavior": "declaration_consistency",
-          "behaviorLabel": "신고 정합성",
-          "targetType": "company",
-          "target_type": "company",
-          "extraPrompts": [],
-          "shareRecipients": [],
-          "share_recipients": [],
-          "webTargets": [],
-          "web_targets": []
-        },
-        {
-          "id": "3af664d8-3451-47e0-8258-de12a03413ae",
+          "id": "a10b8d01-4683-42e1-9e5c-9d76ed2ac956",
           "key": "hs_verify",
           "type": "agent",
           "label": "품목분류검증 AI 서비스",
           "behaviors": [
             "classification_check"
           ],
-          "order": 6,
-          "instruction": "수입신고 품목과 세금계산서 물품목록을 비교하고 HS코드·전략물자·수출허가내역을 검증",
+          "instruction": "위조품 식별",
           "behavior": "classification_check",
           "behaviorLabel": "분류 적정성",
           "targetType": "company",
@@ -1586,17 +1468,49 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 4
         },
         {
-          "id": "ebafc33b-3c44-4660-9529-3c9da6baa29c",
+          "id": "161d1e15-0d9f-4ed8-b38d-d9c9c1b1510c",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "instruction": "우회수입 탐지, 공급망 역추적",
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 5
+        },
+        {
+          "key": "rag_audit",
+          "type": "rag_audit",
+          "label": "심사정보 RAG",
+          "behaviors": [
+            "audit_case",
+            "recovery_point"
+          ],
+          "instruction": "과세가격 쟁점 관점의 유사 심사사례와 추징 포인트 정리",
+          "id": "2d3570d3-3fbd-4fe2-b907-ebe79f04a9d8",
+          "order": 6
+        },
+        {
+          "id": "ceb0648e-e2ed-4b9f-876e-aae3934b8177",
           "key": "law",
           "type": "agent",
           "label": "법령 검토 AI 서비스",
           "behaviors": [
             "law_basis"
           ],
-          "order": 7,
           "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
           "behavior": "law_basis",
           "behaviorLabel": "법령 근거",
@@ -1606,17 +1520,17 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 7
         },
         {
-          "id": "edc88f4c-0dc7-4198-a1af-ba82fdec2448",
+          "id": "5b4440d9-2c6c-4258-9f2c-08c4086eca98",
           "key": "report_generate",
           "type": "report",
           "label": "보고서 작성",
           "behaviors": [
             "full_report"
           ],
-          "order": 8,
           "instruction": "증거 정리",
           "behavior": "full_report",
           "behaviorLabel": "전체 보고서",
@@ -1626,17 +1540,17 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 8
         },
         {
-          "id": "428ccd75-ff9f-481f-8b94-85fd98dc57ae",
+          "id": "33ceb7a0-231a-47e1-86a8-350fc892da9d",
           "key": "report_validate",
           "type": "approve",
           "label": "보고서 검증 AI 서비스",
           "behaviors": [
             "evidence_validation"
           ],
-          "order": 9,
           "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
           "behavior": "evidence_validation",
           "behaviorLabel": "근거 검증",
@@ -1646,7 +1560,429 @@
           "shareRecipients": [],
           "share_recipients": [],
           "webTargets": [],
-          "web_targets": []
+          "web_targets": [],
+          "order": 9
+        }
+      ]
+    },
+    {
+      "id": "t6",
+      "name": "전략물자·수출통제 위반 수사 템플릿",
+      "description": "신고검증, 품목분류, 특허정보, 국제 RAG, 법령 검토를 연결하는 수사 흐름",
+      "items": [
+        {
+          "id": "329790f6-15f3-4351-b0b3-7db556e30703",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "dead5a85-08be-47fb-93ae-4f4f8524ea82",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량·가격 불일치, 화물 이상 패턴, 수출허가 검증",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "3bbf3936-bbe0-473a-ab21-df007e8a0c2d",
+          "key": "hs_verify",
+          "type": "agent",
+          "label": "품목분류검증 AI 서비스",
+          "behaviors": [
+            "classification_check"
+          ],
+          "instruction": "전략물자 해당 여부, HS코드 기반 해당 품목 자동 식별, 수출허가 검증",
+          "behavior": "classification_check",
+          "behaviorLabel": "분류 적정성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 3
+        },
+        {
+          "id": "53be73c0-b0e8-48cd-b12a-290a697eb7eb",
+          "key": "patent",
+          "type": "agent",
+          "label": "특허정보 조회 AI 서비스",
+          "behaviors": [
+            "royalty_check"
+          ],
+          "instruction": "권리자 정보 확인",
+          "behavior": "royalty_check",
+          "behaviorLabel": "로열티 확인",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 4
+        },
+        {
+          "id": "5300c22a-323a-490d-88f9-a4f30da373d5",
+          "key": "rag_global",
+          "type": "rag_global",
+          "label": "국제협력 RAG",
+          "behaviors": [
+            "global_signal"
+          ],
+          "instruction": "대북제재 스크리닝",
+          "behavior": "global_signal",
+          "behaviorLabel": "국제협력 위험신호",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 5
+        },
+        {
+          "id": "a7d4df9f-2674-47b3-85e9-b209a7292b6f",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 6
+        },
+        {
+          "id": "7d8f435a-c69b-431b-9c84-33c71e11a5a6",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "7d3f4388-d4b5-4229-aba3-c73960fd4923",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        }
+      ]
+    },
+    {
+      "id": "t7",
+      "name": "기타 수사 템플릿",
+      "description": "공통 CDW 자연어조회를 시작점으로 구성하는 기본 수사 흐름",
+      "items": [
+        {
+          "id": "3f6e1d1b-413b-4a09-b39b-5404c947f0fa",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "t8",
+      "name": "마약 밀수·유통 수사 템플릿",
+      "description": "신고검증, 운송경로, 관계망, 통신내역, 범죄수익 추적을 연결하는 마약수사 흐름",
+      "items": [
+        {
+          "id": "696fb1e8-ea1f-4b91-98ae-0bbdaf333fe9",
+          "key": "db_cdw",
+          "type": "db",
+          "label": "CDW 자연어조회",
+          "behaviors": [
+            "profile_summary",
+            "risk_focus",
+            "audit_history",
+            "declaration_focus"
+          ],
+          "instruction": "기업프로파일·통합위험정보·조사/소송 이력·수출입신고 내역을 종합 조회",
+          "behavior": "profile_summary",
+          "behaviorLabel": "기업프로파일조회, 통합위험정보조회, 조사및소송 이력조회, 수출입신고내역조회",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 1
+        },
+        {
+          "id": "090055ab-e11e-441a-8eae-891b35238ff7",
+          "key": "declaration_verify",
+          "type": "agent",
+          "label": "수입신고검증 AI 서비스",
+          "behaviors": [
+            "declaration_consistency"
+          ],
+          "instruction": "품명·중량 불일치, 은닉 의심 화물 패턴",
+          "behavior": "declaration_consistency",
+          "behaviorLabel": "신고 정합성",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 2
+        },
+        {
+          "id": "c46bdbc0-ed50-4c9d-a1f1-ddbc7cea4e36",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "instruction": "밀수 경로·경유지 추적",
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 3
+        },
+        {
+          "key": "network",
+          "type": "agent",
+          "label": "관계망 분석 AI 서비스",
+          "behaviors": [
+            "relation_map"
+          ],
+          "instruction": "공범·조직 관계망 분석",
+          "id": "b330ec34-a9b8-4e01-be41-8bf7d8e4d1e6",
+          "order": 4
+        },
+        {
+          "id": "ce252691-5b4e-4eb5-b1e4-a25c0de5eeb2",
+          "key": "comms_analysis",
+          "type": "comms",
+          "label": "통신내역 관계분석 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "instruction": "통신 내역 연계 분석",
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 5
+        },
+        {
+          "id": "155d2a8b-9e34-4bba-b2a1-4983e6ea305c",
+          "key": "fund_trace",
+          "type": "fund_trace",
+          "label": "자금흐름 관계분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "instruction": "마약류 자금 흐름 추적",
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 6
+        },
+        {
+          "id": "4241dbad-b2c5-412f-a4a4-6b092b1172e9",
+          "key": "rag_investigation",
+          "type": "rag",
+          "label": "조사정보 RAG",
+          "behaviors": [
+            "investigation_plan"
+          ],
+          "instruction": "조사 정보 기반으로 조사 순서와 확인 자료 정리",
+          "behavior": "investigation_plan",
+          "behaviorLabel": "조사계획 수립",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 7
+        },
+        {
+          "id": "ee4b2dcc-ed5b-43cb-95be-b68675b84e7e",
+          "key": "rag_global",
+          "type": "rag_global",
+          "label": "국제협력 RAG",
+          "behaviors": [
+            "global_signal"
+          ],
+          "instruction": "국제 공조·해외 단속 사례",
+          "behavior": "global_signal",
+          "behaviorLabel": "국제협력 위험신호",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 8
+        },
+        {
+          "id": "d15aa7cf-1fb4-4b3e-a84e-d6549e1ce47d",
+          "key": "law",
+          "type": "agent",
+          "label": "법령 검토 AI 서비스",
+          "behaviors": [
+            "law_basis"
+          ],
+          "instruction": "관련 법령, 고시, 판례, 유권해석 근거 검색",
+          "behavior": "law_basis",
+          "behaviorLabel": "법령 근거",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 9
+        },
+        {
+          "id": "e11710d8-c3a5-4a7e-ab54-3f4277743d3f",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "instruction": "증거 정리",
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 10
+        },
+        {
+          "id": "20d2edcb-12c5-4749-980c-8ac965272b82",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "targetType": "company",
+          "target_type": "company",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "order": 11
         }
       ]
     }

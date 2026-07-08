@@ -2033,6 +2033,7 @@ const GEN_INV_TYPES = [
   { id:"t5", num:"⑤", label:"지식재산권 침해 수사",        cls:"gi-t5" },
   { id:"t6", num:"⑥", label:"전략물자·수출통제 위반 수사", cls:"gi-t6" },
   { id:"t7", num:"⑦", label:"기타 수사",                  cls:"gi-t7" },
+  { id:"t8", num:"⑧", label:"마약 밀수·유통 수사",         cls:"gi-t8" },
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
@@ -2662,6 +2663,24 @@ const giScenarioTemplates = [
     description:"공통 CDW 자연어조회를 시작점으로 구성하는 기본 수사 흐름",
     items: giTemplateItems([
       giTemplateStep("gi_cdw"),
+    ]),
+  },
+  {
+    id:"t8",
+    name:"마약 밀수·유통 수사 템플릿",
+    description:"신고검증, 운송경로, 관계망, 통신내역, 범죄수익 추적을 연결하는 마약수사 흐름",
+    items: giTemplateItems([
+      giTemplateStep("gi_cdw"),
+      giTemplateStep("gi_imp", "품명·중량 불일치, 은닉 의심 화물 패턴"),
+      giTemplateStep("gi_route", "밀수 경로·경유지 추적"),
+      giTemplateStep("gi_net", "공범·조직 관계망 분석"),
+      giTemplateStep("gi_comms", "통신 내역 연계 분석"),
+      giTemplateStep("gi_fundtrace", "마약류 자금 흐름 추적"),
+      giTemplateStep("gi_rag_inv"),
+      giTemplateStep("gi_rag_int", "국제 공조·해외 단속 사례"),
+      giTemplateStep("gi_law"),
+      giTemplateStep("gi_rep", "증거 정리"),
+      giTemplateStep("gi_appr"),
     ]),
   },
 ];

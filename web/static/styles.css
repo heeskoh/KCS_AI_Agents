@@ -1042,6 +1042,81 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .gi-t5{background:#e0f2fe;color:#0369a1}
 .gi-t6{background:#1e293b;color:#e2e8f0}
 .gi-t7{background:#f1f5f9;color:#475569}
+.gi-t8{background:#fce7f3;color:#be185d}
+/* 사건 카드 칩(혐의·단서) */
+.gi-case-chip-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.gi-case-chip-row .gi-type-chip{margin:0}
+.gi-crime-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#fef3c7;color:#92400e;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gi-crime-chip.empty{background:#f1f5f9;color:#94a3b8}
+.gi-lead-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#eef4ff;color:#2456c9}
+
+/* ── 사건 상세: 혐의 선택 + 수사단서 이력·문서 작성 ─────────────────── */
+.gi-case-detail{margin-top:14px;border:1px solid #bfd6f6;border-radius:14px;background:#fff;padding:16px;box-shadow:var(--shadow)}
+.gi-case-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.gi-case-detail-head h3{display:inline-block;margin:0 8px 0 6px;font-size:17px}
+.gi-case-detail-head .gi-type-chip{margin:0}
+.gi-case-detail-actions{display:flex;gap:6px;flex:none}
+.gi-case-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:14px}
+.gi-lead-col h4{margin:0 0 10px;font-size:13px;color:#123c85}
+/* 혐의 선택 */
+.gi-crime-selector{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:12px}
+.gi-crime-selector-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.gi-crime-selector-head strong{font-size:13px;color:#123c85}
+.gi-crime-selector-head .muted{font-size:11px}
+.gi-crime-cats{display:flex;gap:6px;flex-wrap:wrap}
+.gi-crime-cat-btn{border:1px solid #d8e0ec;background:#fff;color:#41506a;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer}
+.gi-crime-cat-btn.active{background:#1e40af;border-color:#1e40af;color:#fff}
+.gi-crime-offenses{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #d8e0ec}
+.gi-crime-offense-btn{border:1px solid #cfe0fb;background:#fff;color:#3b4a63;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.gi-crime-offense-btn.on{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.gi-crime-apply-btn{margin-left:auto}
+/* 단서 타임라인 */
+.gi-lead-timeline{display:flex;flex-direction:column;gap:0;max-height:520px;overflow-y:auto}
+.gi-lead-node{display:flex;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;position:relative}
+.gi-lead-node:hover{background:#f4f8ff}
+.gi-lead-node.active{background:#eef4ff;outline:1px solid #bfd6f6}
+.gi-lead-node::before{content:"";position:absolute;left:23px;top:38px;bottom:-4px;width:2px;background:#dbe6f7}
+.gi-lead-node:last-child::before{display:none}
+.gi-lead-node-dot{flex:none;width:32px;height:32px;border-radius:50%;background:#fff;border:1px solid #cfe0fb;display:grid;place-items:center;font-size:15px;z-index:1}
+.gi-lead-node-body{flex:1;min-width:0}
+.gi-lead-node-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gi-lead-node-head strong{font-size:12.5px;color:#123c85}
+.gi-lead-node-title{margin:3px 0 2px;font-size:12.5px;color:#33415e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gi-lead-node-meta{font-size:11px;color:var(--muted)}
+.gi-lead-remove{margin-left:auto;width:18px;height:18px;border:0;border-radius:50%;background:#f1f5f9;color:#64748b;font-weight:900;line-height:1;cursor:pointer}
+.gi-lead-grade{display:inline-flex;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:900}
+.gi-grade-a{background:#fee2e2;color:#b91c1c}
+.gi-grade-b{background:#fef3c7;color:#92400e}
+.gi-grade-c{background:#f1f5f9;color:#475569}
+.gi-lead-state{display:inline-flex;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:800}
+.gi-lead-state.done{background:#dcfce7;color:#15803d}
+.gi-lead-state.draft{background:#e0f2fe;color:#0369a1}
+.gi-lead-state.wait{background:#f1f5f9;color:#94a3b8}
+/* 단서 등록 폼 / 문서 에디터 */
+.gi-lead-form,.gi-lead-editor{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:12px;display:flex;flex-direction:column;gap:10px}
+.gi-lead-form-types{display:flex;gap:5px;flex-wrap:wrap}
+.gi-lead-type-btn{border:1px solid #d8e0ec;background:#fff;color:#41506a;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.gi-lead-type-btn.active{background:#1e40af;border-color:#1e40af;color:#fff}
+.gi-lead-form-stages{display:flex;gap:5px}
+.gi-lead-stage-btn{border:1px solid #cfe0fb;background:#fff;color:#3b4a63;border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer}
+.gi-lead-stage-btn.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.gi-lead-field{display:grid;gap:4px;font-size:12px;font-weight:700;color:#53617b}
+.gi-lead-field input,.gi-lead-field select,.gi-lead-field textarea{border:1px solid #d8e0ec;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:#fff}
+.gi-lead-field textarea{resize:vertical;line-height:1.55}
+.gi-lead-field-inline{grid-template-columns:auto 1fr;align-items:center}
+.gi-lead-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.gi-lead-editor-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gi-lead-editor-head strong{font-size:13px;color:#123c85}
+.gi-lead-new-btn{margin-left:auto;padding:3px 10px;font-size:11.5px}
+.gi-lead-editor-src{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px}
+.gi-lead-editor-src span{font-size:11px;font-weight:800;color:#8590a6}
+.gi-lead-editor-src p{margin:4px 0 0;font-size:12.5px;color:#33415e;line-height:1.5;max-height:88px;overflow-y:auto}
+.gi-lead-editor-actions{display:flex;align-items:center;gap:8px}
+.gi-lead-editor-actions .muted{font-size:11px}
+.gi-lead-draft-stream{border:1px solid #bae6fd;border-radius:8px;background:#f0f9ff;color:#075985;padding:10px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+.gi-lead-draft-stream::after{content:"▍";animation:giCursorBlink 1s step-start infinite}
+@keyframes giCursorBlink{50%{opacity:0}}
+.gi-lead-editor-doc textarea{min-height:200px}
 /* 등록 폼 */
 .gi-reg-form{border:1px solid var(--line);border-radius:14px;padding:18px;background:#f8fbff}
 .gi-reg-title{margin:0 0 14px;font-size:15px;color:#123c85}

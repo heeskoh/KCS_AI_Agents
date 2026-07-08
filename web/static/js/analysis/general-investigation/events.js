@@ -1,3 +1,26 @@
+import { generalInvestigationState } from "./state.js";
+import { giInvTypeForCrimes } from "./crime-taxonomy.js";
+import { leadTypeById, leadDocLabel, buildLeadDraftPrompt } from "./leads.js";
+import { streamLlmText } from "../shared/llm-stream.js";
+
+/* 혐의 확정 → 수사유형 템플릿 적용 (data-gi-template-apply와 동일 로직) */
+function giApplyCrimeTemplate(ctx, aCase, tplId){
+  const tpl = ctx.giScenarioTemplates?.find(t => t.id === tplId);
+  if(!tpl) return;
+  aCase.giSteps = tpl.items.map((item, i) =>
+    ctx.normalizeGiScenarioStep({
+      ...item,
+      id: `gis_${ctx.uid()}`,
+      targetType: aCase.targetType || "company",
+      target_type: aCase.targetType || "company",
+    }, i)
+  );
+  aCase.stepStates   = {};
+  aCase.stepResults  = {};
+  aCase.stepExpanded = {};
+  ctx.activeGiStepId = aCase.giSteps[0]?.id || null;
+}
+
 export function registerGeneralInvestigationEvents(ctx){
   document.addEventListener("click", (event) => {
     const giRegTypeBtn = event.target.closest("[data-gi-reg-type]");
@@ -52,6 +75,11 @@ export function registerGeneralInvestigationEvents(ctx){
         updated: "방금",
         ownerUserId: ctx.currentUserId,
         assignees: [ctx.currentUserId],
+        // 수사 개편: 혐의 범죄(상세에서 지정) + 수사단서 이력 + 외부 자료요청 + 수사정보 분석 대화
+        crimes: { categoryId: null, offenseIds: [] },
+        leads: [],
+        externalRequests: [],
+        insightChat: [],
       };
       ctx.customGenInvCases.unshift(newCase);
       ctx.showGenInvRegForm = false;
@@ -102,11 +130,173 @@ export function registerGeneralInvestigationEvents(ctx){
       ctx.render("generalinv"); return;
     }
 
+    /* ── 혐의 범죄 선택 (사건 상세) ───────────────────────────────── */
+    const giCrimeCat = event.target.closest("[data-gi-crime-cat]");
+    if(giCrimeCat){
+      const aCase = ctx.activeGenInvCase();
+      const base = generalInvestigationState.crimeDraft
+        || (aCase?.crimes?.categoryId ? { categoryId: aCase.crimes.categoryId, offenseIds: [...(aCase.crimes.offenseIds || [])] } : { categoryId: null, offenseIds: [] });
+      const catId = giCrimeCat.dataset.giCrimeCat;
+      generalInvestigationState.crimeDraft = base.categoryId === catId
+        ? base
+        : { categoryId: catId, offenseIds: [] };
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giCrimeOffense = event.target.closest("[data-gi-crime-offense]");
+    if(giCrimeOffense){
+      const draft = generalInvestigationState.crimeDraft;
+      if(!draft) return;
+      const id = giCrimeOffense.dataset.giCrimeOffense;
+      draft.offenseIds = draft.offenseIds.includes(id)
+        ? draft.offenseIds.filter(v => v !== id)
+        : [...draft.offenseIds, id];
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giCrimeApply = event.target.closest("[data-gi-crime-apply]");
+    if(giCrimeApply){
+      const aCase = ctx.activeGenInvCase();
+      const draft = generalInvestigationState.crimeDraft
+        || (aCase?.crimes?.categoryId ? aCase.crimes : null);
+      if(!aCase || !draft?.categoryId){ alert("혐의 대분류를 선택하세요."); return; }
+      if(!draft.offenseIds?.length){ alert("죄명을 1개 이상 선택하세요."); return; }
+      aCase.crimes = { categoryId: draft.categoryId, offenseIds: [...draft.offenseIds] };
+      const invTypeId = giInvTypeForCrimes(aCase.crimes);
+      const typeChanged = invTypeId !== aCase.invTypeId;
+      aCase.invTypeId = invTypeId;
+      // 혐의에 맞는 분석 시나리오 매핑: 단계 미구성이면 지연 초기화가 새 유형을 따르고,
+      // 기존 구성이 있으면 사용자 확인 후 템플릿 재적용
+      if(aCase.giSteps?.length && typeChanged
+        && confirm("혐의에 맞는 분석 시나리오 템플릿을 적용할까요?\n기존 단계 구성과 실행 결과가 대체됩니다.")){
+        giApplyCrimeTemplate(ctx, aCase, invTypeId);
+      }
+      generalInvestigationState.crimeDraft = null;
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    /* ── 수사단서(leads) 등록·문서 작성 (사건 상세) ─────────────────── */
+    const giLeadType = event.target.closest("[data-gi-lead-type]");
+    if(giLeadType){
+      generalInvestigationState.leadFormType = giLeadType.dataset.giLeadType;
+      generalInvestigationState.leadFormStage = "plan";
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giLeadStage = event.target.closest("[data-gi-lead-stage]");
+    if(giLeadStage){
+      generalInvestigationState.leadFormStage = giLeadStage.dataset.giLeadStage;
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giLeadAdd = event.target.closest("[data-gi-lead-add]");
+    if(giLeadAdd){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase) return;
+      const title = String(document.getElementById("giLeadTitle")?.value || "").trim();
+      const content = String(document.getElementById("giLeadContent")?.value || "").trim();
+      if(!title && !content){ alert("제목 또는 내용을 입력하세요."); return; }
+      const typeDef = leadTypeById(generalInvestigationState.leadFormType);
+      const lead = {
+        id: `lead_${ctx.uid()}`,
+        type: typeDef.id,
+        stage: typeDef.stages ? generalInvestigationState.leadFormStage : undefined,
+        title, content,
+        grade: typeDef.hasGrade ? (document.getElementById("giLeadGrade")?.value || "B") : undefined,
+        parentLeadId: document.getElementById("giLeadParentSelect")?.value || undefined,
+        aiDraft: "", draft: "",
+        confirmed: false, confirmedAt: null,
+        createdAt: Date.now(),
+        createdLabel: new Date().toLocaleString("ko-KR"),
+        author: ctx.currentUser().name,
+      };
+      lead.docType = leadDocLabel(lead);
+      if(!aCase.leads) aCase.leads = [];
+      aCase.leads.push(lead);
+      generalInvestigationState.activeLeadId = lead.id;   // 등록 직후 문서 작성으로 이동
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giLeadRemove = event.target.closest("[data-gi-lead-remove]");
+    if(giLeadRemove){
+      event.stopPropagation();
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase?.leads) return;
+      const id = giLeadRemove.dataset.giLeadRemove;
+      aCase.leads = aCase.leads.filter(lead => lead.id !== id);
+      if(generalInvestigationState.activeLeadId === id) generalInvestigationState.activeLeadId = null;
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giLeadSelect = event.target.closest("[data-gi-lead-select]");
+    if(giLeadSelect){
+      generalInvestigationState.activeLeadId = giLeadSelect.dataset.giLeadSelect || null;
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giLeadDraft = event.target.closest("[data-gi-lead-draft]");
+    if(giLeadDraft){
+      const aCase = ctx.activeGenInvCase();
+      const lead = aCase?.leads?.find(item => item.id === giLeadDraft.dataset.giLeadDraft);
+      if(!lead || generalInvestigationState.leadDraftStreaming) return;
+      generalInvestigationState.leadDraftStreaming = true;
+      ctx.render("generalinv");   // 스트리밍 상태(버튼 비활성·스트림 영역)로 1회 재렌더
+      (async () => {
+        // mode "int": 내부 LLM 단독(웹검색 컨텍스트 생략 — 문서 초안에는 불필요·지연 방지)
+        const result = await streamLlmText(buildLeadDraftPrompt(aCase, lead), {
+          mode: "int",
+          onToken: acc => {
+            // 스트리밍 중 전체 재렌더 금지 — 대상 DOM만 갱신
+            const el = document.getElementById("giLeadDraftStream");
+            if(el){ el.hidden = false; el.textContent = acc; el.scrollTop = el.scrollHeight; }
+          },
+        });
+        if(result){
+          lead.aiDraft = result;
+          lead.draft = result;
+        } else {
+          alert("LLM 응답을 받지 못했습니다. 잠시 후 다시 시도하거나 본문을 직접 작성하세요.");
+        }
+        generalInvestigationState.leadDraftStreaming = false;
+        ctx.saveCanvasState();
+        ctx.render("generalinv");
+      })();
+      return;
+    }
+
+    const giLeadConfirm = event.target.closest("[data-gi-lead-confirm]");
+    if(giLeadConfirm){
+      const aCase = ctx.activeGenInvCase();
+      const lead = aCase?.leads?.find(item => item.id === giLeadConfirm.dataset.giLeadConfirm);
+      if(!lead) return;
+      const text = String(document.getElementById("giLeadDraftText")?.value || "").trim();
+      if(!text){ alert("문서 본문을 작성하거나 AI 초안을 생성한 뒤 확정하세요."); return; }
+      lead.draft = text;
+      lead.confirmed = true;
+      lead.confirmedAt = new Date().toLocaleString("ko-KR");
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
     const giCase = event.target.closest("[data-gi-case]");
     if(giCase){
+      // 수사 개편: 사건 선택 시 프로파일로 점프하지 않고 진행중인 수사 탭에서 상세를 연다
       ctx.activeGenInvCaseId = giCase.dataset.giCase;
-      ctx.generalInvTab      = "profile";
       ctx.activeGiStepId     = null;
+      generalInvestigationState.activeLeadId = null;
+      generalInvestigationState.crimeDraft = null;
       ctx.saveCanvasState();
       ctx.render("generalinv");
       return;
