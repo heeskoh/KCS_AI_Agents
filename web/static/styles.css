@@ -719,9 +719,11 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-web-target-head{display:grid;gap:2px}
 .scenario-web-target-head strong{color:#92400e;font-size:12px}
 .scenario-web-target-head span{color:#57534e;font-size:11px;line-height:1.35}
-.scenario-web-target-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 6px;align-items:center}
+.scenario-web-target-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px 6px;align-items:center}
 .scenario-web-target-url{grid-column:1 / -1}
-.scenario-web-target-query{grid-column:1}
+.scenario-web-target-query{grid-column:1 / -1}
+.scenario-web-target-login-id{grid-column:1}
+.scenario-web-target-login-pw{grid-column:2}
 .scenario-web-target-form input{min-width:0;height:34px;border:1px solid #fbbf24;border-radius:8px;padding:0 9px;font-size:12px;background:#fff}
 .scenario-web-target-form .btn{height:34px;padding:0 10px;font-size:12px}
 .scenario-web-target-list{display:grid;gap:5px;min-height:20px}
@@ -729,6 +731,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-web-target-chip span{display:grid;gap:2px;min-width:0}
 .scenario-web-target-chip strong,.scenario-web-target-chip small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scenario-web-target-chip small{color:#78716c}
+.scenario-web-target-chip .scenario-web-target-login{color:#92400e;font-weight:700}
 .scenario-web-target-chip button{width:20px;height:20px;border:0;border-radius:50%;background:#fef3c7;color:#92400e;font-weight:900;line-height:1;cursor:pointer}
 .scenario-web-target-empty{color:#78716c;font-size:11px}
 .home-special-card{padding:16px 12px;overflow-y:auto;min-height:0;display:flex;flex-direction:column}
@@ -1599,14 +1602,44 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .scenario-config .scenario-field textarea,.scenario-agent-zone .scenario-field textarea{min-height:80px}
 .scenario-agent-zone .scenario-prompt-editor{flex:1;min-height:120px;border-color:#38bdf8;border-radius:10px;font-size:15px;line-height:1.7;background:#fff;overflow-y:auto;resize:none}
 .scenario-behavior-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
-/* 리뷰 모드: 분석범위별 설명 + 개별 프롬프트 편집 블록 */
-.scenario-behavior-prompt-field{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
-.scenario-behavior-prompt-list{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto}
-.scenario-behavior-prompt{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff}
-.scenario-behavior-prompt-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+/* 리뷰 모드: 분석범위별 상세설정 — 탭 + 본문(프레임 남은 높이 전체 사용) */
+.scenario-review-mode .scenario-agent-zone{overflow-y:auto}
+.scenario-behavior-prompt-field{flex:1;min-height:240px;display:flex;flex-direction:column;margin-bottom:0}
+.scenario-behavior-prompt-list{display:flex;flex-direction:column;gap:0;flex:1;min-height:0}
+.scenario-behavior-prompt-tabs{display:flex;gap:4px;flex-wrap:wrap;flex:none}
+.scenario-behavior-prompt-tab{border:1px solid #cfe0fb;border-bottom:0;background:#f2f7ff;color:#3b4a63;border-radius:9px 9px 0 0;padding:6px 14px;font-size:12px;font-weight:800;cursor:pointer}
+.scenario-behavior-prompt-tab.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.scenario-behavior-prompt{display:none;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid #cfe0fb;border-radius:0 10px 10px 10px;background:#f8fbff}
+.scenario-behavior-prompt.active{display:flex;flex:1;min-height:0;overflow-y:auto}
+.scenario-behavior-prompt [data-behavior-url-slot] .scenario-web-target-panel{margin:0 0 8px}
+.scenario-behavior-prompt-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;flex:none}
 .scenario-behavior-prompt-head strong{color:#123c85;font-size:12px;font-weight:900;white-space:nowrap}
 .scenario-behavior-prompt-head span{color:var(--muted);font-size:11px;line-height:1.4}
-.scenario-behavior-prompt .scenario-prompt-editor{min-height:96px;font-size:13px;line-height:1.6;flex:none}
+.scenario-behavior-prompt .scenario-prompt-editor{flex:1;min-height:0;font-size:13px;line-height:1.6}
+/* 리뷰 모드: 상단 설정영역 압축 — 프롬프트 편집 영역 최대화 */
+.scenario-review-mode .scenario-agent-zone .scenario-field{margin-bottom:7px}
+.scenario-review-mode .scenario-source-hint{margin-bottom:6px;padding:6px 10px}
+.scenario-review-mode .scenario-source-hint .hint-header{margin-bottom:2px}
+/* 리뷰 모드: 입력/설정값 — 라벨과 컨트롤을 같은 라인으로 */
+.scenario-setting-field{display:flex;flex-direction:row;align-items:center;gap:10px}
+.scenario-setting-field>span{flex:none}
+.scenario-setting-options{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.scenario-setting-check{display:flex;align-items:center;gap:6px}
+.scenario-setting-check span{flex:none}
+.scenario-setting-check input,.scenario-setting-check select{min-width:0;flex:1;height:24px;border:1px solid #cfe0fb;border-radius:6px;padding:0 6px;font-size:11px;background:#fff;color:#123c85;font-weight:700}
+.scenario-setting-check input[type="number"]{max-width:72px}
+.scenario-setting-check em{font-style:normal;color:var(--muted);font-size:10px}
+.scenario-setting-multi{border:1px solid #cfe0fb;background:#fff;color:#3b4a63;border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:800;cursor:pointer}
+.scenario-setting-multi.on{background:#2f6fed;border-color:#2f6fed;color:#fff}
+/* 리뷰 모드: "분석범위별 상세설정" 라벨 라인 + 분석범위 설정 버튼(팝업) */
+.scenario-detail-label-row{display:flex;align-items:center;gap:10px}
+.scenario-behavior-config-btn{border:1px solid #cfe0fb;background:#f2f7ff;color:#2456c9;border-radius:7px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer}
+.scenario-behavior-config-btn:disabled{opacity:.5;cursor:not-allowed}
+/* 리뷰 모드: 우측 패널 보기 탭(분석 결과 | 통합 프롬프트) */
+.scenario-result-tabs{display:flex;gap:6px}
+.scenario-result-tab{border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer}
+.scenario-result-tab.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.scenario-integrated-prompt{font-family:'Noto Sans KR',Consolas,monospace}
 .scenario-behavior-check{display:flex;align-items:center;gap:5px;padding:4px 6px;border:1px solid #d8e5fb;border-radius:8px;background:#f8fbff;color:#123c85;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scenario-behavior-check input{accent-color:var(--blue)}
 .scenario-source-hint{margin:0 0 8px;padding:7px 10px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff}
@@ -2114,6 +2147,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 /* ── 워크벤치 프롬프트 영역: 마지막 입력 필드가 남은 공간 채우고 자체 스크롤 ── */
 .scenario-agent-zone>.scenario-field:last-child{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
 .scenario-agent-zone>.scenario-field:last-child textarea{flex:1;min-height:120px;overflow-y:auto;resize:none !important}
+/* 리뷰 모드 분석범위별 상세설정 필드 — 위 last-child 공통 규칙보다 우선(특이도 상향) */
+.scenario-agent-zone>.scenario-field.scenario-behavior-prompt-field:last-child{min-height:240px}
+.scenario-agent-zone>.scenario-field.scenario-behavior-prompt-field:last-child textarea{min-height:0}
 /* 관세조사 탭: 워크벤치가 탭 높이 안에 갇히고 프롬프트 영역만 자체 스크롤 */
 .ci-tab-body:has(> .scenario-workbench-v2){overflow:hidden;display:flex;flex-direction:column}
 .ci-tab-body>.scenario-workbench-v2{flex:1;min-height:0}

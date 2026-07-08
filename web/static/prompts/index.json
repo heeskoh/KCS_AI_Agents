@@ -23,7 +23,7 @@
     { "serviceId": "text_summary",     "label": "요약 AI 서비스",         "category": "llm",      "file": "agents/text_summary.json" },
     { "serviceId": "report_standard",  "label": "표준 보고서 생성 AI 서비스", "category": "llm",  "file": "agents/report_standard.json" },
     { "serviceId": "law",              "label": "법령 검토 AI 서비스",    "category": "external", "file": "agents/law.json" },
-    { "serviceId": "web_search",       "label": "웹검색 AI 서비스",       "category": "external", "file": "agents/web_search.json" },
+    { "serviceId": "web_search",       "label": "웹 정보수집 요청 AI 서비스", "category": "external", "file": "agents/web_search.json" },
     { "serviceId": "patent",           "label": "특허정보 조회 AI 서비스","category": "external", "file": "agents/patent.json" },
     { "serviceId": "mail_share",       "label": "분석결과 공유 AI 서비스","category": "external", "file": "agents/mail_share.json" },
     { "serviceId": "report_generate",  "label": "보고서 생성 AI 서비스",  "category": "report",   "file": "agents/report_generate.json" },

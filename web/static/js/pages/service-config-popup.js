@@ -56,6 +56,16 @@ export function hasServiceConfig(displayName){
   return !!(key && SERVICE_EDIT_META[key]);
 }
 
+/* 인라인 설정 UI(시나리오 리뷰모드 등)용: 설정값 하나를 저장한다.
+   팝업과 동일한 저장소(_settings → /api/service_settings)를 사용한다. */
+export function setServiceSetting(serviceKey, inputName, value){
+  const meta = SERVICE_EDIT_META[serviceKey]?.[inputName];
+  if(!meta) return false;
+  _settings[serviceKey] = { ...getServiceSettings(serviceKey), [inputName]: value };
+  saveSettings().catch(() => {});
+  return true;
+}
+
 /* 표시용 값 라벨: choice/multi는 옵션 라벨로 변환 */
 export function settingValueLabel(name, inputName, value){
   const m = SERVICE_EDIT_META[name]?.[inputName];

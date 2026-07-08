@@ -29,6 +29,8 @@ import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
 import { openFileRegisterPopup } from "./pages/file-register-popup.js";
 import "./pages/service-detail-popup.js";   // AI 서비스 상세 팝업(신규) — self-init, 기존 코드 무변경
 import { serviceInputStripHtml } from "./pages/service-workspace-ui.js";   // 3세트 UI 입력값 스트립(신규)
+import { getServiceSettings, settingValueLabel, setServiceSetting } from "./pages/service-config-popup.js";   // 리뷰모드 인라인 설정 UI
+import { findServiceSpec, SERVICE_EDIT_META } from "./pages/service-specs.js";
 import { finalizeScenarioPrompt, patternBehaviorDescription } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
 
 const pages = createPageRegistry({
@@ -1040,9 +1042,9 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   web_search: {
-    label: "웹검색 AI 서비스", type: "web", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
-    personInstruction: "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인",
+    label: "웹 정보수집 요청 AI 서비스", type: "web", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "참고 URL을 등록하고 업체, 공급망, 가격 변동 관련 외부정보 수집을 요청",
+    personInstruction: "참고 URL을 등록하고 인물, 조직, 사건, 여행 경로 관련 외부정보 수집을 요청",
     behaviorOptions: [
       { value: "company_news", label: "업체 기사" },
       { value: "supply_chain", label: "공급망/가격" },
@@ -1543,6 +1545,8 @@ const SCENARIO_LABEL_SYNONYMS = {
   "품목분류": "hs_verify",
   "과세가격평가": "customs_value",
   "웹검색": "web_search",
+  "웹정보수집요청": "web_search",
+  "웹 정보수집 요청": "web_search",
   "보고서생성": "report_generate",
   "보고서검증": "report_validate",
   "보고서승인": "report_validate",
@@ -1640,6 +1644,10 @@ function normalizeScenarioItem(item, index = 0){
     const m = /^업무특화RAG\((.+)\) 검색하기$/.exec(label);
     if(m){ legacyRagName = m[1]; label = "업무특화 RAG 검색"; }
   }
+  // 웹검색 → 웹 정보수집 요청 개편: 저장된 구 라벨을 새 명칭으로 이행
+  if(key === "web_search" && /^웹\s*검색|^웹검색/.test(label)){
+    label = "웹 정보수집 요청 AI 서비스";
+  }
 
   return {
     id: item.id || uid(),
@@ -1665,6 +1673,8 @@ function normalizeScenarioItem(item, index = 0){
     behaviorPrompts: (item.behaviorPrompts && typeof item.behaviorPrompts === "object")
       ? Object.fromEntries(Object.entries(item.behaviorPrompts).filter(([value, text]) => validBehaviorValues.has(value) && text))
       : {},
+    // 첨부자료 직접 등록(파일명/링크) — 리뷰 모드 입력값 칩에서 편집
+    docRef: String(item.docRef || "").trim(),
   };
 }
 
@@ -1908,6 +1918,10 @@ let scenarioLoadedForCompany = null;
 // 리뷰 모드(관세조사 "분석 시나리오 확인 및 설정") 여부 — sharedScenarioWorkbenchHtml 렌더 시 갱신.
 // true면 우측 패널은 선택된 AI 서비스의 결과만, 좌측은 분석범위별 개별 프롬프트 편집을 표시한다.
 let scenarioReviewMode = false;
+// 리뷰 모드 우측 패널 보기 탭: "result"(분석 결과) | "prompt"(통합 프롬프트)
+let scenarioResultViewTab = "result";
+// 리뷰 모드 분석범위별 상세설정 활성 탭 { itemId: behaviorValue }
+let behaviorPromptActiveTab = {};
 let editingTemplateId = null;
 let templateEditorItems = [];
 let templateEditorSelectedId = null;
@@ -2107,7 +2121,7 @@ const GI_SERVICE_ALIASES = {
   gi_profit:   { sourceKey:"proceeds_tracking", type:"agent" },
   gi_fundtrace:{ sourceKey:"fund_trace", type:"agent", label:"범죄자금추적 AI 서비스" },
   gi_comms:    { sourceKey:"comms_analysis", type:"agent", label:"통신내역 AI 분석 서비스" },
-  gi_web:      { sourceKey:"web_search", type:"agent", label:"웹검색 AI 서비스" },
+  gi_web:      { sourceKey:"web_search", type:"agent", label:"웹 정보수집 요청 AI 서비스" },
   gi_origin:   { sourceKey:"origin_analysis", type:"agent", label:"원산지 검증 AI 서비스" },
   gi_anomaly:  { sourceKey:"abnormal_trade", type:"agent" },
   gi_patent:   { sourceKey:"patent", type:"agent" },
@@ -2781,7 +2795,7 @@ const COACH_SOURCE_LABELS = {
 const COACH_AGENT_LABELS = {
   ocr:"OCR", ml:"ML 위험모델", network:"관계망", ontology:"관세온톨로지",
   origin_analysis:"원산지분석", abnormal_trade:"이상거래검증",
-  proceeds_tracking:"범죄수익추적", route_analysis:"운송경로분석", web:"웹검색",
+  proceeds_tracking:"범죄수익추적", route_analysis:"운송경로분석", web:"웹수집요청",
   declaration_verify:"수입신고검증", hs_verify:"품목분류검증", customs_value:"과세가격평가",
   summary:"보고서요약", patent:"특허정보", rag_create:"업무특화RAG", law:"법령정보",
   report:"보고서생성", validate:"보고서검증", report_generate:"보고서생성", report_validate:"보고서검증",
@@ -3215,7 +3229,7 @@ const HOME_DEFAULT_AGENTS = [
   { type:"rag_audit",          label:"심사정보 RAG",          key:"rag_audit" },
   { type:"rag_investigation",  label:"조사정보 RAG",          key:"rag_investigation" },
   { type:"rag_global",         label:"국제협력 RAG",          key:"rag_global" },
-  { type:"web",                label:"웹검색 AI 서비스",          key:"web_search" },
+  { type:"web",                label:"웹 정보수집 요청 AI 서비스",  key:"web_search" },
   { type:"declaration_verify", label:"수입신고검증 AI 서비스",    key:"declaration_verify" },
   { type:"hs_verify",          label:"품목분류검증 AI 서비스",    key:"hs_verify" },
   { type:"customs_value",      label:"과세가격평가 AI 서비스",    key:"customs_value" },
@@ -3670,7 +3684,7 @@ const AI_SERVICE_INPUTS = {
     { key:"scope", label:"확인 범위", placeholder:"예: 무역 징후 / 시장 맥락" },
   ],
   web_search: [
-    { key:"query", label:"검색어", placeholder:"예: 업체명 + 제재" , required:true },
+    { key:"query", label:"수집 요청 내용", placeholder:"예: 업체명 + 제재 동향 수집" , required:true },
   ],
 };
 function homeServiceInputDefs(key){
@@ -4465,11 +4479,14 @@ function normalizeWebTargets(value){
     if(!item) return;
     const url = String(item.url || item.href || "").trim();
     const query = String(item.query || item.keyword || item.searchText || item.search_text || "").trim();
+    // 로그인 필요 사이트용 선택 자격증명(데모: workspace_state 평문 저장, 화면에는 PW 마스킹만 표시)
+    const loginId = String(item.loginId || item.login_id || "").trim();
+    const loginPw = String(item.loginPw || item.login_pw || "");
     if(!url) return;
     const key = `${url}\n${query}`;
     if(seen.has(key)) return;
     seen.add(key);
-    normalized.push({ url, query });
+    normalized.push({ url, query, loginId, loginPw, login_id: loginId, login_pw: loginPw });
   });
   return normalized;
 }
@@ -4497,15 +4514,23 @@ function setScenarioItemWebTargets(item, targets){
 
 function webTargetPanelHtml(item, scope){
   if(!item || item.key !== "web_search") return "";
+  // 수집 대상 URL 등록은 분석범위에서 "URL 직접 등록"을 선택했을 때만 표시
+  const activeBehaviors = Array.isArray(item.behaviors) && item.behaviors.length
+    ? item.behaviors
+    : sourceDefaultBehaviors(item.key);
+  if(!activeBehaviors.includes("direct_url")) return "";
   const targets = scenarioItemWebTargets(item);
   const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
   const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
+  const loginIdId = scope === "template" ? "templateWebTargetLoginId" : "scenarioWebTargetLoginId";
+  const loginPwId = scope === "template" ? "templateWebTargetLoginPw" : "scenarioWebTargetLoginPw";
   const cards = targets.length
     ? targets.map((target, index) => `
         <div class="scenario-web-target-chip">
           <span>
             <strong>${escapeHtml(target.url)}</strong>
-            <small>${escapeHtml(target.query || "검색 내용 미지정")}</small>
+            <small>${escapeHtml(target.query || "수집 내용 미지정")}</small>
+            ${target.loginId ? `<small class="scenario-web-target-login">🔒 로그인정보 등록 (${escapeHtml(target.loginId)} / •••)</small>` : ""}
           </span>
           <button type="button" data-web-target-remove="${scope}" data-index="${index}" aria-label="URL 삭제">×</button>
         </div>
@@ -4514,12 +4539,14 @@ function webTargetPanelHtml(item, scope){
   return `
     <div class="scenario-web-target-panel">
       <div class="scenario-web-target-head">
-        <strong>URL 직접 등록</strong>
-        <span>확인할 URL과 해당 페이지에서 찾을 주요 검색 내용을 등록하세요.</span>
+        <strong>수집 대상 URL 등록</strong>
+        <span>수집을 요청할 URL과 수집 내용을 등록하세요. 로그인이 필요한 사이트는 ID/PW를 함께 등록할 수 있습니다.</span>
       </div>
       <div class="scenario-web-target-form">
         <input id="${urlId}" class="scenario-web-target-url" type="url" placeholder="https://">
-        <input id="${queryId}" class="scenario-web-target-query" type="text" placeholder="주요 검색내용">
+        <input id="${queryId}" class="scenario-web-target-query" type="text" placeholder="수집할 내용">
+        <input id="${loginIdId}" class="scenario-web-target-login-id" type="text" placeholder="로그인 ID (선택)" autocomplete="off">
+        <input id="${loginPwId}" class="scenario-web-target-login-pw" type="password" placeholder="로그인 PW (선택)" autocomplete="new-password">
         <button type="button" class="btn secondary" data-web-target-add="${scope}">등록</button>
       </div>
       <div class="scenario-web-target-list">${cards}</div>
@@ -4528,6 +4555,15 @@ function webTargetPanelHtml(item, scope){
 }
 
 function renderWebTargetPanel(scope){
+  // 리뷰 모드(시나리오 스코프): URL 등록 패널은 "URL 직접 등록" 탭 본문에 내장 —
+  // 좌측 독립 컨테이너 대신 탭 안의 슬롯을 갱신한다(등록/삭제 후 재렌더 경로 포함).
+  if(scope === "scenario" && scenarioReviewMode){
+    const slot = document.querySelector("#scenarioBehaviorPromptList [data-behavior-url-slot]");
+    if(slot) slot.innerHTML = webTargetPanelHtml(shareEmailScopeItem(scope), scope);
+    const legacy = document.getElementById("scenarioWebTargetPanel");
+    if(legacy) legacy.innerHTML = "";
+    return;
+  }
   const panelId = scope === "template" ? "templateWebTargetPanel" : "scenarioWebTargetPanel";
   const panel = document.getElementById(panelId);
   if(!panel) return;
@@ -4539,19 +4575,27 @@ function addWebTargetToScope(scope){
   if(!item || item.key !== "web_search") return false;
   const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
   const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
+  const loginIdId = scope === "template" ? "templateWebTargetLoginId" : "scenarioWebTargetLoginId";
+  const loginPwId = scope === "template" ? "templateWebTargetLoginPw" : "scenarioWebTargetLoginPw";
   const urlInput = document.getElementById(urlId);
   const queryInput = document.getElementById(queryId);
+  const loginIdInput = document.getElementById(loginIdId);
+  const loginPwInput = document.getElementById(loginPwId);
   const url = String(urlInput?.value || "").trim();
   const query = String(queryInput?.value || "").trim();
+  const loginId = String(loginIdInput?.value || "").trim();
+  const loginPw = String(loginPwInput?.value || "");
   if(!url) return false;
   if(!isValidHttpUrl(url)){
     alert("http 또는 https URL을 입력하세요.");
     urlInput?.focus();
     return false;
   }
-  setScenarioItemWebTargets(item, [...scenarioItemWebTargets(item), { url, query }]);
+  setScenarioItemWebTargets(item, [...scenarioItemWebTargets(item), { url, query, loginId, loginPw }]);
   if(urlInput) urlInput.value = "";
   if(queryInput) queryInput.value = "";
+  if(loginIdInput) loginIdInput.value = "";
+  if(loginPwInput) loginPwInput.value = "";
   if(scope === "scenario") saveScenarioShareEmailState();
   renderWebTargetPanel(scope);
   return true;
@@ -4681,8 +4725,8 @@ function ensureDirectUrlTargets(items, rerun){
   // alert 대신 대화형으로 확인할 URL을 되묻고, 등록 후 재실행한다.
   const slot = document.getElementById("scenarioClarify");
   if(slot){
-    homeMountClarify(slot, "웹검색 AI 서비스(URL 직접 등록)",
-      { label: "확인할 URL", placeholder: "예: https://example.com/notice" },
+    homeMountClarify(slot, "웹 정보수집 요청 AI 서비스(수집 URL 등록)",
+      { label: "수집할 URL", placeholder: "예: https://example.com/notice" },
       (val) => {
         const urlInput = document.getElementById("scenarioWebTargetUrl");
         if(urlInput) urlInput.value = val;
@@ -4694,7 +4738,7 @@ function ensureDirectUrlTargets(items, rerun){
       });
   } else {
     document.getElementById("scenarioWebTargetUrl")?.focus();
-    setScenarioStatus("확인할 URL을 1개 이상 등록 후 다시 실행하세요");
+    setScenarioStatus("수집할 URL을 1개 이상 등록 후 다시 실행하세요");
   }
   return false;
 }
@@ -8497,16 +8541,26 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
         <aside class="scenario-config">
           <div class="scenario-agent-zone">
             <div id="scenarioSourceHint" class="scenario-source-hint"></div>
+            ${reviewMode ? `
+            <div class="scenario-field scenario-setting-field" id="scenarioServiceSettingsField" style="display:none">
+              <span>입력/설정값</span>
+              <div id="scenarioServiceSettings" class="scenario-setting-options"></div>
+            </div>
+            ` : `
             <div class="scenario-field">
               <span>분석범위</span>
               <div id="scenarioBehaviorOptions" class="scenario-behavior-options"></div>
             </div>
+            `}
             <div id="scenarioShareEmailPanel"></div>
             <div id="scenarioWebTargetPanel"></div>
             <div id="scenarioRagPanel"></div>
             ${reviewMode ? `
             <div class="scenario-field scenario-behavior-prompt-field">
-              <span>분석범위별 상세설정</span>
+              <span class="scenario-detail-label-row">분석범위별 상세설정
+                <button id="scenarioBehaviorConfigButton" type="button" class="scenario-behavior-config-btn"
+                  ${archived ? "disabled" : ""}>분석범위 설정</button>
+              </span>
               <div id="scenarioBehaviorPromptList" class="scenario-behavior-prompt-list"></div>
             </div>
             ` : `
@@ -8536,7 +8590,12 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
 
         <section class="scenario-log">
           <div class="scenario-log-head">
-            <h3>${reviewMode ? "분석 결과" : "분석 실행 로그"}</h3>
+            ${reviewMode ? `
+            <div class="scenario-result-tabs">
+              <button type="button" class="scenario-result-tab ${scenarioResultViewTab === "result" ? "active" : ""}" data-result-view-tab="result">분석 결과</button>
+              <button type="button" class="scenario-result-tab ${scenarioResultViewTab === "prompt" ? "active" : ""}" data-result-view-tab="prompt">통합 프롬프트</button>
+            </div>
+            ` : `<h3>분석 실행 로그</h3>`}
             <div class="scenario-log-actions">
               ${reviewMode ? reviewNoteHtml : `
               <button id="scenarioRunButton" type="button" class="btn"
@@ -8928,6 +8987,8 @@ function initScenarioWorkbench(){
   // Only reload scenario data when company changes; preserve stepOutputs/stepStatuses otherwise
   if(scenarioLoadedForCompany !== activeCanvasCompanyId){
     scenarioLoadedForCompany = activeCanvasCompanyId;
+    scenarioResultViewTab = "result";
+    behaviorPromptActiveTab = {};
     const archive = currentRunArchive(activeCanvasCompanyId);
     scenarioItems = getCompanyScenario(activeCanvasCompanyId);
     if(archive){
@@ -8952,6 +9013,17 @@ function initScenarioWorkbench(){
   document.getElementById("scenarioRunButton")?.addEventListener("click", runScenarioWorkflow);
   document.getElementById("scenarioClearButton")?.addEventListener("click", clearScenarioResults);
   document.getElementById("scenarioRerunRequestButton")?.addEventListener("click", requestScenarioRerun);
+  // 리뷰 모드: 분석범위 설정 팝업(체크박스 행 대체)
+  document.getElementById("scenarioBehaviorConfigButton")?.addEventListener("click", openScenarioBehaviorPopup);
+  // 리뷰 모드 우측 패널 보기 탭: 분석 결과 ↔ 통합 프롬프트
+  document.querySelectorAll("[data-result-view-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      scenarioResultViewTab = button.dataset.resultViewTab;
+      document.querySelectorAll("[data-result-view-tab]").forEach(b =>
+        b.classList.toggle("active", b.dataset.resultViewTab === scenarioResultViewTab));
+      renderScenarioSteps();
+    });
+  });
   document.getElementById("scenarioTemplateApplyButton")?.addEventListener("click", applySelectedScenarioTemplate);
   document.getElementById("scenarioSaveButton")?.addEventListener("click", () => {
     const defaultName = `${activeCanvasCompany()?.company_name || "기업"} 분석 템플릿`;
@@ -8997,9 +9069,10 @@ function scenarioBehaviorDescription(key, behaviorValue){
     || `'${label}' 관점의 조회·분석을 수행합니다.`;
 }
 
-/* 리뷰 모드 전용: 선택된 AI 서비스의 분석범위마다 설명 + 개별 프롬프트 편집 블록을 렌더한다.
-   개별 프롬프트는 item.behaviorPrompts[동작값]에 저장되며, 없으면 해당 동작 단독의
-   composePrompt(상세설정 템플릿)로 자동 생성해 채운다. */
+/* 리뷰 모드 전용: 선택된 AI 서비스의 분석범위별 상세설정을 탭 형태로 렌더한다.
+   탭 = 분석범위(동작), 본문 = 설명 + 개별 프롬프트(프레임 남은 높이 전체 사용).
+   비활성 탭의 textarea도 DOM에 유지(display:none)해 편집값·수집(collectBehaviorPrompts)이 보존된다.
+   개별 프롬프트는 item.behaviorPrompts[동작값]에 저장, 없으면 동작 단독 composePrompt로 자동 생성. */
 function renderBehaviorPromptBlocks(item){
   const box = document.getElementById("scenarioBehaviorPromptList");
   if(!box) return;
@@ -9011,21 +9084,46 @@ function renderBehaviorPromptBlocks(item){
   const behaviors = Array.isArray(item.behaviors) && item.behaviors.length
     ? item.behaviors
     : sourceDefaultBehaviors(item.key);
-  box.innerHTML = behaviors.map(value => {
+  const savedTab = behaviorPromptActiveTab[item.id];
+  const activeValue = behaviors.includes(savedTab) ? savedTab : behaviors[0];
+  behaviorPromptActiveTab[item.id] = activeValue;
+
+  const tabs = behaviors.map(value => `
+    <button type="button" class="scenario-behavior-prompt-tab ${value === activeValue ? "active" : ""}"
+      data-behavior-tab="${escapeHtml(value)}">${escapeHtml(sourceBehaviorLabel(item.key, value))}</button>
+  `).join("");
+  const blocks = behaviors.map(value => {
     const label = sourceBehaviorLabel(item.key, value);
     const desc = scenarioBehaviorDescription(item.key, value);
     const saved = item.behaviorPrompts?.[value] || "";
+    // 웹 정보수집 요청의 "URL 직접 등록" 탭: 수집 대상 URL 등록 패널을 탭 본문에 내장
+    const urlPanel = (item.key === "web_search" && value === "direct_url")
+      ? `<div data-behavior-url-slot>${webTargetPanelHtml(item, "scenario")}</div>`
+      : "";
     return `
-      <div class="scenario-behavior-prompt">
+      <div class="scenario-behavior-prompt ${value === activeValue ? "active" : ""}" data-behavior-block="${escapeHtml(value)}">
         <div class="scenario-behavior-prompt-head">
           <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(desc)}</span>
         </div>
+        ${urlPanel}
         <textarea class="scenario-prompt-editor" data-behavior-prompt="${escapeHtml(value)}"
           placeholder="'${escapeHtml(label)}' 분석범위의 개별 프롬프트가 자동 생성됩니다. 필요하면 직접 수정하세요.">${escapeHtml(saved)}</textarea>
       </div>
     `;
   }).join("");
+  box.innerHTML = `<div class="scenario-behavior-prompt-tabs">${tabs}</div>${blocks}`;
+
+  // 탭 전환: 재렌더 없이 클래스만 토글 — 편집 중인 다른 탭 textarea 값 보존
+  box.querySelectorAll("[data-behavior-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.behaviorTab;
+      behaviorPromptActiveTab[item.id] = value;
+      box.querySelectorAll("[data-behavior-tab]").forEach(b => b.classList.toggle("active", b === button));
+      box.querySelectorAll("[data-behavior-block]").forEach(block =>
+        block.classList.toggle("active", block.dataset.behaviorBlock === value));
+    });
+  });
 
   // 저장된 개별 프롬프트가 없는 동작은 동작 단독 composePrompt로 자동 생성해 채운다
   const issuedItemId = item.id;
@@ -9039,6 +9137,174 @@ function renderBehaviorPromptBlocks(item){
       el.value = composed || scenarioSuggestedInstruction(item.key, targetType, [value]);
     });
   });
+}
+
+/* 리뷰 모드 전용: 분석범위 선택 팝업 — 좌측 공간 최소화를 위해 체크박스 행 대신 팝업으로 설정.
+   적용 시 item.behaviors 갱신 → 상세설정 탭·통합 프롬프트가 함께 갱신된다. */
+function openScenarioBehaviorPopup(){
+  if(isCompanyArchived()) return;
+  const item = selectedScenarioItem();
+  if(!item) return;
+  const current = Array.isArray(item.behaviors) && item.behaviors.length
+    ? item.behaviors
+    : sourceDefaultBehaviors(item.key);
+  const options = sourceBehaviorOptions(item.key);
+  document.getElementById("scenarioBehaviorPopup")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "scenarioBehaviorPopup";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;z-index:10600;padding:20px;";
+  overlay.innerHTML = `
+    <div style="width:420px;max-width:92vw;background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.36);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eef1f6;">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:800;color:#16213d;">분석범위 설정</div>
+          <div style="font-size:11.5px;color:#8590a6;margin-top:2px;">${escapeHtml(normalizeReportValidationLabel(item.label))} · 최소 1개 이상 선택</div>
+        </div>
+        <button type="button" data-behavior-popup-close style="width:26px;height:26px;border:none;background:#f3f5f9;border-radius:8px;color:#5a6577;cursor:pointer;">✕</button>
+      </div>
+      <div style="padding:14px 18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;">
+        ${options.map(option => `
+          <label class="scenario-behavior-check">
+            <input type="checkbox" value="${escapeHtml(option.value)}" ${current.includes(option.value) ? "checked" : ""}>
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join("")}
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #eef1f6;background:#fcfdff;">
+        <button type="button" class="btn secondary" data-behavior-popup-close>취소</button>
+        <button type="button" class="btn primary" data-behavior-popup-apply>적용</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", event => {
+    if(event.target === overlay || event.target.closest("[data-behavior-popup-close]")){
+      overlay.remove();
+      return;
+    }
+    if(event.target.closest("[data-behavior-popup-apply]")){
+      const values = [...overlay.querySelectorAll("input:checked")].map(input => input.value);
+      if(!values.length){
+        alert("분석범위는 최소 하나 이상 선택해야 합니다.");
+        return;
+      }
+      const live = selectedScenarioItem();
+      if(live){
+        live.behaviors = values;
+        live.behavior = values[0];
+        live.behaviorLabel = sourceBehaviorLabels(live.key, values).join(", ");
+        saveCompanyScenario();
+        renderScenarioList();
+        syncScenarioEditor();
+        if(scenarioReviewMode) renderScenarioSteps();
+      }
+      overlay.remove();
+    }
+  });
+}
+
+/* 리뷰 모드 전용: 서비스 설정값(SERVICE_EDIT_META)을 분석범위와 유사한 인라인 칩 UI로 렌더.
+   값 변경은 서비스 설정 팝업과 동일 저장소(/api/service_settings)에 즉시 저장된다. */
+function renderServiceSettingsPanel(item){
+  const field = document.getElementById("scenarioServiceSettingsField");
+  const box = document.getElementById("scenarioServiceSettings");
+  if(!field || !box) return;
+  const found = item ? findServiceSpec(item.label) : { key: null };
+  const meta = found.key ? SERVICE_EDIT_META[found.key] : null;
+  if(!meta){
+    field.style.display = "none";
+    box.innerHTML = "";
+    return;
+  }
+  field.style.display = "";
+  const serviceKey = found.key;
+  const values = getServiceSettings(serviceKey);
+  box.innerHTML = Object.entries(meta).map(([name, m]) => {
+    const value = values[name];
+    let control = "";
+    if(m.control === "choice"){
+      control = `<select data-setting-input="${escapeHtml(name)}">${m.options.map(([v, label]) =>
+        `<option value="${escapeHtml(v)}" ${v === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select>`;
+    } else if(m.control === "number"){
+      control = `<input type="number" data-setting-input="${escapeHtml(name)}" value="${escapeHtml(String(value ?? ""))}"
+        min="${m.min ?? ""}" max="${m.max ?? ""}">${m.unit ? `<em>${escapeHtml(m.unit)}</em>` : ""}`;
+    } else if(m.control === "multi"){
+      const arr = Array.isArray(value) ? value : [];
+      control = m.options.map(([v, label]) =>
+        `<button type="button" class="scenario-setting-multi ${arr.includes(v) ? "on" : ""}"
+          data-setting-multi="${escapeHtml(name)}::${escapeHtml(v)}">${escapeHtml(label)}</button>`).join("");
+    } else {
+      control = `<input type="text" data-setting-input="${escapeHtml(name)}" value="${escapeHtml(String(value ?? ""))}"
+        placeholder="${escapeHtml(m.placeholder || "")}">`;
+    }
+    return `
+      <label class="scenario-behavior-check scenario-setting-check">
+        <span>${escapeHtml(name)}</span>
+        ${control}
+      </label>
+    `;
+  }).join("");
+
+  box.querySelectorAll("[data-setting-input]").forEach(el => {
+    el.addEventListener("change", () => {
+      const name = el.dataset.settingInput;
+      const m = SERVICE_EDIT_META[serviceKey][name];
+      let value = el.value;
+      if(m.control === "number"){
+        let n = Number(value);
+        if(Number.isNaN(n)) n = m.def ?? 0;
+        if(m.min !== undefined) n = Math.max(m.min, n);
+        if(m.max !== undefined) n = Math.min(m.max, n);
+        value = n;
+        el.value = String(n);
+      }
+      setServiceSetting(serviceKey, name, value);
+    });
+  });
+  box.querySelectorAll("[data-setting-multi]").forEach(button => {
+    button.addEventListener("click", () => {
+      const [name, v] = button.dataset.settingMulti.split("::");
+      const current = getServiceSettings(serviceKey)[name];
+      const arr = Array.isArray(current) ? [...current] : [];
+      const next = arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+      if(!next.length) return;   // 최소 1개 유지
+      setServiceSetting(serviceKey, name, next);
+      renderServiceSettingsPanel(item);
+    });
+  });
+}
+
+/* 리뷰 모드 전용: 선택 단계의 통합 프롬프트(입력/설정값 + 분석범위별 프롬프트 병합) 텍스트 */
+function buildIntegratedPromptText(item){
+  if(!item) return "";
+  const behaviors = Array.isArray(item.behaviors) && item.behaviors.length
+    ? item.behaviors
+    : sourceDefaultBehaviors(item.key);
+  const labels = sourceBehaviorLabels(item.key, behaviors);
+  const found = findServiceSpec(item.label);
+  const meta = found.key ? SERVICE_EDIT_META[found.key] : null;
+  const settingLines = meta
+    ? Object.keys(meta).map(name =>
+        `- ${name}: ${settingValueLabel(found.key, name, getServiceSettings(found.key)[name])}`)
+    : [];
+  // 화면에서 편집 중인 값 우선(collectBehaviorPrompts), 없으면 저장분(item.behaviorPrompts)
+  const current = collectBehaviorPrompts();
+  const prompts = Object.values(current).some(text => text) ? current : (item.behaviorPrompts || {});
+  const merged = mergeBehaviorPrompts(item, prompts);
+  const webTargets = scenarioItemWebTargets(item);
+  const webText = webTargets.length
+    ? `[수집 대상 URL]\n${webTargets.map(t =>
+        `- ${t.url}${t.query ? ` (${t.query})` : ""}${t.loginId ? " · 로그인정보 등록됨" : ""}`).join("\n")}`
+    : "";
+  return [
+    `[AI 서비스] ${normalizeReportValidationLabel(item.label)}`,
+    `[분석범위] ${labels.join(", ")}`,
+    settingLines.length ? `[입력/설정값]\n${settingLines.join("\n")}` : "",
+    item.docRef ? `[첨부자료] ${item.docRef}` : "",
+    merged || item.instruction || "",
+    extraPromptsRunText(item.extraPrompts).trim(),
+    webText,
+  ].filter(Boolean).join("\n\n");
 }
 
 /* 리뷰 모드 전용: 분석범위별 개별 프롬프트 textarea 값을 {동작값: 프롬프트}로 수집 */
@@ -9071,7 +9337,8 @@ function syncScenarioEditor(){
   if(!item) syncBehaviorOptions("db_cdw", []);
   // 즉시 폴백값 설정 후 JSON 기반 최적 프롬프트로 교체
   if(scenarioReviewMode){
-    // 리뷰 모드: 통합 프롬프트 대신 분석범위별 설명·개별 프롬프트 블록을 렌더한다
+    // 리뷰 모드: 통합 프롬프트 대신 설정값 인라인 UI + 분석범위별 탭 상세설정을 렌더한다
+    renderServiceSettingsPanel(item);
     renderBehaviorPromptBlocks(item);
   }else{
     const _fallback = item?.instruction || scenarioSuggestedInstruction(item?.key, targetType, item?.behaviors) || "";
@@ -9102,6 +9369,7 @@ function syncScenarioEditor(){
     const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
     const status = scenarioItemPermissionStatus(item);
     const needsPermission = status === "locked" || status === "requested";
+    // 리뷰 모드: 프롬프트 영역 최대화를 위해 분석범위 요약·설명 문구(상세설정과 중복)를 생략
     hint.innerHTML = `
       <div class="hint-header">
         <strong>${escapeHtml(item.label)}</strong>
@@ -9109,18 +9377,37 @@ function syncScenarioEditor(){
         <button type="button" data-service-detail="${escapeHtml(item.label)}" title="입력정의·결과형식 상세 보기"
           style="margin-left:auto;border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.6;">서비스 상세</button>
       </div>
-      <span class="hint-behaviors">${escapeHtml(behaviors.join(", "))}</span>
+      ${scenarioReviewMode ? "" : `<span class="hint-behaviors">${escapeHtml(behaviors.join(", "))}</span>`}
       ${serviceInputStripHtml(item.label, {
         targetLabel: (() => { const c = activeCanvasCompany(); return c ? `${c.company_name} (${c.company_id})` : ""; })(),
         docCount: (uploadedFilesByCompany[activeCanvasCompanyId] || []).length,
+        // 리뷰 모드: 설정 입력은 아래 "입력/설정값" 인라인 UI로 표시 — 스트립에서 중복 제외.
+        // 첨부자료 입력은 직접 등록(파일명/링크)한 값을 우선 표시하고 클릭 편집을 허용.
+        hideSettings: scenarioReviewMode,
+        docEditable: scenarioReviewMode,
+        docLabel: scenarioReviewMode ? (item.docRef || "") : "",
       })}
       ${needsPermission ? `
         <div class="hint-permission-callout">
           <span>${status === "requested" ? "권한 요청이 접수되었습니다. 승인 대기 중입니다." : "이 단계를 실행하려면 추가 권한이 필요합니다."}</span>
           ${status === "locked" ? `<button type="button" class="btn-perm-request" data-permission-request="${escapeHtml(item.key)}">권한 요청</button>` : ""}
         </div>
-      ` : `<p>${escapeHtml(scenarioSuggestedInstruction(item.key, targetType, item.behaviors) || "선택 조건에 맞는 프롬프트를 입력하세요.")}</p>`}
+      ` : (scenarioReviewMode ? "" : `<p>${escapeHtml(scenarioSuggestedInstruction(item.key, targetType, item.behaviors) || "선택 조건에 맞는 프롬프트를 입력하세요.")}</p>`)}
     `;
+    // 리뷰 모드: 첨부자료(문서) 입력값 칩 클릭 → 파일명/링크 직접 등록
+    if(scenarioReviewMode){
+      hint.querySelectorAll("[data-doc-input]").forEach(chip => {
+        chip.addEventListener("click", () => {
+          const live = selectedScenarioItem();
+          if(!live) return;
+          const value = prompt("첨부자료 파일명 또는 링크(URL)를 입력하세요", live.docRef || "");
+          if(value === null) return;
+          live.docRef = value.trim();
+          saveCompanyScenario();
+          syncScenarioEditor();
+        });
+      });
+    }
   }
   if(hint && !item) hint.innerHTML = "";
   if(validation) validation.innerHTML = "";
@@ -9181,7 +9468,8 @@ function addScenarioItem(){
     order: scenarioItems.length + 1,
     targetType,
     target_type: targetType,
-    instruction: instruction.value.trim() || suggestedInstruction,
+    // 리뷰 모드에서는 통합 프롬프트 textarea(#scenarioInstruction)가 없다 — 옵셔널 접근
+    instruction: String(instruction?.value || "").trim() || suggestedInstruction,
     shareRecipients: key === "mail_share" ? scenarioItemShareRecipients(shareEmailScopeItem("scenario")) : [],
     webTargets: key === "web_search" ? scenarioItemWebTargets(shareEmailScopeItem("scenario")) : [],
   };
@@ -9192,7 +9480,8 @@ function addScenarioItem(){
   scenarioItems.push(item);
   selectedScenarioId = item.id;
   openedSteps.add(item.id);
-  instruction.value = scenarioSuggestedInstruction(key, targetType, item.behaviors);
+  // 리뷰 모드에서는 통합 프롬프트 textarea가 없다 — 옵셔널 접근
+  if(instruction) instruction.value = scenarioSuggestedInstruction(key, targetType, item.behaviors);
   saveCompanyScenario();
   renderScenarioList();
   renderScenarioSteps();
@@ -9484,6 +9773,22 @@ function renderScenarioSteps(){
     : scenarioItems;
   if(scenarioReviewMode && !visibleItems.length){
     target.innerHTML = `<div class="empty-state">상단 단계 카드에서 AI 서비스를 선택하면 해당 결과가 표시됩니다.</div>`;
+    return;
+  }
+  // 리뷰 모드 · 통합 프롬프트 탭: 선택 단계의 입력/설정값·분석범위별 프롬프트를 병합해 표시
+  if(scenarioReviewMode && scenarioResultViewTab === "prompt"){
+    const item = visibleItems[0];
+    const promptText = buildIntegratedPromptText(item);
+    target.innerHTML = `
+      <section class="scenario-step ${item.type} open">
+        <div class="scenario-step-head">
+          <div class="scenario-step-toggle" style="cursor:default">
+            <span>${escapeHtml(normalizeReportValidationLabel(item.label))} — 통합 프롬프트</span>
+          </div>
+        </div>
+        <div class="scenario-step-body scenario-integrated-prompt">${escapeHtml(promptText || "구성된 프롬프트가 없습니다.").replace(/\n/g, "<br>")}</div>
+      </section>
+    `;
     return;
   }
   target.innerHTML = visibleItems.map(item => {

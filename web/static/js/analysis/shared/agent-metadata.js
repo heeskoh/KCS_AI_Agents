@@ -221,9 +221,9 @@ export const AI_SERVICE_CATALOG = {
       { value:"email_share", label:"이메일 공유" },
       { value:"team_brief", label:"팀 공유 요약" },
     ]),
-  web_search: cfg("웹검색 AI 서비스", "web", EXTERNAL_AI_GROUP,
-    "업체, 공급망, 가격 변동 관련 기사 또는 직접 등록한 URL에서 지정 정보를 확인",
-    "인물, 조직, 사건, 여행 경로 관련 공개 정보 또는 직접 등록한 URL에서 지정 정보를 확인",
+  web_search: cfg("웹 정보수집 요청 AI 서비스", "web", EXTERNAL_AI_GROUP,
+    "참고 URL을 등록하고 업체, 공급망, 가격 변동 관련 외부정보 수집을 요청",
+    "참고 URL을 등록하고 인물, 조직, 사건, 여행 경로 관련 외부정보 수집을 요청",
     [
       { value:"company_news", label:"업체 기사" },
       { value:"supply_chain", label:"공급망/가격" },
@@ -260,7 +260,7 @@ export const AI_SERVICE_CATALOG = {
   report: { label:"보고서 생성 AI 서비스", agentId:"report", category:REPORT_AI_GROUP, adminVisible:false },
   validate: { label:"보고서 검증 AI 서비스", agentId:"validation", category:REPORT_AI_GROUP, adminVisible:false },
   validation: { label:"보고서 검증 AI 서비스", agentId:"validation", category:REPORT_AI_GROUP, adminVisible:false },
-  web: { label:"웹검색 AI 서비스", agentId:"web", category:EXTERNAL_AI_GROUP, adminVisible:false },
+  web: { label:"웹 정보수집 요청 AI 서비스", agentId:"web", category:EXTERNAL_AI_GROUP, adminVisible:false },
 };
 
 export const AGENT_SERVICE_DEFINITIONS = Object.fromEntries(

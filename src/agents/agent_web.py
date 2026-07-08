@@ -43,13 +43,16 @@ def _normalize_web_targets(value: Any) -> list[dict[str, str]]:
             continue
         url = _clean_text(str(item.get("url") or item.get("href") or ""))
         query = _clean_text(str(item.get("query") or item.get("keyword") or item.get("search_text") or ""))
+        # 로그인 필요 사이트용 선택 자격증명(데모: 평문 전달, 결과 본문에는 마스킹만 노출)
+        login_id = _clean_text(str(item.get("login_id") or item.get("loginId") or ""))
+        login_pw = str(item.get("login_pw") or item.get("loginPw") or "")
         if not url or not (url.startswith("http://") or url.startswith("https://")):
             continue
         key = (url, query)
         if key in seen:
             continue
         seen.add(key)
-        targets.append({"url": url, "query": query})
+        targets.append({"url": url, "query": query, "login_id": login_id, "login_pw": login_pw})
     return targets
 
 
@@ -343,15 +346,63 @@ def web_search_context(query: str, *, max_results: int = MAX_RESULTS_PER_TOPIC) 
     return {"available": True, "text": _format_results(results), "results": results, "reason": ""}
 
 
+# 웹 정보수집 요청 — 지원 수집범위(behavior)와 라벨. 그 외 값(오설정)은 무시.
+COLLECT_BEHAVIOR_LABELS = {
+    "company_news": "기업 관련 기사",
+    "supply_chain": "공급망·가격 정보",
+    "industry_news": "동종업종 동향",
+    "direct_url": "등록 URL 수집",
+}
+
+
+def _collect_behaviors(scenario: dict[str, Any]) -> list[str]:
+    raw = scenario.get("current_agent_behaviors") or []
+    values = [str(v) for v in raw if str(v) in COLLECT_BEHAVIOR_LABELS]
+    return values
+
+
+def _auto_collect_plan(context: dict[str, Any], behaviors: list[str]) -> list[str]:
+    """수집범위(behavior)별 자동 수집계획 라인. 기업 컨텍스트 기반 질의 재사용."""
+    queries = dict(
+        zip(
+            ("company_news", "supply_chain", "industry_news", "supply_chain_items"),
+            _build_queries(context),
+        )
+    ) if context.get("business_registration_no") else {}
+    lines: list[str] = []
+    for value in behaviors:
+        if value == "direct_url":
+            continue  # 등록 URL 섹션에서 별도 표시
+        label = COLLECT_BEHAVIOR_LABELS[value]
+        planned = []
+        if value == "company_news" and queries.get("company_news"):
+            planned.append(queries["company_news"][1])
+        if value == "supply_chain":
+            for key in ("supply_chain", "supply_chain_items"):
+                if queries.get(key):
+                    planned.append(queries[key][1])
+        if value == "industry_news" and queries.get("industry_news"):
+            planned.append(queries["industry_news"][1])
+        detail = " / ".join(planned) if planned else "대상 정보 기반 자동 질의 구성"
+        lines.append(f"- {label}: {detail} — 상태: 접수완료 → 수집 대기")
+    return lines
+
+
 def agent_web(state: CustomsState) -> CustomsState:
-    """Analyze web news as a company outlook analyst."""
-    print("[Agent] 웹 검색 시작")
+    """웹 정보수집 요청 접수 — 등록 URL·수집범위에 대한 수집요청을 접수하고
+    URL별 진행상태(접수완료→수집 대기)와 예상 일정을 보고서로 반환한다.
+    실제 크롤링은 수행하지 않는 모의 접수(시뮬레이션)이며, 기존 실검색 함수
+    (_fetch_direct_url/_search_*)는 보존하되 호출하지 않는다."""
+    from datetime import datetime, timedelta
+
+    print("[Agent] 웹 정보수집 요청 접수 시작")
 
     scenario = state.get("scenario") or {}
     direct_targets = _scenario_web_targets(scenario)
+    behaviors = _collect_behaviors(scenario)
 
     if not has_company_scope(state) and not direct_targets:
-        return {**state, "web_result": no_company_result("웹검색 Agent", "기업 기반 웹검색은 조회 대상 기업이 필요합니다.")}
+        return {**state, "web_result": no_company_result("웹 정보수집 요청 Agent", "수집 요청은 조사 대상 또는 수집 URL 등록이 필요합니다.")}
 
     context = (
         _company_context(state["company_id"])
@@ -362,52 +413,90 @@ def agent_web(state: CustomsState) -> CustomsState:
             "recent_imports": [],
         }
     )
-    if has_company_scope(state) and not context.get("business_registration_no") and context.get("company_name") == context.get("company_id") and not direct_targets:
-        return {**state, "web_result": "[웹검색 Agent 결과]\n- 조회 대상 기업 프로파일이 DuckDB에 없습니다.\n- 연관정보 없음: 기업명 없는 웹검색을 수행하지 않습니다."}
-    queries = _build_queries(context) if has_company_scope(state) and context.get("business_registration_no") else []
 
-    collected: list[dict[str, str]] = []
-    for topic, query in queries:
-        collected.extend(_search_topic(query, topic))
-    for target in direct_targets:
-        collected.append(_fetch_direct_url(target))
+    target_id = str(state.get("company_id") or state.get("target_id") or "TARGET").strip() or "TARGET"
+    target_label = (
+        f"{context.get('company_name', target_id)} ({target_id})"
+        if has_company_scope(state)
+        else str(context.get("target_name") or target_id)
+    )
+    now = datetime.now()
+    receipt_no = f"WEBREQ-{target_id}-{now.strftime('%Y%m%d')}"
+    start_at = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    reply_at = (now + timedelta(days=3)).strftime("%Y-%m-%d")
+    behavior_labels = [COLLECT_BEHAVIOR_LABELS[v] for v in behaviors if v != "direct_url"]
 
-    raw_results = _format_results(_dedupe_results(collected))
+    lines: list[str] = [
+        "[웹 정보수집 요청 접수 결과]",
+        f"- 접수번호: {receipt_no}",
+        f"- 요청 대상: {target_label}",
+        f"- 등록 URL: {len(direct_targets)}건 · 자동 수집범위: {', '.join(behavior_labels) or '없음'}",
+        "- 본 결과는 수집요청 접수 시뮬레이션이며 실제 크롤링을 수행하지 않았습니다.",
+    ]
 
-    if raw_results == "검색 결과 없음":
-        web_result = "외부 정보 참고: 검색 결과가 없거나 검색 API가 설정되지 않았습니다."
-    elif llm is None:
-        web_result = f"외부 정보 참고 후보:\n{raw_results}"
-    else:
-        summary = llm.invoke(
-            """
-당신은 기업 전망 분석가입니다.
-아래 웹 기사 후보와 직접 등록 URL 발췌문을 검토하여 회사 운영, 가격, 운송비, 공급망, 수입관세 평가와 연결 가능한 정보만 추출하세요.
-
-검색 목적:
-1. 선택 회사와 관련된 기사
-2. 최근 수입 상대방 및 수입 물품 관련 기사, 3개 미만
-3. 선택 회사와 같은 업종 관련 기사, 3개 미만
-4. 수입 물품 관련 기사, 3개 미만
-5. [URL 직접 등록] 항목은 사용자가 지정한 URL에서 찾은 발췌문이므로, 검색 내용과의 관련성을 우선 판단
-
-출력 형식:
-- 외부 정보 참고
-- 기사 또는 URL별 제목, 분류, URL, 관련 가격/운송비/공급망 시사점, 조사 참고 필요성을 간결하게 작성
-- 관련성이 낮은 기사는 제외
-- 실제 상대방 또는 회사명이 없으면 관계법인, 원산지, 수입품 기준으로 검색했다는 점을 명시
-
-[회사/수입 컨텍스트]
-{context}
-
-[웹 기사 후보]
-{raw_results}
-            """.format(
-                context=context,
-                raw_results=raw_results,
+    if direct_targets:
+        lines.append("")
+        lines.append("[수집 대상 URL 진행상태]")
+        for index, target in enumerate(direct_targets, 1):
+            login = (
+                f"등록됨 (ID: {target.get('login_id')} / PW ***)"
+                if target.get("login_id")
+                else "미등록 — 공개 페이지 기준 수집"
             )
-        )
-        web_result = summary.content
+            lines.extend([
+                f"{index}. {target['url']}",
+                f"   - 수집 내용: {target.get('query') or '페이지 전반(수집 내용 미지정)'}",
+                f"   - 로그인정보: {login}",
+                "   - 진행상태: 접수완료 → 수집 대기",
+                f"   - 예상 일정: {start_at} 수집 시작 · {reply_at} 결과 회신",
+            ])
 
-    print("[Agent] 웹 검색 완료")
-    return {**state, "web_result": web_result}
+    auto_plan = _auto_collect_plan(context, behaviors) if has_company_scope(state) else []
+    if auto_plan:
+        lines.append("")
+        lines.append("[자동 수집계획 — 수집범위 기반]")
+        lines.extend(auto_plan)
+        lines.append(f"- 예상 일정: {start_at} 수집 시작 · {reply_at} 결과 회신")
+
+    lines.extend([
+        "",
+        "[진행상태 안내]",
+        "- 접수완료 → 수집 대기 → 수집 중 → 결과 회신 순으로 진행됩니다.",
+        "- 수집이 완료되면 이 단계의 결과가 수집 결과 보고서로 갱신됩니다.",
+    ])
+    receipt_text = "\n".join(lines)
+
+    # LLM 보강(선택): 수집 우선순위·확인 포인트 제안. PW 원문은 프롬프트에 포함하지 않는다.
+    if llm is not None and (direct_targets or auto_plan):
+        safe_targets = [
+            {"url": t["url"], "query": t.get("query", ""), "login": bool(t.get("login_id"))}
+            for t in direct_targets
+        ]
+        try:
+            review = llm.invoke(
+                """
+당신은 관세청 외부정보 수집 담당자입니다. 아래 수집요청 접수 내역을 검토하여
+'수집 우선순위'와 'URL/수집범위별 확인 포인트'를 각각 3줄 이내로 간결히 제안하세요.
+실제 수집 결과를 지어내지 말고, 무엇을 확인해야 하는지만 서술하세요.
+
+[요청 대상]
+{target}
+
+[등록 URL(로그인정보 유무 포함)]
+{targets}
+
+[자동 수집범위]
+{behaviors}
+                """.format(
+                    target=target_label,
+                    targets=safe_targets or "없음",
+                    behaviors=", ".join(behavior_labels) or "없음",
+                )
+            )
+            if review and getattr(review, "content", ""):
+                receipt_text += f"\n\n[AI 수집계획 검토]\n{review.content}"
+        except Exception as exc:
+            print(f"[Agent] 수집계획 LLM 검토 생략: {exc}")
+
+    print("[Agent] 웹 정보수집 요청 접수 완료")
+    return {**state, "web_result": receipt_text}

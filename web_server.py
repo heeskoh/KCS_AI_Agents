@@ -1633,7 +1633,9 @@ def _normalize_target_type(value: object) -> str:
 def _normalize_service_label(label: object) -> str:
     text = str(label or "").strip()
     legacy = "보고서 " + "승인"
-    return text.replace(legacy, "보고서 검증")
+    text = text.replace(legacy, "보고서 검증")
+    # 웹검색 → 웹 정보수집 요청 개편(구 라벨 이행)
+    return text.replace("웹검색 AI 서비스", "웹 정보수집 요청 AI 서비스").replace("웹 정보 검색", "웹 정보수집 요청")
 
 
 def _agent_error_text(state: dict, result_key: str | None = None) -> str:

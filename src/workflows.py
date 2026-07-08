@@ -169,7 +169,7 @@ def build_workflow_steps(scenario: dict[str, Any] | None = None) -> list[Step]:
         add_default_step("bigdata", "빅데이터 통계 분석")
 
     if scenario.get("web_enabled", True):
-        add_default_step("web", "웹 정보 검색")
+        add_default_step("web", "웹 정보수집 요청")
 
     if scenario.get("report_enabled", True):
         add_default_step("report", "보고서 생성")

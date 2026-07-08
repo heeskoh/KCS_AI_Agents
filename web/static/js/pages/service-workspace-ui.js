@@ -35,7 +35,7 @@ export function resolveWorkspaceInputs(displayName, ctx = {}){
     if(kind === "target" && ctx.targetLabel){
       out[inp.name] = { value: ctx.targetLabel, source: "워크스페이스 자동" };
     } else if(kind === "doc" && (ctx.docLabel || ctx.docCount)){
-      out[inp.name] = { value: ctx.docLabel || `기초자료 ${ctx.docCount}건 자동 연결`, source: "등록 파일" };
+      out[inp.name] = { value: ctx.docLabel || `기초자료 ${ctx.docCount}건 자동 연결`, source: ctx.docLabel ? (ctx.docSource || "직접 입력") : "등록 파일" };
     } else if(kind === "setting"){
       out[inp.name] = { value: settingValueLabel(key, inp.name, settings[inp.name]), source: "서비스 설정" };
     }
@@ -50,16 +50,23 @@ export function serviceInputStripHtml(displayName, ctx = {}){
   if(!rt) return "";
   const { key, spec } = findServiceSpec(displayName);
   const resolved = resolveWorkspaceInputs(displayName, ctx) || {};
-  const chips = (spec.inputs || []).map(inp => {
+  // hideSettings: 설정 입력을 별도 인라인 UI로 표시하는 화면(리뷰모드)에서 중복 칩 제외
+  const inputs = (spec.inputs || []).filter(inp => !(ctx.hideSettings && inputKind(inp, key) === "setting"));
+  const chips = inputs.map(inp => {
     const r = resolved[inp.name];
     const kind = inputKind(inp, key);
     const isSetting = kind === "setting";
+    // 리뷰 모드 등 docEditable 컨텍스트: 첨부자료 칩 클릭으로 파일명/링크 직접 등록
+    const editableDoc = !!ctx.docEditable && kind === "doc";
     const tone = r
       ? (isSetting ? "background:#eef4ff;border-color:#cfe0fb;color:#2456c9;" : "background:#e7f5ec;border-color:#bfe5cd;color:#1f9254;")
       : "background:#fdf1e2;border-color:#f3ddba;color:#c07b1b;";
     const src = r ? r.source : (inp.req ? "미결정 · 필수" : "미결정");
-    return `<span ${isSetting ? `data-svc-open-config="${escapeHtml(key)}" style="cursor:pointer;" title="클릭하면 설정을 변경합니다"` : ""}
-      style="display:inline-flex;align-items:center;gap:6px;border:1px solid;${tone}border-radius:7px;padding:4px 10px;font-size:11.5px;font-weight:700;${isSetting ? "cursor:pointer;" : ""}">
+    const attr = isSetting
+      ? `data-svc-open-config="${escapeHtml(key)}" style="cursor:pointer;" title="클릭하면 설정을 변경합니다"`
+      : (editableDoc ? `data-doc-input="1" title="클릭하면 파일명 또는 링크를 등록합니다"` : "");
+    return `<span ${attr}
+      style="display:inline-flex;align-items:center;gap:6px;border:1px solid;${tone}border-radius:7px;padding:4px 10px;font-size:11.5px;font-weight:700;${(isSetting || editableDoc) ? "cursor:pointer;" : ""}">
       ${escapeHtml(inp.name)}${inp.req ? `<i style="font-style:normal;font-size:9.5px;font-weight:800;opacity:.75;">필수</i>` : ""}
       <b style="font-weight:800;">${escapeHtml(r ? String(r.value || "—") : "—")}</b>
       <em style="font-style:normal;font-size:10px;opacity:.7;">${escapeHtml(src)}</em>

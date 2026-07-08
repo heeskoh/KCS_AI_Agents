@@ -222,15 +222,14 @@ export const SERVICE_SPECS = {
   },
 
   /* ── 외부연계 AI 서비스 ── */
-  "웹검색": {
-    tag: "외부연계", desc: "업체·공급망·가격 변동 기사 또는 지정 URL 정보를 확인합니다.",
+  "웹 정보수집 요청": {
+    tag: "외부연계", desc: "참고 URL을 등록하고 업체·공급망·가격 변동 등 외부정보 수집을 요청합니다. 결과는 URL별 접수·진행상태로 표시됩니다.",
     inputs: [
-      { name: "검색 키워드", type: "텍스트", req: true, source: "직접 입력", rule: "2자 이상" },
-      { name: "지정 URL", type: "URL", req: false, source: "직접 입력", rule: "https:// 형식" },
+      { name: "분석대상 기업/개인", type: "식별자", req: true, source: "조사 대상 선택", rule: "워크스페이스 자동" },
     ],
-    output: { format: "검색결과 표", fields: [["제목/출처", "기사·페이지"], ["일자", "게시일"], ["요약", "핵심 내용"], ["관련도", "질의 연관성"]] },
-    checks: ["출처 URL 유효성 확인", "발행일 1년 초과 기사 구분 표시"],
-    sample: ["관련 기사 5건 — 공급망 변경 보도 1건 포함"],
+    output: { format: "수집요청 접수 보고서", fields: [["접수번호", "요청 식별자"], ["URL별 진행상태", "접수완료 → 수집 대기"], ["로그인정보", "등록 여부(PW 마스킹)"], ["예상 일정", "수집 시작·결과 회신"]] },
+    checks: ["등록 URL 유효성 확인", "로그인정보 등록 여부 표시(PW 미노출)"],
+    sample: ["수집요청 3건 접수 — URL 2건 수집 대기, 자동 수집범위 2종"],
   },
   "특허정보 조회": {
     tag: "외부연계", desc: "특허/로열티 거래와 과세가격 반영 여부를 확인합니다.",
@@ -435,10 +434,7 @@ export const SERVICE_EDIT_META = {
   },
 
   /* P2 — 검증 입력형 */
-  "웹검색": {
-    "검색 키워드": { control: "text", required: true, minLen: 2, placeholder: "예: ABC Tech 원산지 거래", patternMsg: "2자 이상 입력하세요" },
-    "지정 URL": { control: "text", required: false, pattern: "^https?://.+", placeholder: "https://", patternMsg: "https:// 형식의 URL을 입력하세요" },
-  },
+  // "웹 정보수집 요청"은 수집 URL·내용을 "수집 대상 URL 등록" 패널(URL 직접 등록 탭)에서 관리 — 설정 메타 중복 제거
   "특허정보 조회": {
     "특허번호/출원인": { control: "text", required: true, pattern: "^(10-\\d{4}-\\d{7}|\\D.+)$", placeholder: "예: 10-2024-0012345 또는 ABC Tech", patternMsg: "특허번호는 10-YYYY-NNNNNNN 형식, 또는 출원인명을 입력하세요" },
   },
@@ -482,7 +478,7 @@ export const SERVICE_RUNTIME = {
   "보고서 요약": { runtimeKey: "summary", defaultBehaviors: ["brief"], defaultBehaviorLabels: ["핵심 요약"] },
   "문서 번역": { runtimeKey: "translate", defaultBehaviors: ["faithful"], defaultBehaviorLabels: ["원문 충실 번역"] },
   /* ── 외부연계 AI 서비스 ── */
-  "웹검색": { runtimeKey: "web_search", defaultBehaviors: ["company_news", "supply_chain"], defaultBehaviorLabels: ["업체 기사", "공급망/가격"] },
+  "웹 정보수집 요청": { runtimeKey: "web_search", defaultBehaviors: ["company_news", "supply_chain"], defaultBehaviorLabels: ["업체 기사", "공급망/가격"] },
   "특허정보 조회": { runtimeKey: "patent", defaultBehaviors: ["royalty_check", "patent_lookup"], defaultBehaviorLabels: ["로열티 확인", "특허 정보 조회"] },
   "법령 검토": { runtimeKey: "law", defaultBehaviors: ["law_basis", "precedent"], defaultBehaviorLabels: ["법령 근거", "판례/유권해석"] },
   "내부메일 공유": { runtimeKey: "mail_share", defaultBehaviors: ["email_share"], defaultBehaviorLabels: ["이메일 공유"] },

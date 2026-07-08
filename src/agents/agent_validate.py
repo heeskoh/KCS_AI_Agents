@@ -93,7 +93,7 @@ def _collect_agent_results(state: CustomsState) -> str:
 
     # 시나리오에 없어도 state에 있는 주요 결과 추가
     extra_keys = [
-        ("web_result", "웹검색"),
+        ("web_result", "웹 정보수집 요청"),
         ("patent_result", "특허정보조회"),
         ("law_result", "법령판례"),
         ("ontology_result", "관세온톨로지"),

@@ -91,7 +91,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("audit_search", "조사보고서 검색", agent_audit_search, "audit_search_result", "audit_search_agent"),
     AgentModule("bigdata", "빅데이터 통계 분석", agent_bigdata, "bigdata_result", "bigdata_agent"),
     AgentModule("ml", "ML 모델 실행", agent_ml, "ml_result", "ml_agent"),
-    AgentModule("web", "웹 정보 검색", agent_web, "web_result", "web_agent", ("web_search",)),
+    AgentModule("web", "웹 정보수집 요청", agent_web, "web_result", "web_agent", ("web_search",)),
     AgentModule("ocr", "OCR/문서인식", agent_ocr, "ocr_result", "ocr_agent"),
     AgentModule("network", "관계망 분석", agent_network, "network_result", "network_agent"),
     AgentModule("ontology", "관세 온톨로지", agent_ontology, "ontology_result", "ontology_agent"),

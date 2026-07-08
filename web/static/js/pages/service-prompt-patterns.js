@@ -228,11 +228,11 @@ export const PROMPT_PATTERNS = {
   /* ── 외부연계 AI 서비스 ── */
   web_search: {
     kind: "agent",
-    label: "웹검색",
-    homeInputs: ["검색어"],
+    label: "웹 정보수집 요청",
+    homeInputs: ["수집 요청 내용"],
     scenarioInputs: ctx => [
       `분석대상 ${ctx.targetLabel || "(조사 대상 미선택)"}`,
-      "직접 등록 URL·웹 공개정보(자동 연계)",
+      "수집 대상 등록 URL(ID/PW 선택)·자동 수집범위(자동 연계)",
     ],
   },
   patent: {
