@@ -396,13 +396,34 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
-    const giCase = event.target.closest("[data-gi-case]");
-    if(giCase){
-      // 수사 개편: 사건 선택 시 프로파일로 점프하지 않고 진행중인 수사 탭에서 상세를 연다
-      ctx.activeGenInvCaseId = giCase.dataset.giCase;
-      ctx.activeGiStepId     = null;
+    /* ── 사건 상세 열기/닫기 ─────────────────────────────────────── */
+    const giDetailOpen = event.target.closest("[data-gi-detail-open]");
+    if(giDetailOpen){
+      event.stopPropagation();
+      ctx.activeGenInvCaseId = giDetailOpen.dataset.giDetailOpen;
+      ctx.activeGiStepId = null;
+      generalInvestigationState.giCaseDetailOpen = true;   // 카드 숨김 + 최상단 상세 표시
       generalInvestigationState.activeLeadId = null;
       generalInvestigationState.crimeDraft = null;
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giDetailClose = event.target.closest("[data-gi-detail-close]");
+    if(giDetailClose){
+      generalInvestigationState.giCaseDetailOpen = false;   // 닫으면 다시 카드로
+      generalInvestigationState.activeLeadId = null;
+      generalInvestigationState.crimeDraft = null;
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giCase = event.target.closest("[data-gi-case]");
+    if(giCase){
+      // 카드 클릭 = 활성 사건 선택(다른 탭 연동) — 상세는 카드의 '상세' 버튼으로 연다
+      ctx.activeGenInvCaseId = giCase.dataset.giCase;
+      ctx.activeGiStepId     = null;
       ctx.saveCanvasState();
       ctx.render("generalinv");
       return;

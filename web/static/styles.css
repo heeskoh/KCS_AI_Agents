@@ -1056,8 +1056,14 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .gi-case-detail-head h3{display:inline-block;margin:0 8px 0 6px;font-size:17px}
 .gi-case-detail-head .gi-type-chip{margin:0}
 .gi-case-detail-actions{display:flex;gap:6px;flex:none}
-.gi-case-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:14px}
+/* 수사단서 이력 | 단서 등록 — 리사이즈 거터로 좌·우 동적 크기 조정 */
+.gi-case-detail-grid{display:flex;gap:0;margin-top:14px;align-items:stretch}
+.gi-lead-col-timeline{flex:0 0 46%;min-width:260px;padding-right:10px}
+.gi-lead-col-editor{flex:1;min-width:280px;padding-left:10px}
+.gi-case-detail-grid>.resize-gutter.x{flex:none}
 .gi-lead-col h4{margin:0 0 10px;font-size:13px;color:#123c85}
+.gi-detail-open-btn{border-color:#93c5fd;background:#eef4ff;color:#1d4ed8}
+.gi-case-detail>.gi-case-detail-head .btn{white-space:nowrap}
 /* 혐의 선택 */
 .gi-crime-selector{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:12px}
 .gi-crime-selector-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}

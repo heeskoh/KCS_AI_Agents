@@ -9,6 +9,7 @@ export const generalInvestigationState = {
   archivedGenInvCases: [],
   genInvArchiveOpen: false,
   // 수사단서(leads)·혐의 선택 UI 상태 (사건 상세)
+  giCaseDetailOpen: false,
   leadFormType: "smuggle_report",
   leadFormStage: "plan",
   activeLeadId: null,

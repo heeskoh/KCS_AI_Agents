@@ -15,8 +15,16 @@ export function renderCasesPanel(deps){
     deps.genInvTypeById(c.invTypeId).label.includes(q)
   ) : all;
 
+  // 상세 열림: 선택 카드는 보드에서 숨기고 상세 패널을 가장 위쪽에 표시
+  const detailCase = generalInvestigationState.giCaseDetailOpen
+    ? filtered.find(c => c.caseId === generalInvestigationState.activeGenInvCaseId)
+    : null;
+  const boardCases = detailCase ? filtered.filter(c => c !== detailCase) : filtered;
+
   return `
     <div class="gi-cases-panel">
+      ${detailCase ? giCaseDetailHtml(deps, detailCase) : ""}
+
       <div class="gi-cases-toolbar">
         <input class="gi-search" id="giSearchInput" placeholder="수사대상, 사건번호, 수사유형 검색..."
           value="${escapeHtml(generalInvestigationState.genInvFilter)}">
@@ -28,14 +36,9 @@ export function renderCasesPanel(deps){
       ${generalInvestigationState.showGenInvRegForm ? generalInvRegForm(deps) : ""}
 
       <div class="gi-case-board">
-        ${filtered.map(c => genInvCaseCard(deps, c)).join("") ||
-          `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`}
+        ${boardCases.map(c => genInvCaseCard(deps, c)).join("") ||
+          (detailCase ? "" : `<div class="empty-state">등록된 수사 대상이 없습니다. 수사 등록 버튼으로 추가하세요.</div>`)}
       </div>
-
-      ${(() => {
-        const aCase = filtered.find(c => c.caseId === generalInvestigationState.activeGenInvCaseId);
-        return aCase ? giCaseDetailHtml(deps, aCase) : "";
-      })()}
 
       ${(() => {
         const archivedForUser = generalInvestigationState.archivedGenInvCases.filter(c =>
@@ -90,6 +93,7 @@ function genInvCaseCard(deps, c){
           <h3 class="gi-case-name">${escapeHtml(c.targetName)}</h3>
         </div>
         <div class="job-status-row">
+          <button class="btn-inline-action gi-detail-open-btn" data-gi-detail-open="${escapeHtml(c.caseId)}" title="혐의·수사단서 상세">상세</button>
           <span class="job-status ${c.status.tone}">${c.status.label}</span>
           ${isDone ? `<button class="btn-inline-action" data-gi-archive-case="${escapeHtml(c.caseId)}" title="아카이브">아카이브</button>` : ""}
           <button class="btn-inline-action job-remove-action" data-gi-remove-case="${escapeHtml(c.caseId)}" title="삭제">삭제</button>
@@ -140,17 +144,19 @@ function giCaseDetailHtml(deps, aCase){
         <div class="gi-case-detail-actions">
           <button type="button" class="btn secondary" data-gi-tab="profile">수사 프로파일</button>
           <button type="button" class="btn secondary" data-gi-tab="scenario">분석 시나리오</button>
+          <button type="button" class="btn" data-gi-detail-close title="상세를 닫고 카드로 돌아갑니다">✕ 닫기</button>
         </div>
       </div>
 
       ${crimeSelectorHtml(aCase, state)}
 
       <div class="gi-case-detail-grid">
-        <div class="gi-lead-col">
+        <div class="gi-lead-col gi-lead-col-timeline">
           <h4>수사단서 이력 <span class="muted">(${(aCase.leads || []).length}건)</span></h4>
           ${leadTimelineHtml(aCase, state.activeLeadId)}
         </div>
-        <div class="gi-lead-col">
+        <div class="resize-gutter x" data-resize-min="260" title="드래그하여 좌·우 영역 크기 조절"></div>
+        <div class="gi-lead-col gi-lead-col-editor">
           <h4>${activeLead ? "단서 문서 작성" : "수사단서 등록"}</h4>
           ${activeLead
             ? leadDraftEditorHtml(activeLead, state.leadDraftStreaming)
