@@ -2109,9 +2109,8 @@ customsDeps.buildSubtabsForPage = page => unifiedSubtabRegistry.subtabsForPage(p
 genDeps.buildSubtabsForPage = page => {
   const options = adminSubtabOptions();
   const aCase = genDeps.activeGenInvCase?.();
-  if(aCase?.giSteps?.some(s => s.sourceKey === "network")){
-    if(!options.appendIds.includes("network")) options.appendIds.push("network");
-  }
+  // 관계망(network) 서브탭은 노출하지 않는다 — 관계 시각화는 "수사정보 분석" 탭으로 통일
+  options.removeIds.push("network");
   // 수사정보 분석 탭 — 설정(enabledSubtabs)에 없어도 활성 사건이 있으면 노출(폴백)
   if(aCase && !options.appendIds.includes("insight")) options.appendIds.push("insight");
   return unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, options);
@@ -10662,7 +10661,8 @@ function render(page="home"){
                    (page === "canvas" && canvasTab === "report") ||
                    // 관세조사: 모든 서브탭을 시나리오/관계분석과 동일한 전체 프레임으로 통일
                    (page === "investigation" || pageTemplate === "customs") ||
-                   ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench" || generalInvestigationState.generalInvTab === "insight")) ||
+                   // 관세수사: 모든 서브탭을 관세조사와 동일한 전체 프레임으로 통일
+                   (page === "generalinv" || pageTemplate === "general-investigation") ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);
   contentEl.innerHTML = pages[page] ? pages[page]() : (customAnalysisPage(page) || pages.home());
