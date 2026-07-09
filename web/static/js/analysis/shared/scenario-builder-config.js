@@ -20,7 +20,7 @@ export const DEFAULT_ANALYSIS_SCENARIOS = {
     title: "관세조사 분석",
     template: "customs",
     defaultTab: "ongoing",
-    enabledSubtabs: ["ongoing", "profile", "data", "scenario", "network", "report", "dashboard"],
+    enabledSubtabs: ["ongoing", "profile", "data", "scenario", "insight", "report", "dashboard"],
   },
   generalinv: {
     page: "generalinv",

@@ -33,6 +33,7 @@ import { getServiceSettings, settingValueLabel, setServiceSetting } from "./page
 import { findServiceSpec, SERVICE_EDIT_META } from "./pages/service-specs.js";
 import { finalizeScenarioPrompt, patternBehaviorDescription } from "./pages/service-prompt-patterns.js";   // 프롬프트 패턴(신규) — 등록 서비스만 대체, 그 외 passthrough
 import { bindGiInsightChat } from "./analysis/general-investigation/insight.js";   // 수사정보 분석 탭 Chat 바인딩
+import { bindCiInsightChat } from "./analysis/customs/insight.js";                 // 관세조사 수사정보 분석 탭 Chat 바인딩
 
 const pages = createPageRegistry({
   activeAnalysisJobs,
@@ -1994,8 +1995,21 @@ const customsDeps = {
   scenarioWorkbenchV2,
   scenarioReviewWorkbench,
   getScenarioCompanies: () => scenarioCompanies,
+  // 수사정보 분석(insight) 탭 — Chat 영속·기초자료·RAG·저장 접근자
+  getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
+  getActiveRagsForCompany: companyId => activeRagsForCompany(companyId),
+  getCustomsInsightChat: companyId => customsInsightChatFor(companyId),
+  saveCanvasState: () => saveCanvasState(),
 };
 const customsInvestigation = createCustomsInvestigation(customsDeps);
+
+/* 관세조사 수사정보 분석 대화 저장소 — canvasJobOverrides에 편승해 workspace_state에 영속 */
+function customsInsightChatFor(companyId){
+  if(!canvasJobOverrides[companyId]) canvasJobOverrides[companyId] = {};
+  const override = canvasJobOverrides[companyId];
+  if(!Array.isArray(override.insightChat)) override.insightChat = [];
+  return override.insightChat;
+}
 
 function isSpecialInvestigationPage(page = currentPage){
   return specialInvestigation.isSpecialInvestigationPage(page);
@@ -10740,6 +10754,10 @@ function render(page="home"){
     if(customsState.investigationTab === "templates"){
       templateEditorInitialized = false;
       initTemplateEditor();
+    }
+    // 수사정보 분석 탭 — Chat 스레드·정보카드 바인딩(렌더 후)
+    if(customsState.investigationTab === "insight"){
+      bindCiInsightChat(customsDeps);
     }
   }
   if(page === "canvas" && canvasTab === "scenario"){
