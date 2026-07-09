@@ -465,48 +465,6 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
-    /* ── AI 서비스 카탈로그 토글 (선택형 시나리오) ─────────────────── */
-    const giSvcToggle = event.target.closest("[data-gi-svc-toggle]");
-    if(giSvcToggle){
-      const key = giSvcToggle.dataset.giSvcToggle;
-      const aCase = ctx.activeGenInvCase();
-      if(!aCase) return;
-      if(!aCase.giSteps) ctx.activeGiCaseSteps();
-      const src = ctx.giSourceByKey(key);
-      const sourceKey = ctx.giCommonSourceKey(src.key);
-      const matched = (aCase.giSteps || []).filter(step =>
-        (step.sourceKey || ctx.giCommonSourceKey(step.key)) === sourceKey);
-      if(matched.length){
-        // 해제: 같은 서비스의 모든 단계 제거(실행 결과 포함)
-        const hasResults = matched.some(step => (aCase.stepResults || {})[step.id]);
-        const note = matched.length > 1 ? `\n(같은 서비스 단계 ${matched.length}개가 함께 제거됩니다)` : "";
-        if(!confirm(`'${src.label}'을(를) 시나리오에서 제거할까요?${hasResults ? "\n해당 단계의 실행 결과도 함께 삭제됩니다." : ""}${note}`)) return;
-        const removeIds = new Set(matched.map(step => step.id));
-        aCase.giSteps = aCase.giSteps.filter(step => !removeIds.has(step.id));
-        removeIds.forEach(id => {
-          if(aCase.stepStates) delete aCase.stepStates[id];
-          if(aCase.stepResults) delete aCase.stepResults[id];
-          if(aCase.stepExpanded) delete aCase.stepExpanded[id];
-        });
-        if(removeIds.has(ctx.activeGiStepId)) ctx.activeGiStepId = null;
-      } else {
-        // 선택: 시나리오 끝에 단계 추가 (기존 단계 추가 로직과 동일 구성)
-        aCase.giSteps.push(ctx.normalizeGiScenarioStep({
-          ...src,
-          id: `gis_${ctx.uid()}`,
-          sourceKey,
-          targetType: aCase.targetType || "company",
-          target_type: aCase.targetType || "company",
-          behaviors: ctx.sourceDefaultBehaviors(sourceKey),
-          instruction: ctx.sourceDefaultInstruction(sourceKey, aCase.targetType),
-        }, aCase.giSteps.length));
-        ctx.activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
-      }
-      ctx.saveCanvasState();
-      ctx.render("generalinv");
-      return;
-    }
-
     const giStepAdd = event.target.closest("[data-gi-step-add]");
     if(giStepAdd){
       const sel = document.getElementById("giWbAddSource");

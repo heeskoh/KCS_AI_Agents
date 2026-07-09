@@ -1,48 +1,7 @@
-import { escapeHtml } from "../../core/dom.js";
-import { generalInvestigationState } from "./state.js";
-
-/* 수사 분석 시나리오는 단계 순서보다 "사용할 AI 분석서비스 선택"이 중심 —
-   서비스 카탈로그에서 켜고 끄면 아래 시나리오 보드에 단계가 추가/제거된다. */
-const SERVICE_GROUP_LABELS = { db: "DB 조회", rag: "RAG 검색", report: "보고서·검증", approve: "보고서·검증", agent: "AI 분석 서비스" };
-const SERVICE_GROUP_ORDER = ["DB 조회", "AI 분석 서비스", "RAG 검색", "보고서·검증"];
-
-function giServiceCatalogHtml(deps, aCase){
-  const sources = deps.getGiStepSources?.() || [];
-  // giSteps는 워크벤치 init에서 지연 생성되므로, 카탈로그 렌더 시점에 선초기화
-  const steps = (deps.activeGiCaseSteps?.() ?? aCase.giSteps) || [];
-  const selectedSourceKeys = new Set(steps.map(step => step.sourceKey || deps.giCommonSourceKey(step.key)));
-  const groups = {};
-  sources.forEach(source => {
-    const groupLabel = SERVICE_GROUP_LABELS[source.type] || "AI 분석 서비스";
-    (groups[groupLabel] = groups[groupLabel] || []).push(source);
-  });
-  const selectedCount = sources.filter(source => selectedSourceKeys.has(source.sourceKey)).length;
-  return `
-    <div class="gi-svc-catalog">
-      <div class="gi-svc-catalog-head">
-        <strong>AI 분석서비스 선택</strong>
-        <span class="muted">사용할 서비스를 선택하면 시나리오 단계로 추가됩니다 · 선택 ${selectedCount}개 · 실행 순서는 아래 시나리오 보드에서 조정</span>
-      </div>
-      ${SERVICE_GROUP_ORDER.filter(label => groups[label]?.length).map(label => `
-        <div class="gi-svc-group">
-          <span class="gi-svc-group-label">${escapeHtml(label)}</span>
-          <div class="gi-svc-grid">
-            ${groups[label].map(source => {
-              const on = selectedSourceKeys.has(source.sourceKey);
-              return `
-                <button type="button" class="gi-svc-card${on ? " on" : ""}" data-gi-svc-toggle="${escapeHtml(source.key)}">
-                  <i>${on ? "✓" : "+"}</i>
-                  <span>${escapeHtml(source.label)}</span>
-                </button>
-              `;
-            }).join("")}
-          </div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
+/* 관세수사 AI서비스 분석 작업 — 관세조사 탭4와 동일한 구조(완전 리뷰모드):
+   좌측 분석범위별 상세설정(탭)·입력/설정값 인라인 + "분석 재수행 요청",
+   우측 [분석 결과|통합 프롬프트] 탭. 실행 버튼 없이 재수행 접수만 노출한다.
+   AI 분석서비스 구성은 혐의 확정 시 관점 매트릭스로 자동 세팅된다. */
 export function renderWorkbenchPanel(deps) {
   const aCase = deps.activeGenInvCase();
   if (!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
@@ -51,10 +10,18 @@ export function renderWorkbenchPanel(deps) {
     ? deps.giScenarioTemplateOptionsHtml(aCase.invTypeId)
     : "";
 
-  return giServiceCatalogHtml(deps, aCase) + deps.sharedScenarioWorkbenchHtml({
+  const states = aCase.stepStates || {};
+  const doneCount = Object.values(states).filter(s => s === "done").length;
+  const reviewNoteHtml = doneCount
+    ? `<span class="muted" style="font-size:12px">AI 분석 수행 결과 · 완료 ${doneCount}단계</span>`
+    : `<span class="muted" style="font-size:12px">수행된 분석 결과가 없습니다</span>`;
+
+  return deps.sharedScenarioWorkbenchHtml({
     archived: false,
+    reviewMode: true,
+    reviewNoteHtml,
     titleHtml: "조사 및 수사 분석 단계",
-    subtitleHtml: "혐의·수사 유형에 맞는 분석 시나리오를 설정하고 각 단계를 순차적으로 실행합니다. 위 카탈로그에서 AI 분석서비스를 선택·해제할 수 있습니다.",
+    subtitleHtml: `혐의 확정 시 분석 관점 매트릭스에 따라 AI 분석서비스가 자동 구성됩니다. <em style="color:#0369a1;font-style:normal;font-weight:700">단계 구성·분석범위·프롬프트를 조정한 뒤 "분석 재수행 요청"으로 재분석을 접수하세요.</em>`,
     templateOptionsHtml,
   });
 }

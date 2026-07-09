@@ -2086,8 +2086,6 @@ const genDeps = {
   // 수사정보 분석(insight) 탭 deps
   getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
   saveCanvasState,
-  // AI 서비스 카탈로그(선택형 시나리오) deps
-  getGiStepSources: () => GI_STEP_SOURCES,
 };
 const generalInvestigation = createGeneralInvestigation(genDeps);
 
@@ -8520,6 +8518,9 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
   // reviewMode: 실시간 실행 없이 사전 준비된 결과를 확인하는 설정/결과 화면(관세조사).
   // 실행·초기화 버튼을 렌더하지 않고 "분석 재수행 요청"(모의 접수)만 노출한다.
   const reviewMode        = ctx.reviewMode        || false;
+  // reviewRunButtons: 리뷰 레이아웃(분석범위별 상세설정·결과/통합 프롬프트 탭)을 쓰되
+  // 실시간 실행 버튼(단계별 자동실행 등)을 유지 — 관세수사(실행형 도메인)용
+  const reviewRunButtons  = ctx.reviewRunButtons  || false;
   const reviewNoteHtml    = ctx.reviewNoteHtml    || "";
   const titleHtml         = ctx.titleHtml         || "조사 및 수사 분석 단계";
   const subtitleHtml      = ctx.subtitleHtml       || "";
@@ -8605,7 +8606,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
               ${archived ? "disabled" : ""}>프롬프트 변경 적용</button>
             <button id="scenarioValidatePromptButton" type="button" class="btn secondary"
               ${archived ? "disabled" : ""}>프롬프트 검증</button>
-            ${reviewMode ? `
+            ${reviewMode && !reviewRunButtons ? `
             <button id="scenarioRerunRequestButton" type="button" class="btn primary"
               ${archived ? "disabled" : ""}>분석 재수행 요청</button>
             ` : `
@@ -8624,7 +8625,7 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             </div>
             ` : `<h3>분석 실행 로그</h3>`}
             <div class="scenario-log-actions">
-              ${reviewMode ? reviewNoteHtml : `
+              ${reviewMode && !reviewRunButtons ? reviewNoteHtml : `
               <button id="scenarioRunButton" type="button" class="btn"
                 ${archived ? "disabled" : ""}>단계별 자동실행</button>
               <button id="scenarioClearButton" type="button" class="btn secondary"
@@ -9220,7 +9221,14 @@ function openScenarioBehaviorPopup(){
         live.behaviors = values;
         live.behavior = values[0];
         live.behaviorLabel = sourceBehaviorLabels(live.key, values).join(", ");
-        saveCompanyScenario();
+        // 관세수사(사건 기반)면 케이스 단계로 역저장, 그 외(관세조사)는 기업 시나리오 저장
+        if(currentPage === "generalinv"){
+          const giCase = activeGenInvCase();
+          if(giCase) saveWorkbenchToCaseSteps(giCase);
+          saveCanvasState();
+        } else {
+          saveCompanyScenario();
+        }
         renderScenarioList();
         syncScenarioEditor();
         if(scenarioReviewMode) renderScenarioSteps();
@@ -9979,6 +9987,27 @@ function clearScenarioResults(){
 /* 분석 재수행 요청(리뷰 모드 전용) — 실시간 실행 없이 재분석 접수만 기록하는 모의 처리.
    실제 분석은 배치(사전 준비 결과 생성)로 수행되며 화면은 접수 상태만 표시한다. */
 function requestScenarioRerun(){
+  // 관세수사: 사건 단위로 저장·접수 (관세조사와 동일한 접수 UI, 저장 경로만 사건 스키마)
+  if(currentPage === "generalinv"){
+    const giCase = activeGenInvCase();
+    if(!giCase){ alert("수사 대상을 먼저 선택하세요."); return; }
+    saveWorkbenchToCaseSteps(giCase);
+    // 수사 캔버스 카드는 canvasJobOverrides가 아니라 사건 자체의 status를 읽는다
+    giCase.status = { ...(giCase.status || {}), label:"재수행 요청", tone:"review" };
+    giCase.updated = "방금";
+    setScenarioStatus("재수행 요청 접수");
+    const giClarify = document.getElementById("scenarioClarify");
+    if(giClarify){
+      giClarify.innerHTML = `
+        <div class="scenario-clarify-note" style="padding:10px 12px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:8px;color:#075985;font-size:13px">
+          분석 재수행이 접수되었습니다. 현재 시나리오 구성(단계 ${scenarioItems.length}개)으로 재분석이 예약되며,
+          완료 후 이 화면과 "수사 보고서" 탭의 결과가 갱신됩니다.
+        </div>
+      `;
+    }
+    saveCanvasState();
+    return;
+  }
   if(isCompanyArchived()){
     alert("아카이브된 작업은 복원 후 재수행을 요청할 수 있습니다.");
     return;
@@ -10038,6 +10067,9 @@ function loadCaseStepsToWorkbench(aCase){
     aCase.stepResults = {};
     aCase.stepExpanded = {};
   }
+  // 사건 워크벤치가 전역 scenarioItems를 차지했음을 표시 — 관세조사 워크벤치가
+  // 같은 기업으로 돌아왔을 때 재로드를 건너뛰어 사건 단계가 노출되는 누수 방지
+  scenarioLoadedForCompany = `case:${aCase.caseId}`;
   const typeLabel = {db:"DB 조회",agent:"AI 서비스",rag:"RAG",report:"보고서",approve:"검증"};
   scenarioItems = (aCase.giSteps || []).map((step, i) => {
     const sk = step.sourceKey || giCommonSourceKey(step.key);
@@ -10184,6 +10216,20 @@ function initGiScenarioWorkbench(){
     if(!ensureMailShareRecipients(toRun)) return;
     if(!ensureDirectUrlTargets(toRun)) return;
     giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
+  });
+
+  // 리뷰 모드(관세조사와 동일 구조): 실행 대신 분석 재수행 요청 접수
+  document.getElementById("scenarioRerunRequestButton")?.addEventListener("click", requestScenarioRerun);
+
+  // 리뷰 레이아웃: 분석범위 설정 팝업 + [분석 결과|통합 프롬프트] 탭
+  document.getElementById("scenarioBehaviorConfigButton")?.addEventListener("click", openScenarioBehaviorPopup);
+  document.querySelectorAll("[data-result-view-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      scenarioResultViewTab = button.dataset.resultViewTab;
+      document.querySelectorAll("[data-result-view-tab]").forEach(b =>
+        b.classList.toggle("active", b.dataset.resultViewTab === scenarioResultViewTab));
+      renderScenarioSteps();
+    });
   });
 
   document.getElementById("scenarioClearButton")?.addEventListener("click", () => {
