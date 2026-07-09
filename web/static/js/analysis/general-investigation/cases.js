@@ -1,6 +1,6 @@
 import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
-import { CRIME_TAXONOMY, crimeCategoryById, crimeSummary } from "./crime-taxonomy.js";
+import { CRIME_TAXONOMY, crimeCategoryById, crimeSummary, crimeAnalysisPlan } from "./crime-taxonomy.js";
 import { leadTimelineHtml, leadRegisterFormHtml, leadDraftEditorHtml } from "./leads.js";
 
 export function renderCasesPanel(deps){
@@ -188,6 +188,16 @@ function crimeSelectorHtml(aCase, state){
           `).join("")}
           <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 확정</button>
         </div>
+        ${(() => {
+          // 선택 중인 죄명 기준 분석서비스 자동 구성 미리보기 (관점 매트릭스 기반)
+          const plan = crimeAnalysisPlan(draft);
+          return plan ? `
+            <div class="gi-crime-plan-preview">
+              <span class="gi-crime-plan-dims">분석 관점: ${escapeHtml(plan.dimSummary)}</span>
+              <span class="gi-crime-plan-flow">자동 구성(${plan.keys.length}단계): ${escapeHtml(plan.labels.join(" → "))}</span>
+            </div>
+          ` : "";
+        })()}
       ` : ""}
     </div>
   `;

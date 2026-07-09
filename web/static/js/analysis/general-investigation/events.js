@@ -1,23 +1,29 @@
 import { generalInvestigationState } from "./state.js";
-import { giInvTypeForCrimes } from "./crime-taxonomy.js";
+import { giInvTypeForCrimes, crimeAnalysisPlan } from "./crime-taxonomy.js";
 import { leadTypeById, leadDocLabel, buildLeadDraftPrompt } from "./leads.js";
 import { streamLlmText } from "../shared/llm-stream.js";
 
-/* 혐의 확정 → 수사유형 템플릿 적용 (data-gi-template-apply와 동일 로직) */
-function giApplyCrimeTemplate(ctx, aCase, tplId){
-  const tpl = ctx.giScenarioTemplates?.find(t => t.id === tplId);
-  if(!tpl) return;
-  aCase.giSteps = tpl.items.map((item, i) =>
-    ctx.normalizeGiScenarioStep({
-      ...item,
+/* 혐의 확정 → 죄명별 분석 관점 매트릭스(정합성·경로·자금·관계·패턴) 기반으로
+   분석서비스 시나리오를 자동 구성한다. */
+function giApplyCrimePlan(ctx, aCase, plan){
+  if(!plan?.keys?.length) return;
+  aCase.giSteps = plan.keys.map((key, i) => {
+    const src = ctx.giSourceByKey(key);
+    const sourceKey = ctx.giCommonSourceKey(src.key);
+    return ctx.normalizeGiScenarioStep({
+      ...src,
       id: `gis_${ctx.uid()}`,
+      sourceKey,
       targetType: aCase.targetType || "company",
       target_type: aCase.targetType || "company",
-    }, i)
-  );
+      behaviors: ctx.sourceDefaultBehaviors(sourceKey),
+      instruction: ctx.sourceDefaultInstruction(sourceKey, aCase.targetType),
+    }, i);
+  });
   aCase.stepStates   = {};
   aCase.stepResults  = {};
   aCase.stepExpanded = {};
+  aCase.status = { ...(aCase.status || {}), label: "대기", tone: "wait", pct: 0, done: 0, total: aCase.giSteps.length };
   ctx.activeGiStepId = aCase.giSteps[0]?.id || null;
 }
 
@@ -164,14 +170,17 @@ export function registerGeneralInvestigationEvents(ctx){
       if(!aCase || !draft?.categoryId){ alert("혐의 대분류를 선택하세요."); return; }
       if(!draft.offenseIds?.length){ alert("죄명을 1개 이상 선택하세요."); return; }
       aCase.crimes = { categoryId: draft.categoryId, offenseIds: [...draft.offenseIds] };
-      const invTypeId = giInvTypeForCrimes(aCase.crimes);
-      const typeChanged = invTypeId !== aCase.invTypeId;
-      aCase.invTypeId = invTypeId;
-      // 혐의에 맞는 분석 시나리오 매핑: 단계 미구성이면 지연 초기화가 새 유형을 따르고,
-      // 기존 구성이 있으면 사용자 확인 후 템플릿 재적용
-      if(aCase.giSteps?.length && typeChanged
-        && confirm("혐의에 맞는 분석 시나리오 템플릿을 적용할까요?\n기존 단계 구성과 실행 결과가 대체됩니다.")){
-        giApplyCrimeTemplate(ctx, aCase, invTypeId);
+      aCase.invTypeId = giInvTypeForCrimes(aCase.crimes);
+      // 죄명별 분석 관점 매트릭스 기반 분석서비스 자동 세팅
+      // (기존 구성이 있으면 대체 여부 확인, 없으면 즉시 구성)
+      const plan = crimeAnalysisPlan(aCase.crimes);
+      if(plan){
+        const hasExisting = !!aCase.giSteps?.length;
+        const proceed = !hasExisting || confirm(
+          `혐의 분석 관점(${plan.dimSummary})에 맞춰 분석서비스를 자동 구성할까요?\n\n`
+          + `구성(${plan.keys.length}단계): ${plan.labels.join(" → ")}\n\n`
+          + `기존 단계 구성과 실행 결과가 대체됩니다.`);
+        if(proceed) giApplyCrimePlan(ctx, aCase, plan);
       }
       generalInvestigationState.crimeDraft = null;
       ctx.saveCanvasState();

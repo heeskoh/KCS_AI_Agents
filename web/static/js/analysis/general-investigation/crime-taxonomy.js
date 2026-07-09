@@ -82,6 +82,111 @@ export const CRIME_PROFILE_EMPHASIS = {
   c7: ["관계망", "조직", "자금"],
 };
 
+/* ── 죄명별 분석 관점 매트릭스 — 혐의 확정 시 분석서비스 자동 세팅의 근거 ──
+   관점 5종: A 정합성(신고 검증) / B 경로(운송) / C 자금(추적) / D 관계(관계망·통신) / E 패턴(이상거래)
+   값: 2=●(중점), 1=○(보조), 0/생략=해당 없음 */
+export const ANALYSIS_DIMENSIONS = [
+  { id: "A", label: "정합성", primary: "gi_imp",    strong: ["gi_imp", "gi_val", "gi_hs"] },
+  { id: "B", label: "경로",   primary: "gi_route",  strong: ["gi_route"] },
+  { id: "C", label: "자금",   primary: "gi_profit", strong: ["gi_profit", "gi_fundtrace"] },
+  { id: "D", label: "관계",   primary: "gi_net",    strong: ["gi_net", "gi_comms"] },
+  { id: "E", label: "패턴",   primary: "gi_anomaly",strong: ["gi_anomaly"] },
+];
+
+export const OFFENSE_ANALYSIS_MATRIX = {
+  // c1 관세수입 침해
+  c1_evasion:        { A: 2, B: 1, C: 1, D: 1, E: 1 },
+  c1_illegal_import: { A: 2, B: 1, C: 0, D: 1, E: 1 },
+  c1_illegal_export: { A: 2, B: 1, C: 0, D: 1, E: 1 },
+  c1_exemption:      { A: 2, B: 0, C: 1, D: 1, E: 2 },
+  c1_refund:         { A: 2, B: 0, C: 2, D: 1, E: 2 },
+  c1_price:          { A: 2, B: 0, C: 2, D: 1, E: 2 },
+  // c2 밀수출입
+  c2_import:         { A: 2, B: 2, C: 1, D: 1, E: 1 },
+  c2_export:         { A: 2, B: 2, C: 1, D: 1, E: 1 },
+  c2_possession:     { A: 1, B: 1, C: 1, D: 2, E: 1 },
+  c2_prohibited:     { A: 2, B: 2, C: 0, D: 1, E: 1 },
+  // c3 부정 통관·신고
+  c3_false_decl:     { A: 2, B: 1, C: 0, D: 1, E: 2 },
+  c3_origin:         { A: 2, B: 2, C: 0, D: 1, E: 1 },
+  // c4 금지·제한 위반
+  c4_prohibited_goods:{ A: 2, B: 2, C: 0, D: 1, E: 1 },
+  c4_ip:             { A: 2, B: 1, C: 0, D: 1, E: 1 },
+  c4_customs_confirm:{ A: 2, B: 1, C: 0, D: 0, E: 1 },
+  // c5 통관·절차 질서
+  c5_order:          { A: 2, B: 0, C: 0, D: 0, E: 2 },
+  c5_books:          { A: 2, B: 0, C: 1, D: 1, E: 1 },
+  c5_duty:           { A: 1, B: 0, C: 1, D: 2, E: 1 },
+  // c6 외환수사
+  c6_illegal_fx:     { A: 1, B: 0, C: 2, D: 2, E: 2 },
+  c6_laundering:     { A: 0, B: 1, C: 2, D: 2, E: 2 },
+  c6_flight:         { A: 1, B: 0, C: 2, D: 2, E: 1 },
+  c6_trade_front:    { A: 2, B: 1, C: 2, D: 2, E: 1 },
+  // c7 마약수사
+  c7_smuggle:        { A: 2, B: 2, C: 1, D: 2, E: 1 },
+  c7_offense:        { A: 1, B: 2, C: 1, D: 2, E: 1 },
+  c7_new:            { A: 1, B: 2, C: 1, D: 2, E: 2 },
+  c7_fund:           { A: 0, B: 1, C: 2, D: 2, E: 2 },
+};
+
+/* 죄명별 특화 서비스(관점 매트릭스 외 추가) */
+export const OFFENSE_EXTRA_SERVICES = {
+  c3_origin: ["gi_origin"],
+  c4_ip: ["gi_patent"],
+  c4_prohibited_goods: ["gi_origin"],
+  c1_evasion: ["gi_val"],
+};
+
+/* 대분류별 RAG 구성 */
+const CATEGORY_RAG = {
+  c1: ["gi_rag_rev"], c2: ["gi_rag_inv", "gi_rag_int"], c3: ["gi_rag_inv", "gi_rag_int"],
+  c4: ["gi_rag_rev"], c5: ["gi_rag_inv"], c6: ["gi_rag_inv", "gi_rag_int"], c7: ["gi_rag_inv", "gi_rag_int"],
+};
+
+/* 미리보기용 라벨(gi 별칭 → 짧은 서비스명) */
+const GI_KEY_LABELS = {
+  gi_cdw: "CDW 자연어조회", gi_imp: "수입신고검증", gi_val: "과세가격평가", gi_hs: "품목분류검증",
+  gi_route: "운송경로 분석", gi_profit: "범죄수익 추적", gi_fundtrace: "범죄자금추적",
+  gi_net: "관계망 분석", gi_comms: "통신내역 분석", gi_anomaly: "이상거래 검증",
+  gi_patent: "특허정보 조회", gi_origin: "원산지 검증", gi_law: "법령 검토",
+  gi_rag_rev: "심사정보 RAG", gi_rag_inv: "조사정보 RAG", gi_rag_int: "국제협력 RAG",
+  gi_rep: "보고서 생성", gi_appr: "보고서 검증",
+};
+
+/* 혐의(crimes) → 분석서비스 자동 구성 계획.
+   선택 죄명들의 관점 점수를 관점별 최댓값으로 합산해:
+   2(●)면 해당 관점 서비스 전체, 1(○)이면 대표 서비스만 포함.
+   공통 시작(gi_cdw)·죄명 특화·대분류 RAG·마무리(법령→보고서→검증)를 결합한다. */
+export function crimeAnalysisPlan(crimes){
+  if(!crimes?.categoryId || !crimes.offenseIds?.length) return null;
+  const dims = {};
+  ANALYSIS_DIMENSIONS.forEach(dim => { dims[dim.id] = 0; });
+  crimes.offenseIds.forEach(offenseId => {
+    const row = OFFENSE_ANALYSIS_MATRIX[offenseId] || {};
+    ANALYSIS_DIMENSIONS.forEach(dim => {
+      dims[dim.id] = Math.max(dims[dim.id], row[dim.id] || 0);
+    });
+  });
+  const keys = ["gi_cdw"];
+  const push = key => { if(key && !keys.includes(key)) keys.push(key); };
+  ANALYSIS_DIMENSIONS.forEach(dim => {
+    if(dims[dim.id] >= 2) dim.strong.forEach(push);
+    else if(dims[dim.id] === 1) push(dim.primary);
+  });
+  crimes.offenseIds.forEach(offenseId => (OFFENSE_EXTRA_SERVICES[offenseId] || []).forEach(push));
+  (CATEGORY_RAG[crimes.categoryId] || []).forEach(push);
+  ["gi_law", "gi_rep", "gi_appr"].forEach(push);
+  return {
+    dims,
+    keys,
+    labels: keys.map(key => GI_KEY_LABELS[key] || key),
+    dimSummary: ANALYSIS_DIMENSIONS
+      .filter(dim => dims[dim.id] > 0)
+      .map(dim => `${dim.label}${dims[dim.id] >= 2 ? "●" : "○"}`)
+      .join(" "),
+  };
+}
+
 export function crimeCategoryById(id){
   return CRIME_TAXONOMY.find(category => category.id === id) || null;
 }

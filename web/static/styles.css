@@ -1070,6 +1070,9 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .gi-crime-offense-btn{border:1px solid #cfe0fb;background:#fff;color:#3b4a63;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}
 .gi-crime-offense-btn.on{background:#2f6fed;border-color:#2f6fed;color:#fff}
 .gi-crime-apply-btn{margin-left:auto}
+.gi-crime-plan-preview{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding:8px 10px;border:1px dashed #93c5fd;border-radius:9px;background:#f4f8ff}
+.gi-crime-plan-dims{font-size:11.5px;font-weight:800;color:#1e3a8a}
+.gi-crime-plan-flow{font-size:11.5px;color:#3b4a63;line-height:1.5}
 /* 단서 타임라인 */
 .gi-lead-timeline{display:flex;flex-direction:column;gap:0;max-height:520px;overflow-y:auto}
 .gi-lead-node{display:flex;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;position:relative}
