@@ -290,6 +290,78 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
+    /* ── 기초자료: 외부 자료요청 접수(주민등록·전화가입자·금융거래) ── */
+    const giExtRequest = event.target.closest("[data-gi-ext-request]");
+    if(giExtRequest){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase) return;
+      const kind = giExtRequest.dataset.giExtRequest;
+      const input = document.getElementById(`giExtTarget_${kind}`);
+      const target = String(input?.value || "").trim();
+      if(!target){ alert("요청 대상을 입력하세요."); input?.focus(); return; }
+      if(!aCase.externalRequests) aCase.externalRequests = [];
+      aCase.externalRequests.unshift({
+        id: `ext_${ctx.uid()}`,
+        kind, target,
+        status: "접수됨",
+        requestedAt: new Date().toLocaleString("ko-KR"),
+        requester: ctx.currentUser().name,
+      });
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giExtAdvance = event.target.closest("[data-gi-ext-advance]");
+    if(giExtAdvance){
+      const aCase = ctx.activeGenInvCase();
+      const request = aCase?.externalRequests?.find(item => item.id === giExtAdvance.dataset.giExtAdvance);
+      if(!request) return;
+      request.status = request.status === "접수됨" ? "회신대기" : "회신완료";
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giExtRemove = event.target.closest("[data-gi-ext-remove]");
+    if(giExtRemove){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase?.externalRequests) return;
+      aCase.externalRequests = aCase.externalRequests.filter(item => item.id !== giExtRemove.dataset.giExtRemove);
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    /* ── 프로파일: 외부 정보 출처 메모(인터넷·신문·서적) ────────────── */
+    const giExtNoteAdd = event.target.closest("[data-gi-extnote-add]");
+    if(giExtNoteAdd){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase) return;
+      const title = String(document.getElementById("giExtNoteTitle")?.value || "").trim();
+      const memo = String(document.getElementById("giExtNoteMemo")?.value || "").trim();
+      if(!title && !memo){ alert("출처 제목 또는 메모를 입력하세요."); return; }
+      if(!aCase.externalNotes) aCase.externalNotes = [];
+      aCase.externalNotes.push({
+        kind: document.getElementById("giExtNoteKind")?.value || "기타",
+        title, memo,
+        addedAt: new Date().toLocaleDateString("ko-KR"),
+      });
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    const giExtNoteRemove = event.target.closest("[data-gi-extnote-remove]");
+    if(giExtNoteRemove){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase?.externalNotes) return;
+      aCase.externalNotes.splice(Number(giExtNoteRemove.dataset.giExtnoteRemove), 1);
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
     /* ── 수사정보 분석 탭 (3단: Chat/시각화/정보카드) ─────────────── */
     const giInsightView = event.target.closest("[data-gi-insight-view]");
     if(giInsightView){
@@ -357,6 +429,48 @@ export function registerGeneralInvestigationEvents(ctx){
         const id = giStepDown.dataset.giStepDown;
         const i = steps.findIndex(s => s.id === id);
         if(i >= 0 && i < steps.length - 1){ [steps[i], steps[i+1]] = [steps[i+1], steps[i]]; }
+      }
+      ctx.saveCanvasState();
+      ctx.render("generalinv");
+      return;
+    }
+
+    /* ── AI 서비스 카탈로그 토글 (선택형 시나리오) ─────────────────── */
+    const giSvcToggle = event.target.closest("[data-gi-svc-toggle]");
+    if(giSvcToggle){
+      const key = giSvcToggle.dataset.giSvcToggle;
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase) return;
+      if(!aCase.giSteps) ctx.activeGiCaseSteps();
+      const src = ctx.giSourceByKey(key);
+      const sourceKey = ctx.giCommonSourceKey(src.key);
+      const matched = (aCase.giSteps || []).filter(step =>
+        (step.sourceKey || ctx.giCommonSourceKey(step.key)) === sourceKey);
+      if(matched.length){
+        // 해제: 같은 서비스의 모든 단계 제거(실행 결과 포함)
+        const hasResults = matched.some(step => (aCase.stepResults || {})[step.id]);
+        const note = matched.length > 1 ? `\n(같은 서비스 단계 ${matched.length}개가 함께 제거됩니다)` : "";
+        if(!confirm(`'${src.label}'을(를) 시나리오에서 제거할까요?${hasResults ? "\n해당 단계의 실행 결과도 함께 삭제됩니다." : ""}${note}`)) return;
+        const removeIds = new Set(matched.map(step => step.id));
+        aCase.giSteps = aCase.giSteps.filter(step => !removeIds.has(step.id));
+        removeIds.forEach(id => {
+          if(aCase.stepStates) delete aCase.stepStates[id];
+          if(aCase.stepResults) delete aCase.stepResults[id];
+          if(aCase.stepExpanded) delete aCase.stepExpanded[id];
+        });
+        if(removeIds.has(ctx.activeGiStepId)) ctx.activeGiStepId = null;
+      } else {
+        // 선택: 시나리오 끝에 단계 추가 (기존 단계 추가 로직과 동일 구성)
+        aCase.giSteps.push(ctx.normalizeGiScenarioStep({
+          ...src,
+          id: `gis_${ctx.uid()}`,
+          sourceKey,
+          targetType: aCase.targetType || "company",
+          target_type: aCase.targetType || "company",
+          behaviors: ctx.sourceDefaultBehaviors(sourceKey),
+          instruction: ctx.sourceDefaultInstruction(sourceKey, aCase.targetType),
+        }, aCase.giSteps.length));
+        ctx.activeGiStepId = aCase.giSteps[aCase.giSteps.length - 1].id;
       }
       ctx.saveCanvasState();
       ctx.render("generalinv");

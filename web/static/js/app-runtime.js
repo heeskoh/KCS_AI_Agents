@@ -2086,6 +2086,8 @@ const genDeps = {
   // 수사정보 분석(insight) 탭 deps
   getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
   saveCanvasState,
+  // AI 서비스 카탈로그(선택형 시나리오) deps
+  getGiStepSources: () => GI_STEP_SOURCES,
 };
 const generalInvestigation = createGeneralInvestigation(genDeps);
 

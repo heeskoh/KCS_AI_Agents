@@ -1163,6 +1163,53 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .chat-thread-input textarea{flex:1;min-width:0;border:1px solid #d8e0ec;border-radius:9px;padding:7px 10px;font-size:12.5px;font-family:inherit;resize:none;line-height:1.5}
 .chat-thread-input .btn{flex:none;align-self:flex-end}
 @media(max-width:1280px){.gi-insight-layout{grid-template-columns:300px minmax(0,1fr) 300px}}
+
+/* ── AI 서비스 카탈로그(선택형 시나리오) ─────────────────────────── */
+.gi-svc-catalog{border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)}
+.gi-svc-catalog-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.gi-svc-catalog-head strong{font-size:13px;color:#123c85}
+.gi-svc-catalog-head .muted{font-size:11.5px}
+.gi-svc-group{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-top:1px dashed #e6edf7}
+.gi-svc-group-label{flex:none;width:88px;font-size:11.5px;font-weight:800;color:#8590a6;padding-top:6px}
+.gi-svc-grid{display:flex;flex-wrap:wrap;gap:6px}
+.gi-svc-card{display:inline-flex;align-items:center;gap:6px;border:1px solid #d8e0ec;background:#fff;color:#41506a;border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer}
+.gi-svc-card i{font-style:normal;width:16px;height:16px;border-radius:50%;background:#f1f5f9;color:#94a3b8;display:grid;place-items:center;font-size:11px;font-weight:900}
+.gi-svc-card.on{border-color:#2f6fed;background:#eef4ff;color:#123c85}
+.gi-svc-card.on i{background:#2f6fed;color:#fff}
+/* ── 프로파일: 혐의 뱃지 스트립 + 외부 정보 수집·정리 ───────────────── */
+.gi-profile-crime-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid #fde68a;border-radius:11px;background:#fffbeb;padding:8px 12px;margin-bottom:10px}
+.gi-profile-crime-strip.empty{border-color:var(--line);background:#f8fafc}
+.gi-profile-crime-strip .btn{margin-left:auto;padding:3px 10px;font-size:11.5px}
+.gi-crime-offense-chip{display:inline-flex;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#fff;border:1px solid #fcd34d;color:#92400e}
+.gi-profile-emphasis{font-size:11.5px;color:#57534e}
+.gi-profile-emphasis b{color:#b45309}
+.gi-external-info{border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;margin-top:12px;box-shadow:var(--shadow)}
+.gi-external-info h4{margin:0 0 10px;font-size:13px;color:#123c85}
+.gi-external-info h4 .muted{font-size:11px;font-weight:600;margin-left:6px}
+.gi-external-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gi-external-info-label{display:block;font-size:11.5px;font-weight:800;color:#8590a6;margin-bottom:6px}
+.gi-external-doc{position:relative;border:1px solid #e2e8f0;border-radius:9px;background:#f8fbff;padding:7px 26px 7px 10px;margin-bottom:5px}
+.gi-external-doc strong{display:block;font-size:12px;color:#1e3a8a}
+.gi-external-doc span{font-size:11px;color:#64748b}
+.gi-external-doc .gi-lead-remove{position:absolute;top:7px;right:6px}
+.gi-external-note-form{display:grid;grid-template-columns:auto 1fr 1.4fr auto;gap:6px;margin-top:6px}
+.gi-external-note-form input,.gi-external-note-form select{border:1px solid #d8e0ec;border-radius:8px;padding:6px 9px;font-size:12px;background:#fff;min-width:0}
+/* ── 기초자료: 외부 자료요청(접수형) ─────────────────────────────── */
+.gi-ext-requests{border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;margin-top:12px;box-shadow:var(--shadow)}
+.gi-ext-requests h4{margin:0 0 10px;font-size:13px;color:#123c85}
+.gi-ext-requests h4 .muted{font-size:11px;font-weight:600;margin-left:6px}
+.gi-ext-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.gi-ext-card{border:1px solid #cfe0fb;border-radius:11px;background:#f8fbff;padding:10px}
+.gi-ext-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-bottom:8px}
+.gi-ext-card-head strong{font-size:12.5px;color:#123c85}
+.gi-ext-card-head span{font-size:10.5px;color:#8590a6}
+.gi-ext-card-form{display:flex;gap:6px}
+.gi-ext-card-form input{flex:1;min-width:0;border:1px solid #d8e0ec;border-radius:8px;padding:6px 9px;font-size:12px;background:#fff}
+.gi-ext-card-form .btn{flex:none;padding:5px 10px;font-size:11.5px;white-space:nowrap}
+.gi-ext-table{width:100%;border-collapse:collapse;font-size:12px}
+.gi-ext-table th{font-size:11px;color:#8590a6;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.gi-ext-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;color:#33415e}
+@media(max-width:1100px){.gi-ext-cards{grid-template-columns:1fr}.gi-external-info-grid{grid-template-columns:1fr}}
 /* 등록 폼 */
 .gi-reg-form{border:1px solid var(--line);border-radius:14px;padding:18px;background:#f8fbff}
 .gi-reg-title{margin:0 0 14px;font-size:15px;color:#123c85}
