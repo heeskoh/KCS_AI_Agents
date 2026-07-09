@@ -1,6 +1,6 @@
-/* 관세수사 AI서비스 분석 작업 — 관세조사 탭4와 동일한 구조(완전 리뷰모드):
-   좌측 분석범위별 상세설정(탭)·입력/설정값 인라인 + "분석 재수행 요청",
-   우측 [분석 결과|통합 프롬프트] 탭. 실행 버튼 없이 재수행 접수만 노출한다.
+/* 관세수사 AI서비스 분석 작업 — 관세조사 탭4와 동일한 구조(리뷰모드):
+   좌측 분석범위별 상세설정(탭)·입력/설정값 인라인 + "AI 분석서비스 수행"(선택 단계 실시간 실행),
+   우측 [분석 결과|통합 프롬프트] 탭.
    AI 분석서비스 구성은 혐의 확정 시 관점 매트릭스로 자동 세팅된다. */
 export function renderWorkbenchPanel(deps) {
   const aCase = deps.activeGenInvCase();
@@ -21,7 +21,7 @@ export function renderWorkbenchPanel(deps) {
     reviewMode: true,
     reviewNoteHtml,
     titleHtml: "조사 및 수사 분석 단계",
-    subtitleHtml: `혐의 확정 시 분석 관점 매트릭스에 따라 AI 분석서비스가 자동 구성됩니다. <em style="color:#0369a1;font-style:normal;font-weight:700">단계 구성·분석범위·프롬프트를 조정한 뒤 "분석 재수행 요청"으로 재분석을 접수하세요.</em>`,
+    subtitleHtml: `혐의 확정 시 분석 관점 매트릭스에 따라 AI 분석서비스가 자동 구성됩니다. <em style="color:#0369a1;font-style:normal;font-weight:700">단계 구성·분석범위·프롬프트를 조정한 뒤 "AI 분석서비스 수행"으로 분석을 실행하세요.</em>`,
     templateOptionsHtml,
   });
 }

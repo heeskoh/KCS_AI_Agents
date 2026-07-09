@@ -125,7 +125,22 @@ const REL_LABEL_KO = {
   // 증거물 엣지 (압수 통신·금융기록)
   COMMUNICATED_WITH: "통신(증거)", FUNDS_FLOW: "자금흐름(증거)",
 };
+/* 파생 뷰 엣지의 짧은 유형 명칭 — 조립 라벨이 길 때 그래프에는 이것만 표시 */
+const REL_SHORT_KO = {
+  FILED: "수입신고", SUPPLIED_BY: "해외거래처", FILED_BY: "관세사",
+  ROUTE: "운송경로", CONTRIBUTES_TO: "위험기여", DRIVEN_BY: "위험지표",
+};
+const EDGE_LABEL_MAX = 20;
 function relLabelKo(type, props){
+  // 파생 뷰(4-뷰)가 조립한 엣지 라벨(품목·항만·국가·담당자 등)이 있으면 우선 사용.
+  // 내용이 길면 유형 명칭(+건수)만 그래프에 표시하고 상세는 엣지 클릭 상세창에서 확인한다.
+  if(props && props.label_ko){
+    const label = props.label_ko;
+    if(label.length <= EDGE_LABEL_MAX) return label;
+    const short = REL_SHORT_KO[type] || REL_LABEL_KO[type] || type;
+    const count = Number(props.count);
+    return Number.isFinite(count) && count > 1 ? `${short} ${count}건` : short;
+  }
   if(type === "NETWORK_EDGE" && props && props.relation_type) return props.relation_type;
   // 관세사: 사무소는 노드, 담당 관세사는 엣지에 표시 (관세사 · 담당자명)
   if(type === "FILED_BY" && props && props.manager) return `관세사 · ${props.manager}`;
@@ -173,7 +188,7 @@ function emptyState(){
     scenarioName: "",                  // 등록할 시나리오 이름(작성 중)
     activeScenarioId: "",              // 선택/적용된 시나리오 id
     _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
-    viewMode: "relation",              // 프로파일 4-뷰: relation|cause|risk|route
+    viewMode: "decl",                  // 프로파일 4-뷰: decl(수입신고)|item(품목)|riskcause(위험원인)|route(경로)
     manualPositions: {},               // 정렬·드래그로 옮긴 노드 위치(뷰별 id→{x,y}, 재렌더 유지)
     alignBarOn: false,                  // 정렬 툴바 고정 표시 여부(off라도 2개 이상 선택 시 자동 표시)
     hiddenIds: new Set(),              // 속성창에서 숨김 처리한 노드 id(개별 숨기기/보이기 토글)
@@ -193,7 +208,7 @@ function filterStateFor(key){
 /* 현재 뷰의 수동 노드 위치 맵(정렬·드래그 결과). 뷰별로 레이아웃이 달라 분리 저장. */
 function manualPosFor(state){
   if(!state.manualPositions) state.manualPositions = {};
-  const v = state.viewMode || "relation";
+  const v = state.viewMode || "decl";
   if(!state.manualPositions[v]) state.manualPositions[v] = {};
   return state.manualPositions[v];
 }
@@ -329,7 +344,7 @@ const PROP_LABEL_KO = {
   case_no: "사건번호", role_in_case: "역할", evidence_level: "증거수준",
   evidence_summary: "증거 요약", modus_operandi: "수법",
 };
-const PROP_HIDDEN = new Set(["seed_batch_id", "updated_from"]);
+const PROP_HIDDEN = new Set(["seed_batch_id", "updated_from", "label_ko"]);
 /* 상세 패널에 우선 노출할 키 순서 */
 const PROP_PRIORITY = [
   // 인물 핵심: 위험·정보분석 우선 노출
@@ -690,35 +705,218 @@ function mountCytoscape(key, filteredGraph){
   });
 }
 
-/* ── 프로파일 4-뷰: canonical 그래프를 목적별로 필터+레이아웃+인코딩 프로젝션 ──
-   관계분석(방사형)·원인분석(군집)·위험구성(계층)·경로분석(레인). 회사 프로파일 전용. */
+/* ── 프로파일 4-뷰: canonical 그래프(수입신고 허브)를 목적별 파생 그래프로 재구성 ──
+   1) 수입신고 관계분석: 기업→수입신고→해외거래처 + 관세사→수입신고 (품목·항만은 엣지 속성으로 흡수)
+   2) 품목기반 관계분석: 기업→품목→해외거래처 + 관세사→품목 (수입신고·항만은 엣지 속성으로 흡수)
+   3) 위험구성 원인분석: 위험지표(0 아님)에 기여한 수입신고만 + 위험요인 노드 추가
+   4) 경로분석: 기업→국가→항만→품목(수입신고 속성)→항만→국가, 수출·수입 방향별 국내측 우선 레인 */
 const VIEW_MODES = [
-  { id: "relation", label: "관계분석", icon: "🕸️", layout: "concentric", desc: "기업 중심 전체 관계(방사형)" },
-  { id: "cause", label: "원인분석", icon: "🧩", layout: "cose", desc: "위험요인별 신고 군집 — 반복 기여 요소(군집형)" },
-  { id: "risk", label: "위험구성", icon: "🏗️", layout: "breadthfirst", desc: "종합위험값→위험요인→신고→요소(계층형)" },
-  { id: "route", label: "경로분석", icon: "🛳️", layout: "preset", desc: "신고별 출발항→도착항→해외거래처(레인)" },
+  { id: "decl", label: "수입신고 관계분석", icon: "🕸️", desc: "기업 → 수입신고 → 해외거래처 · 관세사 → 수입신고 (품목·도착항·출발항·국가는 엣지에 표시)" },
+  { id: "item", label: "품목기반 관계분석", icon: "📦", desc: "기업 → 품목 → 해외거래처 · 관세사 → 품목 (수입신고·항만은 엣지에 표시)" },
+  { id: "riskcause", label: "위험구성 원인분석", icon: "🧩", desc: "위험지표가 0이 아닌 지표에 기여한 수입신고만 표시 + 위험요인 노드" },
+  { id: "route", label: "경로분석", icon: "🛳️", desc: "기업 → 국가 → 항만 → 품목(수입신고 속성) → 항만 → 국가 (수출·수입 방향별)" },
 ];
 
-/* 뷰별 표시 라벨/엣지 화이트리스트. null = 전부 표시(관계분석). */
-const VIEW_PROJECTION = {
-  relation: null,
-  cause: {
-    nodes: new Set(["Company", "Declaration", "RiskFactor", "ItemClass", "DeparturePort", "ArrivalPort", "OverseasSupplier", "Broker"]),
-    edges: new Set(["CONTRIBUTES_TO", "FILED", "OF_ITEM", "FROM_PORT", "TO_PORT", "SUPPLIED_BY", "FILED_BY", "ANALYZED"]),
-  },
-  risk: {
-    nodes: new Set(["Company", "RiskScore", "RiskFactor", "Declaration"]),
-    edges: new Set(["RISK_INDICATORS", "DRIVEN_BY", "CONTRIBUTES_TO", "FILED"]),
-  },
-  route: {
-    nodes: new Set(["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"]),
-    edges: new Set(["FILED", "FROM_PORT", "TO_PORT", "SUPPLIED_BY"]),
-  },
-};
-
 function viewModeOf(state){
-  const id = state.viewMode || "relation";
+  const id = state.viewMode || "decl";
   return VIEW_MODES.find(v => v.id === id) || VIEW_MODES[0];
+}
+
+/* 수입신고 허브 인덱스: 신고별로 연결된 품목/항만/거래처/관세사(담당자)/위험요인을 모은다 */
+function declRecords(graph){
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const recs = new Map();
+  (graph.nodes || []).forEach(n => {
+    if(n.label === "Declaration") recs.set(n.id, { decl: n, item: null, dep: null, arr: null, sup: null, broker: null, manager: "", riskFactors: [] });
+  });
+  (graph.edges || []).forEach(e => {
+    const declId = recs.has(e.source) ? e.source : (recs.has(e.target) ? e.target : null);
+    if(!declId) return;
+    const other = byId.get(declId === e.source ? e.target : e.source);
+    if(!other || other.label === "Declaration") return;
+    const r = recs.get(declId);
+    if(e.type === "OF_ITEM") r.item = other;
+    else if(e.type === "FROM_PORT") r.dep = other;
+    else if(e.type === "TO_PORT") r.arr = other;
+    else if(e.type === "SUPPLIED_BY") r.sup = other;
+    else if(e.type === "FILED_BY"){ r.broker = other; r.manager = (e.properties && e.properties.manager) || ""; }
+    else if(e.type === "CONTRIBUTES_TO") r.riskFactors.push(other);
+  });
+  return recs;
+}
+
+/* DRIVEN_BY(종합위험값→위험요인) 점수가 0보다 큰 활성 위험요인 id 집합 */
+function activeRiskFactorIds(graph){
+  const ids = new Set();
+  (graph.edges || []).forEach(e => {
+    if(e.type !== "DRIVEN_BY") return;
+    const score = Number(e.properties && e.properties.score);
+    if(!Number.isFinite(score) || score <= 0) return;
+    if(String(e.target).startsWith("RiskFactor")) ids.add(e.target);
+    else if(String(e.source).startsWith("RiskFactor")) ids.add(e.source);
+  });
+  return ids;
+}
+
+/* 뷰 빌더 공용: 노드 복제(+레인 스탬프, 캐시 원본 불변) / 파생 엣지 생성 */
+function viewBuilder(graph){
+  const nodes = new Map();
+  const edges = [];
+  const add = (node, lane) => {
+    if(!node) return null;
+    if(!nodes.has(node.id)) nodes.set(node.id, { ...node, properties: { ...(node.properties || {}) }, _lane: lane });
+    return nodes.get(node.id);
+  };
+  const mk = (src, tgt, type, labelKo, props = {}) => {
+    if(!src || !tgt) return;
+    edges.push({ id: `v${edges.length}`, source: src.id, target: tgt.id, type, properties: { ...props, label_ko: labelKo } });
+  };
+  const done = laneNames => ({ ...graph, nodes: [...nodes.values()], edges, _laneNames: laneNames });
+  return { add, mk, done };
+}
+
+/* 1)·3) 수입신고 관계분석 / 위험구성 원인분석(riskOnly) */
+function viewDeclGraph(graph, opts = {}){
+  const recs = declRecords(graph);
+  if(!recs.size) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const center = byId.get(graph.center);
+  const riskOnly = !!opts.riskOnly;
+  const activeFactors = opts.activeFactors || null;
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(center, 0);
+  const supLane = riskOnly ? 3 : 2;
+  let riskDeclCount = 0;
+  recs.forEach(r => {
+    let factors = r.riskFactors;
+    if(riskOnly && activeFactors) factors = factors.filter(f => activeFactors.has(f.id));
+    if(riskOnly && !factors.length) return;   // 문제가 된 수입신고만 표시
+    if(riskOnly) riskDeclCount += 1;
+    const p = r.decl.properties || {};
+    const itemName = (r.item && r.item.name) || p.item_name || "품목미상";
+    const arrName = (r.arr && r.arr.name) || "";
+    const depName = (r.dep && r.dep.name) || "";
+    const declN = add(r.decl, 1);
+    if(centerN) mk(centerN, declN, "FILED", `${itemName}${arrName ? ` · ${arrName}` : ""}`,
+      { 품목: itemName, 도착항: arrName, 신고번호: p.declaration_no || "", trade_flow: p.trade_flow || "" });
+    if(r.sup){
+      const supN = add(r.sup, supLane);
+      const country = (r.sup.properties && r.sup.properties.country) || "";
+      mk(declN, supN, "SUPPLIED_BY", `${depName || "출발항 미상"}${country ? ` · ${country}` : ""}`,
+        { 출발항: depName, 국가: country, 신고번호: p.declaration_no || "" });
+    }
+    if(r.broker){
+      const brokerN = add(r.broker, 0);
+      mk(brokerN, declN, "FILED_BY", `관세사 · ${r.manager || "-"}`, { manager: r.manager, 신고번호: p.declaration_no || "" });
+    }
+    if(riskOnly) factors.forEach(f => mk(declN, add(f, 2), "CONTRIBUTES_TO", "위험기여", { 신고번호: p.declaration_no || "" }));
+  });
+  // 신고 단위 위험기여 데이터가 없으면 활성 위험지표(0 아님)만이라도 기업에 연결해 표시
+  if(riskOnly && !riskDeclCount && centerN){
+    const byIdAll = new Map((graph.nodes || []).map(n => [n.id, n]));
+    (graph.edges || []).forEach(e => {
+      if(e.type !== "DRIVEN_BY") return;
+      const score = Number(e.properties && e.properties.score);
+      if(!Number.isFinite(score) || score <= 0) return;
+      const factor = byIdAll.get(String(e.target).startsWith("RiskFactor") ? e.target : e.source);
+      if(!factor) return;
+      mk(centerN, add(factor, 2), "DRIVEN_BY", `위험지표 ${score}%`, { score, 비고: "관련 수입신고 기여 데이터 없음" });
+    });
+  }
+  return done(riskOnly
+    ? ["대상기업 · 관세사", "수입신고", "위험요인", "해외거래처"]
+    : ["대상기업 · 관세사", "수입신고", "해외거래처"]);
+}
+
+/* 2) 품목기반 관계분석 — 수입신고를 엣지 속성으로 흡수, 품목 중심 (신고 다건은 집계) */
+function viewItemGraph(graph){
+  const recs = declRecords(graph);
+  if(!recs.size) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const center = byId.get(graph.center);
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(center, 0);
+  // (출발노드, 대상노드, 유형) 단위로 신고를 모아 한 엣지로 집계
+  const agg = new Map();
+  const collect = (src, tgt, type, extra) => {
+    if(!src || !tgt) return;
+    const k = `${src.id}|${tgt.id}|${type}`;
+    if(!agg.has(k)) agg.set(k, { src, tgt, type, decls: [], arrs: new Set(), deps: new Set(), countries: new Set(), managers: new Set() });
+    const a = agg.get(k);
+    if(extra.declNo) a.decls.push(extra.declNo);
+    if(extra.arr) a.arrs.add(extra.arr);
+    if(extra.dep) a.deps.add(extra.dep);
+    if(extra.country) a.countries.add(extra.country);
+    if(extra.manager) a.managers.add(extra.manager);
+  };
+  recs.forEach(r => {
+    if(!r.item) return;   // 품목 정보가 없는 신고는 품목 뷰에서 제외
+    const p = r.decl.properties || {};
+    const declNo = p.declaration_no || r.decl.name || "";
+    const itemN = add(r.item, 1);
+    collect(centerN, itemN, "FILED", { declNo, arr: (r.arr && r.arr.name) || "" });
+    if(r.sup) collect(itemN, add(r.sup, 2), "SUPPLIED_BY", { declNo, dep: (r.dep && r.dep.name) || "", country: (r.sup.properties && r.sup.properties.country) || "" });
+    if(r.broker) collect(add(r.broker, 0), itemN, "FILED_BY", { declNo, manager: r.manager });
+  });
+  agg.forEach(a => {
+    const joined = set => [...set].filter(Boolean).join("/");
+    const declText = a.decls.length > 2 ? `신고 ${a.decls.length}건` : a.decls.join("·");
+    let label = "";
+    if(a.type === "FILED") label = `${declText}${a.arrs.size ? ` · ${joined(a.arrs)}` : ""}`;
+    else if(a.type === "SUPPLIED_BY") label = `${joined(a.deps) || "출발항 미상"}${a.countries.size ? ` · ${joined(a.countries)}` : ""}`;
+    else if(a.type === "FILED_BY") label = `관세사 · ${joined(a.managers) || "-"} · ${declText}`;
+    mk(a.src, a.tgt, a.type, label, {
+      수입신고: a.decls.join(", "), count: a.decls.length,
+      도착항: joined(a.arrs), 출발항: joined(a.deps), 국가: joined(a.countries), manager: joined(a.managers),
+    });
+  });
+  return done(["대상기업 · 관세사", "품목", "해외거래처"]);
+}
+
+/* 4) 경로분석 — 신고별 방향(수출/수입)에 따라 국내측(국가→항만)→품목→해외측(항만→국가) 체인 */
+function viewRouteGraph(graph){
+  const recs = declRecords(graph);
+  if(!recs.size) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const center = byId.get(graph.center);
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(center, 0);
+  const countryOf = port => {
+    const name = port && port.properties && port.properties.country;
+    if(!name) return null;
+    return { id: `Country:${name}`, label: "Country", name, properties: { name } };
+  };
+  // 같은 구간은 하나의 엣지로 집계(신고번호 목록·건수·방향 유지)
+  const agg = new Map();
+  const collect = (src, tgt, declNo, flow) => {
+    if(!src || !tgt) return;
+    const k = `${src.id}|${tgt.id}`;
+    if(!agg.has(k)) agg.set(k, { src, tgt, decls: [], flows: new Set() });
+    const a = agg.get(k);
+    if(declNo) a.decls.push(declNo);
+    a.flows.add(flow);
+  };
+  recs.forEach(r => {
+    const p = r.decl.properties || {};
+    const flow = p.trade_flow === "수출" ? "수출" : "수입";
+    const declNo = p.declaration_no || r.decl.name || "";
+    // 국내측 = 수출이면 출발(항·국가), 수입이면 도착(항·국가)
+    const domPort = flow === "수출" ? r.dep : r.arr;
+    const forPort = flow === "수출" ? r.arr : r.dep;
+    const itemBase = r.item || { id: `Item:${p.item_name || r.decl.id}`, label: "ItemClass", name: p.item_name || "품목미상", properties: { item_name: p.item_name || "" } };
+    const itemN = add(itemBase, 3);
+    // 품목 노드 속성으로 수입신고 목록 축적
+    const prev = itemN.properties["수입신고"];
+    itemN.properties["수입신고"] = prev ? `${prev}, ${declNo}` : declNo;
+    const chain = [centerN, add(countryOf(domPort), 1), add(domPort, 2), itemN, add(forPort, 4), add(countryOf(forPort), 5)].filter(Boolean);
+    for(let i = 0; i < chain.length - 1; i += 1) collect(chain[i], chain[i + 1], declNo, flow);
+  });
+  agg.forEach(a => {
+    const flow = a.flows.size === 1 ? [...a.flows][0] : "수출·수입";
+    mk(a.src, a.tgt, "ROUTE", a.decls.length > 2 ? `신고 ${a.decls.length}건` : a.decls.join("·"),
+      { 수입신고: a.decls.join(", "), count: a.decls.length, trade_flow: flow === "수출" ? "수출" : flow });
+  });
+  return done(["대상기업", "국가(국내측)", "항만(국내측)", "품목(수입신고)", "항만(해외측)", "국가(해외측)"]);
 }
 
 /* 속성창에서 숨김 처리한 노드(state.hiddenIds)와 연결 엣지를 그래프에서 제거.
@@ -733,28 +931,32 @@ function applyHidden(graph, state){
   return { ...graph, nodes, edges };
 }
 
-/* canonical 그래프 → 현재 뷰 프로젝션(라벨/엣지 필터 + 고립 노드 제거) */
+/* canonical 그래프 → 현재 뷰 파생 그래프. 수입신고 노드가 없는 그래프(자유 관계분석의
+   임의 시드 등)는 변환 없이 원본을 그대로 표시한다(방사형 폴백). */
 function projectForView(graph, modeId){
-  const proj = VIEW_PROJECTION[modeId];
-  if(!proj) return graph;
-  const nodes = (graph.nodes || []).filter(n => proj.nodes.has(n.label));
-  const ids = new Set(nodes.map(n => n.id));
-  const edges = (graph.edges || []).filter(e => proj.edges.has(e.type) && ids.has(e.source) && ids.has(e.target));
-  const conn = new Set([graph.center]);
-  edges.forEach(e => { conn.add(e.source); conn.add(e.target); });
-  return { ...graph, nodes: nodes.filter(n => conn.has(n.id)), edges };
+  const id = (VIEW_MODES.find(v => v.id === modeId) || VIEW_MODES[0]).id;
+  if(id === "decl") return viewDeclGraph(graph);
+  if(id === "item") return viewItemGraph(graph);
+  if(id === "riskcause"){
+    const active = activeRiskFactorIds(graph);
+    return viewDeclGraph(graph, { riskOnly: true, activeFactors: active.size ? active : null });
+  }
+  if(id === "route") return viewRouteGraph(graph);
+  return graph;
 }
 
-/* 경로분석(레인) 좌표: 라벨별 열 배치 */
-const ROUTE_LANES = ["Company", "Declaration", "DeparturePort", "ArrivalPort", "OverseasSupplier"];
-const ROUTE_LANE_KO = ["기업", "수입신고", "출발항", "도착항", "해외거래처"];
+/* 레인(열) 좌표: 뷰 빌더가 스탬프한 _lane 기준 열 배치 */
 function presetPositions(graph){
-  const laneIdx = new Map(ROUTE_LANES.map((l, i) => [l, i]));
-  const byLane = new Map(ROUTE_LANES.map(l => [l, []]));
-  (graph.nodes || []).forEach(n => { if(byLane.has(n.label)) byLane.get(n.label).push(n); });
-  const colW = 200, rowH = 66, pos = {};
+  const byLane = new Map();
+  (graph.nodes || []).forEach(n => {
+    const lane = Number.isFinite(n._lane) ? n._lane : 0;
+    if(!byLane.has(lane)) byLane.set(lane, []);
+    byLane.get(lane).push(n);
+  });
+  const colW = 230, rowH = 66, pos = {};
+  byLane.forEach(list => list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))));
   byLane.forEach((list, lane) => {
-    const x = laneIdx.get(lane) * colW;
+    const x = lane * colW;
     list.forEach((n, i) => { pos[n.id] = { x, y: (i - (list.length - 1) / 2) * rowH }; });
   });
   return pos;
@@ -822,22 +1024,11 @@ function radialRingPositions(graph){
   return pos;
 }
 
-/* 뷰별 cytoscape 레이아웃 — 라벨이 아이콘 아래에 있으므로 nodeDimensionsIncludeLabels로
-   라벨 영역까지 포함해 배치하고 간격을 넓혀 노드·설명이 서로 겹치지 않게 한다. */
+/* 뷰별 cytoscape 레이아웃 — 파생 뷰(_lane 스탬프)는 레인(열) preset,
+   변환되지 않은 그래프(우범자·자유 시드 등)는 방사형 동심원 preset. */
 function viewLayout(state, graph){
-  const m = viewModeOf(state);
-  if(m.layout === "preset") return { name: "preset", positions: presetPositions(graph), padding: 30, fit: true };
-  if(m.layout === "cose") return {
-    name: "cose", padding: 24, animate: false, fit: true,
-    nodeDimensionsIncludeLabels: true,
-    nodeRepulsion: 9000, idealEdgeLength: 95, nodeOverlap: 12, componentSpacing: 80, gravity: 0.4,
-  };
-  if(m.layout === "breadthfirst") return {
-    name: "breadthfirst", directed: false, padding: 22, spacingFactor: 1.2, fit: true,
-    nodeDimensionsIncludeLabels: true, avoidOverlap: true,
-    roots: (graph.nodes || []).filter(n => n.label === "RiskScore").map(n => n.id),
-  };
-  // 관계분석(방사형): 유형별 엇갈림 2~3겹 동심원 preset으로 전체 지름을 줄인다.
+  const hasLanes = (graph.nodes || []).some(n => Number.isFinite(n._lane));
+  if(hasLanes) return { name: "preset", positions: presetPositions(graph), padding: 30, fit: true, animate: false };
   return { name: "preset", positions: radialRingPositions(graph), padding: 20, fit: true, animate: false };
 }
 
@@ -955,10 +1146,16 @@ function alignSelected(key, mode){
   clampScreenSizes(cy);
 }
 
-/* 경로분석 레인 헤더 */
-function buildRouteLanes(){
-  return `<div class="net-route-lanes">` + ROUTE_LANE_KO.map((ko, i) =>
-    `<div class="net-route-lane"><i class="net-dot" style="background:${nodeColor(ROUTE_LANES[i])}"></i>${escapeHtml(ko)}</div>`
+/* 레인 헤더 — 파생 뷰가 지정한 열 이름(_laneNames)을 표시 (열 대표색은 해당 레인 첫 노드 색) */
+function buildLaneHeader(graph){
+  const names = graph && graph._laneNames;
+  if(!names || !names.length) return "";
+  const laneColor = i => {
+    const n = (graph.nodes || []).find(nd => nd._lane === i);
+    return n ? nodeColor(n.label) : "#94a3b8";
+  };
+  return `<div class="net-route-lanes">` + names.map((ko, i) =>
+    `<div class="net-route-lane"><i class="net-dot" style="background:${laneColor(i)}"></i>${escapeHtml(ko)}</div>`
   ).join('<span class="net-route-arrow">→</span>') + `</div>`;
 }
 
@@ -1894,7 +2091,6 @@ function renderPanelContent(targetType, targetId){
   const filtered = applyFilter(raw, state);
   // 회사 프로파일·자유 관계분석: 4-뷰로 프로젝션(라벨/엣지 필터). 우범자는 전체.
   const projected = applyHidden(isProjectable ? projectForView(filtered, state.viewMode) : filtered, state);
-  const isRoute = isProjectable && viewModeOf(state).id === "route";
   // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
   if(state._autorun && projected.nodes.length){
     state.analysisMode = state._autorun;
@@ -1907,7 +2103,7 @@ function renderPanelContent(targetType, targetId){
   const main = `
     ${buildViewToggle(state, key)}
     ${buildFilterBar(raw, state, key)}
-    ${isRoute ? buildRouteLanes() : ""}
+    ${buildLaneHeader(projected)}
     ${buildPathBanner(state, key)}
     <div class="profile-net-graph-area">${projected.nodes.length ? buildAlignToolbar(key) : ""}${graphArea}</div>
     <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>

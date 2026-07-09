@@ -2044,6 +2044,24 @@ class WorkflowHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
 
+        if parsed.path == "/api/run":
+            # GET 버전과 동일한 스트리밍 실행. 리뷰 모드 단독 실행은 previous_step_outputs
+            # (이전 단계 전체 결과)가 실려 GET 요청라인 한도(64KB)를 넘으므로 본문으로 받는다.
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            company_id = str(payload.get("company_id") or "").strip()
+            scenario = payload.get("scenario")
+            if not isinstance(scenario, dict):
+                scenario = {}
+            self._stream_workflow(company_id, scenario)
+            return
+
         if parsed.path == "/api/shutdown":
             self._send_json({"status": "shutting_down"})
             threading.Thread(target=self._shutdown_server, daemon=True).start()

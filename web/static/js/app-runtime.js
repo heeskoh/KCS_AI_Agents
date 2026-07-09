@@ -8515,8 +8515,8 @@ function initTemplateEditor(){
    ═══════════════════════════════════════════════════════════════ */
 function sharedScenarioWorkbenchHtml(ctx = {}){
   const archived          = ctx.archived          || false;
-  // reviewMode: 실시간 실행 없이 사전 준비된 결과를 확인하는 설정/결과 화면(관세조사).
-  // 실행·초기화 버튼을 렌더하지 않고 "분석 재수행 요청"(모의 접수)만 노출한다.
+  // reviewMode: 사전 준비된 결과를 확인하고 설정을 조정하는 설정/결과 화면(관세조사·관세수사).
+  // 일괄 실행·초기화 버튼 대신 선택 서비스 단독 실행("AI 분석서비스 수행")만 노출한다.
   const reviewMode        = ctx.reviewMode        || false;
   // reviewRunButtons: 리뷰 레이아웃(분석범위별 상세설정·결과/통합 프롬프트 탭)을 쓰되
   // 실시간 실행 버튼(단계별 자동실행 등)을 유지 — 관세수사(실행형 도메인)용
@@ -8607,8 +8607,8 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             <button id="scenarioValidatePromptButton" type="button" class="btn secondary"
               ${archived ? "disabled" : ""}>프롬프트 검증</button>
             ${reviewMode && !reviewRunButtons ? `
-            <button id="scenarioRerunRequestButton" type="button" class="btn primary"
-              ${archived ? "disabled" : ""}>분석 재수행 요청</button>
+            <button id="scenarioReviewRunButton" type="button" class="btn primary"
+              ${archived ? "disabled" : ""}>▶ AI 분석서비스 수행</button>
             ` : `
             <button id="scenarioRunSelectedButton" type="button" class="btn primary"
               ${archived ? "disabled" : ""}>▶ 이 AI서비스만 실행</button>
@@ -8666,7 +8666,7 @@ function scenarioReviewWorkbench(){
     reviewMode: true,
     reviewNoteHtml: preparedNote,
     titleHtml:    "분석 시나리오 확인 및 설정",
-    subtitleHtml: `사전 수행된 분석 결과를 단계별로 확인하고, 분석 시나리오 구성·분석범위·프롬프트를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">설정을 변경한 뒤 "분석 재수행 요청"으로 재분석을 접수할 수 있습니다.</em>`,
+    subtitleHtml: `사전 수행된 분석 결과를 단계별로 확인하고, 분석 시나리오 구성·분석범위·프롬프트를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">설정을 변경한 뒤 "AI 분석서비스 수행"으로 현재 DB 기준 분석을 다시 실행할 수 있습니다.</em>`,
     templateOptionsHtml: scenarioTemplateOptionsHtml(),
   });
 }
@@ -9040,7 +9040,7 @@ function initScenarioWorkbench(){
   // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 실행·초기화 버튼이 렌더되지 않는다 — 옵셔널 바인딩
   document.getElementById("scenarioRunButton")?.addEventListener("click", runScenarioWorkflow);
   document.getElementById("scenarioClearButton")?.addEventListener("click", clearScenarioResults);
-  document.getElementById("scenarioRerunRequestButton")?.addEventListener("click", requestScenarioRerun);
+  document.getElementById("scenarioReviewRunButton")?.addEventListener("click", runSelectedScenarioService);
   // 리뷰 모드: 분석범위 설정 팝업(체크박스 행 대체)
   document.getElementById("scenarioBehaviorConfigButton")?.addEventListener("click", openScenarioBehaviorPopup);
   // 리뷰 모드 우측 패널 보기 탭: 분석 결과 ↔ 통합 프롬프트
@@ -9591,7 +9591,7 @@ function applySelectedScenarioPrompt(){
     saveCompanyScenario();
     renderScenarioList();
     renderScenarioSteps();
-    if(validation) validation.innerHTML = `<div class="prompt-validation-msg good">분석범위별 프롬프트 ${Object.keys(prompts).length}건이 등록되었습니다. 재수행 요청 시 적용됩니다.</div>`;
+    if(validation) validation.innerHTML = `<div class="prompt-validation-msg good">분석범위별 프롬프트 ${Object.keys(prompts).length}건이 등록되었습니다. AI 분석서비스 수행 시 적용됩니다.</div>`;
     return;
   }
   const instruction = document.getElementById("scenarioInstruction");
@@ -9833,11 +9833,13 @@ function renderScenarioSteps(){
     const status = stepStatuses[item.id] || "대기";
     const output = stepOutputs[item.id] || "아직 실행 결과가 없습니다.";
     const canRerunFromStep = status === "오류";
-    // 리뷰 모드: 항상 펼침 상태이므로 접기 토글·상태 배지·전체결과보기 버튼 없이 서비스명만 표시
+    // 리뷰 모드: 항상 펼침 상태이므로 접기 토글·전체결과보기 버튼 없이 서비스명만 표시
+    // (실시간 수행 시 진행 상태를 알 수 있도록 대기 외 상태 배지는 노출)
     const headHtml = scenarioReviewMode ? `
         <div class="scenario-step-head">
           <div class="scenario-step-toggle" style="cursor:default">
             <span>${escapeHtml(normalizeReportValidationLabel(item.label))}</span>
+            ${status !== "대기" ? `<em>${escapeHtml(status)}</em>` : ""}
           </div>
         </div>` : `
         <div class="scenario-step-head">
@@ -9984,56 +9986,24 @@ function clearScenarioResults(){
   saveIntermediateResults(activeCanvasCompanyId);
 }
 
-/* 분석 재수행 요청(리뷰 모드 전용) — 실시간 실행 없이 재분석 접수만 기록하는 모의 처리.
-   실제 분석은 배치(사전 준비 결과 생성)로 수행되며 화면은 접수 상태만 표시한다. */
-function requestScenarioRerun(){
-  // 관세수사: 사건 단위로 저장·접수 (관세조사와 동일한 접수 UI, 저장 경로만 사건 스키마)
+/* AI 분석서비스 수행(리뷰 모드 전용) — 선택된 AI 서비스 단계를 현재 DB 내용 기반으로
+   실시간 실행(LLM 시뮬레이션)하고 결과를 리뷰 결과 패널에 표시한다. */
+function runSelectedScenarioService(){
+  const item = selectedScenarioItem();
+  if(!item){ alert("실행할 AI 서비스 단계를 선택하세요."); return; }
+  // 관세수사: 사건 단계 스트리밍 실행 경로(giStreamSteps) 사용
   if(currentPage === "generalinv"){
     const giCase = activeGenInvCase();
     if(!giCase){ alert("수사 대상을 먼저 선택하세요."); return; }
     saveWorkbenchToCaseSteps(giCase);
-    // 수사 캔버스 카드는 canvasJobOverrides가 아니라 사건 자체의 status를 읽는다
-    giCase.status = { ...(giCase.status || {}), label:"재수행 요청", tone:"review" };
-    giCase.updated = "방금";
-    setScenarioStatus("재수행 요청 접수");
-    const giClarify = document.getElementById("scenarioClarify");
-    if(giClarify){
-      giClarify.innerHTML = `
-        <div class="scenario-clarify-note" style="padding:10px 12px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:8px;color:#075985;font-size:13px">
-          분석 재수행이 접수되었습니다. 현재 시나리오 구성(단계 ${scenarioItems.length}개)으로 재분석이 예약되며,
-          완료 후 이 화면과 "수사 보고서" 탭의 결과가 갱신됩니다.
-        </div>
-      `;
-    }
-    saveCanvasState();
-    return;
-  }
-  if(isCompanyArchived()){
-    alert("아카이브된 작업은 복원 후 재수행을 요청할 수 있습니다.");
-    return;
-  }
-  const companyId = activeCanvasCompanyId;
-  if(!companyId){
-    alert("분석 대상 기업을 선택하세요.");
+    if(!ensureMailShareRecipients([item])) return;
+    if(!ensureDirectUrlTargets([item])) return;
+    const step = (giCase.giSteps || []).find(s => s.id === item.id);
+    if(step) giStreamSteps(giCase, [step]);
     return;
   }
   saveCompanyScenario();
-  patchCanvasJob(companyId, {
-    scenarioChanged: false,
-    status: { label:"재수행 요청", tone:"review" },
-    updated:"방금",
-  });
-  setScenarioStatus("재수행 요청 접수");
-  const clarifySlot = document.getElementById("scenarioClarify");
-  if(clarifySlot){
-    clarifySlot.innerHTML = `
-      <div class="scenario-clarify-note" style="padding:10px 12px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:8px;color:#075985;font-size:13px">
-        분석 재수행이 접수되었습니다. 현재 시나리오 구성(단계 ${scenarioItems.length}개)으로 재분석이 예약되며,
-        완료 후 이 화면과 "분석 보고서 및 검증" 탭의 결과가 갱신됩니다.
-      </div>
-    `;
-  }
-  saveCanvasState();
+  runSingleScenarioItem(item);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -10218,8 +10188,8 @@ function initGiScenarioWorkbench(){
     giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
   });
 
-  // 리뷰 모드(관세조사와 동일 구조): 실행 대신 분석 재수행 요청 접수
-  document.getElementById("scenarioRerunRequestButton")?.addEventListener("click", requestScenarioRerun);
+  // 리뷰 모드(관세조사와 동일 구조): 선택 서비스 단독 실시간 실행
+  document.getElementById("scenarioReviewRunButton")?.addEventListener("click", runSelectedScenarioService);
 
   // 리뷰 레이아웃: 분석범위 설정 팝업 + [분석 결과|통합 프롬프트] 탭
   document.getElementById("scenarioBehaviorConfigButton")?.addEventListener("click", openScenarioBehaviorPopup);
@@ -10559,23 +10529,25 @@ function runSingleScenarioItem(item){
 
   if(scenarioSingleEventSource){ try{ scenarioSingleEventSource.close(); }catch(e){} scenarioSingleEventSource = null; }
 
-  const runButton = document.getElementById("scenarioRunSelectedButton");
+  const runButton = document.getElementById("scenarioRunSelectedButton")
+    || document.getElementById("scenarioReviewRunButton");
   if(runButton) runButton.disabled = true;
   stepStatuses[item.id] = "실행 중";
   openedSteps.add(item.id);
   renderScenarioList();
   renderScenarioSteps();
 
-  const url = `/api/run?company_id=${encodeURIComponent(companyId)}&scenario=${encodeURIComponent(JSON.stringify(scenarioPayload([item])))}`;
-  scenarioSingleEventSource = new EventSource(url);
+  // previous_step_outputs(이전 단계 전체 결과)가 페이로드에 실려 GET URL이 http.server의
+  // 요청라인 한도(64KB)를 넘을 수 있으므로 EventSource 대신 POST fetch 스트리밍으로 실행한다.
+  const controller = new AbortController();
+  scenarioSingleEventSource = { close(){ try{ controller.abort(); }catch(e){} } };
 
   const finish = () => {
     if(scenarioSingleEventSource){ scenarioSingleEventSource.close(); scenarioSingleEventSource = null; }
     if(runButton) runButton.disabled = !selectedScenarioItem();
   };
 
-  scenarioSingleEventSource.addEventListener("step", event => {
-    const data = JSON.parse(event.data);
+  const handleStep = data => {
     if(data.status === "running"){
       stepStatuses[item.id] = "실행 중";
       renderScenarioList();
@@ -10596,22 +10568,58 @@ function runSingleScenarioItem(item){
       renderScenarioList();
       renderScenarioSteps();
     }
-  });
-
-  scenarioSingleEventSource.addEventListener("workflow", event => {
-    const data = JSON.parse(event.data);
-    if(data.status === "completed" || data.status === "failed") finish();
-  });
-
-  scenarioSingleEventSource.onerror = () => {
-    if(stepStatuses[item.id] === "실행 중"){
-      stepStatuses[item.id] = "오류";
-      if(!stepOutputs[item.id]) stepOutputs[item.id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
-    }
-    finish();
-    renderScenarioList();
-    renderScenarioSteps();
   };
+
+  (async () => {
+    // 서버는 keep-alive SSE라 workflow 종료 이벤트 수신 즉시 reader를 닫아야 한다
+    let finished = false;
+    try{
+      const res = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_id: companyId, scenario: scenarioPayload([item]) }),
+        signal: controller.signal,
+      });
+      if(!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while(!finished){
+        const { value, done } = await reader.read();
+        if(done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while((sep = buffer.indexOf("\n\n")) >= 0){
+          const block = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          let eventName = "message", dataText = "";
+          block.split("\n").forEach(line => {
+            const clean = line.replace(/\r$/, "");
+            if(clean.startsWith("event:")) eventName = clean.slice(6).trim();
+            else if(clean.startsWith("data:")) dataText += clean.slice(5).trim();
+          });
+          if(!dataText) continue;
+          let data;
+          try{ data = JSON.parse(dataText); }catch(e){ continue; }
+          if(eventName === "step") handleStep(data);
+          if(eventName === "workflow" && (data.status === "completed" || data.status === "failed")){
+            finished = true;
+            break;
+          }
+        }
+      }
+      try{ reader.cancel(); }catch(e){}
+    }catch(err){
+      if(stepStatuses[item.id] === "실행 중"){
+        stepStatuses[item.id] = "오류";
+        if(!stepOutputs[item.id]) stepOutputs[item.id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
+        renderScenarioList();
+        renderScenarioSteps();
+      }
+    }finally{
+      finish();
+    }
+  })();
 }
 
 function addWorkTab(page){
@@ -10652,7 +10660,8 @@ function render(page="home"){
   const contentEl = document.getElementById("content");
   const fillPage = page === "agentic" ||
                    (page === "canvas" && canvasTab === "report") ||
-                   ((page === "investigation" || pageTemplate === "customs") && (customsState.investigationTab === "scenario" || customsState.investigationTab === "network")) ||
+                   // 관세조사: 모든 서브탭을 시나리오/관계분석과 동일한 전체 프레임으로 통일
+                   (page === "investigation" || pageTemplate === "customs") ||
                    ((page === "generalinv" || pageTemplate === "general-investigation") && (generalInvestigationState.generalInvTab === "scenario" || generalInvestigationState.generalInvTab === "workbench" || generalInvestigationState.generalInvTab === "insight")) ||
                    (isSpecialInvestigationPage(page) && (specialInvestigationState.drugInvTab === "scenario" || specialInvestigationState.drugInvTab === "network" || specialInvestigationState.drugInvTab === "forensic" || specialInvestigationState.drugInvTab === "report"));
   contentEl.classList.toggle("content-fill", fillPage);

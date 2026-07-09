@@ -169,15 +169,27 @@ _CYPHER_SYSTEM = textwrap.dedent("""
 
 
 def _extract_json(text: str) -> dict:
-    """LLM 응답에서 JSON 블록 추출."""
+    """LLM 응답에서 JSON 블록 추출.
+
+    응답이 JSON 앞뒤로 설명 문장·코드펜스를 붙이는 경우가 있어, 첫 번째로 완결되는
+    JSON 객체만 raw_decode로 꺼낸다. (탐욕적 정규식 \\{.*\\}는 마지막 }까지 잡아
+    'Extra data' 파싱 오류를 낸다)
+    """
     text = text.strip()
     # 코드 블록 제거
     if "```" in text:
         text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
-    # JSON 객체 추출
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        return json.loads(m.group())
+    # strict=False: LLM이 JSON 문자열 안에 이스케이프하지 않은 개행을 넣는 경우 허용
+    decoder = json.JSONDecoder(strict=False)
+    idx = text.find("{")
+    while idx != -1:
+        try:
+            obj, _ = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            obj = None
+        if isinstance(obj, dict):
+            return obj
+        idx = text.find("{", idx + 1)
     return json.loads(text)
 
 

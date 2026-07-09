@@ -29,7 +29,7 @@ export function renderNetworkPanel(deps, uctx){
   const domain = graphDomainForPage(uctx?.pageKey);
   const header = targetContextHeader(
     ctx,
-    "관계망 분석",
+    "조사자료 관계분석",
     "조사 대상 기업을 중심으로 수입신고·해외공급자·관세사·관계회사·위험요인 관계망을 분석합니다.",
   );
   if(!targetId){
@@ -44,7 +44,7 @@ export function renderNetworkPanel(deps, uctx){
     <div class="drug-network-page">
       ${header}
       <div class="profile-net-right net-right-wb">
-        ${networkGraphPanelHtml(targetType, targetId, "관계망 분석", { workbench: true, domain })}
+        ${networkGraphPanelHtml(targetType, targetId, "조사자료 관계분석", { workbench: true, domain })}
       </div>
     </div>
   `;
@@ -52,7 +52,7 @@ export function renderNetworkPanel(deps, uctx){
 
 export const networkSubtab = {
   id: "network",
-  label: "관계망 분석",
+  label: "조사자료 관계분석",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["network", "route_analysis"],
