@@ -6,18 +6,18 @@
        카드를 선택하면 시각화·대화 컨텍스트에 활용된다.
    대화는 canvasJobOverrides[companyId].insightChat에 영속(50개 캡, deps 경유). */
 import { escapeHtml } from "../../core/dom.js";
-import { networkGraphPanelHtml } from "../shared/network-graph.js";
 import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
+import { insightVizHtml } from "./insight-viz.js";
 
 const CHAT_MOUNT_ID = "ciInsightChat";
 
-/* 분석 관점 탭 → 관계 그래프 뷰 매핑 (프로파일 4-뷰 재사용) */
+/* 분석 관점 탭 — 선택 시 대응하는 분석 결과 시각화(insight-viz.js)를 표시 */
 const PERSPECTIVES = [
-  { id: "A", label: "신고·물품 정합성 분석", view: "decl",      desc: "수입신고 단위 품목·항만·거래처 정합성" },
-  { id: "B", label: "물류·경로 분석",        view: "route",     desc: "국가→항만→품목 운송 경로(수출·수입 방향별)" },
-  { id: "C", label: "자금흐름 분석",         view: "item",      desc: "품목·거래처 단위 거래(신고·금액) 구조" },
-  { id: "D", label: "관계·네트워크 분석",    view: "decl",      desc: "기업-신고-거래처·관세사 관계망" },
-  { id: "E", label: "행위·패턴 이상탐지",    view: "riskcause", desc: "위험지표(0 아님)에 기여한 신고·위험요인" },
+  { id: "A", label: "신고·물품 정합성 분석", desc: "신고내용 대사·검증 · 가격·분류 적정성 · 증빙 불일치 탐지" },
+  { id: "B", label: "물류·경로 분석",        desc: "경로 역추적 · 공급망 구조 · 우회·환적 탐지" },
+  { id: "C", label: "자금흐름 분석",         desc: "자금 흐름 추적 · 시계열·소유주 분석 · 자금세탁 구조 해체" },
+  { id: "D", label: "관계·네트워크 분석",    desc: "관계망 구성 · 중심성 분석 · 특수관계·페이퍼컴퍼니·공범 식별" },
+  { id: "E", label: "행위·패턴 이상탐지",    desc: "이상거래 탐지 · 위험선별(스코어링) · ML 패턴 비교" },
 ];
 
 /* 세션 한정 UI 상태(영속 불필요): 그룹 접힘 / 선택 자료 / 활성 관점 */
@@ -155,7 +155,7 @@ export function renderCiInsightPanel(deps, uctx){
             `).join("")}
           </div>
           <div class="gi-insight-center-body">
-            ${networkGraphPanelHtml("company", company.company_id, "AI정보분석 시각화 결과", { domain: "customs" })}
+            ${insightVizHtml(persp.id, company)}
           </div>
         </section>
         <aside class="gi-insight-cards-col">
@@ -165,14 +165,6 @@ export function renderCiInsightPanel(deps, uctx){
       </div>
     </div>
   `;
-}
-
-/* 관점 탭 → 그래프 뷰 전환: 그래프 패널 자체의 뷰 버튼을 프로그램적으로 클릭 */
-function applyPerspectiveView(perspId){
-  const persp = PERSPECTIVES.find(p => p.id === perspId) || PERSPECTIVES[0];
-  const btn = Array.from(document.querySelectorAll(".gi-insight-center-body [data-net-view]"))
-    .find(b => b.dataset.netView.endsWith(`::${persp.view}`));
-  if(btn && !btn.classList.contains("on")) btn.click();
 }
 
 /* 렌더 후 훅 — Chat·관점 탭·그룹 토글·자료 선택 바인딩 (app-runtime postRender에서 호출) */
@@ -197,17 +189,16 @@ ${userText}`;
     },
     onDone: () => deps.saveCanvasState?.(),
   });
-  // 분석 관점 탭 — 대응하는 그래프 뷰로 전환(그래프는 자체 재렌더)
+  // 분석 관점 탭 — 대응하는 분석 결과 시각화로 교체(중앙 영역만 갱신)
   document.querySelectorAll("[data-ci-insight-persp]").forEach(tab => {
     tab.addEventListener("click", () => {
       activePerspective = tab.dataset.ciInsightPersp;
       document.querySelectorAll("[data-ci-insight-persp]").forEach(b =>
         b.classList.toggle("active", b.dataset.ciInsightPersp === activePerspective));
-      applyPerspectiveView(activePerspective);
+      const body = document.querySelector(".gi-insight-center-body");
+      if(body) body.innerHTML = insightVizHtml(activePerspective, company);
     });
   });
-  // 그래프 로드가 비동기이므로, 초기 관점(A 외 선택돼 있던 경우)도 로드 후 반영
-  setTimeout(() => applyPerspectiveView(activePerspective), 900);
   // 그룹 접기/펼치기 — 전체 재렌더 없이 해당 그룹만 토글
   document.querySelectorAll("[data-ci-insight-group]").forEach(head => {
     head.addEventListener("click", () => {
