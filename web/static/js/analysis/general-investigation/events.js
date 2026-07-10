@@ -29,6 +29,14 @@ function giApplyCrimePlan(ctx, aCase, plan){
 
 export function registerGeneralInvestigationEvents(ctx){
   document.addEventListener("click", (event) => {
+    // 분석 보고서 탭: 단계별 수사보고서 목록에서 문서 선택
+    const giReportDoc = event.target.closest("[data-gi-report-doc]");
+    if(giReportDoc){
+      generalInvestigationState.giReportDocId = giReportDoc.dataset.giReportDoc;
+      ctx.render("generalinv");
+      return;
+    }
+
     const giRegTypeBtn = event.target.closest("[data-gi-reg-type]");
     if(giRegTypeBtn){
       ctx.giRegTargetType = giRegTypeBtn.dataset.giRegType;

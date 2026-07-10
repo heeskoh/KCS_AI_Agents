@@ -1,4 +1,62 @@
+/* 관세수사 "분석 보고서 및 검증" — 3단 구조.
+   좌: 단계별 수사보고서 목록(수사단서 문서 이력 + 최종 수사보고서)
+   중: 선택된 수사보고서 — 표준 문서 형식(문서 헤더 표 + 본문)
+   우: 보고서 검증(최종 수사보고서 AI 검증 / 단서 문서는 확정 상태)
+   탭 자체 헤더 행은 페이지 헤더와 중복이므로 두지 않는다. */
 import { escapeHtml, markdownToHtml, renderValidationDashboard } from "../../core/dom.js";
+import { generalInvestigationState } from "./state.js";
+import { leadTypeById, leadDocLabel } from "./leads.js";
+
+/* 날짜 표기 — epoch(ms)·ISO 문자열 모두 "YYYY. M. D." 형태로 */
+function fmtDate(value){
+  if(value == null || value === "") return "";
+  const n = Number(value);
+  const d = Number.isFinite(n) && String(value).trim().match(/^\d+$/) ? new Date(n) : new Date(value);
+  if(Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  return d.toLocaleDateString("ko-KR");
+}
+
+/* 좌측 목록: 작성된 수사단서 문서(등록순) + 최종 수사보고서 */
+function reportDocs(aCase){
+  const docs = (aCase.leads || [])
+    .filter(lead => lead.draft || lead.content)
+    .map(lead => ({
+      id: `lead:${lead.id}`,
+      kind: "lead",
+      lead,
+      icon: leadTypeById(lead.type).icon || "📄",
+      title: lead.title || leadDocLabel(lead),
+      docLabel: leadDocLabel(lead),
+      status: lead.confirmed ? "확정" : "작성중",
+      date: lead.confirmedAt || lead.createdAt || "",
+    }));
+  docs.push({ id: "final", kind: "final", icon: "📑", title: "수사 보고서 (AI 종합)", docLabel: "최종 수사보고서" });
+  return docs;
+}
+
+function selectedDoc(aCase){
+  const docs = reportDocs(aCase);
+  const savedId = generalInvestigationState.giReportDocId;
+  return docs.find(d => d.id === savedId) || docs[docs.length - 1];   // 기본: 최종 수사보고서
+}
+
+/* 표준 문서 형식 — 문서 헤더 표(사건·대상·작성·상태) + 본문 */
+function standardDocHtml(aCase, rows, bodyHtml){
+  const rowHtml = rows
+    .filter(([, value]) => value !== "" && value != null)
+    .map(([label, value]) => `
+      <div class="gi-doc-row"><span>${escapeHtml(label)}</span><b>${value}</b></div>
+    `).join("");
+  return `
+    <div class="gi-doc-frame">
+      <div class="gi-doc-head">
+        ${rowHtml}
+      </div>
+      <div class="gi-doc-body markdown-output">${bodyHtml}</div>
+      <div class="gi-doc-foot">관세청 조사국 · ${escapeHtml(aCase.caseId)}</div>
+    </div>
+  `;
+}
 
 export function renderReportPanel(deps){
   const aCase = deps.activeGenInvCase();
@@ -7,67 +65,102 @@ export function renderReportPanel(deps){
   const steps   = deps.activeGiCaseSteps();
   const states  = aCase.stepStates  || {};
   const results = aCase.stepResults || {};
-  const type    = deps.genInvTypeById(aCase.invTypeId);
 
-  /* 보고서 작성(gi_rep)·보고서 검증(gi_appr) 단계 찾기 */
-  const repStep  = steps.find(s => s.key === "gi_rep");
-  const apprStep = steps.find(s => s.key === "gi_appr");
+  // 템플릿 기반(gi_rep/gi_appr)과 혐의 매트릭스 자동세팅(canonical key) 모두 지원
+  const repStep  = steps.find(s => s.key === "gi_rep"  || s.key === "report_generate" || s.sourceKey === "report_generate");
+  const apprStep = steps.find(s => s.key === "gi_appr" || s.key === "report_validate" || s.sourceKey === "report_validate");
   const repDone  = !!(repStep  && states[repStep.id]  === "done");
   const apprDone = !!(apprStep && states[apprStep.id] === "done");
   const repText  = repStep  ? (results[repStep.id]  || "") : "";
   const apprText = apprStep ? (results[apprStep.id] || "") : "";
 
-  const placeholder = (label, tab) => `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#94a3b8;text-align:center;padding:24px">
-      <span style="font-size:36px;opacity:.25">📄</span>
-      <p style="margin:0;font-size:13px;font-weight:600">${escapeHtml(label)} 미실행</p>
-      <p style="margin:0;font-size:12px">'AI서비스 분석 작업' 탭에서<br>해당 단계를 실행하면 결과가 표시됩니다.</p>
-      <button class="btn secondary" style="height:30px;padding:0 14px;font-size:12px" data-gi-tab="workbench">워크벤치로 이동</button>
-    </div>`;
+  const docs = reportDocs(aCase);
+  const doc = selectedDoc(aCase);
 
-  /* 상태 배지 */
-  const badge = apprDone
-    ? `<span class="gi-chip-state done" style="margin-left:auto">보고서 완료</span>`
-    : repDone
-      ? `<span class="gi-chip-state run" style="margin-left:auto">검증 대기중</span>`
-      : `<span class="gi-chip-state wait" style="margin-left:auto">보고서 미작성</span>`;
+  /* ── 좌: 단계별 수사보고서 목록 ── */
+  const finalStatus = apprDone ? "검증 완료" : repDone ? "작성 완료" : "미작성";
+  const listHtml = docs.map(item => {
+    const status = item.kind === "final" ? finalStatus : item.status;
+    const stateCls = status === "확정" || status === "검증 완료" ? "done" : status === "미작성" ? "wait" : "run";
+    return `
+      <button type="button" class="gi-report3-item${item.id === doc.id ? " active" : ""}" data-gi-report-doc="${escapeHtml(item.id)}">
+        <strong>${escapeHtml(item.icon)} ${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.docLabel)}${item.date ? ` · ${escapeHtml(fmtDate(item.date))}` : ""}</span>
+        <em class="gi-chip-state ${stateCls}">${escapeHtml(status)}</em>
+      </button>
+    `;
+  }).join("");
 
-  /* 보고서 재실행 버튼 */
-  const repActions = repStep ? `
-    <div style="display:flex;gap:6px;align-items:center">
-      <span style="font-size:12px;color:#64748b">${repDone ? "보고서 생성 완료" : "미실행"}</span>
-      ${repDone
-        ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">↺ 재작성</button>`
-        : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">▶ 실행</button>`}
-    </div>` : "";
+  /* ── 중: 선택된 문서 (표준 형식) ── */
+  let docTitle, docActions = "", docBody;
+  if(doc.kind === "final"){
+    docTitle = "수사 보고서";
+    docActions = repStep ? (repDone
+      ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">↺ 재작성</button>`
+      : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">▶ 보고서 작성 실행</button>`) : "";
+    const bodyHtml = markdownToHtml(deps.ensureReportRequiredSections(repDone ? repText : "", "general", { targetName: aCase.targetName }));
+    docBody = standardDocHtml(aCase, [
+      ["문서", "최종 수사보고서"],
+      ["수사 대상", `${escapeHtml(aCase.targetName)} (${escapeHtml(aCase.companyId || aCase.personId || "-")})`],
+      ["작성", repDone ? "AI 초안 생성 완료" : "미작성 — 서식만 표시"],
+      ["검증", apprDone ? "AI 검증 완료" : "미검증"],
+    ], bodyHtml);
+  } else {
+    const lead = doc.lead;
+    docTitle = doc.docLabel;
+    const text = lead.draft || lead.content || "";
+    docBody = standardDocHtml(aCase, [
+      ["문서", escapeHtml(doc.docLabel)],
+      ["제목", escapeHtml(lead.title || "-")],
+      ["수사 대상", `${escapeHtml(aCase.targetName)} (${escapeHtml(aCase.companyId || aCase.personId || "-")})`],
+      ["작성자", escapeHtml(lead.author || "-")],
+      ["작성일", escapeHtml(fmtDate(lead.createdAt))],
+      ["등급", lead.grade ? `${escapeHtml(lead.grade)}급` : ""],
+      ["상태", lead.confirmed ? `확정 (${escapeHtml(fmtDate(lead.confirmedAt))})` : "작성중"],
+    ], markdownToHtml(text || "_본문이 없습니다. '진행중인 수사' 탭에서 문서를 작성하세요._"));
+  }
 
-  const apprActions = apprStep ? `
-    <div style="display:flex;gap:6px;align-items:center">
-      <span style="font-size:12px;color:#64748b">${apprDone ? "검증 완료" : "미실행"}</span>
-      ${apprDone
-        ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}">↺ 재검증</button>`
-        : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}" ${!repDone ? "disabled title='보고서 작성 후 실행 가능'" : ""}>▶ 실행</button>`}
-    </div>` : "";
+  /* ── 우: 보고서 검증 ── */
+  let validActions = "", validBody;
+  if(doc.kind === "final"){
+    validActions = apprStep ? (apprDone
+      ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}">↺ 재검증</button>`
+      : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(apprStep.id)}" ${!repDone ? "disabled title='보고서 작성 후 실행 가능'" : ""}>▶ 검증 실행</button>`) : "";
+    validBody = apprDone ? renderValidationDashboard(apprText) : `
+      <div class="gi-report3-empty">
+        <span style="font-size:30px;opacity:.25">🧪</span>
+        <p><b>보고서 검증 미실행</b></p>
+        <p>보고서 작성 후 검증을 실행하면<br>근거·일관성 검증 결과가 표시됩니다.</p>
+      </div>`;
+  } else {
+    const lead = doc.lead;
+    validBody = `
+      <div class="gi-report3-empty">
+        <span style="font-size:30px;opacity:.25">${lead.confirmed ? "✅" : "📝"}</span>
+        <p><b>${lead.confirmed ? "확정된 단서 문서" : "작성중인 단서 문서"}</b></p>
+        <p>${lead.confirmed
+          ? `${escapeHtml(fmtDate(lead.confirmedAt))} 확정 — 수사기록에 편철되었습니다.`
+          : "'진행중인 수사' 탭에서 편집·확정할 수 있습니다."}</p>
+        <p class="muted" style="font-size:11px">AI 보고서 검증은 최종 수사보고서에 대해 수행됩니다.</p>
+      </div>`;
+  }
 
-  const reportHtml = repDone
-    ? markdownToHtml(deps.ensureReportRequiredSections(repText, "general", { targetName: aCase.targetName }))
-    : `${placeholder("보고서 작성(gi_rep)", "workbench")}
-       <div class="report-required-preview">
-         ${markdownToHtml(deps.ensureReportRequiredSections("", "general", { targetName: aCase.targetName }))}
-       </div>`;
-  const validationHtml = apprDone ? renderValidationDashboard(apprText) : placeholder("보고서 검증 AI 서비스(gi_appr)", "workbench");
-  return deps.commonAnalysisReportPanel({
-    selectedLabel: aCase.targetType === "company" ? "수사 대상 기업" : "수사 대상 개인",
-    targetText: `${escapeHtml(aCase.targetName)} <span class="muted" style="font-size:12px">${escapeHtml(aCase.caseId)}</span>`,
-    badgeHtml: `<span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>`,
-    statusHtml: badge,
-    reportTitle: "수사 보고서",
-    validationTitle: "보고서 검증",
-    reportHtml,
-    validationHtml,
-    reportActions: repActions,
-    validationActions: apprActions,
-  });
+  return `
+    <div class="gi-report3">
+      <aside class="gi-report3-col">
+        <div class="gi-insight-col-head"><strong>단계별 수사보고서</strong><span class="muted" style="font-size:11px">${docs.length}건</span></div>
+        <div class="gi-report3-list">${listHtml}</div>
+      </aside>
+      <section class="gi-report3-col">
+        <div class="gi-insight-col-head"><strong>${escapeHtml(docTitle)}</strong><span style="margin-left:auto;display:flex;gap:6px">${docActions}</span></div>
+        <div class="gi-report3-doc">${docBody}</div>
+      </section>
+      <aside class="gi-report3-col">
+        <div class="gi-insight-col-head"><strong>보고서 검증</strong><span style="margin-left:auto;display:flex;gap:6px">${validActions}</span></div>
+        <div class="gi-report3-valid">${validBody}</div>
+      </aside>
+    </div>
+  `;
 }
 
 export const reportSubtab = {
