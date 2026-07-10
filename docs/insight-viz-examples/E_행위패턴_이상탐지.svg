@@ -1,0 +1,79 @@
+<svg width="960" height="400" viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="신고 패턴 시계열 이상치와 반복 히트맵, 위험 스코어">
+  <style>
+  text{font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  .s-surface{fill:#ffffff}.s-panel{fill:#f0f4fb}.s-line{stroke:#dbe3ef}.s-grid{stroke:#e7edf6}
+  .s-gridfill{fill:#e7edf6;stroke:none}.s-ink{fill:#1f2a3d}.s-muted{fill:#68758d}.s-muted-st{stroke:#68758d}
+  .s-accent{fill:#2563eb}.s-accent-st{stroke:#2563eb}.s-accent-soft{fill:#eaf1fe}.s-accent-txt{fill:#2563eb}
+  .s-good{fill:#16a34a}.s-good-soft{fill:#e8f7ee}
+  .s-warn{fill:#d97706}.s-warn-st{stroke:#d97706}.s-warn-soft{fill:#fdf3e3}
+  .s-crit{fill:#dc2626}.s-crit-st{stroke:#dc2626}.s-crit-soft{fill:#fdeaea}
+  .t-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em}
+  .t-cell{font-size:11px}.t-cell-b{font-size:11px;font-weight:700}
+  .t-num{font-size:11px}.t-node{font-size:10.5px;font-weight:700}
+  .t-tiny{font-size:9.5px}.t-head{font-size:12px;font-weight:800}
+</style>
+  <rect width="960" height="400" fill="#ffffff"/>
+      <rect x="12" y="10" width="618" height="196" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="34" class="t-head s-ink">건당 신고금액 추이 — 이상치 탐지 (ML 예측범위 대비)</text>
+      <path d="M40 120 C 150 116, 260 110, 360 112 C 460 114, 540 108, 610 104
+               L 610 152 C 540 156, 460 160, 360 158 C 260 156, 150 162, 40 164 Z"
+            class="s-accent-soft" opacity=".8"/>
+      <path d="M40 146 L 100 138 L 160 142 L 220 132 L 280 138 L 340 128 L 400 134 L 460 92 L 520 74 L 580 60 L 610 56"
+            fill="none" class="s-accent-st" stroke-width="2.5"/>
+      <circle cx="460" cy="92" r="5" class="s-warn"/><circle cx="520" cy="74" r="5" class="s-crit"/>
+      <circle cx="580" cy="60" r="5" class="s-crit"/><circle cx="610" cy="56" r="6" class="s-crit"/>
+      <text x="470" y="70" class="t-tiny s-crit" font-weight="800">4월 이후 예측범위 +2.8σ 이탈</text>
+      <line x1="40" y1="180" x2="610" y2="180" class="s-grid" stroke-width="1"/>
+      <g class="t-tiny s-muted" text-anchor="middle">
+        <text x="70" y="196">'25.7</text><text x="200" y="196">10</text><text x="330" y="196">'26.1</text><text x="470" y="196">4</text><text x="595" y="196">6월</text>
+      </g>
+      <rect x="12" y="220" width="428" height="168" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="244" class="t-head s-ink">반복·분할 징후 — 주차×요일 신고 히트맵</text>
+      <g class="t-tiny s-muted">
+        <text x="60" y="266" text-anchor="middle">월</text><text x="116" y="266" text-anchor="middle">화</text>
+        <text x="172" y="266" text-anchor="middle">수</text><text x="228" y="266" text-anchor="middle">목</text>
+        <text x="284" y="266" text-anchor="middle">금</text>
+      </g>
+      <g transform="translate(36,274)">
+        <rect width="48" height="22" rx="4" class="s-accent" opacity=".15"/><rect x="56" width="48" height="22" rx="4" class="s-accent" opacity=".3"/><rect x="112" width="48" height="22" rx="4" class="s-accent" opacity=".15"/><rect x="168" width="48" height="22" rx="4" class="s-crit" opacity=".85"/><rect x="224" width="48" height="22" rx="4" class="s-accent" opacity=".25"/>
+      </g>
+      <g transform="translate(36,302)">
+        <rect width="48" height="22" rx="4" class="s-accent" opacity=".2"/><rect x="56" width="48" height="22" rx="4" class="s-accent" opacity=".15"/><rect x="112" width="48" height="22" rx="4" class="s-accent" opacity=".3"/><rect x="168" width="48" height="22" rx="4" class="s-crit" opacity=".85"/><rect x="224" width="48" height="22" rx="4" class="s-accent" opacity=".2"/>
+      </g>
+      <g transform="translate(36,330)">
+        <rect width="48" height="22" rx="4" class="s-accent" opacity=".15"/><rect x="56" width="48" height="22" rx="4" class="s-accent" opacity=".25"/><rect x="112" width="48" height="22" rx="4" class="s-accent" opacity=".2"/><rect x="168" width="48" height="22" rx="4" class="s-crit" opacity=".85"/><rect x="224" width="48" height="22" rx="4" class="s-accent" opacity=".15"/>
+      </g>
+      <g class="t-tiny s-muted">
+        <text x="300" y="290">매주 목요일 3건 연속</text>
+        <text x="300" y="304" class="s-crit" font-weight="800">임계 직하 분할신고 반복</text>
+        <text x="300" y="322">건당 9,800만원 × 12건</text>
+        <text x="300" y="340">동일 품목·동일 거래처</text>
+      </g>
+      <rect x="454" y="220" width="176" height="168" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="470" y="244" class="t-head s-ink">위험선별 스코어</text>
+      <path d="M480 330 A 62 62 0 0 1 604 330" fill="none" class="s-grid" stroke-width="13" stroke-linecap="round"/>
+      <path d="M480 330 A 62 62 0 0 1 585 283" fill="none" class="s-crit-st" stroke-width="13" stroke-linecap="round"/>
+      <text x="542" y="322" text-anchor="middle" class="s-ink" font-size="26" font-weight="800">87</text>
+      <text x="542" y="340" text-anchor="middle" class="t-tiny s-crit" font-weight="800">HIGH · 상위 3%</text>
+      <text x="542" y="372" text-anchor="middle" class="t-tiny s-muted">ML 이상거래 모델 v2 · AUC .91</text>
+      <rect x="644" y="10" width="304" height="378" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="660" y="34" class="t-head s-ink">스코어 기여 요인 (SHAP 상위)</text>
+      <g class="t-cell s-ink">
+        <text x="660" y="62">분할·반복 신고 패턴</text>
+        <rect x="660" y="70" width="222" height="10" rx="5" class="s-crit"/><text x="890" y="80" class="t-num s-muted">+34</text>
+        <text x="660" y="104">환급 신청 주기 이상</text>
+        <rect x="660" y="112" width="180" height="10" rx="5" class="s-crit" opacity=".8"/><text x="848" y="122" class="t-num s-muted">+27</text>
+        <text x="660" y="146">신고금액 급증(+2.8σ)</text>
+        <rect x="660" y="154" width="128" height="10" rx="5" class="s-warn"/><text x="796" y="164" class="t-num s-muted">+18</text>
+        <text x="660" y="188">환적 경유율 상승</text>
+        <rect x="660" y="196" width="86" height="10" rx="5" class="s-warn" opacity=".85"/><text x="754" y="206" class="t-num s-muted">+12</text>
+        <text x="660" y="230">신규 거래처 집중</text>
+        <rect x="660" y="238" width="52" height="10" rx="5" class="s-accent" opacity=".7"/><text x="720" y="248" class="t-num s-muted">+7</text>
+        <text x="660" y="272">업력·규모 (감점)</text>
+        <rect x="660" y="280" width="40" height="10" rx="5" class="s-good"/><text x="708" y="290" class="t-num s-muted">−6</text>
+      </g>
+      <rect x="660" y="308" width="272" height="64" rx="8" class="s-warn-soft"/>
+      <text x="674" y="330" class="t-cell-b s-ink">유사 패턴 기존 사건 2건</text>
+      <text x="674" y="348" class="t-tiny s-muted">'24 환급편취 C-0871 (일치도 0.83)</text>
+      <text x="674" y="362" class="t-tiny s-muted">'25 분할송금 FX-0114 (일치도 0.77)</text>
+    </svg>

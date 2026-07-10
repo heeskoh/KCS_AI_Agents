@@ -1,0 +1,64 @@
+<svg width="960" height="400" viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="중심성 인코딩 관계망과 페이퍼컴퍼니 식별">
+  <style>
+  text{font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  .s-surface{fill:#ffffff}.s-panel{fill:#f0f4fb}.s-line{stroke:#dbe3ef}.s-grid{stroke:#e7edf6}
+  .s-gridfill{fill:#e7edf6;stroke:none}.s-ink{fill:#1f2a3d}.s-muted{fill:#68758d}.s-muted-st{stroke:#68758d}
+  .s-accent{fill:#2563eb}.s-accent-st{stroke:#2563eb}.s-accent-soft{fill:#eaf1fe}.s-accent-txt{fill:#2563eb}
+  .s-good{fill:#16a34a}.s-good-soft{fill:#e8f7ee}
+  .s-warn{fill:#d97706}.s-warn-st{stroke:#d97706}.s-warn-soft{fill:#fdf3e3}
+  .s-crit{fill:#dc2626}.s-crit-st{stroke:#dc2626}.s-crit-soft{fill:#fdeaea}
+  .t-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em}
+  .t-cell{font-size:11px}.t-cell-b{font-size:11px;font-weight:700}
+  .t-num{font-size:11px}.t-node{font-size:10.5px;font-weight:700}
+  .t-tiny{font-size:9.5px}.t-head{font-size:12px;font-weight:800}
+</style>
+  <rect width="960" height="400" fill="#ffffff"/>
+      <ellipse cx="608" cy="196" rx="196" ry="132" class="s-crit-soft" opacity=".55"/>
+      <text x="736" y="86" class="t-tiny s-crit" font-weight="800">공범 의심 클러스터</text>
+      <g class="s-line" stroke-width="1.6">
+        <line x1="300" y1="200" x2="150" y2="120"/>
+        <line x1="300" y1="200" x2="140" y2="240"/>
+        <line x1="300" y1="200" x2="210" y2="322"/>
+        <line x1="300" y1="200" x2="520" y2="196"/>
+      </g>
+      <line x1="300" y1="200" x2="470" y2="88" class="s-crit-st" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="330" y="122" class="t-tiny s-crit">특수관계(대표 동일 가족)</text>
+      <g class="s-muted-st" stroke-width="1.6" opacity=".9">
+        <line x1="520" y1="196" x2="470" y2="88"/>
+        <line x1="520" y1="196" x2="668" y2="120"/>
+        <line x1="520" y1="196" x2="688" y2="252"/>
+        <line x1="668" y1="120" x2="780" y2="176"/>
+        <line x1="688" y1="252" x2="780" y2="176"/>
+        <line x1="688" y1="252" x2="640" y2="318"/>
+      </g>
+      <line x1="780" y1="176" x2="884" y2="120" class="s-crit-st" stroke-width="2.4"/>
+      <text x="796" y="136" class="t-tiny s-crit">송금 집중</text>
+      <circle cx="300" cy="200" r="26" class="s-accent" stroke="#ffff00" stroke-width="3"/>
+      <text x="300" y="246" text-anchor="middle" class="t-node s-ink">관세조사대상기업022</text>
+      <circle cx="150" cy="120" r="12" class="s-accent" opacity=".55"/><text x="150" y="100" text-anchor="middle" class="t-tiny s-muted">중국 IMPEX C.</text>
+      <circle cx="140" cy="240" r="12" class="s-accent" opacity=".55"/><text x="140" y="268" text-anchor="middle" class="t-tiny s-muted">미국 TRADING</text>
+      <circle cx="210" cy="322" r="11" fill="#9333ea"/><text x="210" y="348" text-anchor="middle" class="t-tiny s-muted">신성관세사무소</text>
+      <circle cx="470" cy="88" r="14" class="s-crit"/><text x="470" y="66" text-anchor="middle" class="t-tiny s-ink" font-weight="700">(주)디브이글로벌</text>
+      <circle cx="520" cy="196" r="21" class="s-warn"/>
+      <text x="520" y="232" text-anchor="middle" class="t-node s-ink">이○호 (브로커)</text>
+      <text x="520" y="200" text-anchor="middle" fill="#fff" class="t-tiny" font-weight="800">매개</text>
+      <circle cx="668" cy="120" r="13" class="s-crit"/><text x="668" y="100" text-anchor="middle" class="t-tiny s-ink" font-weight="700">HK GLOBAL LINK</text>
+      <circle cx="688" cy="252" r="13" class="s-crit"/><text x="688" y="282" text-anchor="middle" class="t-tiny s-ink" font-weight="700">VN NEW STAR</text>
+      <circle cx="780" cy="176" r="15" class="s-crit"/><text x="780" y="206" text-anchor="middle" class="t-tiny s-ink" font-weight="700">공용계좌 402-**</text>
+      <circle cx="640" cy="318" r="10" fill="#0d9488"/><text x="640" y="342" text-anchor="middle" class="t-tiny s-muted">통신 070-**-22</text>
+      <circle cx="884" cy="120" r="11" class="s-crit" opacity=".8"/><text x="884" y="100" text-anchor="middle" class="t-tiny s-muted">USDT 지갑</text>
+      <rect x="612" y="140" width="112" height="18" rx="9" class="s-crit-soft"/>
+      <text x="668" y="153" text-anchor="middle" class="t-tiny s-crit" font-weight="800">페이퍼컴퍼니 의심 3사</text>
+      <rect x="12" y="12" width="230" height="64" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="34" class="t-head s-ink">네트워크 요약</text>
+      <text x="28" y="54" class="t-cell s-muted">노드 11 · 관계 14 · 클러스터 2</text>
+      <text x="28" y="68" class="t-cell s-muted">특수관계 1 · 페이퍼컴퍼니 의심 3</text>
+      <rect x="12" y="300" width="420" height="88" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="322" class="t-head s-ink">중심성 순위 (매개 Betweenness)</text>
+      <g class="t-cell s-ink">
+        <rect x="28" y="332" width="212" height="9" rx="4.5" class="s-warn"/><text x="248" y="341" class="t-num">이○호 0.61</text>
+        <rect x="28" y="348" width="150" height="9" rx="4.5" class="s-accent"/><text x="186" y="357" class="t-num">대상기업 0.44</text>
+        <rect x="28" y="364" width="96"  height="9" rx="4.5" class="s-crit"/><text x="132" y="373" class="t-num">공용계좌 0.28</text>
+      </g>
+      <text x="300" y="380" class="t-tiny s-muted">→ 브로커 이○호가 무역·자금 양측 연결 허브</text>
+    </svg>

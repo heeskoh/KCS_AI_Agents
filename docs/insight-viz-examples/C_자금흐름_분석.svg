@@ -1,0 +1,63 @@
+<svg width="960" height="420" viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="계좌 간 자금 흐름도와 분할송금 시계열">
+  <style>
+  text{font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  .s-surface{fill:#ffffff}.s-panel{fill:#f0f4fb}.s-line{stroke:#dbe3ef}.s-grid{stroke:#e7edf6}
+  .s-gridfill{fill:#e7edf6;stroke:none}.s-ink{fill:#1f2a3d}.s-muted{fill:#68758d}.s-muted-st{stroke:#68758d}
+  .s-accent{fill:#2563eb}.s-accent-st{stroke:#2563eb}.s-accent-soft{fill:#eaf1fe}.s-accent-txt{fill:#2563eb}
+  .s-good{fill:#16a34a}.s-good-soft{fill:#e8f7ee}
+  .s-warn{fill:#d97706}.s-warn-st{stroke:#d97706}.s-warn-soft{fill:#fdf3e3}
+  .s-crit{fill:#dc2626}.s-crit-st{stroke:#dc2626}.s-crit-soft{fill:#fdeaea}
+  .t-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em}
+  .t-cell{font-size:11px}.t-cell-b{font-size:11px;font-weight:700}
+  .t-num{font-size:11px}.t-node{font-size:10.5px;font-weight:700}
+  .t-tiny{font-size:9.5px}.t-head{font-size:12px;font-weight:800}
+</style>
+  <rect width="960" height="420" fill="#ffffff"/>
+      <text x="14" y="24" class="t-lbl s-muted">국내 계좌</text>
+      <text x="400" y="24" class="t-lbl s-muted">중계·분할</text>
+      <text x="770" y="24" class="t-lbl s-muted">해외·가상자산</text>
+      <rect x="14" y="86" width="150" height="52" rx="9" class="s-accent"/>
+      <text x="89" y="108" text-anchor="middle" fill="#fff" class="t-node">관세조사대상기업022</text>
+      <text x="89" y="124" text-anchor="middle" fill="#fff" class="t-tiny" opacity=".85">기업은행 124-**-8802</text>
+      <path d="M164 100 C 250 70, 300 62, 380 66" fill="none" class="s-warn-st" stroke-width="4"/>
+      <path d="M164 112 C 250 112, 300 112, 380 112" fill="none" class="s-warn-st" stroke-width="4"/>
+      <path d="M164 124 C 250 158, 300 162, 380 158" fill="none" class="s-warn-st" stroke-width="4"/>
+      <text x="228" y="52" class="t-tiny s-warn" font-weight="800">분할송금 3건 · 각 9,800만원 (1억 임계 회피)</text>
+      <rect x="380" y="48" width="128" height="36" rx="8" class="s-surface s-warn-st" stroke-width="1.5"/>
+      <text x="444" y="63" text-anchor="middle" class="t-tiny s-ink" font-weight="700">김○윤(직원)</text>
+      <text x="444" y="77" text-anchor="middle" class="t-tiny s-muted">국민 402-**-1177</text>
+      <rect x="380" y="94" width="128" height="36" rx="8" class="s-surface s-warn-st" stroke-width="1.5"/>
+      <text x="444" y="109" text-anchor="middle" class="t-tiny s-ink" font-weight="700">박○은(가족)</text>
+      <text x="444" y="123" text-anchor="middle" class="t-tiny s-muted">신한 110-**-3390</text>
+      <rect x="380" y="140" width="128" height="36" rx="8" class="s-surface s-warn-st" stroke-width="1.5"/>
+      <text x="444" y="155" text-anchor="middle" class="t-tiny s-ink" font-weight="700">환전상 ○○상사</text>
+      <text x="444" y="169" text-anchor="middle" class="t-tiny s-crit">환치기 창구 의심</text>
+      <path d="M508 66 C 590 66, 620 96, 680 100" fill="none" class="s-crit-st" stroke-width="4"/>
+      <path d="M508 112 C 590 112, 620 106, 680 106" fill="none" class="s-crit-st" stroke-width="4"/>
+      <path d="M508 158 C 560 158, 560 210, 680 214" fill="none" class="s-crit-st" stroke-width="3" stroke-dasharray="6 4"/>
+      <text x="556" y="88" class="t-tiny s-crit" font-weight="800">당일 재집결 후 송금</text>
+      <rect x="680" y="82" width="164" height="48" rx="9" class="s-crit"/>
+      <text x="762" y="102" text-anchor="middle" fill="#fff" class="t-node">HK GLOBAL LINK LTD.</text>
+      <text x="762" y="117" text-anchor="middle" fill="#fff" class="t-tiny" opacity=".85">HSBC HK · 페이퍼컴퍼니 의심</text>
+      <rect x="680" y="192" width="164" height="44" rx="9" class="s-surface s-crit-st" stroke-width="1.5"/>
+      <text x="762" y="210" text-anchor="middle" class="t-tiny s-ink" font-weight="700">가상자산 거래소 OTC</text>
+      <text x="762" y="226" text-anchor="middle" class="t-tiny s-crit">USDT 매입 · 지갑 0x8a…e4</text>
+      <path d="M164 130 C 300 220, 500 258, 680 258" fill="none" class="s-accent-st" stroke-width="2.5" opacity=".5"/>
+      <rect x="680" y="244" width="164" height="30" rx="8" class="s-accent-soft"/>
+      <text x="762" y="263" text-anchor="middle" class="t-tiny s-accent-txt">정상 수입대금 L/C 결제 (비교)</text>
+      <rect x="14" y="292" width="932" height="116" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="30" y="316" class="t-head s-ink">외환 지급 vs 수입신고 금액 (월별)</text>
+      <text x="930" y="316" text-anchor="end" class="t-tiny s-muted">단위: 억원 · 지급 초과분 = 신고 없는 송금</text>
+      <line x1="40" y1="392" x2="930" y2="392" class="s-grid" stroke-width="1"/>
+      <g class="t-tiny s-muted" text-anchor="middle">
+        <rect x="70"  y="356" width="26" height="36" class="s-accent" opacity=".8"/><rect x="100" y="352" width="26" height="40" class="s-warn"/><text x="98"  y="405">1월</text>
+        <rect x="215" y="360" width="26" height="32" class="s-accent" opacity=".8"/><rect x="245" y="354" width="26" height="38" class="s-warn"/><text x="243" y="405">2월</text>
+        <rect x="360" y="358" width="26" height="34" class="s-accent" opacity=".8"/><rect x="390" y="344" width="26" height="48" class="s-warn"/><text x="388" y="405">3월</text>
+        <rect x="505" y="362" width="26" height="30" class="s-accent" opacity=".8"/><rect x="535" y="334" width="26" height="58" class="s-warn"/><text x="533" y="405">4월</text>
+        <rect x="650" y="360" width="26" height="32" class="s-accent" opacity=".8"/><rect x="680" y="326" width="26" height="66" class="s-warn"/><text x="678" y="405">5월</text>
+        <rect x="795" y="358" width="26" height="34" class="s-accent" opacity=".8"/><rect x="825" y="318" width="26" height="74" class="s-crit"/><text x="823" y="405">6월</text>
+      </g>
+      <text x="853" y="330" class="t-num s-crit" font-weight="800">+7.4</text>
+      <text x="30" y="340" class="t-tiny s-muted">■ 수입신고</text>
+      <text x="30" y="354" class="t-tiny s-warn">■ 외환지급 — 4월부터 신고 대비 초과 확대</text>
+    </svg>

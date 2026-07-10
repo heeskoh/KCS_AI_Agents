@@ -1,0 +1,94 @@
+<svg width="960" height="430" viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="신고-증빙 대사 검증 표와 적정성 게이지">
+  <style>
+  text{font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  .s-surface{fill:#ffffff}.s-panel{fill:#f0f4fb}.s-line{stroke:#dbe3ef}.s-grid{stroke:#e7edf6}
+  .s-gridfill{fill:#e7edf6;stroke:none}.s-ink{fill:#1f2a3d}.s-muted{fill:#68758d}.s-muted-st{stroke:#68758d}
+  .s-accent{fill:#2563eb}.s-accent-st{stroke:#2563eb}.s-accent-soft{fill:#eaf1fe}.s-accent-txt{fill:#2563eb}
+  .s-good{fill:#16a34a}.s-good-soft{fill:#e8f7ee}
+  .s-warn{fill:#d97706}.s-warn-st{stroke:#d97706}.s-warn-soft{fill:#fdf3e3}
+  .s-crit{fill:#dc2626}.s-crit-st{stroke:#dc2626}.s-crit-soft{fill:#fdeaea}
+  .t-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em}
+  .t-cell{font-size:11px}.t-cell-b{font-size:11px;font-weight:700}
+  .t-num{font-size:11px}.t-node{font-size:10.5px;font-weight:700}
+  .t-tiny{font-size:9.5px}.t-head{font-size:12px;font-weight:800}
+</style>
+  <rect width="960" height="430" fill="#ffffff"/>
+      <rect x="12" y="10" width="620" height="300" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="36" class="t-head s-ink">신고 대사·검증 — DV2-C-1022-07 (수리 2026-05-14)</text>
+      <rect x="12" y="50" width="620" height="26" class="s-panel"/>
+      <text x="30"  y="67" class="t-lbl s-muted">항목</text>
+      <text x="150" y="67" class="t-lbl s-muted">수입신고(DB)</text>
+      <text x="330" y="67" class="t-lbl s-muted">증빙 추출값(OCR)</text>
+      <text x="505" y="67" class="t-lbl s-muted">출처</text>
+      <text x="575" y="67" class="t-lbl s-muted">판정</text>
+      <g class="t-cell s-ink">
+        <text x="30" y="95">품명</text>
+        <text x="150" y="95">메모리 집적회로</text><text x="330" y="95">MEMORY IC (DDR5)</text>
+        <text x="505" y="95" class="s-muted">인보이스</text>
+        <rect x="565" y="82" width="42" height="18" rx="9" class="s-good-soft"/><text x="586" y="95" text-anchor="middle" class="t-tiny s-good">일치</text>
+        <line x1="12" y1="106" x2="632" y2="106" class="s-grid" stroke-width="1"/>
+        <text x="30" y="124">세번(HS)</text>
+        <text x="150" y="124" class="t-num">8542.31-0000</text><text x="330" y="124" class="t-num">8542.32 상당(사양표)</text>
+        <text x="505" y="124" class="s-muted">사양서</text>
+        <rect x="565" y="111" width="42" height="18" rx="9" class="s-warn-soft"/><text x="586" y="124" text-anchor="middle" class="t-tiny s-warn">검토</text>
+        <line x1="12" y1="135" x2="632" y2="135" class="s-grid" stroke-width="1"/>
+        <text x="30" y="153">신고가격</text>
+        <text x="150" y="153" class="t-num">USD 1,820,000</text><text x="330" y="153" class="t-num">USD 2,140,000</text>
+        <text x="505" y="153" class="s-muted">인보이스</text>
+        <rect x="565" y="140" width="42" height="18" rx="9" class="s-crit-soft"/><text x="586" y="153" text-anchor="middle" class="t-tiny s-crit">불일치</text>
+        <line x1="12" y1="164" x2="632" y2="164" class="s-grid" stroke-width="1"/>
+        <text x="30" y="182">원산지</text>
+        <text x="150" y="182">CN (FTA 미적용)</text><text x="330" y="182">CN — C/O 일치</text>
+        <text x="505" y="182" class="s-muted">원산지증명</text>
+        <rect x="565" y="169" width="42" height="18" rx="9" class="s-good-soft"/><text x="586" y="182" text-anchor="middle" class="t-tiny s-good">일치</text>
+        <line x1="12" y1="193" x2="632" y2="193" class="s-grid" stroke-width="1"/>
+        <text x="30" y="211">수량</text>
+        <text x="150" y="211" class="t-num">42,000 EA</text><text x="330" y="211" class="t-num">42,000 EA</text>
+        <text x="505" y="211" class="s-muted">B/L·P/L</text>
+        <rect x="565" y="198" width="42" height="18" rx="9" class="s-good-soft"/><text x="586" y="211" text-anchor="middle" class="t-tiny s-good">일치</text>
+        <line x1="12" y1="222" x2="632" y2="222" class="s-grid" stroke-width="1"/>
+        <text x="30" y="240">환급 BOM</text>
+        <text x="150" y="240">소요량 1.00</text><text x="330" y="240">실측 0.82 (과다 계상)</text>
+        <text x="505" y="240" class="s-muted">BOM·작업지</text>
+        <rect x="565" y="227" width="42" height="18" rx="9" class="s-crit-soft"/><text x="586" y="240" text-anchor="middle" class="t-tiny s-crit">불일치</text>
+      </g>
+      <rect x="12" y="258" width="620" height="52" class="s-panel"/>
+      <text x="30" y="280" class="t-cell-b s-ink">대사 결과</text>
+      <text x="30" y="298" class="t-cell s-muted">6개 항목 중 일치 3 · 검토 1 · 불일치 2 — 가격 저가신고 의심 및 환급 소요량 과다 계상</text>
+      <rect x="470" y="268" width="146" height="30" rx="8" class="s-crit-soft"/>
+      <text x="543" y="287" text-anchor="middle" class="t-cell-b s-crit">허위 BOM 의심 ⚠</text>
+      <rect x="652" y="10" width="296" height="140" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="668" y="36" class="t-head s-ink">가격 적정성</text>
+      <text x="932" y="36" text-anchor="end" class="t-cell s-muted">동종 신고 3,412건 대비</text>
+      <rect x="668" y="52" width="264" height="10" rx="5" class="s-gridfill"/>
+      <rect x="668" y="52" width="74" height="10" rx="5" class="s-crit"/>
+      <circle cx="742" cy="57" r="7" class="s-surface s-crit-st" stroke-width="3"/>
+      <text x="668" y="82" class="t-num s-crit" font-weight="800">하위 28% — 저가신고 의심</text>
+      <text x="668" y="100" class="t-tiny s-muted">신고단가 43.3 USD/EA · 동종 중위값 51.0 USD/EA (−15.1%)</text>
+      <text x="668" y="116" class="t-tiny s-muted">최근 6개월 하락 추세 지속</text>
+      <rect x="668" y="124" width="120" height="18" rx="9" class="s-warn-soft"/>
+      <text x="728" y="137" text-anchor="middle" class="t-tiny s-warn">과세가격 심사 권고</text>
+      <rect x="652" y="162" width="296" height="148" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="668" y="188" class="t-head s-ink">HS 분류 적정성</text>
+      <rect x="668" y="202" width="264" height="10" rx="5" class="s-gridfill"/>
+      <rect x="668" y="202" width="182" height="10" rx="5" class="s-warn"/>
+      <text x="668" y="232" class="t-num s-warn" font-weight="800">유사도 69% — 인접 세번 검토</text>
+      <text x="668" y="250" class="t-tiny s-muted">신고 8542.31(프로세서·컨트롤러) vs 사양 8542.32(메모리)</text>
+      <text x="668" y="266" class="t-tiny s-muted">세율차 0% → 관세 영향 없음 · 요건확인 대상 여부 확인</text>
+      <rect x="668" y="278" width="132" height="18" rx="9" class="s-accent-soft"/>
+      <text x="734" y="291" text-anchor="middle" class="t-tiny s-accent-txt">품목분류 사전심사 조회</text>
+      <rect x="12" y="326" width="936" height="88" rx="10" class="s-surface s-line" stroke-width="1"/>
+      <text x="28" y="352" class="t-head s-ink">증빙 불일치 탐지 알림</text>
+      <rect x="28" y="364" width="292" height="38" rx="8" class="s-crit-soft"/>
+      <circle cx="46" cy="383" r="4" class="s-crit"/>
+      <text x="58" y="379" class="t-cell-b s-ink">가격 불일치 · USD 320,000 (17.6%)</text>
+      <text x="58" y="394" class="t-tiny s-muted">인보이스 대비 저가신고 — 포탈 추정 관세 2.1억원</text>
+      <rect x="332" y="364" width="292" height="38" rx="8" class="s-crit-soft"/>
+      <circle cx="350" cy="383" r="4" class="s-crit"/>
+      <text x="362" y="379" class="t-cell-b s-ink">환급 소요량 과다 계상 · BOM 0.18 초과</text>
+      <text x="362" y="394" class="t-tiny s-muted">관세환급 이상률 56% 지표와 정합 — 환급 추징 검토</text>
+      <rect x="636" y="364" width="292" height="38" rx="8" class="s-warn-soft"/>
+      <circle cx="654" cy="383" r="4" class="s-warn"/>
+      <text x="666" y="379" class="t-cell-b s-ink">세번 인접 분류 · 8542.31 ↔ 8542.32</text>
+      <text x="666" y="394" class="t-tiny s-muted">세율 동일 — 수입요건(전략물자 해당 여부)만 확인</text>
+    </svg>
