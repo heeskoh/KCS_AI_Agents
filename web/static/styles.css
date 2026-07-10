@@ -1164,6 +1164,8 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .gi-insight-empty{padding:8px;font-size:11px;color:var(--muted)}
 /* 분석 관점 탭(중앙 시각화 상단) — 좁은 폭에서 줄바꿈 허용 */
 .ci-insight-persp-tabs{flex-wrap:wrap;padding:6px 10px;border-bottom:1px solid var(--line);background:#f8fafc}
+/* 수사정보 분석: 이미지 저장 버튼 — 중앙 헤더 우측 정렬 */
+.ci-viz-download{margin-left:auto;padding:3px 10px;font-size:11px}
 /* ── 수사정보 분석: 관점별 시각화 결과(insight-viz.js SVG) 스타일 토큰 ── */
 .ci-insight-viz{flex:1;min-height:0;overflow:auto;padding:12px;background:#fff}
 .ci-insight-viz svg{display:block;min-width:920px;width:100%;height:auto;font-family:inherit}

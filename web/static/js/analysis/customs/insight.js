@@ -147,6 +147,8 @@ export function renderCiInsightPanel(deps, uctx){
           <div class="gi-insight-col-head">
             <strong>AI정보분석 시각화</strong>
             ${selectedItems.size ? `<span class="muted" style="font-size:11px">활용 자료 ${selectedItems.size}건</span>` : ""}
+            <button type="button" class="btn secondary ci-viz-download" data-ci-viz-download
+              title="현재 시각화를 PNG 이미지로 저장">⬇ 이미지 저장</button>
           </div>
           <div class="gi-insight-view-tabs ci-insight-persp-tabs">
             ${PERSPECTIVES.map(p => `
@@ -165,6 +167,52 @@ export function renderCiInsightPanel(deps, uctx){
       </div>
     </div>
   `;
+}
+
+/* 현재 시각화 SVG → PNG 다운로드.
+   스타일이 외부 CSS(.ci-insight-viz 스코프)에 있으므로 복제본에 계산된 스타일을
+   인라인한 뒤 직렬화한다(미인라인 시 저장 이미지가 무채색으로 깨짐). */
+const VIZ_STYLE_PROPS = ["fill", "stroke", "stroke-width", "stroke-dasharray", "stroke-linecap",
+  "font-size", "font-weight", "font-family", "letter-spacing", "opacity"];
+function downloadCurrentViz(perspId, companyId){
+  const svg = document.querySelector(".ci-insight-viz svg");
+  if(!svg){ alert("저장할 시각화가 없습니다."); return; }
+  const clone = svg.cloneNode(true);
+  const srcEls = [svg, ...svg.querySelectorAll("*")];
+  const dstEls = [clone, ...clone.querySelectorAll("*")];
+  srcEls.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    const style = VIZ_STYLE_PROPS.map(p => `${p}:${cs.getPropertyValue(p)}`).join(";");
+    dstEls[i].setAttribute("style", style);
+  });
+  const vb = (svg.getAttribute("viewBox") || "0 0 960 430").split(/\s+/).map(Number);
+  const w = vb[2] || 960, h = vb[3] || 430;
+  clone.setAttribute("width", w);
+  clone.setAttribute("height", h);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const svgText = new XMLSerializer().serializeToString(clone);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;   // 고해상도 저장
+    const canvas = document.createElement("canvas");
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, w, h);
+    canvas.toBlob(blob => {
+      if(!blob){ alert("이미지 생성에 실패했습니다."); return; }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `수사정보분석_${perspId}_${companyId}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }, "image/png");
+  };
+  img.onerror = () => alert("이미지 변환에 실패했습니다.");
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
 }
 
 /* 렌더 후 훅 — Chat·관점 탭·그룹 토글·자료 선택 바인딩 (app-runtime postRender에서 호출) */
@@ -188,6 +236,10 @@ ${history ? `\n[최근 대화]\n${history}\n` : ""}
 ${userText}`;
     },
     onDone: () => deps.saveCanvasState?.(),
+  });
+  // 이미지 저장 — 현재 관점의 시각화를 PNG로 다운로드
+  document.querySelector("[data-ci-viz-download]")?.addEventListener("click", () => {
+    downloadCurrentViz(activePerspective, companyId);
   });
   // 분석 관점 탭 — 대응하는 분석 결과 시각화로 교체(중앙 영역만 갱신)
   document.querySelectorAll("[data-ci-insight-persp]").forEach(tab => {

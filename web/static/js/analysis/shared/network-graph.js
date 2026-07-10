@@ -931,6 +931,24 @@ function applyHidden(graph, state){
   return { ...graph, nodes, edges };
 }
 
+/* 파생 그래프에도 유형 숨김을 적용 — 합성 노드(경로분석의 국가 등)는 raw에 없어
+   applyFilter(raw)로는 걸러지지 않으므로 프로젝션 후 한 번 더 라벨 필터를 적용한다. */
+function applyLabelHiddenPost(graph, state){
+  const hidden = state && state.hiddenLabels;
+  if(!hidden || !hidden.size) return graph;
+  const nodes = (graph.nodes || []).filter(n => !hidden.has(n.label) || n.id === graph.center);
+  const ids = new Set(nodes.map(n => n.id));
+  const edges = (graph.edges || []).filter(e => ids.has(e.source) && ids.has(e.target));
+  return { ...graph, nodes, edges };
+}
+
+/* 화면에 표시할 최종 그래프: 필터 → 뷰 프로젝션 → 라벨/개별 숨김 */
+function displayedGraph(isProjectable, raw, state){
+  const filtered = applyFilter(raw, state);
+  const projected = isProjectable ? projectForView(filtered, state.viewMode) : filtered;
+  return applyHidden(applyLabelHiddenPost(projected, state), state);
+}
+
 /* canonical 그래프 → 현재 뷰 파생 그래프. 수입신고 노드가 없는 그래프(자유 관계분석의
    임의 시드 등)는 변환 없이 원본을 그대로 표시한다(방사형 폴백). */
 function projectForView(graph, modeId){
@@ -945,7 +963,9 @@ function projectForView(graph, modeId){
   return graph;
 }
 
-/* 레인(열) 좌표: 뷰 빌더가 스탬프한 _lane 기준 열 배치 */
+/* 레인(열) 좌표: 뷰 빌더가 스탬프한 _lane 기준 열 배치.
+   노드가 많은 레인(수입신고 등)은 2~3개 하위 열로 엇갈리게 나눠 세로 길이를 줄이고
+   가로로 넓게 편다 — 초기 fit 시 전체가 지나치게 축소되는 것을 방지. */
 function presetPositions(graph){
   const byLane = new Map();
   (graph.nodes || []).forEach(n => {
@@ -953,11 +973,28 @@ function presetPositions(graph){
     if(!byLane.has(lane)) byLane.set(lane, []);
     byLane.get(lane).push(n);
   });
-  const colW = 230, rowH = 66, pos = {};
+  const rowH = 62, subW = 110, laneGap = 210, pos = {};
   byLane.forEach(list => list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))));
-  byLane.forEach((list, lane) => {
-    const x = lane * colW;
-    list.forEach((n, i) => { pos[n.id] = { x, y: (i - (list.length - 1) / 2) * rowH }; });
+  // 레인별 하위 열 수 결정 후 레인 x 위치를 누적 계산(하위 열이 있으면 그만큼 폭 확장)
+  const laneIds = [...byLane.keys()].sort((a, b) => a - b);
+  let cursorX = 0;
+  const laneMeta = new Map();
+  laneIds.forEach(laneId => {
+    const n = byLane.get(laneId).length;
+    const subCols = n > 20 ? 3 : n > 9 ? 2 : 1;
+    laneMeta.set(laneId, { x: cursorX, subCols });
+    cursorX += (subCols - 1) * subW + laneGap;
+  });
+  byLane.forEach((list, laneId) => {
+    const { x: baseX, subCols } = laneMeta.get(laneId);
+    const rows = Math.ceil(list.length / subCols);
+    list.forEach((n, i) => {
+      const col = i % subCols;
+      const row = Math.floor(i / subCols);
+      // 홀수 하위 열은 반 칸 내려 엇갈림 — 라벨 겹침 방지
+      const y = (row - (rows - 1) / 2) * rowH + (col % 2) * (rowH / 2);
+      pos[n.id] = { x: baseX + col * subW, y };
+    });
   });
   return pos;
 }
@@ -2088,9 +2125,13 @@ function renderPanelContent(targetType, targetId){
     return state.workbench ? wrapWorkbench(null, state, key, body) : body;
   }
   const isProjectable = targetType === "company" || targetType === "explore";
-  const filtered = applyFilter(raw, state);
-  // 회사 프로파일·자유 관계분석: 4-뷰로 프로젝션(라벨/엣지 필터). 우범자는 전체.
-  const projected = applyHidden(isProjectable ? projectForView(filtered, state.viewMode) : filtered, state);
+  // 회사 프로파일·자유 관계분석: 4-뷰로 프로젝션(파생 그래프). 우범자는 전체.
+  const projected = displayedGraph(isProjectable, raw, state);
+  // 유형 칩: 현재 뷰(파생 그래프)에 존재하는 유형만 노출.
+  // 칩으로 숨긴 유형도 칩 목록에는 남아야 하므로 라벨 숨김 없이 산출한다.
+  const chipSource = isProjectable
+    ? projectForView(applyFilter(raw, { ...state, hiddenLabels: new Set() }), state.viewMode)
+    : raw;
   // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
   if(state._autorun && projected.nodes.length){
     state.analysisMode = state._autorun;
@@ -2102,7 +2143,7 @@ function renderPanelContent(targetType, targetId){
     : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`;
   const main = `
     ${buildViewToggle(state, key)}
-    ${buildFilterBar(raw, state, key)}
+    ${buildFilterBar(chipSource, state, key)}
     ${buildLaneHeader(projected)}
     ${buildPathBanner(state, key)}
     <div class="profile-net-graph-area">${projected.nodes.length ? buildAlignToolbar(key) : ""}${graphArea}</div>
@@ -2138,9 +2179,8 @@ function renderPanelInto(el, targetType, targetId){
   const state = filterStateFor(key);
   const raw = currentRawGraph(key, state);
   if(raw){
-    const filtered = applyFilter(raw, state);
     const projectable = targetType === "company" || targetType === "explore";
-    const projected = applyHidden(projectable ? projectForView(filtered, state.viewMode) : filtered, state);
+    const projected = displayedGraph(projectable, raw, state);
     if(projected.nodes.length) mountCytoscape(key, projected);
   }
 }
