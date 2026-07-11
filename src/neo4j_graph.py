@@ -443,7 +443,10 @@ def build_company_profile_graph(company_id: str, limit: int = 600) -> dict[str, 
     )
     if not exists:
         return None
-    graph = _read_graph(
+    # 신고 체인과 기업 위험/관계자 체인을 분리 조회 — 한 쿼리로 합치면 OPTIONAL MATCH
+    # 카테시안 곱(신고 수 × 위험요인 수 × 특수관계인 수)이 LIMIT에 걸려 DRIVEN_BY 등
+    # 위험 엣지가 잘려 나간다(위험구성 원인분석 뷰 공백의 원인).
+    decl_graph = _read_graph(
         """
         MATCH (c:Company {company_id: $company_id})
         OPTIONAL MATCH (c)-[rf:FILED]->(d:Declaration)
@@ -453,19 +456,28 @@ def build_company_profile_graph(company_id: str, limit: int = 600) -> dict[str, 
         OPTIONAL MATCH (d)-[rs:SUPPLIED_BY]->(os:OverseasSupplier)
         OPTIONAL MATCH (d)-[rb:FILED_BY]->(b:Broker)
         OPTIONAL MATCH (d)-[rc:CONTRIBUTES_TO]->(cf:RiskFactor)
+        RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf
+        LIMIT $limit
+        """,
+        company_id=company_id,
+        limit=limit,
+    )
+    risk_graph = _read_graph(
+        """
+        MATCH (c:Company {company_id: $company_id})
         OPTIONAL MATCH (c)-[rri:RISK_INDICATORS]->(rsc:RiskScore)
         OPTIONAL MATCH (rsc)-[rdb:DRIVEN_BY]->(df:RiskFactor)
         OPTIONAL MATCH (c)-[ran:ANALYZED]->(af:RiskFactor)
         OPTIONAL MATCH (c)-[rrp:RELATED_PARTY]->(rp:RelatedParty)
         OPTIONAL MATCH (c)-[raf:AFFILIATED_WITH]->(ac:AffiliatedCompany)
         OPTIONAL MATCH (c)-[rca:CASE]->(ct:CaseType)
-        RETURN c, rf, d, ri, it, rfp, dp, rtp, ap, rs, os, rb, b, rc, cf,
-               rri, rsc, rdb, df, ran, af, rrp, rp, raf, ac, rca, ct
+        RETURN c, rri, rsc, rdb, df, ran, af, rrp, rp, raf, ac, rca, ct
         LIMIT $limit
         """,
         company_id=company_id,
         limit=limit,
     )
+    graph = _merge_graphs(decl_graph, risk_graph)
     graph["center"] = f"Company:{company_id}"
     graph["profileMode"] = True
     return graph

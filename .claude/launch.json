@@ -23,6 +23,13 @@
       "env": { "PORT": "8001", "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" },
       "port": 8001,
       "autoPort": false
+    },
+    {
+      "name": "crime-sim",
+      "runtimeExecutable": "venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "http.server", "8017", "--directory", "docs/crime-case-sim"],
+      "port": 8017,
+      "autoPort": false
     }
   ]
 }

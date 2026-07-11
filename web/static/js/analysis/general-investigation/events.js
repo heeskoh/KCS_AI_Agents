@@ -350,7 +350,7 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
-    /* ── 프로파일: 외부 정보 출처 메모(인터넷·신문·서적) ────────────── */
+    /* ── 기초자료 수집/등록: 외부 정보 출처 메모(인터넷·신문·서적) ────── */
     const giExtNoteAdd = event.target.closest("[data-gi-extnote-add]");
     if(giExtNoteAdd){
       const aCase = ctx.activeGenInvCase();
@@ -429,9 +429,11 @@ export function registerGeneralInvestigationEvents(ctx){
 
     const giCase = event.target.closest("[data-gi-case]");
     if(giCase){
-      // 카드 클릭 = 활성 사건 선택(다른 탭 연동) — 상세는 카드의 '상세' 버튼으로 연다
+      // 카드 배경 클릭 = 활성 사건 선택 + 기업수사 프로파일 탭으로 이동.
+      // 카드 내 버튼(상세·아카이브·삭제)은 앞선 전용 핸들러가 처리하므로 여기 도달하지 않는다.
       ctx.activeGenInvCaseId = giCase.dataset.giCase;
       ctx.activeGiStepId     = null;
+      if(!event.target.closest("button")) generalInvestigationState.generalInvTab = "profile";
       ctx.saveCanvasState();
       ctx.render("generalinv");
       return;

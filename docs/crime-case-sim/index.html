@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관세범죄 유형별 수사 Case 분석 시뮬레이션</title>
+<style>
+/* ── 관세범죄 수사 시뮬레이션 (standalone) — AI 관세행정 통합포털 데모 스타일 계열 ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Malgun Gothic',-apple-system,sans-serif;background:#eef2f8;color:#16213d;font-size:14px}
+header.app{background:#fff;border-bottom:1px solid #dde5f0;padding:14px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+header.app .logo{width:34px;height:34px;border-radius:9px;background:#123c85;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+header.app h1{font-size:17px;letter-spacing:-.01em}
+header.app p{font-size:12px;color:#8590a6;margin-top:2px}
+header.app .env{margin-left:auto;font-size:11px;font-weight:800;color:#b45309;background:#fff7ed;border:1px dashed #fdba74;border-radius:7px;padding:4px 10px}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px;padding:14px 22px;align-items:start}
+/* 좌측: 범죄 유형 트리 */
+.sidebar{background:#fff;border:1px solid #dde5f0;border-radius:12px;padding:12px;position:sticky;top:76px;max-height:calc(100vh - 100px);overflow-y:auto}
+.sidebar h2{font-size:12.5px;font-weight:800;color:#5a6577;margin:2px 4px 10px}
+.cgroup{margin-bottom:10px}
+.cgroup>span{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:#8590a6;padding:4px}
+.cgroup>span i{width:4px;height:12px;border-radius:2px;display:inline-block}
+.crime-btn{display:flex;align-items:center;gap:7px;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:8px;padding:7px 9px;font-size:13px;font-weight:600;color:#2a3550;cursor:pointer;font-family:inherit}
+.crime-btn:hover{background:#f2f6fd}
+.crime-btn.active{background:#e8f0ff;border-color:#bcd3f7;color:#123c85;font-weight:800}
+.crime-btn em{font-style:normal;margin-left:auto;font-size:10px;color:#9aa3b3}
+/* 우측 메인 */
+.main{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:#fff;border:1px solid #dde5f0;border-radius:12px;padding:16px 18px}
+.card h3{font-size:14px;font-weight:800;color:#123c85;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.card h3 .step-no{width:20px;height:20px;border-radius:50%;background:#2f6fed;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.crime-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.crime-head .badge-group{font-size:11px;font-weight:800;color:#fff;border-radius:6px;padding:4px 10px}
+.crime-head h2{font-size:19px;letter-spacing:-.01em}
+.crime-head .law{font-size:11.5px;font-weight:700;color:#6d28d9;background:#f3e8ff;border-radius:6px;padding:4px 9px}
+.crime-head p{width:100%;font-size:13px;color:#5a6577;line-height:1.6;margin-top:2px}
+.dims{display:flex;gap:5px;margin-left:auto}
+.dims b{font-size:10.5px;border-radius:5px;padding:3px 7px;font-weight:800;background:#f3f5f9;color:#9aa3b3}
+.dims b.on2{background:#123c85;color:#fff}
+.dims b.on1{background:#dbe7fb;color:#2456c9}
+table.def{width:100%;border-collapse:collapse}
+table.def th{background:#f7faff;font-size:11.5px;color:#8590a6;font-weight:800;text-align:left;padding:8px 10px;border-bottom:1px solid #e6ebf3;white-space:nowrap}
+table.def td{padding:8px 10px;font-size:12.5px;border-bottom:1px dashed #eef1f6;vertical-align:top;line-height:1.5}
+.req{font-size:10px;font-weight:800;color:#c0392b;background:#fdeaea;border-radius:5px;padding:2px 7px}
+.opt{font-size:10px;font-weight:700;color:#8590a6;background:#f3f5f9;border-radius:5px;padding:2px 7px}
+.file-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.file-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #bcd3f7;background:#eef4ff;color:#2456c9;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.file-chip:hover{background:#dcebff}
+/* 분석 절차 */
+.steps{display:flex;flex-direction:column;gap:8px}
+.step-row{display:flex;gap:12px;border:1px solid #e6ebf3;border-radius:10px;padding:11px 13px;align-items:flex-start}
+.step-row .no{width:22px;height:22px;border-radius:50%;background:#eef4ff;color:#2456c9;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px}
+.step-row .body{flex:1;min-width:0}
+.step-row .svc{font-size:13px;font-weight:800;color:#16213d}
+.step-row .scopes{display:inline-flex;gap:5px;margin-left:8px;vertical-align:1px}
+.step-row .scopes i{font-style:normal;font-size:10px;font-weight:800;color:#1f6feb;background:#e8f0ff;border-radius:5px;padding:2px 7px}
+.step-row .how{font-size:12px;color:#5a6577;line-height:1.55;margin-top:4px}
+.step-row .out{font-size:11.5px;color:#1f9254;margin-top:3px}
+.step-row .out::before{content:"산출물 · ";color:#9aa3b3;font-weight:700}
+/* 케이스 카드 */
+.case-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.case-card{border:1.5px solid #dbe3ef;border-radius:12px;padding:14px;cursor:pointer;transition:all .12s;background:#fff}
+.case-card:hover{border-color:#9db9e8}
+.case-card.sel{border-color:#2f6fed;background:#f5f9ff;box-shadow:0 3px 12px rgba(47,111,237,.14)}
+.case-card .type{font-size:10.5px;font-weight:800;border-radius:5px;padding:3px 8px}
+.case-card .type.co{background:#e3edff;color:#2456c9}
+.case-card .type.ps{background:#fdeef5;color:#be185d}
+.case-card h4{font-size:15px;margin:8px 0 2px}
+.case-card h4 span{font-size:11.5px;color:#8590a6;font-weight:600;margin-left:5px}
+.case-card .risk{float:right;text-align:right}
+.case-card .risk b{display:block;font-size:19px;color:#c0392b}
+.case-card .risk span{font-size:10.5px;color:#9aa3b3}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:9px 0}
+.kv div{font-size:11.5px;color:#5a6577}
+.kv div b{color:#2a3550;margin-left:4px}
+.ind{margin-top:8px;border-top:1px dashed #e6ebf3;padding-top:8px}
+.ind span{display:block;font-size:10.5px;font-weight:800;color:#9aa3b3;margin-bottom:5px}
+.ind li{font-size:12px;color:#b03030;line-height:1.55;margin-left:16px}
+/* 실행 */
+.run-bar{display:flex;align-items:center;gap:10px}
+.run-bar button{border:none;background:#2f6fed;color:#fff;border-radius:9px;padding:10px 22px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.run-bar button:disabled{background:#c8d2e2;cursor:not-allowed}
+.run-bar .hint{font-size:12px;color:#8590a6}
+.result-step{border:1px solid #e6ebf3;border-radius:10px;margin-bottom:8px;overflow:hidden}
+.result-step .rs-head{display:flex;align-items:center;gap:9px;padding:9px 13px;background:#f7faff}
+.result-step .rs-head .no{width:20px;height:20px;border-radius:50%;background:#eef4ff;color:#2456c9;font-weight:800;font-size:10.5px;display:flex;align-items:center;justify-content:center}
+.result-step .rs-head b{font-size:12.5px}
+.result-step .rs-head .st{margin-left:auto;font-size:10.5px;font-weight:800;border-radius:6px;padding:3px 9px}
+.st.wait{background:#f3f5f9;color:#9aa3b3}.st.run{background:#e8f0ff;color:#2f6fed}.st.done{background:#e7f5ec;color:#1f9254}
+.result-step .rs-body{padding:11px 14px;font-size:12.5px;line-height:1.65;color:#2a3550;border-top:1px solid #eef1f6;white-space:pre-line;display:none}
+.result-step.open .rs-body{display:block}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid #cfe0f5;border-top-color:#2f6fed;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.verdict{border:1.5px solid #f3c9c9;background:#fff7f7;border-radius:12px;padding:14px 16px;display:none}
+.verdict h4{font-size:13.5px;color:#c0392b;margin-bottom:7px}
+.verdict p{font-size:13px;line-height:1.7;white-space:pre-line}
+.verdict .acts{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px}
+.verdict .acts i{font-style:normal;font-size:11px;font-weight:800;color:#7c2d12;background:#ffedd5;border-radius:6px;padding:4px 10px}
+.empty{padding:60px 20px;text-align:center;color:#8590a6;font-size:14px}
+.empty b{display:block;font-size:17px;color:#2a3550;margin-bottom:8px}
+/* 모달 */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{width:900px;max-width:95vw;max-height:85vh;background:#fff;border-radius:13px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(15,23,42,.32)}
+.modal .m-head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eef1f6}
+.modal .m-head b{font-size:14.5px}
+.modal .m-head span{font-size:11.5px;color:#8590a6}
+.modal .m-head button{margin-left:auto;border:1px solid #d8e0ec;background:#fff;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.modal .m-head button.x{border:none;background:#f3f5f9;width:28px;height:28px;padding:0;font-size:14px}
+.modal .m-body{overflow:auto;padding:14px 18px}
+.modal table{width:100%;border-collapse:collapse;font-size:12px}
+.modal th{background:#f7faff;color:#5a6577;font-weight:800;text-align:left;padding:7px 9px;border:1px solid #e6ebf3;white-space:nowrap}
+.modal td{padding:6px 9px;border:1px solid #eef1f6;white-space:nowrap}
+@media(max-width:1100px){.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:none}.case-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">KCS</div>
+  <div>
+    <h1>관세범죄 유형별 수사 Case 분석 시뮬레이션</h1>
+    <p>범죄 유형 선택 → 필요 자료 정의 → 단계별 분석 절차 → 우범기업·우범자 Case 분석 결과 생성</p>
+  </div>
+  <span class="env">STANDALONE 데모 · 모든 데이터는 가상의 시뮬레이션 데이터입니다</span>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>관세범죄 유형 (17)</h2>
+    <div id="crimeTree"></div>
+  </aside>
+  <main class="main" id="main">
+    <div class="card empty">
+      <b>왼쪽에서 범죄 유형을 선택하세요</b>
+      유형별로 필요한 분석 자료 정의, 단계별 분석 절차, 우범기업·우범자 Case와<br>분석 결과 시뮬레이션이 표시됩니다.
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="csvOverlay">
+  <div class="modal">
+    <div class="m-head">
+      <b id="csvTitle"></b><span id="csvDesc"></span>
+      <button type="button" id="csvDownload">CSV 다운로드</button>
+      <button type="button" class="x" id="csvClose">✕</button>
+    </div>
+    <div class="m-body" id="csvBody"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════ 샘플 데이터 파일 (sample-data/*.csv 와 동일 내용 임베드) ═══════════════ */
+const SAMPLE_FILES = {
+import_declarations: { label:"수입신고내역.csv", desc:"CDW 수입신고 원장 발췌", csv:`신고번호,신고일,수입자,HS코드,품명,수량,신고단가(USD),총액(USD),원산지,해외공급자
+15I-2026-041201,2026-04-12,C-951,8517.62-1000,무선통신 모듈,12000,4.20,50400,CN,SHENZHEN TELE CO
+15I-2026-041502,2026-04-15,C-951,8517.62-1000,무선통신 모듈,15000,4.10,61500,CN,SHENZHEN TELE CO
+15I-2026-042003,2026-04-20,C-951,8517.62-1000,무선통신 모듈,11000,4.35,47850,CN,GX GLOBAL LTD
+15I-2026-050104,2026-05-01,C-951,8517.62-1000,무선통신 모듈,18000,3.95,71100,CN,SHENZHEN TELE CO
+15I-2026-051205,2026-05-12,C-951,8471.30-0000,휴대용 컴퓨터,2500,180.00,450000,CN,GX GLOBAL LTD
+15I-2026-052106,2026-05-21,C-954,3926.90-9000,플라스틱 부품,50000,0.85,42500,VN,HANOI PLAST
+15I-2026-060207,2026-06-02,C-954,3926.90-9000,플라스틱 부품,52000,0.82,42640,VN,HANOI PLAST
+15I-2026-061508,2026-06-15,C-957,6104.43-0000,여성용 원피스,8000,6.50,52000,CN,QINGDAO APPAREL
+15I-2026-062009,2026-06-20,C-957,6104.43-0000,여성용 원피스,9000,6.20,55800,CN,QINGDAO APPAREL
+15I-2026-070110,2026-07-01,C-951,8517.62-1000,무선통신 모듈,20000,3.80,76000,CN,SHENZHEN TELE CO` },
+export_declarations: { label:"수출신고내역.csv", desc:"CDW 수출신고 원장 발췌", csv:`신고번호,신고일,수출자,HS코드,품명,수량,신고단가(USD),총액(USD),목적국,구매자
+15E-2026-031101,2026-03-11,C-955,8542.31-0000,반도체 IC,50000,12.00,600000,HK,HK SEMI TRADING
+15E-2026-032202,2026-03-22,C-955,8542.31-0000,반도체 IC,48000,11.80,566400,HK,HK SEMI TRADING
+15E-2026-041303,2026-04-13,C-955,8542.31-0000,반도체 IC,60000,12.50,750000,VN,SAIGON TECH
+15E-2026-042404,2026-04-24,C-952,7108.13-0000,금 반제품,120,58000.00,6960000,HK,GOLDEN GATE HK
+15E-2026-051505,2026-05-15,C-952,7108.13-0000,금 반제품,150,57500.00,8625000,HK,GOLDEN GATE HK
+15E-2026-052606,2026-05-26,C-964,2208.30-0000,위스키,3000,45.00,135000,JP,OSAKA LIQUOR
+15E-2026-060707,2026-06-07,C-955,8542.31-0000,반도체 IC,55000,12.20,671000,MY,KL COMPONENTS
+15E-2026-061808,2026-06-18,C-952,7108.13-0000,금 반제품,180,58200.00,10476000,SG,LION GOLD PTE` },
+invoice_extracts: { label:"첨부문서_추출값.csv", desc:"OCR/문서인식 추출 결과(인보이스·계약서·C/O)", csv:`문서ID,문서유형,발행일,공급자,품명,수량,단가(USD),총액(USD),신고번호매칭,불일치항목
+DOC-0021,커머셜인보이스,2026-04-10,SHENZHEN TELE CO,WIRELESS MODULE X2,12000,6.80,81600,15I-2026-041201,단가(-38%)
+DOC-0022,커머셜인보이스,2026-04-13,SHENZHEN TELE CO,WIRELESS MODULE X2,15000,6.75,101250,15I-2026-041502,단가(-39%)
+DOC-0023,패킹리스트,2026-04-18,GX GLOBAL LTD,WIRELESS MODULE X2,11000,,,15I-2026-042003,중량(+12%)
+DOC-0024,커머셜인보이스,2026-04-28,SHENZHEN TELE CO,WIRELESS MODULE X2,18000,6.90,124200,15I-2026-050104,단가(-43%)
+DOC-0025,계약서,2026-03-02,SHENZHEN TELE CO,연간공급계약,,,1200000,,권리사용료 조항 발견
+DOC-0026,커머셜인보이스,2026-06-12,QINGDAO APPAREL,DRESS W-TYPE,8000,6.50,52000,15I-2026-061508,일치
+DOC-0027,원산지증명서,2026-06-01,HANOI PLAST,PLASTIC PARTS,52000,,,15I-2026-060207,발급기관 미확인` },
+refund_claims: { label:"환급신청내역.csv", desc:"관세환급 신청·지급 이력", csv:`환급신청번호,신청일,신청기업,수출신고번호,원재료수입신고,환급액(원),상태,비고
+RF-2026-0101,2026-04-02,C-953,15E-2026-031101,15I-2025-118801,84500000,지급완료,
+RF-2026-0102,2026-04-20,C-953,15E-2026-032202,15I-2025-118802,79800000,지급완료,
+RF-2026-0103,2026-05-08,C-953,15E-2026-041303,15I-2025-120903,102300000,지급완료,수출물품-원재료 소요량 불일치 의심
+RF-2026-0104,2026-05-29,C-953,15E-2026-042404,15I-2025-121004,96700000,심사중,동일 원재료 중복 신청 의심
+RF-2026-0105,2026-06-17,C-953,15E-2026-051505,15I-2025-118801,88100000,심사중,원재료 수입신고 재사용(중복)` },
+exemption_claims: { label:"감면신청내역.csv", desc:"감면 신청·사후관리 이력", csv:`감면신청번호,신청일,신청기업,감면유형,품명,감면세액(원),사후관리기한,상태,비고
+EX-2026-0201,2026-03-05,C-956,재수출감면,검사용 정밀장비,45200000,2026-09-05,이행중,
+EX-2026-0202,2026-03-28,C-956,용도세율(연구용),분석기기,38900000,2027-03-28,이행중,연구소 실재성 확인 필요
+EX-2026-0203,2026-04-15,C-956,재수출감면,금형,52400000,2026-10-15,기한임박,재수출 이행 실적 없음
+EX-2026-0204,2026-05-10,C-956,용도세율(연구용),시약,12800000,2027-05-10,이행중,
+EX-2026-0205,2026-06-02,C-956,재수출감면,산업용 로봇,88600000,2026-12-02,이행중,국내 판매 정황(중고거래 게시글)` },
+financial_transactions: { label:"금융거래내역.csv", desc:"계좌이체·현금·가상계좌 거래(자금흐름 관계분석 입력)", csv:`거래일시,출금계좌,출금주,입금계좌,입금주,금액(원),유형,메모
+2026-05-02 10:12,110-357-889001,C-961,352-889-102233,(주)브릿지상사,480000000,계좌이체,수입대금
+2026-05-02 14:40,352-889-102233,(주)브릿지상사,external-HK-8821,HK NOMINEE LTD,475000000,해외송금,중계
+2026-05-09 09:30,110-357-889001,C-961,352-889-102233,(주)브릿지상사,490000000,계좌이체,수입대금
+2026-05-09 16:05,352-889-102233,(주)브릿지상사,external-HK-8821,HK NOMINEE LTD,486000000,해외송금,중계
+2026-05-16 11:22,110-357-889001,C-961,110-224-556677,김중개,49000000,계좌이체,수수료
+2026-05-16 18:44,110-224-556677,김중개,ATM,현금출금,48000000,현금출금,
+2026-06-01 10:02,110-357-889001,C-961,352-889-102233,(주)브릿지상사,510000000,계좌이체,수입대금
+2026-06-01 15:31,352-889-102233,(주)브릿지상사,virtual-XCH-771,코인거래소 가상계좌,505000000,가상계좌이체,
+2026-06-08 09:12,virtual-XCH-771,코인거래소 가상계좌,external-SG-1102,SG DIGITAL PTE,503000000,가상자산출금,USDT
+2026-06-20 13:50,110-357-889001,C-961,110-224-556677,김중개,51000000,계좌이체,수수료` },
+fx_remittances: { label:"외환송금내역.csv", desc:"외환 송금·수취 이력", csv:`송금일,송금인,수취인,수취국,금액(USD),송금사유,증빙서류,비고
+2026-04-03,C-961,HK NOMINEE LTD,HK,360000,수입대금 선지급,인보이스 INV-8801,단가 과다(시가대비 +85%)
+2026-04-17,C-961,HK NOMINEE LTD,HK,365000,수입대금 선지급,인보이스 INV-8802,단가 과다(시가대비 +85%)
+2026-05-05,C-961,SG DIGITAL PTE,SG,380000,용역대금,계약서 사본,용역 실체 미확인
+2026-05-19,P-963,BVI HOLDINGS,VG,250000,투자금,투자약정서,페이퍼컴퍼니 의심
+2026-06-02,P-963,BVI HOLDINGS,VG,250000,투자금,투자약정서,분할송금 패턴
+2026-06-16,P-963,BVI HOLDINGS,VG,240000,투자금,투자약정서,분할송금 패턴` },
+comm_records: { label:"통신내역.csv", desc:"통화·SMS·SNS·메신저(통신내역 관계분석 입력)", csv:`일시,발신,수신,채널,통화시간(초),비고
+2026-06-01 22:14,P-965,+86-138-****-2211,국제전화,412,심야 반복
+2026-06-02 23:02,P-965,+86-138-****-2211,국제전화,388,심야 반복
+2026-06-03 08:15,P-965,P-966,메신저,,출항 일정 공유
+2026-06-03 21:40,P-965,+86-138-****-2211,메신저,,'물건 3개 준비' 메시지
+2026-06-05 07:30,P-966,P-967,SMS,,'인천 T1 픽업' 메시지
+2026-06-05 23:55,P-965,+86-138-****-2211,국제전화,510,심야 반복
+2026-06-07 06:20,P-966,P-967,통화,95,입국일 아침
+2026-06-07 09:44,P-967,P-965,메신저,,'전달 완료' 메시지` },
+travel_history: { label:"출입국이력.csv", desc:"여행경로·경유지·동행(운송경로 분석 입력)", csv:`일자,대상,노선,경유,체류일,동행,비고
+2026-03-14,P-965,인천→방콕,,-5,단독,단기 반복 여행 1
+2026-03-19,P-965,방콕→인천,,,단독,
+2026-04-22,P-965,인천→프놈펜,호치민,4,P-966,단기 반복 여행 2
+2026-04-26,P-965,프놈펜→인천,호치민,,P-966,
+2026-06-04,P-966,인천→선전,홍콩,3,단독,물품 수령 추정
+2026-06-07,P-966,선전→인천,홍콩,,단독,입국검사 무신고 통과
+2026-06-28,P-965,인천→방콕,,3,P-967,단기 반복 여행 3
+2026-07-01,P-965,방콕→인천,,,P-967,` },
+cargo_manifest: { label:"운송적하목록.csv", desc:"B/L·경유지·컨테이너(운송경로 분석 입력)", csv:`B/L번호,선적일,선적항,경유지,양륙항,수하인,품명(적하목록),중량(kg),컨테이너,비고
+BL-2026-3301,2026-05-02,선전,홍콩,부산,C-954,PLASTIC PARTS,18400,TCLU8812001,
+BL-2026-3302,2026-05-18,선전,"홍콩,카오슝",부산,C-954,PLASTIC PARTS,18900,TCLU8812002,경유 1회 추가
+BL-2026-3303,2026-06-01,닝보,"홍콩,싱가포르,포트클랑",인천,C-954,PLASTIC PARTS,19200,TCLU8812003,경유 3회(우회 의심)
+BL-2026-3304,2026-06-14,호치민,,인천,C-957,GARMENTS,8200,HJCU2233104,원산지 VN 신고
+BL-2026-3305,2026-06-14,선전,호치민,인천,C-957,FABRIC ROLLS,8100,HJCU2233105,동일 수하인 CN발 원단(환적 의심)
+BL-2026-3306,2026-06-25,방콕,,인천,P-965,PERSONAL EFFECTS,120,LCL,이사화물 위장 의심` },
+ip_trademark_check: { label:"지재권_상표대조.csv", desc:"적발 물품 상표 진위 감정 결과", csv:`검사ID,적발일,대상,품명,표시상표,정품권리자,진위판정,수량,비고
+IP-2026-0501,2026-05-11,C-958,휴대폰 케이스,S-브랜드 로고,S전자,위조(무단사용),12000,로고 인쇄 품질 상이
+IP-2026-0502,2026-05-11,C-958,무선 이어폰,A-브랜드 마크,A사,위조(유사표장),8000,포장 홀로그램 없음
+IP-2026-0503,2026-06-03,C-958,운동화,N-브랜드,N사,위조(무단사용),15000,정품 대비 봉제 불량
+IP-2026-0504,2026-06-21,C-958,가방,L-브랜드 패턴,L사,감정중,3000,병행수입 주장` },
+};
+
+/* ═══════════════ 공통 자료 정의 (재사용) ═══════════════ */
+const D = {
+  cdwImp:   { name:"수입신고 내역", src:"내부 · CDW", fmt:"DB 조회", use:"신고가격·품목·거래처 패턴 분석의 기준 원장", req:1, file:"import_declarations" },
+  cdwExp:   { name:"수출신고 내역", src:"내부 · CDW", fmt:"DB 조회", use:"수출 실적·목적국·단가 패턴 분석", req:1, file:"export_declarations" },
+  docs:     { name:"첨부문서(인보이스·계약서·B/L·C/O)", src:"기초자료 등록 · OCR 추출", fmt:"PDF/이미지 → 추출값", use:"신고값과 실거래 문서값 대사(불일치 탐지)", req:1, file:"invoice_extracts" },
+  refund:   { name:"환급 신청·지급 이력", src:"내부 · 환급시스템", fmt:"DB 조회", use:"소요량·원재료 매칭, 중복·과다 환급 탐지", req:1, file:"refund_claims" },
+  exempt:   { name:"감면 신청·사후관리 이력", src:"내부 · 감면시스템", fmt:"DB 조회", use:"감면 요건·용도 이행 여부 확인", req:1, file:"exemption_claims" },
+  fin:      { name:"금융거래 내역(계좌·현금·가상계좌)", src:"외부기관 자료요청 · FIU/은행", fmt:"XLS/CSV", use:"자금흐름 관계분석(시계열·소유주 추적)", req:1, file:"financial_transactions" },
+  fx:       { name:"외환 송금·수취 내역", src:"외부기관 자료요청 · 외국환은행", fmt:"XLS/CSV", use:"송금 사유·증빙 대사, 분할·과다 송금 탐지", req:1, file:"fx_remittances" },
+  comm:     { name:"통신내역(통화·SMS·SNS·메신저)", src:"외부기관 자료요청 · 통신사(영장)", fmt:"XLS/CSV", use:"통신내역 관계분석(공범·전달책 연계)", req:1, file:"comm_records" },
+  travel:   { name:"출입국·여행 이력", src:"외부기관 자료요청 · 법무부", fmt:"DB 조회", use:"여행경로·경유지·동행 분석(운반 패턴)", req:1, file:"travel_history" },
+  cargo:    { name:"운송 적하목록·B/L", src:"내부 · 화물시스템", fmt:"DB 조회", use:"운송경로 역추적(환적·우회 탐지)", req:1, file:"cargo_manifest" },
+  ip:       { name:"상표·지재권 감정 결과", src:"외부 · 권리자 감정의뢰", fmt:"감정서", use:"진위 판정·권리침해 확정 근거", req:1, file:"ip_trademark_check" },
+  riskCase: { name:"위험선별 기준·유사 위반사례", src:"내부 · 위험선별 RAG", fmt:"RAG 검색", use:"유사 위험Case 비교·위험신호 우선순위", req:0 },
+  lawRef:   { name:"관련 법령·판례·유권해석", src:"내부 · 법령 RAG", fmt:"RAG 검색", use:"적용 법조·구성요건·처벌 근거 확정", req:1 },
+  web:      { name:"웹 공개정보(기사·시세·SNS)", src:"외부연계 · 웹 정보수집 요청", fmt:"URL 수집", use:"시장가격·업체 평판·유통 정황 보강", req:0 },
+  intl:     { name:"국제협력 정보(WCO·해외세관)", src:"내부 · 국제협력 RAG", fmt:"RAG 검색", use:"해외 거래처·국제 위험신호 확인", req:0 },
+  biz:      { name:"법인·지분·인적 관계 정보", src:"내부 · CDW/등기", fmt:"DB 조회", use:"관계망 분석(특수관계·페이퍼컴퍼니)", req:0 },
+};
+
+/* ═══════════════ 분석 단계 정의 (재사용) — 서비스명·분석범위는 플랫폼 카탈로그와 동일 ═══════════════ */
+const S = {
+  cdw:      (scope,how)=>({svc:"CDW 조회", scope:scope||["기업/신고 요약","위험지표 중심"], how:how||"자연어→SQL로 대상의 신고·위험지표 원장을 확보해 분석 기준선을 만든다.", out:"대상 프로파일·신고 원장 요약"}),
+  ragC:     ()=>({svc:"관세정보 RAG", scope:["관세정보 근거 확인","유사사례 비교"], how:"업무규정·법령·사례집에서 해당 범죄 유형의 판단 기준과 유사사례를 검색한다.", out:"적용 기준·유사사례 근거"}),
+  ragI:     ()=>({svc:"조사정보 RAG", scope:["조사계획 수립","증빙 체크"], how:"과거 조사·수사 결과보고서에서 동일 수법 사례와 필요 증빙 목록을 도출한다.", out:"수법 비교·증빙 체크리스트"}),
+  ragG:     ()=>({svc:"국제협력 RAG", scope:["국제협력 위험신호","해외거래처 확인"], how:"WCO·해외세관 정보에서 해외 거래처 실체와 국제 위험신호를 확인한다.", out:"해외 거래처 검증 결과"}),
+  risk:     ()=>({svc:"위험Case 분석", scope:["선별기준 확인","위험신호 정리"], how:"위험선별 기준·선별 이력에서 유사 위험Case를 검색해 대상에 적용 가능한 위험신호를 우선순위화한다.", out:"유사 Case·위험신호 목록"}),
+  dv:       ()=>({svc:"수입신고검증", scope:["신고 정합성","누락 증빙"], how:"첨부문서 추출값과 수입신고DB를 항목별 대조해 품명·수량·가격 불일치와 증빙 누락을 확인한다.", out:"항목별 불일치 표·판정"}),
+  hs:       ()=>({svc:"품목분류검증", scope:["분류 적정성","대체 HS 후보"], how:"신고 HS의 분류 적정성, 전략물자·수출허가 대상 여부를 검증한다.", out:"HS 판정·전략물자 해당 여부"}),
+  cv:       ()=>({svc:"과세가격평가", scope:["과세가격 근거","저가신고 탐지"], how:"거래가격 결정요소(가산·공제)와 동종물품 신고가를 비교해 저가신고 가능성을 정량화한다.", out:"가격 편차·추징 예상세액"}),
+  ab:       (scope)=>({svc:"이상거래 검증", scope:scope||["가격 패턴","거래상대방","신고패턴"], how:"가격 급변·상대방 변경·분할신고 등 이상 패턴을 통계적으로 탐지한다.", out:"이상 패턴·위험도 표"}),
+  og:       ()=>({svc:"원산지 검증", scope:["원산지증명 검토","FTA 리스크","우회수입 확인"], how:"C/O 진위·발급기관, FTA 협정 기준 충족 여부, 제3국 우회 가능성을 검증한다.", out:"원산지 판정·우회 시뮬레이션"}),
+  rt:       ()=>({svc:"운송경로 분석", scope:["운송경로","공급망 역추적","우회경유"], how:"B/L·적하목록·여행이력으로 경로를 재구성해 환적·우회·이상 경유를 탐지한다.", out:"경로 재구성도·의심 구간"}),
+  pt:       ()=>({svc:"범죄수익 추적", scope:["자금흐름","계좌추적 단서","은닉 가능성"], how:"수익 발생→이동→은닉 경로의 단서를 정리해 몰수·추징 대상 자산을 특정한다.", out:"수익 규모·은닉 자산 목록"}),
+  ft:       ()=>({svc:"자금흐름 관계분석", scope:["자금흐름내역","계좌·송금 이체내역","가상자산 거래내역","현금 입출금내역"], how:"자금내역 파일을 시계열·소유주 중심으로 추적하고 관계망 그래프로 집결·분산 노드를 식별한다.", out:"자금흐름 그래프·은닉 지점"}),
+  cm:       ()=>({svc:"통신내역 관계분석", scope:["통화내역","SMS","SNS","메신저"], how:"연락 빈도·시간대·채널 패턴을 분석해 공범·전달책·지시책 관계를 식별한다.", out:"연락 관계도·연계 의심 목록"}),
+  nw:       ()=>({svc:"관계망 분석", scope:["관계망 분석","페이퍼컴퍼니"], how:"지분·거래·인적 관계망을 탐색해 특수관계·위장법인 가능성을 식별한다.", out:"관계 그래프·의심 클러스터"}),
+  web:      ()=>({svc:"웹 정보수집 요청", scope:["업체 기사","공급망/가격","URL 직접 등록"], how:"시장 시세·업체 기사·판매 게시글 등 공개정보를 수집해 내부 분석 결과를 보강한다.", out:"공개정보 수집 결과"}),
+  pat:      ()=>({svc:"특허정보 조회", scope:["로열티 확인","특허 정보 조회"], how:"특허·상표 권리관계와 로열티 계약의 과세가격 반영 여부를 확인한다.", out:"권리관계·로열티 확인서"}),
+  law:      ()=>({svc:"법령 검토", scope:["법령 근거","판례/유권해석"], how:"적용 법조(관세법·대외무역법·특가법 등)와 구성요건·판례를 검토해 혐의 적용 가능성을 판단한다.", out:"적용 법조·구성요건 검토서"}),
+  rg:       ()=>({svc:"보고서 생성", scope:["전체 보고서"], how:"선행 단계 결과를 통합해 공식 조사·수사보고서 초안을 작성한다.", out:"수사보고서 초안"}),
+  rv:       ()=>({svc:"보고서 검증", scope:["근거 검증","리스크 리뷰"], how:"보고서의 근거 충실성·과도한 추론·출처를 검증한다.", out:"검증 대시보드·보완 목록"}),
+};
+
+/* ═══════════════ 17개 범죄 유형 정의 ═══════════════
+   id는 앱 CRIME_TAXONOMY(crime-taxonomy.js)와 동일 체계 */
+const GROUPS = [
+  { id:"c1", label:"① 관세수입 침해", color:"#b45309", crimes:["c1_price","c1_refund","c1_exemption"] },
+  { id:"c2", label:"② 밀수출입", color:"#15803d", crimes:["c2_import","c2_export","c2_prohibited"] },
+  { id:"c34", label:"③ 부정 통관·금지/제한", color:"#6d28d9", crimes:["c3_origin","c4_prohibited_goods","c4_ip","c4_customs_confirm"] },
+  { id:"c6", label:"④ 외환·자금 범죄", color:"#0e7490", crimes:["c6_illegal_fx","c6_laundering","c6_flight","c6_trade_front"] },
+  { id:"c7", label:"⑤ 마약 범죄", color:"#be185d", crimes:["c7_smuggle","c7_offense","c7_fund"] },
+];
+
+const CRIMES = {
+/* ── ① 관세수입 침해 ── */
+c1_price: {
+  label:"관세포탈죄 — 저가신고 가격조작", law:"관세법 §270①, §270의2(가격조작)",
+  summary:"실거래가격보다 낮은 가격으로 수입신고(언더밸류)하여 관세·부가세를 포탈하는 유형. 이중 인보이스, 차액 해외 별도송금이 전형적 수법이다.",
+  dims:{A:2,B:0,C:2,D:1,E:2},
+  data:[D.cdwImp, D.docs, D.fx, D.fin, D.riskCase, D.lawRef, D.web],
+  steps:[ S.cdw(), S.ragC(), S.risk(), S.dv(), S.cv(), S.ab(["가격 패턴","신고패턴"]), S.ft(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)로우텍무역", id:"C-951", risk:87, profile:[["업종","전자부품 수입"],["연매출","214억원"],["주요품목","무선통신 모듈(HS 8517)"],["주거래국","중국"]],
+    ind:["동종물품 대비 신고단가 -38~-43% 지속","이중 인보이스 정황(문서 추출값 불일치 4건)","수입대금 외 별도 해외송금 반복"] },
+  person:{ name:"김포탈", id:"P-951", role:"대표이사(실운영자)", risk:82, profile:[["연령대","50대"],["직책","대표이사"],["출입국","中 선전 연 11회"],["관련법인","2개(명의 분산)"]],
+    ind:["개인 명의 홍콩 계좌로 차액 수취 정황","가족 명의 법인으로 수입 분산"] },
+  results:[
+    "{T}의 최근 24개월 수입신고 47건 확보. HS 8517.62 신고단가 평균 USD 4.08로 업계 중위값(USD 6.7) 대비 -39%. 위험점수 87점(상위 2%).",
+    "저가신고 판단 기준(관세평가 1방법·가산요소) 및 유사 포탈 사례 3건 확인 — 이중 인보이스 수법 판례(2024노XXXX) 근거 확보.",
+    "위험선별 이력에서 동일 공급자(SHENZHEN TELE CO) 관련 위험Case 2건 검색 — 저가신고 신호 우선순위 1위.",
+    "첨부문서 대사 결과 인보이스 단가 USD 6.75~6.90 vs 신고단가 USD 3.80~4.35 — 불일치 4건 확정, 신고 총액 기준 차액 USD 152,400.",
+    "과세가격 재산정: 실거래가 기준 추징 예상세액 4.2억원(관세 1.1억 + 부가세 3.1억). 계약서에서 권리사용료 조항 발견 — 가산요소 미신고 추가 확인.",
+    "가격 패턴 분석: 분기별 단가 인하 추세(-3%/분기)와 신고 건 분할 패턴 탐지 — 저가신고 은폐 목적 분할신고 의심.",
+    "자금흐름: 수입대금(신고가) 정상 송금 외 '수수료' 명목 국내 인출 2건·홍콩 별도송금 정황 — 차액 정산 구조 그래프 확정.",
+    "관세법 §270①(포탈) + §270의2(가격조작) 경합 적용 검토 — 포탈세액 4.2억원, 특가법 적용 기준(연간 5억) 근접. 구성요건 충족 판단.",
+    "수사보고서 초안 생성 — 혐의사실·증거목록(문서 4건, 송금기록 6건)·추징세액 산정 근거 포함.",
+    "보고서 검증 완료 — 근거 충실성 91점, 출처 12건 유효. 보완 1건(환율 적용 시점 명시) 반영 권고." ],
+  verdict:"{T}에 대해 관세포탈(저가신고 가격조작) 혐의 상당. 포탈세액 약 4.2억원, 이중 인보이스·차액 해외정산 구조 확인.",
+  acts:["압수수색 영장 신청(회계·이메일)","홍콩 계좌 국제공조 요청","추징보전 조치","특가법 적용 검토"] },
+
+c1_refund: {
+  label:"부정환급죄", law:"관세법 §270⑤",
+  summary:"수출용 원재료 관세환급 제도를 악용해 소요량 부풀리기, 원재료 수입신고 재사용(중복), 가공 수출실적 등으로 환급금을 부정 수령하는 유형.",
+  dims:{A:2,B:0,C:2,D:1,E:2},
+  data:[D.refund, D.cdwExp, D.cdwImp, D.docs, D.fin, D.lawRef],
+  steps:[ S.cdw(["신고내역 중심"]), S.ragI(), S.dv(), S.ab(["신고패턴"]), S.ft(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)리펀드글로벌", id:"C-953", risk:79, profile:[["업종","전자부품 제조·수출"],["연매출","98억원"],["환급수령(1년)","4.5억원"],["환급/매출 비율","4.6%(업계 0.8%)"]],
+    ind:["원재료 수입신고 재사용(RF-0105 ↔ RF-0101 동일 원장)","소요량 대비 환급액 과다(불일치 의심 2건)","수출단가와 원재료 구성 불일치"] },
+  person:{ name:"이환급", id:"P-953", role:"자금·환급 담당 이사", risk:71, profile:[["연령대","40대"],["직책","경영지원 이사"],["겸직","관세사무소 출신"],["계좌","법인 3·개인 2"]],
+    ind:["환급금 수령 직후 개인계좌 이체 패턴","환급 서류 일괄 작성·단독 결재"] },
+  results:[
+    "{T}의 수출신고 32건·환급신청 5건 원장 확보. 환급/매출 비율 4.6%로 동종업계 5.8배 — 이상 신호.",
+    "과거 부정환급 조사사례 4건 대조 — '원재료 신고 재사용' 수법 일치. 필요 증빙: 소요량 계산서·생산일지·재고장.",
+    "수출물품-원재료 대사: RF-0103 소요량 불일치(신고 소요량이 생산가능량의 1.8배), RF-0105는 RF-0101과 동일 수입신고(15I-2025-118801) 재사용 확정.",
+    "신고패턴 분석: 환급신청 주기가 지급한도 갱신 직후 집중 — 제도 인지 후 계획적 신청 패턴.",
+    "자금흐름: 환급금 입금 후 48시간 내 이환급 개인계좌로 평균 12% 이체 반복 — 리베이트성 자금 이동 의심.",
+    "관세법 §270⑤ 부정환급 구성요건 검토 — 부정수령액 약 1.9억원(중복 0.9 + 과다 1.0), 사기 기타 부정한 방법 해당 판단.",
+    "수사보고서 초안 생성 — 환급 건별 부정액 산정표·자금이동 추적표 포함.",
+    "보고서 검증 완료 — 근거 충실성 88점. 소요량 재계산 검증자료 첨부 권고." ],
+  verdict:"{T}에 대해 부정환급 혐의 상당. 원재료 신고 재사용·소요량 과다로 약 1.9억원 부정수령 추정.",
+  acts:["환급 지급 정지 요청","생산일지·재고장 압수","환급액 환수·가산 징수","개인계좌 추적 영장"] },
+
+c1_exemption: {
+  label:"부정감면죄", law:"관세법 §270④",
+  summary:"용도세율·재수출감면 등 감면 요건을 허위로 갖추거나 감면 물품을 지정 용도 외로 사용·처분(횡류)하여 관세를 면탈하는 유형.",
+  dims:{A:2,B:0,C:1,D:1,E:2},
+  data:[D.exempt, D.cdwImp, D.docs, D.web, D.lawRef, D.biz],
+  steps:[ S.cdw(["신고내역 중심"]), S.ragI(), S.dv(), S.ab(["신고패턴"]), S.web(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)듀티프리산업", id:"C-956", risk:74, profile:[["업종","정밀기기 수입"],["연매출","156억원"],["감면수혜(1년)","2.4억원"],["사후관리 대상","5건"]],
+    ind:["재수출감면 금형 — 기한 임박에도 재수출 실적 없음","감면 수입 산업용 로봇의 국내 중고거래 게시글 발견","연구용 감면 — 연구소 실재성 미확인"] },
+  person:{ name:"박감면", id:"P-956", role:"구매팀장", risk:65, profile:[["연령대","40대"],["직책","구매팀장"],["담당","감면신청 전건"],["관계","중고기계 유통업자와 통화 다수"]],
+    ind:["감면물품 반출 지시 문자 확보","중고 유통업자와 금전거래 정황"] },
+  results:[
+    "{T}의 감면 수혜 5건(총 2.38억원) 및 사후관리 이행 현황 확보 — 재수출 이행 0건, 기한 임박 1건.",
+    "감면 횡류 조사사례 대조 — '재수출감면 후 국내 매각' 수법 일치. 현장 확인 필요 품목: 금형·산업용 로봇.",
+    "감면신청 서류 대사: 연구용 감면 2건의 연구소 주소가 임대 창고로 확인 — 용도 요건 허위 의심.",
+    "신고패턴: 감면 한도 소진 직전 반복 신청, 동일 품목 분할 신청 패턴 탐지.",
+    "웹 수집: 중고기계 거래 사이트에서 감면 수입 로봇과 동일 시리얼 추정 매물 게시글 확보(2026-06-25 게시).",
+    "관세법 §270④ 부정감면 및 §97(용도 외 사용) 검토 — 면탈세액 약 1.4억원, 사후관리 위반 병행.",
+    "수사보고서 초안 생성 — 품목별 감면·이행·횡류 정황 대비표 포함.",
+    "보고서 검증 완료 — 근거 충실성 86점. 현장 실사 결과 첨부 시 판정 상향 가능." ],
+  verdict:"{T}에 대해 부정감면·용도 외 사용 혐의 상당. 면탈세액 약 1.4억원, 감면물품 국내 횡류 정황 확보.",
+  acts:["감면물품 현장 실사","중고거래 판매자 특정","면탈세액 추징","사후관리 대상 전수 점검"] },
+
+/* ── ② 밀수출입 ── */
+c2_import: {
+  label:"밀수입죄", law:"관세법 §269②",
+  summary:"세관 신고 없이 물품을 국내 반입하거나, 타 품명 위장·컨테이너 은닉 등으로 부정 반입하는 유형. 우회 경유와 위장 수하인이 전형적이다.",
+  dims:{A:2,B:2,C:1,D:1,E:1},
+  data:[D.cdwImp, D.cargo, D.docs, D.riskCase, D.fin, D.lawRef],
+  steps:[ S.cdw(), S.ragI(), S.dv(), S.risk(), S.rt(), S.ft(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)섀도우로지스", id:"C-954", risk:83, profile:[["업종","물류·무역대행"],["연매출","67억원"],["주요품목","플라스틱 부품(신고 기준)"],["경유지","홍콩·싱가포르 다수"]],
+    ind:["동일 품명 반복 신고에 경유지 점증(1→3회)","신고 중량과 적하목록 중량 지속 편차(+4~7%)","위장 수하인(휴면법인) 사용 정황"] },
+  person:{ name:"최밀수", id:"P-954", role:"물류 브로커", risk:78, profile:[["연령대","40대"],["직업","통관 브로커"],["관리법인","3개(휴면 포함)"],["출입국","홍콩 연 14회"]],
+    ind:["휴면법인 명의 컨테이너 배정 지시","선사 담당자와 비정상 접촉 기록"] },
+  results:[
+    "{T}의 수입신고 28건·화물 원장 확보 — 신고품명 단일(플라스틱 부품)이나 컨테이너 중량 편차 반복.",
+    "밀수입 조사사례 대조 — '품명 위장 + 우회 경유' 수법 일치. 검사 지정 회피 이력 2건 확인.",
+    "신고-적하목록 대사: BL-2026-3303 중량 +800kg 초과, 품명 외 이형 화물 혼적 의심.",
+    "위험Case 검색: 동일 경유 패턴(닝보→홍콩→싱가포르→포트클랑)의 밀수 적발 Case 1건 — 신호 일치.",
+    "경로 재구성: 경유 3회 구간에서 컨테이너 봉인 교체 기록 확인 — 환적 중 적입 의심 구간 특정.",
+    "자금흐름: 브로커 최밀수 계좌로 건당 4,900만원 '수수료' 반복 입금 — 밀수 대가 정황.",
+    "관세법 §269②(밀수입) 및 §274(밀수품 취득) 검토 — 시가 기준 밀수액 약 12억원 추정.",
+    "수사보고서 초안 생성 — 경로 재구성도·봉인 기록·자금 대가 흐름 포함.",
+    "보고서 검증 완료 — 근거 충실성 89점. 컨테이너 검색 영상 확보 권고." ],
+  verdict:"{T}에 대해 밀수입 혐의 상당. 우회 경유 환적 적입 구조와 밀수 대가 자금흐름 확인, 밀수액 약 12억원 추정.",
+  acts:["차기 입항 컨테이너 전량 검사","봉인 교체 구간 국제공조","휴면법인 명의자 소환","밀수품 국내 유통망 추적"] },
+
+c2_export: {
+  label:"밀수출죄", law:"관세법 §269③",
+  summary:"신고 없이 물품을 국외 반출하거나 허위신고로 수출하는 유형. 금괴·고세율 물품의 무신고 반출, 리퍼 위장 반출이 전형적이다.",
+  dims:{A:2,B:2,C:1,D:1,E:1},
+  data:[D.cdwExp, D.cargo, D.docs, D.fin, D.travel, D.lawRef],
+  steps:[ S.cdw(["신고내역 중심"]), S.ragI(), S.dv(), S.rt(), S.ft(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)골드브릿지", id:"C-952", risk:81, profile:[["업종","귀금속 도매"],["연매출","310억원"],["주요품목","금 반제품(HS 7108)"],["목적국","홍콩·싱가포르"]],
+    ind:["금 반제품 수출 급증(전년비 +240%)","구매자 3사 모두 사서함 주소(실체 미확인)","항공 수하물 운반책 이용 정황"] },
+  person:{ name:"정금괴", id:"P-952", role:"운반 중개인", risk:76, profile:[["연령대","30대"],["직업","무역 중개"],["출국","홍콩 월 2~3회"],["수하물","고중량 반복"]],
+    ind:["출국 수하물 X-ray 고밀도 물체 반복","공항 환전소 고액 환전 이력"] },
+  results:[
+    "{T}의 수출신고 원장 확보 — 금 반제품 3건 총 USD 26백만, 단가 시세 대비 -1.2%로 정상 위장.",
+    "밀수출 사례 대조 — '정상 수출 + 무신고 병행 반출' 혼합 수법 사례 일치.",
+    "신고-실반출 대사: 수출신고 중량 합계와 보세구역 반출 중량 차이 +82kg — 무신고 반출분 의심.",
+    "경로 분석: 운반책 정금괴의 출국 일정이 신고 수출 일정과 비동기 — 수하물 반출 별도 채널 확인.",
+    "자금흐름: 홍콩 GOLDEN GATE HK로부터 수출대금 외 개인 수취 USD 18만 확인 — 무신고 반출 대가 추정.",
+    "관세법 §269③ 밀수출 검토 — 무신고 금괴 약 82kg, 시가 약 90억원 상당.",
+    "수사보고서 초안 생성 — 중량 대사표·출국 이력·대금 흐름 포함.",
+    "보고서 검증 완료 — 근거 충실성 87점. 공항 CCTV·X-ray 기록 첨부 권고." ],
+  verdict:"{T}에 대해 밀수출 혐의 상당. 정상 수출 위장 하에 무신고 금괴 반출(약 82kg) 병행 정황.",
+  acts:["출국장 검색 강화 지정","홍콩 수취처 국제공조","운반책 출국 시 통제배달 검토","외환거래 병행 조사"] },
+
+c2_prohibited: {
+  label:"금지품 밀수", law:"관세법 §269①",
+  summary:"수출입이 금지된 물품(위조화폐·음란물·국헌문란 물품 등)을 은닉 반입·반출하는 유형. 여행자 휴대품·국제우편 은닉이 전형적이다.",
+  dims:{A:2,B:2,C:0,D:1,E:1},
+  data:[D.travel, D.cargo, D.comm, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.risk(), S.rt(), S.cm(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)그레이커머스", id:"C-960", risk:72, profile:[["업종","해외직구 대행"],["연매출","24억원"],["처리물량","국제우편 월 3,000건"],["적발이력","유사물품 1회"]],
+    ind:["금지물품 은닉 우편물의 수취 대행 반복","특정 발송인(해외 3인) 집중 구조"] },
+  person:{ name:"한금지", id:"P-960", role:"여행자(운반)", risk:80, profile:[["연령대","30대"],["직업","무직(SNS 활동)"],["여행","단기 반복 5회/6개월"],["휴대품","신고 이력 0건"]],
+    ind:["단기 왕복 여행 반복 + 무신고 통과","SNS에서 금지품 판매 추정 게시물"] },
+  results:[
+    "{T} 관련 반입 채널 원장 확보 — 국제우편·휴대품 경로 병행 구조 확인.",
+    "위험Case 검색: 동일 발송인 관련 금지품 적발 Case 1건 — X-ray 이미지 특징 일치.",
+    "경로 분석: 발송지 우회(제3국 경유 재발송) 패턴 확인 — 원발송지 은폐 목적.",
+    "통신 분석: 해외 발송인과 심야 메신저 반복, '통과 완료' 취지 메시지 확보 — 조직적 반입 정황.",
+    "관세법 §269① 및 형법 관련 조항 검토 — 금지품 해당성 확정, 상습성 가중 요건 검토.",
+    "수사보고서 초안 생성 — 반입 건별 경로·통신 연계표 포함.",
+    "보고서 검증 완료 — 근거 충실성 85점. 물품 감정서 확보 권고." ],
+  verdict:"{T}에 대해 금지품 밀수 혐의 상당. 우회 발송·수취 대행의 조직적 반입 구조 확인.",
+  acts:["국제우편 검사 강화 지정","입국 시 정밀검사 대상 등록","발송인 국제공조 확인","SNS 판매 채널 차단 요청"] },
+
+/* ── ③ 부정 통관·금지/제한 ── */
+c3_origin: {
+  label:"원산지 표시 위반", law:"대외무역법 §33, 관세법 §230",
+  summary:"원산지를 허위 표시·손상·변경하거나 제3국 환적으로 원산지를 세탁(우회수입)하는 유형. FTA 특혜세율 부정 적용과 결합되는 경우가 많다.",
+  dims:{A:2,B:2,C:0,D:1,E:1},
+  data:[D.cdwImp, D.docs, D.cargo, D.web, D.lawRef],
+  steps:[ S.cdw(), S.ragC(), S.dv(), S.og(), S.rt(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)라벨체인지", id:"C-957", risk:85, profile:[["업종","의류 수입"],["연매출","89억원"],["신고 원산지","베트남(FTA 적용)"],["FTA 감면","연 3.2억원"]],
+    ind:["동일 수하인 앞 CN발 원단 + VN발 완제품 동시 입항(환적 의심)","C/O 발급기관 미확인 2건","VN 봉제공장 실체 미확인"] },
+  person:{ name:"오원산", id:"P-957", role:"구매대행(현지 에이전트)", risk:69, profile:[["연령대","40대"],["활동지","호치민"],["역할","C/O 발급 대행"],["관계법인","현지 페이퍼 1개"]],
+    ind:["C/O 서식 위조 정황(발급번호 불연속)","라벨 재봉 작업 지시 메시지"] },
+  results:[
+    "{T}의 수입신고 원장 확보 — VN 원산지 FTA 적용 17건, 감면 누계 3.2억원.",
+    "원산지 판정 기준(세번변경·부가가치) 및 우회수입 사례 확인 — '원단 CN → VN 단순가공' 불인정 사례 근거 확보.",
+    "신고-문서 대사: C/O 2건 발급기관 조회 불가(DOC-0027), 발급번호 체계 불연속 — 위조 의심.",
+    "원산지 검증: VN 공장 생산능력(추정 월 2만벌) < 신고 수량(월 3.4만벌) — 실질변형 기준 미충족 판단.",
+    "경로 분석: BL-3304(VN발 완제품)와 BL-3305(CN발 원단)가 동일 수하인·동일 주간 입항 — 환적 세탁 구조 확정.",
+    "대외무역법 §33·관세법 §230 및 FTA 특례법 검토 — 허위표시 + 특혜세율 부정 적용, 추징 3.2억원 + 과징금 대상.",
+    "수사보고서 초안 생성 — 환적 구조도·C/O 진위 대조표 포함.",
+    "보고서 검증 완료 — 근거 충실성 90점. VN 발급기관 공식 회신 첨부 권고." ],
+  verdict:"{T}에 대해 원산지 표시 위반·FTA 부정적용 혐의 상당. 제3국 환적 원산지 세탁 구조와 C/O 위조 정황 확인.",
+  acts:["FTA 특혜 적용 중지","VN 세관 검증 요청(국제공조)","기적용 감면세액 추징","라벨 위조 현장 압수"] },
+
+c4_prohibited_goods: {
+  label:"수출입 금지품 위반", law:"관세법 §234, 대외무역법 §11",
+  summary:"법령상 수출입이 금지·제한된 물품(멸종위기종·유해 폐기물·총포류 등)을 타 품명으로 위장해 반출입하는 유형.",
+  dims:{A:2,B:2,C:0,D:1,E:1},
+  data:[D.cdwImp, D.cargo, D.docs, D.riskCase, D.intl, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragG(), S.hs(), S.dv(), S.rt(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)보더리스무역", id:"C-959", risk:77, profile:[["업종","잡화 수출입"],["연매출","41억원"],["신고품명","공예품·잡화"],["원산지","동남아 다수"]],
+    ind:["'목공예품' 신고 화물에서 CITES 의심 목재 검출 이력","품명 불명확 신고 반복(잡화·기타)"] },
+  person:{ name:"백통제", id:"P-959", role:"중개상", risk:70, profile:[["연령대","50대"],["직업","무역 중개"],["취급품","희귀 동식물 제품 추정"],["판로","온라인 커뮤니티"]],
+    ind:["희귀종 제품 판매 게시글 연계","해외 채집자와 직거래 메시지"] },
+  results:[
+    "{T}의 수입신고 원장 확보 — 품명 불명확 신고 비율 34%(업계 6%), 검사 회피 시간대 반입 집중.",
+    "국제협력 정보: CITES 사무국 경보 목록과 발송인 대조 — 요주의 수출자 1건 일치.",
+    "품목분류 검증: '목공예품' 신고 HS와 실물 사진의 수종 특징 불일치 — 규제 수종(자단목) 가능성.",
+    "신고-문서 대사: 수출국 허가서(CITES 허가) 첨부 0건 — 필수 증빙 누락 전건.",
+    "경로 분석: 원산국→제3국 경유 재포장 후 반입 — 검역·허가 회피 목적 경유 확인.",
+    "관세법 §234·대외무역법 §11 검토 — 금지품 해당 시 몰수·폐기 및 형사처벌 대상.",
+    "수사보고서 초안 생성 — 품명 위장·허가 누락 대비표 포함.",
+    "보고서 검증 완료 — 근거 충실성 84점. 수종 감정 결과 확보 필수." ],
+  verdict:"{T}에 대해 수출입 금지품 위반 혐의 상당. 품명 위장·필수 허가 누락 반입 구조 확인.",
+  acts:["보세구역 화물 검사·수종 감정","CITES 국제공조 조회","판매 게시글 증거 보전","전량 몰수·폐기 절차 준비"] },
+
+c4_ip: {
+  label:"지식재산권 침해물품", law:"관세법 §235, 상표법 §230",
+  summary:"위조 상표 부착 물품(짝퉁)을 수입·유통하는 유형. 병행수입 위장, 상표 라벨 별도 반입 후 국내 부착이 전형적 수법이다.",
+  dims:{A:2,B:1,C:0,D:1,E:1},
+  data:[D.cdwImp, D.ip, D.docs, D.web, D.lawRef],
+  steps:[ S.cdw(), S.ragI(), S.dv(), S.hs(), S.ab(["거래상대방"]), S.pat(), S.web(), S.rg(), S.rv() ],
+  company:{ name:"(주)카피굿즈", id:"C-958", risk:88, profile:[["업종","패션잡화 수입·온라인 판매"],["연매출","52억원"],["적발","위조 판정 3건(3.5만점)"],["판로","오픈마켓 4곳"]],
+    ind:["위조 판정 물품 3건(S·A·N 브랜드) 35,000점","라벨·완제품 분리 반입 정황","병행수입 주장 반복(권리자 확인 불가)"] },
+  person:{ name:"남상표", id:"P-958", role:"온라인 셀러(유통책)", risk:75, profile:[["연령대","30대"],["판매계정","7개(명의 차용)"],["월 판매","약 8,000점"],["반품률","42%(품질 불만)"]],
+    ind:["차명 판매계정 운영","위조품 원가표 파일 확보"] },
+  results:[
+    "{T}의 수입신고 원장 확보 — 브랜드 미기재 '잡화' 신고 후 온라인에서 브랜드 상품 판매 구조 확인.",
+    "지재권 침해 조사사례 대조 — '라벨 분리 반입' 수법 일치, 국내 부착 작업장 존재 추정.",
+    "신고-문서 대사: 인보이스 품명 'CASE/EARPHONE(무상표)' vs 판매 페이지 브랜드 명기 — 위장 신고 확정.",
+    "품목분류 검증: 신고 HS 정상이나 상표 표시 의무 위반 — 세관 인지 회피 목적 무상표 신고.",
+    "거래상대방 분석: 공급자 2곳 모두 위조품 다발 지역 소재, 과거 적발 이력 연계.",
+    "특허·상표 조회: 권리자 4사 확인, 병행수입 인정 요건(정품 출처) 불충족 — 권리자 감정 위조 판정 3건.",
+    "웹 수집: 오픈마켓 판매 페이지 12건 아카이브 — 정품 대비 30% 가격, '정품' 표기 허위광고 병행.",
+    "수사보고서 초안 생성 — 위조 판정서·판매 아카이브·수입 연계표 포함.",
+    "보고서 검증 완료 — 근거 충실성 92점. 작업장 위치 특정 후 압수 권고." ],
+  verdict:"{T}에 대해 지식재산권 침해물품 수입·유통 혐의 상당. 위조 판정 3.5만점, 라벨 분리 반입·차명 유통 구조 확인.",
+  acts:["통관 보류·전량 압수","라벨 부착 작업장 압수수색","오픈마켓 판매 중지 요청","권리자 고소 연계"] },
+
+c4_customs_confirm: {
+  label:"세관장 확인대상·수출입 제한 위반", law:"관세법 §226, 대외무역법 §19(전략물자)",
+  summary:"전략물자·이중용도 품목 등 세관장 확인·허가 대상 물품을 허가 없이, 또는 품명·규격을 위장해 수출입하는 유형.",
+  dims:{A:2,B:1,C:0,D:0,E:1},
+  data:[D.cdwExp, D.docs, D.intl, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["신고내역 중심"]), S.ragG(), S.hs(), S.dv(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)듀얼유즈텍", id:"C-955", risk:82, profile:[["업종","반도체 부품 수출"],["연매출","187억원"],["주요품목","반도체 IC(HS 8542)"],["목적국","홍콩→제3국 재수출 의심"]],
+    ind:["전략물자 판정 대상 사양 IC를 일반품목으로 신고","최종 사용자 불명(홍콩 중계상 3사)","재수출 통제국 향 물동 정황"] },
+  person:{ name:"유전략", id:"P-955", role:"수출 담당 이사", risk:73, profile:[["연령대","40대"],["직책","해외영업 이사"],["전문성","전략물자 제도 숙지"],["통신","해외 중계상과 암호화 메신저"]],
+    ind:["사양서 다운그레이드 편집본 발견","'판정 회피' 언급 메일 확보"] },
+  results:[
+    "{T}의 수출신고 원장 확보 — 반도체 IC 5건 USD 3.2백만, 전량 홍콩 중계상 앞 수출.",
+    "국제협력 정보: 최종 사용자 3사 중 1사가 통제 우려 거래자 목록(Watch List) 등재 확인.",
+    "품목분류·사양 검증: 신고 규격은 일반품이나 첨부 데이터시트 성능값이 전략물자 판정 기준 초과 — 판정 대상 확정.",
+    "신고-문서 대사: 원 사양서와 제출 사양서의 성능 항목 수정 흔적(문서 메타데이터) — 고의 위장 판단.",
+    "대외무역법 §19·관세법 §226 검토 — 무허가 전략물자 수출, 상황허가 회피 해당. 형사처벌 + 수출제한 처분 대상.",
+    "수사보고서 초안 생성 — 사양 대조표·최종 사용자 검증 결과 포함.",
+    "보고서 검증 완료 — 근거 충실성 91점. 산업부 전략물자관리원 공식 판정서 첨부 권고." ],
+  verdict:"{T}에 대해 전략물자 무허가 수출 혐의 상당. 사양 위장·판정 회피의 고의성 입증 자료 확보.",
+  acts:["잔여 수출건 통관 보류","전략물자관리원 판정 의뢰","최종 사용자 국제공조 검증","수출입 제한 처분 병행"] },
+
+/* ── ④ 외환·자금 범죄 ── */
+c6_illegal_fx: {
+  label:"불법 외환거래", law:"외국환거래법 §27~29",
+  summary:"무등록 외환업무(환치기), 허위 증빙 송금, 수출입 가격조작을 통한 외화 불법 이동 유형. 무역대금 위장이 전형적이다.",
+  dims:{A:1,B:0,C:2,D:2,E:2},
+  data:[D.fx, D.fin, D.cdwImp, D.comm, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragI(), S.pt(), S.ft(), S.cm(), S.web(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)브릿지상사", id:"C-961", risk:86, profile:[["업종","무역(중계)"],["연매출","145억원"],["송금액(6개월)","USD 4.1백만"],["거래처","홍콩 노미니 법인"]],
+    ind:["수입단가 시가 대비 +85% 과다 송금(가격조작 의심)","용역 실체 없는 용역대금 송금","중계 계좌 경유 즉시 재송금 구조"] },
+  person:{ name:"김환치", id:"P-961", role:"환치기 업자", risk:84, profile:[["연령대","50대"],["직업","무등록 환전"],["관리계좌","12개(차명 포함)"],["고객","유학·부동산 송금 수요자"]],
+    ind:["차명계좌 다수 운용","현금 수거·해외 페어 정산 구조"] },
+  results:[
+    "{T}의 무역·송금 원장 확보 — 신고 수입액 대비 송금액 +62%, 초과 송금 USD 1.55백만.",
+    "환치기 조사사례 대조 — '무역대금 위장 + 국내외 페어 정산' 수법 일치.",
+    "범죄수익 추적: 초과 송금분의 최종 귀속 — 홍콩 노미니 계좌 경유 사주 개인 자산 취득 정황.",
+    "자금흐름 그래프: 국내 수요자 입금(37건) → 중계계좌 → 당일 홍콩 일괄 송금 반복 — 전형적 환치기 구조 확정. 취급액 추정 780억원.",
+    "통신 분석: 송금 수요자와 '환율 우대' 모집 메시지 다수 — 불특정 다수 대상 영업 입증.",
+    "웹 수집: 커뮤니티 환전 광고 게시글 8건 아카이브 — 무등록 영업 공개 모집 증거.",
+    "외국환거래법 §27(무등록)·§29(허위증빙) 검토 — 취급액 기준 가중처벌 대상.",
+    "수사보고서 초안 생성 — 페어 정산 구조도·취급액 산정표 포함.",
+    "보고서 검증 완료 — 근거 충실성 90점. 홍콩 정산 계좌 공조 회신 대기." ],
+  verdict:"{T}에 대해 무등록 외환업무(환치기)·허위증빙 송금 혐의 상당. 취급액 약 780억원 규모 정산 구조 확정.",
+  acts:["계좌 지급정지(12개)","홍콩 정산계좌 국제공조","현금 수거책 검거 공조","가격조작 병행 조사(관세)"] },
+
+c6_laundering: {
+  label:"자금세탁", law:"특정금융정보법, 범죄수익은닉규제법 §3",
+  summary:"범죄수익을 다단계 이체·가상자산·차명계좌로 구조화(레이어링)하여 출처를 은폐하는 유형. 무역대금·법인 자금 위장이 결합된다.",
+  dims:{A:1,B:0,C:2,D:2,E:2},
+  data:[D.fin, D.fx, D.biz, D.comm, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragI(), S.pt(), S.ft(), S.nw(), S.cm(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)레이어드캐피탈", id:"C-962", risk:89, profile:[["업종","투자·컨설팅(명목)"],["연매출","경영실적 미미"],["계좌 회전율","월 40회전"],["관계법인","6개(순환 지분)"]],
+    ind:["매출 없이 대규모 자금 회전","관계법인 6개 순환 이체(레이어링)","가상자산 거래소 대량 출금"] },
+  person:{ name:"조세탁", id:"P-962", role:"자금책", risk:87, profile:[["연령대","40대"],["역할","자금 구조 설계"],["전력","유사수신 연루 1회"],["통제계좌","법인 6·개인 4"]],
+    ind:["이체 지시 메시지 다수(금액·순서 지정)","현금화 조직과 연락 유지"] },
+  results:[
+    "{T} 관련 계좌군 원장 확보 — 6개 법인 10개 계좌, 6개월 회전액 1,240억원(실물거래 근거 5% 미만).",
+    "자금세탁 조사사례 대조 — '순환 이체 + 가상자산 출금' 3단 레이어링 수법 일치.",
+    "범죄수익 추적: 원천 자금 유입처 추적 — 상류 범죄(도박사이트 정산) 계좌 2개 특정.",
+    "자금흐름 그래프: 유입→법인 순환(평균 4단계)→거래소 가상계좌→해외 지갑 출금 구조 확정. USDT 출금 누계 503억원.",
+    "관계망 분석: 6개 법인 대표가 모두 조세탁 주변 인물(친인척·직원 명의) — 페이퍼컴퍼니 클러스터 판정.",
+    "통신 분석: 이체 실행 직전 지시 메시지 패턴 일치(금액·순서·시간) — 단일 통제자 입증.",
+    "범죄수익은닉규제법 §3 검토 — 가장행위에 의한 은닉, 상류범죄 연계 입증 시 병합 기소 가능.",
+    "수사보고서 초안 생성 — 레이어링 구조도·지시-실행 대응표 포함.",
+    "보고서 검증 완료 — 근거 충실성 93점. 해외 지갑 추적 결과 보강 권고." ],
+  verdict:"{T}에 대해 자금세탁 혐의 상당. 페이퍼컴퍼니 6개를 이용한 3단 레이어링과 가상자산 해외 반출 구조 확정.",
+  acts:["전 계좌 지급정지·기록 보전","가상자산 지갑 동결 공조","상류범죄 합동수사 요청","몰수·추징 보전 청구"] },
+
+c6_flight: {
+  label:"재산국외도피", law:"특정경제범죄법 §4",
+  summary:"법령을 위반하여 국내 재산을 해외로 이동·은닉하는 유형. 해외 페이퍼컴퍼니 투자 위장, 수출입 가격조작을 통한 유출이 전형적이다.",
+  dims:{A:1,B:0,C:2,D:1,E:2},
+  data:[D.fx, D.fin, D.biz, D.cdwImp, D.lawRef, D.intl],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragG(), S.pt(), S.ft(), S.nw(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)엑소더스홀딩스", id:"C-963", risk:84, profile:[["업종","지주회사"],["자산","480억원"],["해외투자 신고","BVI 법인 1건"],["실투자 실적","확인 불가"]],
+    ind:["BVI 페이퍼컴퍼니 앞 분할 송금(75만불)","투자 실체·수익 회수 전무","사주 일가 해외 부동산 취득 시점 일치"] },
+  person:{ name:"도해외", id:"P-963", role:"사주(실소유자)", risk:88, profile:[["연령대","60대"],["지분","차명 포함 71%"],["해외체류","연 180일+"],["가족","전원 해외 거주"]],
+    ind:["BVI 법인 실소유자 등기 확인","해외 부동산 3건 취득(신고 없음)"] },
+  results:[
+    "{T}의 해외투자·송금 원장 확보 — BVI 투자 명목 송금 USD 74만(3회 분할), 수익 회수 0원.",
+    "국제협력 정보: BVI 법인 등기 조회 — 임직원 없는 명목회사, 실소유자 도해외 확인.",
+    "범죄수익 추적: 송금 자금의 원천 — 법인 가지급금 인출 및 배당 우회 구조, 회사 자금 사적 유출 입증.",
+    "자금흐름 그래프: 법인→BVI→싱가포르 계좌→해외 부동산 3건(합계 약 92억원) 취득 경로 확정.",
+    "관계망 분석: 차명 주주 4인 전원 사주 친인척 — 국내 재산 처분·해외 이전의 계획성 입증.",
+    "특정경제범죄법 §4 검토 — 도피액 50억 이상 가중 구간 해당, 외국환거래법 신고의무 위반 병행.",
+    "수사보고서 초안 생성 — 도피 경로도·해외 자산 목록 포함.",
+    "보고서 검증 완료 — 근거 충실성 91점. 부동산 등기 공조 회신 첨부 권고." ],
+  verdict:"{T}에 대해 재산국외도피 혐의 상당. BVI 경유 해외 부동산 취득 약 92억원, 가중처벌 구간 해당.",
+  acts:["출국금지 요청(사주)","해외 자산 동결 공조(SG·BVI)","가지급금 회계 압수","추징보전 청구"] },
+
+c6_trade_front: {
+  label:"무역가장·연계 사범", law:"외국환거래법 §29, 관세법 §270의2",
+  summary:"실물 이동 없는 가장 수출입(페이퍼 트레이드) 또는 가격조작 무역으로 외환 이동·자금세탁을 연계 실행하는 유형.",
+  dims:{A:2,B:1,C:2,D:2,E:2},
+  data:[D.cdwExp, D.cdwImp, D.docs, D.fx, D.fin, D.biz, D.lawRef],
+  steps:[ S.cdw(), S.ragI(), S.dv(), S.ab(["가격 패턴","거래상대방"]), S.ft(), S.nw(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)페이퍼트레이드", id:"C-964", risk:85, profile:[["업종","무역"],["연매출","201억원(신고)"],["물류비 비중","0.3%(업계 4%)"],["거래처","해외 2사 고정"]],
+    ind:["매출 대비 물류비 비정상(실물 이동 의심)","수출입 상대가 동일 실소유 법인","선적서류 재사용 정황(B/L 중복)"] },
+  person:{ name:"허가장", id:"P-964", role:"명의 대표", risk:66, profile:[["연령대","30대"],["경력","무역 무경력"],["보수","월 300만원 고정"],["지시자","제3자(미특정)"]],
+    ind:["바지사장 정황(의사결정 배제)","실운영자 별도 존재 진술"] },
+  results:[
+    "{T}의 수출입 원장 대사 — 수출 46건 중 31건이 동일 B/L 번호 재사용, 실물 이동 증적 부재.",
+    "가장무역 조사사례 대조 — '서류 순환 무역' 수법 일치, 물류·보험 실적 없음 확인.",
+    "신고-문서 대사: 인보이스 일련번호 순환 사용, 서명 이미지 동일(복사) — 서류 일괄 생성 판단.",
+    "이상거래 분석: 수출가-수입가 스프레드가 환율 변동과 정확히 연동 — 외환 이동 목적 가격 설계 입증.",
+    "자금흐름 그래프: 무역대금 명목 왕복 송금 순액 기준 해외 순유출 약 310억원 확정.",
+    "관계망 분석: 국내외 거래 3사 실소유자 동일(홍콩 거주 K씨) — 자전거래 구조 판정.",
+    "외국환거래법·관세법 §270의2 검토 — 가장무역에 의한 외환 이동, 가격조작 병합 적용.",
+    "수사보고서 초안 생성 — B/L 재사용 목록·순유출 산정표 포함.",
+    "보고서 검증 완료 — 근거 충실성 89점. 실운영자 특정 수사 계속 권고." ],
+  verdict:"{T}에 대해 무역가장 외환사범 혐의 상당. 서류 순환 무역으로 약 310억원 해외 순유출 확정, 실운영자 추적 필요.",
+  acts:["실운영자(K씨) 특정·공조","무역금융 사기 병행 조사","명의 대표 참고인 전환 검토","관련 법인 일괄 조사"] },
+
+/* ── ⑤ 마약 범죄 ── */
+c7_smuggle: {
+  label:"마약밀수", law:"마약류관리법 §58, 특가법 §11",
+  summary:"국제우편·특송·여행자 휴대(보디패커) 경로로 마약류를 반입하는 유형. 던지기 수법과 운반책 모집이 결합된 조직 범죄가 많다.",
+  dims:{A:1,B:2,C:1,D:2,E:1},
+  data:[D.travel, D.cargo, D.comm, D.fin, D.riskCase, D.intl, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragG(), S.risk(), S.rt(), S.cm(), S.ft(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)패스트파슬", id:"C-965", risk:81, profile:[["업종","특송·창고"],["처리물량","월 12,000건"],["적발연계","은닉 화물 2건 경유"],["검사율","자사 분류 후 최저"]],
+    ind:["은닉 적발 화물의 분류 라인 집중","특정 직원 근무시간대 통과율 이상"] },
+  person:{ name:"마운반", id:"P-965", role:"운반 총책", risk:92, profile:[["연령대","30대"],["여행","동남아 단기 반복 5회"],["동행","P-966·P-967 교차"],["통신","中 번호와 심야 반복"]],
+    ind:["단기 반복 여행 + 동행 교차 패턴","'물건 3개 준비' 등 은어 메시지","입국 후 즉시 전달책 접촉"] },
+  results:[
+    "{T} 관련 반입 경로 원장 확보 — 특송·여행자 병행 채널, 최근 90일 의심 이동 7건.",
+    "국제협력 정보: 출발국 마약당국 경보 — 방콕발 유사 은닉 수법(식품 위장) 경보 일치.",
+    "위험Case 검색: 동일 노선·동일 은닉 수법 적발 Case 3건 — 프로파일 일치도 상위.",
+    "경로 분석: P-965 여행 3회 모두 경유지 동일(호치민/홍콩), 체류 3~5일 단기 왕복 — 운반 스케줄 패턴 확정.",
+    "통신 분석: 中 공급책과 심야 국제전화 반복(5회), '물건 3개' 은어 메시지 — 반입 수량·일정 특정. 전달책 P-967 연계 확인.",
+    "자금흐름: 입국 익일 현금 입금 반복(회당 300~500만원) — 운반 대가 수수 정황.",
+    "마약류관리법 §58·특가법 §11 검토 — 영리 목적 밀수, 수량 기준 가중처벌 대상.",
+    "수사보고서 초안 생성 — 여행·통신·자금 3축 연계표 포함.",
+    "보고서 검증 완료 — 근거 충실성 90점. 다음 입국 시 통제배달 설계 권고." ],
+  verdict:"{T}에 대해 마약밀수(조직 운반) 혐의 상당. 여행·통신·자금 3축 패턴 일치, 공급책-운반책-전달책 라인 특정.",
+  acts:["차기 입국 통제배달","공급책 국제공조(中)","전달책 동시 검거 계획","특송 내부 조력자 조사"] },
+
+c7_offense: {
+  label:"마약사범(소지·매매)", law:"마약류관리법 §58~61",
+  summary:"국내에서 마약류를 소지·매매·투약하는 유형. SNS 던지기 거래와 가상자산 결제가 전형적인 비대면 유통 방식이다.",
+  dims:{A:0,B:1,C:1,D:2,E:1},
+  data:[D.comm, D.fin, D.web, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.risk(), S.cm(), S.ft(), S.web(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)나이트커머스", id:"C-966", risk:63, profile:[["업종","유흥업 연계 유통(명목 이커머스)"],["결제","상품권·가상자산 혼용"],["배송","퀵·비대면 지정지 위주"],["고객층","익명 텔레그램 유입"]],
+    ind:["정상 상품 대비 비정상 결제 패턴","지정지 배송(던지기) 주문 반복"] },
+  person:{ name:"백투약", id:"P-966", role:"매수·투약자(중간 판매 병행)", risk:77, profile:[["연령대","20대"],["구매채널","텔레그램 2개방"],["결제","USDT·문화상품권"],["이동","심야 단거리 반복"]],
+    ind:["던지기 수령 추정 심야 이동 패턴","소액 가상자산 반복 결제"] },
+  results:[
+    "{T} 관련 위험지표 확보 — 비대면 결제·지정지 배송 패턴의 이상 주문군 41건 추출.",
+    "위험Case 검색: 던지기 거래 적발 Case의 주문·이동 패턴과 일치도 상위 — 우선 감시 대상 지정.",
+    "통신 분석: 텔레그램 방 초대·좌표 공유 메시지 흐름 복원 — 판매책 1인·매수자 17인 구조 식별.",
+    "자금흐름: USDT 소액 반복 결제 41건(누계 2,300만원) → 판매책 지갑 집결 — 거래 대가 흐름 확정.",
+    "웹 수집: 판매 홍보 게시글·은어 사전 대조 — '아이스/차가운술' 등 은어 사용 게시글 9건 보전.",
+    "마약류관리법 §60(매매)·§61(투약) 검토 — 상습성·영리성 기준 검토, 단순 투약자 치료조건부 분리.",
+    "수사보고서 초안 생성 — 던지기 좌표·결제·통신 연계 타임라인 포함.",
+    "보고서 검증 완료 — 근거 충실성 87점. 압수 예정 물품 감정 절차 명시 권고." ],
+  verdict:"{T}에 대해 마약류 매매·투약 혐의 상당. 텔레그램 던지기 유통망(판매책 1·매수 17) 구조 식별.",
+  acts:["판매책 검거·지갑 동결","좌표 지점 잠복·현장 검거","매수자 단계적 소환","투약자 치료 연계 분리"] },
+
+c7_fund: {
+  label:"마약류 자금·조직", law:"마약류관리법 §67, 범죄수익은닉규제법",
+  summary:"마약 유통 조직의 수익 정산·조직 관리를 담당하는 상부 구조 유형. 판매 수익의 세탁·해외 송금과 조직원 관리가 수사 대상이다.",
+  dims:{A:0,B:1,C:2,D:2,E:1},
+  data:[D.fin, D.comm, D.biz, D.fx, D.riskCase, D.lawRef],
+  steps:[ S.cdw(["위험지표 중심"]), S.ragI(), S.pt(), S.ft(), S.cm(), S.nw(), S.law(), S.rg(), S.rv() ],
+  company:{ name:"(주)클린페이", id:"C-967", risk:90, profile:[["업종","결제대행(명목)"],["가맹점","유령 가맹 다수"],["정산액","월 18억원"],["실사업","확인 불가"]],
+    ind:["유령 가맹점 정산으로 판매수익 합법화","정산액의 60% 해외 출금"] },
+  person:{ name:"강정산", id:"P-967", role:"조직 자금책", risk:91, profile:[["연령대","40대"],["역할","수익 정산·상납 관리"],["통제","판매책 12인 정산"],["전력","도박자금 세탁 1회"]],
+    ind:["판매책 정산표 파일 확보","상납 라인 정기 송금 패턴"] },
+  results:[
+    "{T} 관련 정산 계좌군 확보 — 유령 가맹 31개 경유 월 18억원 정산, 실매출 근거 부재.",
+    "조직범죄 조사사례 대조 — '결제대행 위장 정산' 수법 일치, 상부 조직 존재 추정.",
+    "범죄수익 추적: 판매 수익 원천 — 던지기 판매망 수익금이 가맹 정산으로 유입되는 구조 입증.",
+    "자금흐름 그래프: 판매책 12인 → 가맹 정산 → 법인 계좌 → 해외 출금(60%) 피라미드 구조 확정. 월 상납 추정 4.2억원.",
+    "통신 분석: 정산일 전후 지시 메시지 집중, 상납 확인 '완납' 회신 패턴 — 조직 위계 3단 구조 식별.",
+    "관계망 분석: 가맹 명의자 31인 중 24인이 대포 명의 — 명의 모집책 별도 존재 확인.",
+    "마약류관리법 §67(자금 제공)·범죄수익은닉규제법 검토 — 조직 수익 몰수·추징 범위 산정.",
+    "수사보고서 초안 생성 — 조직도·정산 구조도·상납 흐름 포함.",
+    "보고서 검증 완료 — 근거 충실성 92점. 상부 조직 인적 특정 보강 권고." ],
+  verdict:"{T}에 대해 마약류 자금 관리·조직 운영 혐의 상당. 결제대행 위장 정산 구조와 3단 위계 조직 확인.",
+  acts:["일제 검거 작전 계획(동시 압수)","전 계좌·지갑 동결","몰수·추징 보전","상부 조직 국제공조"] },
+};
+
+/* ═══════════════ 렌더링 ═══════════════ */
+const $ = s => document.querySelector(s);
+let curCrime = null, curCase = null, running = false;
+
+function renderTree(){
+  $("#crimeTree").innerHTML = GROUPS.map(g => `
+    <div class="cgroup">
+      <span><i style="background:${g.color}"></i>${g.label}</span>
+      ${g.crimes.map(id => `
+        <button type="button" class="crime-btn" data-crime="${id}">
+          ${CRIMES[id].label.split(" — ")[0]}
+          <em>${CRIMES[id].company.id}·${CRIMES[id].person.id}</em>
+        </button>`).join("")}
+    </div>`).join("");
+}
+
+function dimBadges(dims){
+  const L = {A:"정합성",B:"경로",C:"자금",D:"관계",E:"패턴"};
+  return Object.entries(L).map(([k,v]) =>
+    `<b class="${dims[k]===2?"on2":dims[k]===1?"on1":""}" title="분석 관점 ${v}: ${dims[k]===2?"중점":dims[k]===1?"보조":"해당없음"}">${v}</b>`).join("");
+}
+
+function caseCard(c, type, crimeId){
+  return `
+    <div class="case-card" data-case="${type}" data-crime="${crimeId}">
+      <div class="risk"><b>${c.risk}</b><span>위험점수</span></div>
+      <span class="type ${type==="company"?"co":"ps"}">${type==="company"?"우범기업":"우범자"}</span>
+      <h4>${c.name}<span>${c.id}${c.role?` · ${c.role}`:""}</span></h4>
+      <div class="kv">${c.profile.map(([k,v])=>`<div>${k}<b>${v}</b></div>`).join("")}</div>
+      <div class="ind"><span>핵심 우범 지표</span><ul>${c.ind.map(i=>`<li>${i}</li>`).join("")}</ul></div>
+    </div>`;
+}
+
+function renderCrime(id){
+  curCrime = id; curCase = null; running = false;
+  const c = CRIMES[id];
+  const group = GROUPS.find(g => g.crimes.includes(id));
+  document.querySelectorAll(".crime-btn").forEach(b => b.classList.toggle("active", b.dataset.crime === id));
+  $("#main").innerHTML = `
+    <div class="card">
+      <div class="crime-head">
+        <span class="badge-group" style="background:${group.color}">${group.label}</span>
+        <h2>${c.label}</h2>
+        <span class="law">${c.law}</span>
+        <div class="dims">${dimBadges(c.dims)}</div>
+        <p>${c.summary}</p>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="step-no">1</span>필요 자료 정의 <span style="font-weight:600;color:#9aa3b3;font-size:11.5px">— 이 범죄 유형 수사에 분석해야 할 정보</span></h3>
+      <table class="def">
+        <thead><tr><th>자료</th><th>출처</th><th>형식</th><th>분석 용도</th><th>필수</th></tr></thead>
+        <tbody>${c.data.map(d=>`
+          <tr><td><b>${d.name}</b></td><td>${d.src}</td><td>${d.fmt}</td><td>${d.use}</td>
+          <td>${d.req?'<span class="req">필수</span>':'<span class="opt">보조</span>'}</td></tr>`).join("")}
+        </tbody>
+      </table>
+      <div class="file-chips">
+        <span style="font-size:11px;font-weight:800;color:#9aa3b3;align-self:center">샘플 데이터</span>
+        ${c.data.filter(d=>d.file).map(d=>`<button type="button" class="file-chip" data-file="${d.file}">📄 ${SAMPLE_FILES[d.file].label}</button>`).join("")}
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="step-no">2</span>단계별 분석 절차 <span style="font-weight:600;color:#9aa3b3;font-size:11.5px">— 분석시나리오 AI 서비스·분석범위 기준</span></h3>
+      <div class="steps">${c.steps.map((s,i)=>`
+        <div class="step-row">
+          <div class="no">${i+1}</div>
+          <div class="body">
+            <span class="svc">${s.svc}</span>
+            <span class="scopes">${s.scope.map(x=>`<i>${x}</i>`).join("")}</span>
+            <div class="how">${s.how}</div>
+            <div class="out">${s.out}</div>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="step-no">3</span>수사 Case 선택</h3>
+      <div class="case-grid">
+        ${caseCard(c.company, "company", id)}
+        ${caseCard(c.person, "person", id)}
+      </div>
+      <div class="run-bar" style="margin-top:12px">
+        <button type="button" id="runBtn" disabled>▶ 분석 시뮬레이션 실행</button>
+        <span class="hint" id="runHint">우범기업 또는 우범자 Case를 선택하세요.</span>
+      </div>
+    </div>
+    <div class="card" id="resultCard" style="display:none">
+      <h3><span class="step-no">4</span>분석 결과 <span id="resultTarget" style="font-weight:600;color:#5a6577;font-size:12px"></span></h3>
+      <div id="resultSteps"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>`;
+  window.scrollTo({top:0});
+}
+
+function selectCase(type){
+  curCase = type;
+  document.querySelectorAll(".case-card").forEach(el => el.classList.toggle("sel", el.dataset.case === type));
+  $("#runBtn").disabled = false;
+  const t = CRIMES[curCrime][type];
+  $("#runHint").textContent = `선택: ${t.name} (${t.id}) — 실행 시 단계별 분석 결과가 생성됩니다.`;
+}
+
+function runSimulation(){
+  if(running || !curCrime || !curCase) return;
+  running = true;
+  const crime = CRIMES[curCrime];
+  const target = crime[curCase];
+  const T = `${target.name}(${target.id})`;
+  $("#resultCard").style.display = "";
+  $("#resultTarget").textContent = `— ${curCase==="company"?"우범기업":"우범자"} ${T}`;
+  $("#runBtn").disabled = true;
+  $("#verdict").style.display = "none";
+  $("#resultSteps").innerHTML = crime.steps.map((s,i)=>`
+    <div class="result-step" id="rs${i}">
+      <div class="rs-head"><span class="no">${i+1}</span><b>${s.svc}</b><span class="st wait" id="st${i}">대기</span></div>
+      <div class="rs-body" id="rb${i}"></div>
+    </div>`).join("");
+  $("#resultCard").scrollIntoView({behavior:"smooth", block:"start"});
+  let i = 0;
+  const tick = () => {
+    if(i > 0){ // 직전 단계 완료 처리
+      const p = i-1;
+      $(`#st${p}`).className = "st done"; $(`#st${p}`).textContent = "완료";
+      $(`#rb${p}`).textContent = crime.results[p].replaceAll("{T}", T);
+      document.getElementById(`rs${p}`).classList.add("open");
+    }
+    if(i >= crime.steps.length){
+      const v = $("#verdict");
+      v.style.display = "";
+      v.innerHTML = `<h4>⚖ 종합 판정 — 다음 수사 단계</h4>
+        <p>${crime.verdict.replaceAll("{T}", T)}</p>
+        <div class="acts">${crime.acts.map(a=>`<i>${a}</i>`).join("")}</div>`;
+      v.scrollIntoView({behavior:"smooth", block:"nearest"});
+      $("#runBtn").disabled = false;
+      $("#runBtn").textContent = "↻ 다시 실행";
+      running = false;
+      return;
+    }
+    $(`#st${i}`).className = "st run"; $(`#st${i}`).innerHTML = `<span class="spin"></span>분석중`;
+    document.getElementById(`rs${i}`).scrollIntoView({behavior:"smooth", block:"nearest"});
+    i++;
+    setTimeout(tick, 420);
+  };
+  tick();
+}
+
+/* CSV 미리보기 모달 */
+function openCsv(ref){
+  const f = SAMPLE_FILES[ref];
+  if(!f) return;
+  $("#csvTitle").textContent = f.label;
+  $("#csvDesc").textContent = f.desc;
+  const rows = f.csv.trim().split("\n").map(line => {
+    const cells = []; let cur = "", q = false;
+    for(const ch of line){
+      if(ch === '"'){ q = !q; continue; }
+      if(ch === "," && !q){ cells.push(cur); cur = ""; continue; }
+      cur += ch;
+    }
+    cells.push(cur);
+    return cells;
+  });
+  $("#csvBody").innerHTML = `<table><thead><tr>${rows[0].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.slice(1).map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  $("#csvDownload").onclick = () => {
+    const blob = new Blob(["﻿" + f.csv], {type:"text/csv;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = f.label; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("#csvOverlay").style.display = "flex";
+}
+
+/* 이벤트 위임 */
+document.addEventListener("click", e => {
+  const cb = e.target.closest(".crime-btn");
+  if(cb){ renderCrime(cb.dataset.crime); return; }
+  const cc = e.target.closest(".case-card");
+  if(cc){ selectCase(cc.dataset.case); return; }
+  if(e.target.closest("#runBtn")){ runSimulation(); return; }
+  const fc = e.target.closest(".file-chip");
+  if(fc){ openCsv(fc.dataset.file); return; }
+  if(e.target.closest("#csvClose") || e.target === $("#csvOverlay")){ $("#csvOverlay").style.display = "none"; }
+});
+document.addEventListener("keydown", e => { if(e.key === "Escape") $("#csvOverlay").style.display = "none"; });
+
+renderTree();
+renderCrime("c1_price");   // 초기 선택: 관세포탈(저가신고 가격조작)
+</script>
+</body>
+</html>

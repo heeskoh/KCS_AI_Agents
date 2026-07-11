@@ -208,56 +208,11 @@ function crimeBadgeStripHtml(aCase){
   `;
 }
 
-/* ── 외부 정보 수집·정리 — 확정된 첩보/정보분석 문서 + 인터넷·신문·서적 출처 메모 ── */
-function externalInfoSectionHtml(aCase){
-  const docs = (aCase.leads || []).filter(lead =>
-    lead.confirmed && (lead.type === "intel" || lead.type === "info_analysis"));
-  const notes = aCase.externalNotes || [];
-  return `
-    <div class="gi-external-info">
-      <h4>외부 정보 수집·정리 <span class="muted">인터넷·신문·서적 등 공개 정보와 확정된 정보 문서</span></h4>
-      <div class="gi-external-info-grid">
-        <div>
-          <span class="gi-external-info-label">확정된 정보 문서 (${docs.length}건)</span>
-          ${docs.length ? docs.map(lead => `
-            <div class="gi-external-doc">
-              <strong>${escapeHtml(lead.title || lead.docType || "")}</strong>
-              <span>${escapeHtml(lead.docType || "")} · ${escapeHtml(lead.confirmedAt || "")}</span>
-            </div>
-          `).join("") : `<div class="gi-insight-empty">정·첩보/정보분석 문서를 확정하면 여기에 정리됩니다.</div>`}
-        </div>
-        <div>
-          <span class="gi-external-info-label">출처 메모 (${notes.length}건)</span>
-          ${notes.map((note, index) => `
-            <div class="gi-external-doc">
-              <strong>[${escapeHtml(note.kind || "기타")}] ${escapeHtml(note.title || "")}</strong>
-              <span>${escapeHtml(note.memo || "")}${note.url ? ` · ${escapeHtml(note.url)}` : ""}</span>
-              <button type="button" class="gi-lead-remove" data-gi-extnote-remove="${index}" aria-label="메모 삭제">×</button>
-            </div>
-          `).join("")}
-          <div class="gi-external-note-form">
-            <select id="giExtNoteKind">
-              <option value="인터넷">인터넷</option>
-              <option value="신문">신문</option>
-              <option value="서적">서적</option>
-              <option value="기타">기타</option>
-            </select>
-            <input id="giExtNoteTitle" type="text" placeholder="출처/제목">
-            <input id="giExtNoteMemo" type="text" placeholder="수집 내용 메모 (URL 포함 가능)">
-            <button type="button" class="btn secondary" data-gi-extnote-add>추가</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 export function renderProfilePanel(deps){
   const aCase = deps.activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const type = deps.genInvTypeById(aCase.invTypeId);
   const crimeStrip = crimeBadgeStripHtml(aCase);
-  const externalInfo = externalInfoSectionHtml(aCase);
   if(aCase.targetType === "company"){
     const companyId = deps.generalInvCompanyId(aCase);
     if(!companyId){
@@ -271,7 +226,8 @@ export function renderProfilePanel(deps){
         </div>
       `;
     }
-    // 수사 기업 대상: 혐의 뱃지 + 좌측 대시보드/우측 관계망(60:40) + 외부 정보 수집·정리
+    // 수사 기업 대상: 혐의 뱃지 + 좌측 대시보드/우측 관계망(60:40) — 프로파일이 전체 화면 사용
+    // (외부 정보 수집·정리 섹션은 기초자료 수집/등록 탭으로 이동)
     return crimeStrip + profileNetworkLayout(
       deps.canvasProfilePanel(companyId, {
         selectedLabel: "수사 대상 기업",
@@ -281,7 +237,7 @@ export function renderProfilePanel(deps){
         scenarioAction: `<button class="btn" data-gi-tab="scenario">분석 시나리오 설정</button>`,
       }),
       "company", companyId,
-    ) + externalInfo;
+    );
   }
   const person = deps.riskPersonById(aCase.personId);
   const personId = person?.person_id || aCase.personId;
@@ -293,11 +249,11 @@ export function renderProfilePanel(deps){
     deps.loadRiskPersonProfile?.(personId);
     return `<div class="profile-loading">우범자 통합 프로파일 로딩 중...</div>`;
   }
-  // 우범자 프로파일: 혐의 뱃지 + 좌측 위험내역/우측 관계망(60:40) + 외부 정보 수집·정리
+  // 우범자 프로파일: 혐의 뱃지 + 좌측 위험내역/우측 관계망(60:40) — 프로파일이 전체 화면 사용
   return crimeStrip + profileNetworkLayout(
     renderPersonFullProfile(aCase, person, detail, type),
     "person", personId, undefined, "general",
-  ) + externalInfo;
+  );
 }
 
 export const profileSubtab = {
