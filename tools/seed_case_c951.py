@@ -37,10 +37,12 @@ BENCH_UNIT_USD = 6.70  # 동종물품 단가 벤치마크
 DUTY_RATE = 0.08
 VAT_RATE = 0.10
 
+# 주 수입 루트는 홍콩(GX GLOBAL LTD·HKHKG 출발) — 이중 인보이스·홍콩 정산 시나리오와 정합.
+# (공급사명, 국가, 국가코드, 출발항, 출발도시)
 SUPPLIERS = [
-    ("SHENZHEN TELE CO", "중국", "CNSZX", "선전"),
-    ("SHENZHEN TELE CO", "중국", "CNSZX", "선전"),
-    ("GX GLOBAL LTD", "중국", "HKHKG", "홍콩"),
+    ("GX GLOBAL LTD", "홍콩", "HK", "HKHKG", "홍콩"),
+    ("GX GLOBAL LTD", "홍콩", "HK", "HKHKG", "홍콩"),
+    ("SHENZHEN TELE CO", "중국", "CN", "CNSZX", "선전"),
 ]
 FILERS = [
     ("한빛관세사무소 이관세", "한빛관세사무소"),
@@ -69,7 +71,7 @@ def build_declarations(start_id: int):
         item_name = "휴대용 컴퓨터" if is_pc else "무선통신 모듈"
         if is_pc:
             unit, qty = 182.0, 2500
-        sup, sup_country, dep_port, dep_city = SUPPLIERS[i % 3]
+        sup, sup_country, sup_cc, dep_port, dep_city = SUPPLIERS[i % 3]
         filer, filer_firm = FILERS[i % 3]
         arrival = ARRIVALS[i % 3]
         value_usd = round(unit * qty, 2)
@@ -95,9 +97,9 @@ def build_declarations(start_id: int):
             "taxpayer_name": CNAME, "taxpayer_business_no": "214-87-95101",
             "taxpayer_address": "서울 금천구 가산디지털1로 951",
             "overseas_supplier_name": sup, "overseas_supplier_country": sup_country,
-            "overseas_supplier_country_code": "CN", "overseas_supplier_code": "SZTC" if "SHEN" in sup else "GXGL",
+            "overseas_supplier_country_code": sup_cc, "overseas_supplier_code": "SZTC" if "SHEN" in sup else "GXGL",
             "bl_awb_no": f"BL951-{2024 + (i//24)}-{i+1:03d}", "cargo_control_no": f"KCC951{i+1:05d}",
-            "forwarder_name": "퍼시픽로지스", "departure_country": "중국", "departure_country_code": "CN",
+            "forwarder_name": "퍼시픽로지스", "departure_country": sup_country, "departure_country_code": sup_cc,
             "departure_port": dep_port, "arrival_port": arrival,
             "transport_type": "해상", "vessel_name": "PACIFIC GLORY",
             "arrival_date": d + timedelta(days=3), "warehousing_date": d + timedelta(days=4),
@@ -166,7 +168,7 @@ def main():
         "founded_year": 2015, "risk_level": "HIGH", "risk_score": 87.0,
         "last_audit_date": datetime(2024, 11, 20),
         "address": "서울 금천구", "address_detail": "가산디지털1로 951",
-        "employee_count": 38, "major_export_countries": "중국, 홍콩",
+        "employee_count": 38, "major_export_countries": "홍콩, 중국",
         "customs_broker_firm": "한빛관세사무소",
         "related_companies": "(주)로우텍세컨드",
         "annual_revenue": 21_400_000_000.0, "annual_import_amount": 18_700_000_000.0,

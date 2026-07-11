@@ -2314,6 +2314,16 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .net-view-btn:hover{border-color:#93c5fd;background:#f0f6ff}
 .net-view-btn.on{border-color:#2563eb;background:#2563eb;color:#fff}
 .net-view-desc{margin-left:6px;font-size:11px;color:#94a3b8}
+/* 위험구성 원인분석: 검증할 위험요인 선택 칩 */
+.net-rf-bar{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:7px 14px;background:#fffdf5;border-bottom:1px solid #f3e8c8}
+.net-rf-label{font-size:11px;font-weight:800;color:#92700c;margin-right:2px}
+.net-rf-chip{border:1px solid #e7dcb8;background:#fff;color:#57534e;font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;cursor:pointer;transition:.12s}
+.net-rf-chip b{font-weight:800;color:#b45309}
+.net-rf-chip:hover{border-color:#d9a514;background:#fff8e5}
+.net-rf-chip.on{border-color:#b45309;background:#b45309;color:#fff}
+.net-rf-chip.on b{color:#ffe9c7}
+.net-rf-chip.zero{opacity:.55}
+.net-rf-chip.zero b{color:#94a3b8}
 .net-hidden-chip{margin-left:auto;border:1px solid #fcd34d;background:#fffbeb;color:#b45309;font-size:11px;font-weight:700;border-radius:8px;padding:4px 10px;cursor:pointer;transition:.12s}
 .net-hidden-chip:hover{background:#fef3c7;border-color:#f59e0b}
 .profile-net-filter-chip.net-route-on{border-color:#7dd3fc;background:#f0f9ff;color:#0369a1}

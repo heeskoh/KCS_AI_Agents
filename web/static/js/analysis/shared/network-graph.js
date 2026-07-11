@@ -189,6 +189,7 @@ function emptyState(){
     activeScenarioId: "",              // 선택/적용된 시나리오 id
     _autorun: null,                    // 시나리오 적용 후 자동 실행할 분석 모드
     viewMode: "decl",                  // 프로파일 4-뷰: decl(수입신고)|item(품목)|riskcause(위험원인)|route(경로)
+    riskFactorSel: "",                 // 위험구성 원인분석: 검증할 위험요인 코드("" = 최고 지표 자동)
     manualPositions: {},               // 정렬·드래그로 옮긴 노드 위치(뷰별 id→{x,y}, 재렌더 유지)
     alignBarOn: false,                  // 정렬 툴바 고정 표시 여부(off라도 2개 이상 선택 시 자동 표시)
     hiddenIds: new Set(),              // 속성창에서 숨김 처리한 노드 id(개별 숨기기/보이기 토글)
@@ -713,7 +714,7 @@ function mountCytoscape(key, filteredGraph){
 const VIEW_MODES = [
   { id: "decl", label: "수입신고 관계분석", icon: "🕸️", desc: "기업 → 수입신고 → 해외거래처 · 관세사 → 수입신고 (품목·도착항·출발항·국가는 엣지에 표시)" },
   { id: "item", label: "품목기반 관계분석", icon: "📦", desc: "기업 → 품목 → 해외거래처 · 관세사 → 품목 (수입신고·항만은 엣지에 표시)" },
-  { id: "riskcause", label: "위험구성 원인분석", icon: "🧩", desc: "위험지표가 0이 아닌 지표에 기여한 수입신고만 표시 + 위험요인 노드" },
+  { id: "riskcause", label: "위험구성 원인분석", icon: "🧩", desc: "검증할 위험요인을 선택하면 해당 요인 근거 검증에 필요한 관계망으로 재구성" },
   { id: "route", label: "경로분석", icon: "🛳️", desc: "기업 → 국가 → 항만 → 품목(수입신고 속성) → 항만 → 국가 (수출·수입 방향별)" },
 ];
 
@@ -756,6 +757,47 @@ function activeRiskFactorIds(graph){
     else if(String(e.source).startsWith("RiskFactor")) ids.add(e.source);
   });
   return ids;
+}
+
+/* DRIVEN_BY 엣지에서 위험요인 카탈로그(코드·이름·지표값·사유)를 수집 — 요인 선택 칩·요인별 뷰의 원천 */
+function riskFactorList(graph){
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const list = [];
+  const seen = new Set();
+  (graph.edges || []).forEach(e => {
+    if(e.type !== "DRIVEN_BY") return;
+    const fid = String(e.target).startsWith("RiskFactor") ? e.target
+              : String(e.source).startsWith("RiskFactor") ? e.source : null;
+    if(!fid || seen.has(fid)) return;
+    seen.add(fid);
+    const node = byId.get(fid);
+    const score = Number(e.properties && e.properties.score);
+    list.push({
+      id: fid,
+      code: (node && node.properties && node.properties.code) || String(fid).split(":")[1] || fid,
+      name: (node && node.name) || fid,
+      score: Number.isFinite(score) ? score : 0,
+      reason: (e.properties && e.properties.reason) || "",
+    });
+  });
+  list.sort((a, b) => b.score - a.score);
+  return list;
+}
+
+/* 현재 선택된 위험요인 — 미선택 시 지표값이 가장 높은 활성 요인 */
+function selectedRiskFactor(factors, state){
+  if(!factors.length) return null;
+  return factors.find(f => f.code === state.riskFactorSel)
+      || factors.find(f => f.score > 0)
+      || factors[0];
+}
+
+/* 신고금액(원) 축약 표기 */
+function fmtKrwShort(value){
+  const n = Number(value);
+  if(!Number.isFinite(n) || n <= 0) return "";
+  if(n >= 1e8) return `${(n / 1e8).toFixed(1)}억원`;
+  return `${Math.round(n / 1e4).toLocaleString("ko-KR")}만원`;
 }
 
 /* 뷰 빌더 공용: 노드 복제(+레인 스탬프, 캐시 원본 불변) / 파생 엣지 생성 */
@@ -826,6 +868,131 @@ function viewDeclGraph(graph, opts = {}){
   return done(riskOnly
     ? ["대상기업 · 관세사", "수입신고", "위험요인", "해외거래처"]
     : ["대상기업 · 관세사", "수입신고", "해외거래처"]);
+}
+
+/* 3) 위험구성 원인분석 — 선택한 위험요인 검증에 필요한 근거 관계망으로 재구성.
+   요인별로 확인해야 하는 항목이 다르다:
+   - 신고 기여형(저가신고 등): 기업·관세사 → 기여 수입신고 → 품목분류(특정 세번) → 해외거래처(출발항·국가)
+   - 특수관계: 기업 → 특수관계인·관계사 (관계·지분·거래비중)
+   - 역외자금: 기업 → 역외 정산법인 + 해외거래처별 수입 루트 집계(출발항·국가)
+   - HS 분류: 기업 → 품목분류(신고 집계·세번) → 해외거래처
+   - 근거 없는 요인: 기업 → 위험요인 노드(근거 데이터 없음) */
+function viewRiskFactorGraph(graph, state){
+  const factors = riskFactorList(graph);
+  if(!factors.length){
+    // DRIVEN_BY가 없는 구형 그래프는 기존 동작(위험기여 신고만) 유지
+    const active = activeRiskFactorIds(graph);
+    return viewDeclGraph(graph, { riskOnly: true, activeFactors: active.size ? active : null });
+  }
+  const sel = selectedRiskFactor(factors, state);
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(byId.get(graph.center), 0);
+  const recs = [...declRecords(graph).values()];
+  const contrib = recs.filter(r => r.riskFactors.some(f => f.id === sel.id));
+
+  // 특수관계 이상률: 특수관계인·관계사와 관계 속성(지분·거래비중)을 검증
+  if(sel.code === "related_party"){
+    (graph.edges || []).forEach(e => {
+      if(e.type !== "RELATED_PARTY" && e.type !== "AFFILIATED_WITH") return;
+      const other = byId.get(e.source === graph.center ? e.target : e.source);
+      if(!other || other.id === graph.center) return;
+      const p = e.properties || {};
+      // 그래프 라벨 길이 제한(EDGE_LABEL_MAX)에 맞춰 압축 표기 — 전체 속성은 엣지 상세창에서 확인
+      const label = e.type === "AFFILIATED_WITH" ? "관계사"
+        : [p.relation_type,
+           Number(p.shareholding_pct) > 0 ? `지분${p.shareholding_pct}%` : "",
+           Number(p.trade_share_pct) > 0 ? `거래${p.trade_share_pct}%` : ""].filter(Boolean).join("·");
+      mk(centerN, add(other, 1), e.type, label || "특수관계", { ...p });
+    });
+    return done(["대상기업", "특수관계인 · 관계사"]);
+  }
+
+  // 역외자금 은닉: 역외 정산법인 + 해외거래처별 수입 루트(출발항·국가) 집계를 검증
+  if(sel.code === "offshore_fund"){
+    (graph.edges || []).forEach(e => {
+      if(e.type !== "RELATED_PARTY") return;
+      const other = byId.get(e.source === graph.center ? e.target : e.source);
+      if(!other || other.id === graph.center) return;
+      const p = e.properties || {};
+      const offshore = p.is_offshore === true || !!(other.properties && other.properties.is_offshore);
+      if(!offshore) return;
+      mk(centerN, add(other, 1), "RELATED_PARTY",
+        [p.relation_type, Number(p.trade_share_pct) > 0 ? `거래${p.trade_share_pct}%` : ""]
+          .filter(Boolean).join("·") || "역외 정산법인", { ...p });
+    });
+    const agg = new Map();
+    recs.forEach(r => {
+      if(!r.sup) return;
+      if(!agg.has(r.sup.id)) agg.set(r.sup.id, { sup: r.sup, n: 0, value: 0, deps: new Set() });
+      const a = agg.get(r.sup.id);
+      a.n += 1;
+      a.value += Number((r.decl.properties || {}).value) || 0;
+      if(r.dep) a.deps.add(r.dep.name);
+    });
+    agg.forEach(a => {
+      const country = (a.sup.properties && a.sup.properties.country) || "";
+      const amt = fmtKrwShort(a.value);
+      // 라벨은 압축 표기(길이 제한) — 신고금액 합계는 엣지 상세창에서 확인
+      mk(centerN, add(a.sup, 2), "SUPPLIED_BY",
+        `신고${a.n}건${a.deps.size ? `·${[...a.deps].join("/")}` : ""}${country ? `·${country}` : ""}`,
+        { count: a.n, 신고금액합: amt, 출발항: [...a.deps].join("/"), 국가: country });
+    });
+    return done(["대상기업", "역외 정산법인", "해외거래처(수입 루트)"]);
+  }
+
+  // HS 분류 오류율: 품목분류(세번)별 신고 집계와 공급 루트를 검증
+  if(sel.code === "hs_classification"){
+    const agg = new Map();
+    recs.forEach(r => {
+      if(!r.item) return;
+      if(!agg.has(r.item.id)) agg.set(r.item.id, { item: r.item, n: 0, hs: new Set(), sups: new Map() });
+      const a = agg.get(r.item.id);
+      a.n += 1;
+      const hs = (r.decl.properties || {}).hs_code;
+      if(hs) a.hs.add(hs);
+      if(r.sup) a.sups.set(r.sup.id, r.sup);
+    });
+    agg.forEach(a => {
+      const itemN = add(a.item, 1);
+      const code = (a.item.properties && a.item.properties.code) || String(a.item.id).split(":")[1] || "";
+      mk(centerN, itemN, "FILED", `신고${a.n}건${code ? `·HS${code}` : ""}`,
+        { count: a.n, HS세번: [...a.hs].join(", ") });
+      a.sups.forEach(s => mk(itemN, add(s, 2), "SUPPLIED_BY",
+        (s.properties && s.properties.country) || "", {}));
+    });
+    return done(["대상기업", "품목분류(세번 검토)", "해외거래처"]);
+  }
+
+  // 신고 기여형(저가신고 등): 기여 수입신고 전량 → 특정 품목분류 → 거래처 루트
+  if(contrib.length){
+    contrib.forEach(r => {
+      const p = r.decl.properties || {};
+      const declN = add(r.decl, 1);
+      const amt = fmtKrwShort(p.value);
+      // 신고번호는 노드명에 표시되므로 엣지 라벨은 신고금액만(길이 제한)
+      mk(centerN, declN, "FILED", amt || (p.declaration_no || r.decl.name || ""),
+        { 신고번호: p.declaration_no || "", 신고금액: amt, trade_flow: p.trade_flow || "" });
+      if(r.broker) mk(add(r.broker, 0), declN, "FILED_BY", `관세사 · ${r.manager || "-"}`,
+        { manager: r.manager, 신고번호: p.declaration_no || "" });
+      if(r.item) mk(declN, add(r.item, 2), "OF_ITEM", p.hs_code ? `HS ${p.hs_code}` : "품목",
+        { hs_code: p.hs_code || "" });
+      if(r.sup){
+        const country = (r.sup.properties && r.sup.properties.country) || "";
+        mk(declN, add(r.sup, 3), "SUPPLIED_BY",
+          `${(r.dep && r.dep.name) || "출발항 미상"}${country ? ` · ${country}` : ""}`,
+          { 출발항: (r.dep && r.dep.name) || "", 국가: country, 신고번호: p.declaration_no || "" });
+      }
+    });
+    return done(["대상기업 · 관세사", `수입신고 ${contrib.length}건`, "품목분류", "해외거래처"]);
+  }
+
+  // 신고 단위 근거가 없는 요인: 요인 노드 직결(지표값·사유 표시)
+  const factorNode = byId.get(sel.id);
+  if(factorNode) mk(centerN, add(factorNode, 1), "DRIVEN_BY",
+    sel.score > 0 ? `위험지표 ${sel.score}%` : "근거 데이터 없음",
+    { score: sel.score, 사유: sel.reason || "근거 데이터 없음" });
+  return done(["대상기업", "위험요인"]);
 }
 
 /* 2) 품목기반 관계분석 — 수입신고를 엣지 속성으로 흡수, 품목 중심 (신고 다건은 집계) */
@@ -945,20 +1112,17 @@ function applyLabelHiddenPost(graph, state){
 /* 화면에 표시할 최종 그래프: 필터 → 뷰 프로젝션 → 라벨/개별 숨김 */
 function displayedGraph(isProjectable, raw, state){
   const filtered = applyFilter(raw, state);
-  const projected = isProjectable ? projectForView(filtered, state.viewMode) : filtered;
+  const projected = isProjectable ? projectForView(filtered, state.viewMode, state) : filtered;
   return applyHidden(applyLabelHiddenPost(projected, state), state);
 }
 
 /* canonical 그래프 → 현재 뷰 파생 그래프. 수입신고 노드가 없는 그래프(자유 관계분석의
    임의 시드 등)는 변환 없이 원본을 그대로 표시한다(방사형 폴백). */
-function projectForView(graph, modeId){
+function projectForView(graph, modeId, state){
   const id = (VIEW_MODES.find(v => v.id === modeId) || VIEW_MODES[0]).id;
   if(id === "decl") return viewDeclGraph(graph);
   if(id === "item") return viewItemGraph(graph);
-  if(id === "riskcause"){
-    const active = activeRiskFactorIds(graph);
-    return viewDeclGraph(graph, { riskOnly: true, activeFactors: active.size ? active : null });
-  }
+  if(id === "riskcause") return viewRiskFactorGraph(graph, state || {});
   if(id === "route") return viewRouteGraph(graph);
   return graph;
 }
@@ -1089,6 +1253,22 @@ function buildViewToggle(state, key){
       <button type="button" class="net-tool-btn" data-net-fullscreen="${k}" title="관계분석을 전체화면으로 보기">⛶ 전체화면</button>
     </span>`;
   return `<div class="profile-net-views">${btns}${desc}${hiddenChip}${tools}</div>`;
+}
+
+/* 위험구성 원인분석: 검증할 위험요인 선택 칩 — 지표값 내림차순, 근거 없는 요인(0%)은 흐리게 */
+function buildRiskFactorBar(raw, state, key){
+  if(viewModeOf(state).id !== "riskcause") return "";
+  const factors = riskFactorList(raw);
+  if(!factors.length) return "";
+  const sel = selectedRiskFactor(factors, state);
+  const k = escapeHtml(key);
+  const chips = factors.map(f => {
+    const on = sel && f.code === sel.code;
+    return `<button type="button" class="net-rf-chip${on ? " on" : ""}${f.score > 0 ? "" : " zero"}"
+      data-net-riskfactor="${k}::${escapeHtml(f.code)}"
+      title="${escapeHtml(f.reason || f.name)}">${escapeHtml(f.name)} <b>${f.score}%</b></button>`;
+  }).join("");
+  return `<div class="net-rf-bar"><span class="net-rf-label">검증할 위험요인</span>${chips}</div>`;
 }
 
 /* ── 노드 정렬 툴바: 다중 선택한 노드를 가로/세로 기준 정렬 + 균등 간격 배치 ── */
@@ -2130,7 +2310,7 @@ function renderPanelContent(targetType, targetId){
   // 유형 칩: 현재 뷰(파생 그래프)에 존재하는 유형만 노출.
   // 칩으로 숨긴 유형도 칩 목록에는 남아야 하므로 라벨 숨김 없이 산출한다.
   const chipSource = isProjectable
-    ? projectForView(applyFilter(raw, { ...state, hiddenLabels: new Set() }), state.viewMode)
+    ? projectForView(applyFilter(raw, { ...state, hiddenLabels: new Set() }), state.viewMode, state)
     : raw;
   // 시나리오 적용 직후: 분석 기법을 1회 자동 실행
   if(state._autorun && projected.nodes.length){
@@ -2143,6 +2323,7 @@ function renderPanelContent(targetType, targetId){
     : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`;
   const main = `
     ${buildViewToggle(state, key)}
+    ${isProjectable ? buildRiskFactorBar(raw, state, key) : ""}
     ${buildFilterBar(chipSource, state, key)}
     ${buildLaneHeader(projected)}
     ${buildPathBanner(state, key)}
@@ -2475,6 +2656,14 @@ function bindHandlers(){
     if(viewBtn){
       const [key, mode] = viewBtn.dataset.netView.split("::");
       filterStateFor(key).viewMode = mode;
+      rerenderPanelByKey(key);
+      return;
+    }
+    // 위험구성 원인분석: 검증할 위험요인 선택
+    const rfChip = event.target.closest("[data-net-riskfactor]");
+    if(rfChip){
+      const [key, code] = rfChip.dataset.netRiskfactor.split("::");
+      filterStateFor(key).riskFactorSel = code;
       rerenderPanelByKey(key);
       return;
     }
