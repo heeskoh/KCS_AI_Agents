@@ -1980,6 +1980,8 @@ const customsDeps = {
   getAnalysisScenarioConfig: page => scenarioConfigForPage(scenarioBuilderConfig, page),
   getScenarioBuilderConfig: () => scenarioBuilderConfig,
   getActiveCanvasCompanyId: () => activeCanvasCompanyId,
+  // 기업조사 프로파일 혐의 배너용 — 기업 상세(crime_types 포함) 캐시 접근
+  getCompanyDetail: companyId => companyDetailCache[companyId] || null,
   activeCanvasJobs,
   archivedCanvasJobs,
   canvasDataPanel,
