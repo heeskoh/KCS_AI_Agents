@@ -130,8 +130,10 @@ export function renderInsightPanel(deps){
   if(!aCase) return `<div class="profile-loading">진행중인 수사에서 사건을 먼저 선택하세요.</div>`;
   if(!Array.isArray(aCase.insightChat)) aCase.insightChat = [];
   const view = generalInvestigationState.insightView || "network";
-  const targetType = aCase.targetType === "person" ? "person" : "company";
-  const targetId = targetType === "person" ? (aCase.personId || "") : (aCase.companyId || "");
+  // ".insight" 스코프: 프로파일 탭의 관계망과 그래프 상태(뷰 모드·필터·검증 차트)를 분리 —
+  // 같은 기업이라도 수사정보 분석의 사건 관계망은 독립적으로 동작한다.
+  const targetType = aCase.targetType === "person" ? "person.insight" : "company.insight";
+  const targetId = aCase.targetType === "person" ? (aCase.personId || "") : (aCase.companyId || "");
   const centerHtml = view === "leads"
     ? `<div class="gi-insight-leads-view">${leadTimelineHtml(aCase, generalInvestigationState.activeLeadId)}</div>`
     : (targetId
