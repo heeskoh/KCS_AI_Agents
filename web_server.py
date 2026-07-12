@@ -79,6 +79,204 @@ def list_companies() -> list[dict[str, object]]:
         ).df().to_dict("records")
 
 
+def price_trend(company_id: str, hs: str | None = None) -> dict[str, object] | None:
+    """저가신고 검증 차트 데이터: 대상기업 월별 신고단가 + 동일품목 타사 신고 상·하한 밴드.
+
+    hs 미지정 시 대상기업의 crime_signal 신고가 가장 많은 품목(global_hs), 없으면 최다 신고 품목.
+    단가 = payment_amount / tariff_quantity (결제통화 기준). 대상기업 신고가 없으면 None.
+    """
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        if not hs:
+            row = conn.execute(
+                """
+                SELECT global_hs FROM import_declarations
+                WHERE company_id = ? AND global_hs IS NOT NULL
+                GROUP BY global_hs
+                ORDER BY count(*) FILTER (WHERE crime_signal IS NOT NULL) DESC, count(*) DESC
+                LIMIT 1
+                """, [company_id]).fetchone()
+            if not row:
+                return None
+            hs = row[0]
+        unit_sql = """
+            SELECT strftime(d.import_date, '%Y-%m') AS ym,
+                   round(min(d.payment_amount / i.tariff_quantity), 2) AS lo,
+                   round(max(d.payment_amount / i.tariff_quantity), 2) AS hi,
+                   round(avg(d.payment_amount / i.tariff_quantity), 2) AS avg_unit,
+                   count(*) AS n
+            FROM import_declarations d
+            JOIN import_declaration_items i ON i.declaration_id = d.id
+            WHERE d.global_hs = ? AND i.tariff_quantity > 0 AND d.payment_amount > 0
+              AND d.company_id {op} ?
+            GROUP BY 1 ORDER BY 1
+        """
+        cols = ("ym", "lo", "hi", "avg", "n")
+        company = [dict(zip(cols, r)) for r in conn.execute(unit_sql.format(op="="), [hs, company_id]).fetchall()]
+        peers = [dict(zip(cols, r)) for r in conn.execute(unit_sql.format(op="<>"), [hs, company_id]).fetchall()]
+        med = conn.execute(
+            """
+            SELECT round(median(d.payment_amount / i.tariff_quantity), 2)
+            FROM import_declarations d
+            JOIN import_declaration_items i ON i.declaration_id = d.id
+            WHERE d.global_hs = ? AND d.company_id <> ? AND i.tariff_quantity > 0 AND d.payment_amount > 0
+            """, [hs, company_id]).fetchone()
+        item = conn.execute(
+            """
+            SELECT item_name, min(payment_currency) FROM import_declarations
+            WHERE company_id = ? AND global_hs = ?
+            GROUP BY item_name ORDER BY count(*) DESC LIMIT 1
+            """, [company_id, hs]).fetchone()
+    if not company:
+        return None
+    total_n = sum(c["n"] for c in company) or 1
+    company_avg = round(sum(c["avg"] * c["n"] for c in company) / total_n, 2)
+    peer_median = med[0] if med and med[0] is not None else None
+    gap_pct = round((company_avg / peer_median - 1) * 100, 1) if peer_median else None
+    return {
+        "hs": hs,
+        "item_name": (item[0] if item else "") or "",
+        "currency": (item[1] if item and item[1] else "USD"),
+        "company": company,
+        "peers": peers,
+        "peer_median": peer_median,
+        "company_avg": company_avg,
+        "gap_pct": gap_pct,
+    }
+
+
+def hs_check(company_id: str) -> dict[str, object] | None:
+    """HS 분류 검증 차트 데이터: 신고 세번별 신고건수 + AI 분류 추천 불일치 내역.
+
+    불일치는 hs_classification_event에서 ai_suggested_hs가 있는 행. 신고가 없으면 None.
+    """
+    def _digits(s: object) -> str:
+        return "".join(ch for ch in str(s or "") if ch.isdigit())
+
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        bars = conn.execute(
+            """
+            SELECT hs_code, coalesce(item_name, '') AS item_name, count(*) AS n
+            FROM import_declarations
+            WHERE company_id = ? AND hs_code IS NOT NULL
+            GROUP BY 1, 2 ORDER BY n DESC
+            """, [company_id]).fetchall()
+        if not bars:
+            return None
+        try:
+            events = conn.execute(
+                """
+                SELECT declaration_ref, declared_hs, ai_suggested_hs,
+                       coalesce(note, ''), CAST(event_date AS VARCHAR), coalesce(event_type, '')
+                FROM hs_classification_event
+                WHERE company_id = ? ORDER BY event_date DESC
+                """, [company_id]).fetchall()
+        except duckdb.CatalogException:
+            events = []
+    mismatches = [
+        {"ref": r[0], "declared_hs": r[1], "ai_hs": r[2], "note": r[3], "date": r[4], "type": r[5]}
+        for r in events if r[2]
+    ]
+    other_events = len(events) - len(mismatches)   # 정정 등 AI 추천 없는 이력
+    bar_list = [
+        {
+            "hs": hs, "item_name": item, "n": n,
+            "mismatch": sum(1 for m in mismatches if _digits(m["declared_hs"])[:6] == _digits(hs)[:6]),
+        }
+        for hs, item, n in bars
+    ]
+    return {
+        "bars": bar_list,
+        "mismatches": mismatches,
+        "other_events": other_events,
+        "total": sum(b["n"] for b in bar_list),
+    }
+
+
+def fta_check(company_id: str) -> dict[str, object]:
+    """FTA 원산지 검증 차트 데이터: 월별 감면액(정상/직접운송 검토) + 사후검증 이력."""
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        try:
+            claims = conn.execute(
+                """
+                SELECT agreement, declaration_ref, co_no, coalesce(co_status, '정상'),
+                       coalesce(reduction_amount, 0), CAST(claim_date AS VARCHAR)
+                FROM fta_claim WHERE company_id = ? ORDER BY claim_date
+                """, [company_id]).fetchall()
+        except duckdb.CatalogException:
+            claims = []
+        try:
+            verifs = conn.execute(
+                """
+                SELECT fta_claim_ref, CAST(verify_date AS VARCHAR), coalesce(verify_result, ''),
+                       coalesce(recovered_amount, 0), coalesce(agency, ''), coalesce(note, '')
+                FROM origin_verification WHERE company_id = ? ORDER BY verify_date DESC
+                """, [company_id]).fetchall()
+        except duckdb.CatalogException:
+            verifs = []
+    months: dict[str, dict[str, float]] = {}
+    risky_rows = []
+    total = 0.0
+    for agreement, ref, co_no, status, amount, date in claims:
+        ym = str(date or "")[:7]
+        if len(ym) < 7:
+            continue
+        m = months.setdefault(ym, {"ok": 0.0, "risky": 0.0})
+        risky = status != "정상"
+        m["risky" if risky else "ok"] += amount
+        total += amount
+        if risky:
+            risky_rows.append({"ref": ref, "co_no": co_no, "status": status,
+                               "amount": amount, "date": str(date)[:10]})
+    return {
+        "claims_n": len(claims),
+        "reduction_total": total,
+        "risky_n": len(risky_rows),
+        "agreements": sorted({c[0] for c in claims if c[0]}),
+        "months": [{"ym": ym, **v} for ym, v in sorted(months.items())],
+        "risky": risky_rows,
+        "verifications": [
+            {"co_no": r[0], "date": str(r[1] or "")[:10], "result": r[2],
+             "recovered": r[3], "agency": r[4], "note": r[5]}
+            for r in verifs
+        ],
+    }
+
+
+def refund_check(company_id: str) -> dict[str, object]:
+    """관세환급 검증 차트 데이터: 분기별 환급 신청액(상태별) + 이상 신청 내역."""
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT CAST(claim_date AS VARCHAR), coalesce(claim_type, ''), coalesce(refund_amount, 0),
+                       coalesce(status, ''), coalesce(export_ref, ''), coalesce(note, '')
+                FROM customs_refund_claim WHERE company_id = ? ORDER BY claim_date
+                """, [company_id]).fetchall()
+        except duckdb.CatalogException:
+            rows = []
+    quarters: dict[str, dict[str, float]] = {}
+    anomalies = []
+    total = 0.0
+    for date, ctype, amount, status, export_ref, note in rows:
+        ym = str(date or "")[:7]
+        if len(ym) < 7:
+            continue
+        qk = f"{ym[:4]}-Q{(int(ym[5:7]) - 1) // 3 + 1}"
+        q = quarters.setdefault(qk, {"paid": 0.0, "pending": 0.0, "hold": 0.0})
+        key = "paid" if status == "지급" else ("hold" if status == "보류" else "pending")
+        q[key] += amount
+        total += amount
+        if status == "보류" or note:
+            anomalies.append({"date": str(date)[:10], "type": ctype, "amount": amount,
+                              "status": status, "note": note})
+    return {
+        "claims_n": len(rows),
+        "total": total,
+        "quarters": [{"q": qk, **v} for qk, v in sorted(quarters.items())],
+        "anomalies": anomalies,
+    }
+
+
 def list_risk_persons() -> list[dict[str, object]]:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
         exists = conn.execute(
@@ -1986,6 +2184,43 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "company not found"}, HTTPStatus.NOT_FOUND)
                 return
             self._send_json(graph)
+            return
+
+        if parsed.path == "/api/investigation/price_trend":
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            hs = (q.get("hs", [""])[0].strip() or None)
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            data = price_trend(company_id, hs)
+            if data is None:
+                self._send_json({"error": "no declarations for company"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(data)
+            return
+
+        if parsed.path == "/api/investigation/hs_check":
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            data = hs_check(company_id)
+            if data is None:
+                self._send_json({"error": "no declarations for company"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(data)
+            return
+
+        if parsed.path in ("/api/investigation/fta_check", "/api/investigation/refund_check"):
+            q = parse_qs(parsed.query)
+            company_id = q.get("company_id", [""])[0].strip()
+            if not company_id:
+                self._send_json({"error": "company_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            fn = fta_check if parsed.path.endswith("fta_check") else refund_check
+            self._send_json(fn(company_id))
             return
 
         if parsed.path == "/api/graph/company_routes":

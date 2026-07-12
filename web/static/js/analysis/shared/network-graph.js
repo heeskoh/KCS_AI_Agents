@@ -1255,6 +1255,392 @@ function buildViewToggle(state, key){
   return `<div class="profile-net-views">${btns}${desc}${hiddenChip}${tools}</div>`;
 }
 
+/* ── 저가신고 검증 차트: 품목 신고단가 월별 추이 + 동일품목 타 신고 상·하한 밴드 ──
+   관계망 대신 단가 시계열로 저가신고를 검증한다(관계·경로가 본질이 아닌 요인).
+   데이터: /api/investigation/price_trend (DuckDB 신고 원장 + 동일품목 타사 신고) */
+/* 검증 차트 공용 데이터 페치 캐시 — /api/investigation/<api>?company_id=... */
+const _invDataCache = new Map();   // `${api}:${companyId}` → {loading, data, error}
+
+function ensureInvData(key, api, companyId){
+  const ck = `${api}:${companyId}`;
+  const entry = _invDataCache.get(ck);
+  if(entry) return entry;
+  const pending = { loading: true, data: null, error: "" };
+  _invDataCache.set(ck, pending);
+  fetch(`/api/investigation/${api}?company_id=${encodeURIComponent(companyId)}`)
+    .then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(data => { _invDataCache.set(ck, { loading: false, data, error: "" }); rerenderPanelByKey(key); })
+    .catch(err => { _invDataCache.set(ck, { loading: false, data: null, error: String(err && err.message || err) }); rerenderPanelByKey(key); });
+  return pending;
+}
+
+function buildPriceTrendArea(key, companyId){
+  const entry = ensureInvData(key, "price_trend", companyId);
+  if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 신고단가 추이 로딩 중...</div>`;
+  if(!entry.data) return `<div class="profile-net-empty">신고단가 추이를 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
+  return priceTrendSvgHtml(entry.data);
+}
+
+function priceTrendSvgHtml(d){
+  const months = [...new Set([...(d.peers || []).map(p => p.ym), ...(d.company || []).map(c => c.ym)])].sort();
+  if(!months.length) return `<div class="profile-net-empty">표시할 신고단가 데이터가 없습니다.</div>`;
+  const W = 980, H = 384, L = 58, R = 18, T = 30, B = 44;
+  const iw = W - L - R, ih = H - T - B;
+  const x = ym => L + (months.indexOf(ym) / Math.max(1, months.length - 1)) * iw;
+  const vals = [];
+  (d.peers || []).forEach(p => vals.push(p.hi));
+  (d.company || []).forEach(c => vals.push(c.hi || c.avg));
+  if(d.peer_median) vals.push(d.peer_median);
+  const yMax = (Math.max(...vals) || 10) * 1.12;
+  const y = v => T + ih - (v / yMax) * ih;
+  const cur = d.currency || "USD";
+
+  // 타 신고 상·하한 밴드 — 연속 구간은 면, 단독 월은 세로선
+  const peerBy = new Map((d.peers || []).map(p => [p.ym, p]));
+  const runs = [];
+  let run = [];
+  months.forEach(m => {
+    if(peerBy.has(m)) run.push(m);
+    else { if(run.length) runs.push(run); run = []; }
+  });
+  if(run.length) runs.push(run);
+  const band = runs.map(r => {
+    if(r.length === 1){
+      const p = peerBy.get(r[0]);
+      return `<line x1="${x(r[0]).toFixed(1)}" y1="${y(p.hi).toFixed(1)}" x2="${x(r[0]).toFixed(1)}" y2="${y(p.lo).toFixed(1)}" class="rfc-band-line"/>`;
+    }
+    const top = r.map(m => `${x(m).toFixed(1)},${y(peerBy.get(m).hi).toFixed(1)}`);
+    const bot = [...r].reverse().map(m => `${x(m).toFixed(1)},${y(peerBy.get(m).lo).toFixed(1)}`);
+    return `<polygon points="${top.join(" ")} ${bot.join(" ")}" class="rfc-band"/>`;
+  }).join("");
+
+  // 대상기업 월별 평균 단가 라인 + 점(툴팁: 월·단가·건수)
+  const compBy = new Map((d.company || []).map(c => [c.ym, c]));
+  const compMonths = months.filter(m => compBy.has(m));
+  const compLine = compMonths.map((m, i) =>
+    `${i ? "L" : "M"}${x(m).toFixed(1)} ${y(compBy.get(m).avg).toFixed(1)}`).join(" ");
+  const compDots = compMonths.map(m => {
+    const c = compBy.get(m);
+    return `<circle cx="${x(m).toFixed(1)}" cy="${y(c.avg).toFixed(1)}" r="3.4" class="rfc-dot"><title>${m} · ${cur} ${c.avg} · 신고 ${c.n}건 (${c.lo}~${c.hi})</title></circle>`;
+  }).join("");
+
+  // 동종 중앙값 기준선
+  const median = d.peer_median
+    ? `<line x1="${L}" x2="${W - R}" y1="${y(d.peer_median).toFixed(1)}" y2="${y(d.peer_median).toFixed(1)}" class="rfc-median"/>
+       <text x="${W - R}" y="${(y(d.peer_median) - 5).toFixed(1)}" text-anchor="end" class="rfc-median-t">동종 중앙값 ${cur} ${d.peer_median}</text>`
+    : "";
+
+  // Y축 눈금 4개 + 그리드, X축 라벨(약 8개)
+  const yTicks = [1, 2, 3, 4].map(i => {
+    const v = yMax / 4 * i;
+    return `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="rfc-grid"/>
+            <text x="${L - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" class="rfc-axis-t">${v >= 100 ? Math.round(v) : v.toFixed(1)}</text>`;
+  }).join("");
+  const step = Math.max(1, Math.ceil(months.length / 8));
+  const xLabels = months.filter((_, i) => i % step === 0).map(m =>
+    `<text x="${x(m).toFixed(1)}" y="${H - B + 18}" text-anchor="middle" class="rfc-axis-t">${m}</text>`).join("");
+
+  const gap = Number.isFinite(Number(d.gap_pct)) ? Number(d.gap_pct) : null;
+  const caption = `HS ${d.hs}${d.item_name ? ` · ${escapeHtml(d.item_name)}` : ""} — 대상기업 평균 ${cur} ${d.company_avg}` +
+    (gap !== null ? ` · 동종 중앙값 대비 <b class="${gap < 0 ? "rfc-neg" : "rfc-pos"}">${gap > 0 ? "+" : ""}${gap}%</b>` : "");
+  return `
+    <div class="net-rf-chart" data-net-chart="price_trend">
+      <div class="rfc-head">
+        <span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend">
+          <i class="rfc-lg-band"></i>동일품목 타 신고 상·하한
+          <i class="rfc-lg-median"></i>동종 중앙값
+          <i class="rfc-lg-line"></i>대상기업 신고단가
+        </span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="품목 신고단가 월별 추이">
+        ${yTicks}
+        ${band}
+        ${median}
+        <path d="${compLine}" class="rfc-line"/>
+        ${compDots}
+        <line x1="${L}" x2="${W - R}" y1="${(T + ih).toFixed(1)}" y2="${(T + ih).toFixed(1)}" class="rfc-axis"/>
+        ${xLabels}
+        <text x="${L - 44}" y="${T - 12}" class="rfc-axis-t">${cur}</text>
+      </svg>
+    </div>`;
+}
+
+/* ── 역외자금 은닉 검증 차트: 월별 수입금액 중 역외 루트(역외 정산법인 국가) 금액·비중 추이 ──
+   관계보다 '돈의 흐름'이 본질인 요인 — 신고 원장(그래프 데이터)만으로 클라이언트에서 집계한다.
+   역외 국가 = is_offshore 특수관계인의 국가(예: 홍콩). 역외 관계인이 없으면 null(→ 관계 그래프 유지). */
+function offshoreTrendData(graph){
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const countries = new Set();
+  let offshoreParty = null;
+  (graph.edges || []).forEach(e => {
+    if(e.type !== "RELATED_PARTY") return;
+    const p = e.properties || {};
+    const other = byId.get(e.source === graph.center ? e.target : e.source);
+    if(!other) return;
+    const off = p.is_offshore === true || !!(other.properties && other.properties.is_offshore);
+    if(!off) return;
+    const c = (other.properties && other.properties.country) || "";
+    if(c) countries.add(c);
+    offshoreParty = { name: other.name, trade: Number(p.trade_share_pct) || 0 };
+  });
+  if(!countries.size) return null;
+  const byMonth = new Map();
+  let offN = 0, offV = 0, totV = 0;
+  declRecords(graph).forEach(r => {
+    const p = r.decl.properties || {};
+    const ym = String(p.trade_date || "").slice(0, 7);
+    if(ym.length < 7) return;
+    const v = Number(p.value) || 0;
+    const country = (r.sup && r.sup.properties && r.sup.properties.country) || "";
+    if(!byMonth.has(ym)) byMonth.set(ym, { off: 0, other: 0 });
+    const m = byMonth.get(ym);
+    if(countries.has(country)){ m.off += v; offN += 1; offV += v; }
+    else m.other += v;
+    totV += v;
+  });
+  if(!byMonth.size || !offV) return null;
+  return { months: [...byMonth.keys()].sort(), byMonth, countries: [...countries], offshoreParty, offN, offV, totV };
+}
+
+function offshoreTrendSvgHtml(graph){
+  const d = offshoreTrendData(graph);
+  if(!d) return `<div class="profile-net-empty">역외 루트 수입 데이터가 없습니다.</div>`;
+  const W = 980, H = 384, L = 58, R = 46, T = 30, B = 44;
+  const iw = W - L - R, ih = H - T - B;
+  const slot = iw / d.months.length;
+  const barW = Math.min(34, slot * 0.62);
+  const vMax = Math.max(...d.months.map(m => { const r = d.byMonth.get(m); return r.off + r.other; })) * 1.12 || 1;
+  const yV = v => T + ih - (v / vMax) * ih;
+  const yS = s => T + ih - s * ih;                     // 비중 0~1 → 우측 축
+  const xC = i => L + slot * i + slot / 2;
+
+  const bars = d.months.map((m, i) => {
+    const r = d.byMonth.get(m);
+    const x0 = (xC(i) - barW / 2).toFixed(1);
+    const yOff = yV(r.off), yTot = yV(r.off + r.other);
+    const share = (r.off + r.other) > 0 ? r.off / (r.off + r.other) : 0;
+    const tip = `<title>${m} · 역외 ${fmtKrwShort(r.off) || "0"} / 기타 ${fmtKrwShort(r.other) || "0"} · 역외 비중 ${(share * 100).toFixed(0)}%</title>`;
+    return `<g>${tip}
+      <rect x="${x0}" y="${yTot.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, yOff - yTot).toFixed(1)}" class="ofc-bar-other"/>
+      <rect x="${x0}" y="${yOff.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, T + ih - yOff).toFixed(1)}" class="ofc-bar-off"/>
+    </g>`;
+  }).join("");
+
+  const sharePts = d.months.map((m, i) => {
+    const r = d.byMonth.get(m);
+    const share = (r.off + r.other) > 0 ? r.off / (r.off + r.other) : 0;
+    return { x: xC(i), y: yS(share), share };
+  });
+  const shareLine = sharePts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const shareDots = sharePts.map((p, i) =>
+    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.8" class="ofc-share-dot"><title>${d.months[i]} · 역외 비중 ${(p.share * 100).toFixed(0)}%</title></circle>`).join("");
+
+  const yTicks = [1, 2, 3, 4].map(i => {
+    const v = vMax / 4 * i;
+    return `<line x1="${L}" x2="${W - R}" y1="${yV(v).toFixed(1)}" y2="${yV(v).toFixed(1)}" class="rfc-grid"/>
+            <text x="${L - 8}" y="${(yV(v) + 4).toFixed(1)}" text-anchor="end" class="rfc-axis-t">${fmtKrwShort(v)}</text>`;
+  }).join("");
+  const sTicks = [0, .5, 1].map(s =>
+    `<text x="${W - R + 8}" y="${(yS(s) + 4).toFixed(1)}" class="rfc-axis-t ofc-share-t">${s * 100}%</text>`).join("");
+  const step = Math.max(1, Math.ceil(d.months.length / 8));
+  const xLabels = d.months.filter((_, i) => i % step === 0).map((m, j) =>
+    `<text x="${xC(d.months.indexOf(m)).toFixed(1)}" y="${H - B + 18}" text-anchor="middle" class="rfc-axis-t">${m}</text>`).join("");
+
+  const sharePct = Math.round(d.offV / (d.totV || 1) * 100);
+  const party = d.offshoreParty
+    ? ` · 역외 정산법인 ${escapeHtml(d.offshoreParty.name)}${d.offshoreParty.trade ? `(거래 ${d.offshoreParty.trade}%)` : ""}` : "";
+  const caption = `역외(${d.countries.map(escapeHtml).join("/")}) 루트 수입 ${d.offN}건 · ${fmtKrwShort(d.offV)} — 총 수입금액의 <b class="rfc-neg">${sharePct}%</b>${party}`;
+  return `
+    <div class="net-rf-chart" data-net-chart="offshore_trend">
+      <div class="rfc-head">
+        <span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend">
+          <i class="ofc-lg-off"></i>역외 루트 수입금액
+          <i class="ofc-lg-other"></i>기타 루트
+          <i class="ofc-lg-share"></i>역외 비중(%)
+        </span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="월별 역외 루트 수입금액·비중 추이">
+        ${yTicks}
+        ${bars}
+        <path d="${shareLine}" class="ofc-share-line"/>
+        ${shareDots}
+        ${sTicks}
+        <line x1="${L}" x2="${W - R}" y1="${(T + ih).toFixed(1)}" y2="${(T + ih).toFixed(1)}" class="rfc-axis"/>
+        ${xLabels}
+        <text x="${L - 44}" y="${T - 12}" class="rfc-axis-t">금액</text>
+      </svg>
+    </div>`;
+}
+
+/* ── HS 분류 검증 차트: 신고 세번별 신고건수 가로 막대 + AI 분류 추천 불일치 내역 ──
+   분류 정합이 본질인 요인 — 신고 세번 분포와 AI 추천 불일치 건을 나란히 검증한다.
+   데이터: /api/investigation/hs_check (신고 원장 + hs_classification_event) */
+function buildHsCheckArea(key, companyId){
+  const entry = ensureInvData(key, "hs_check", companyId);
+  if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 세번 분포 로딩 중...</div>`;
+  if(!entry.data) return `<div class="profile-net-empty">세번 분포를 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
+  return hsCheckHtml(entry.data);
+}
+
+function hsCheckHtml(d){
+  const bars = d.bars || [];
+  if(!bars.length) return `<div class="profile-net-empty">표시할 신고 세번 데이터가 없습니다.</div>`;
+  const W = 980, rowH = 46, T = 8, B = 8, labelW = 300;
+  const H = T + bars.length * rowH + B;
+  const maxN = Math.max(...bars.map(b => b.n)) || 1;
+  const bw = n => Math.max(3, (n / maxN) * (W - labelW - 120));
+  const rows = bars.map((b, i) => {
+    const y = T + i * rowH;
+    const w = bw(b.n);
+    const mmW = b.mismatch ? Math.max(6, (b.mismatch / maxN) * (W - labelW - 120)) : 0;
+    const mm = b.mismatch
+      ? `<rect x="${labelW + w - mmW}" y="${y + 10}" width="${mmW.toFixed(1)}" height="22" class="hsc-bar-mm"/>
+         <text x="${labelW + w + 12}" y="${y + 26}" class="hsc-mm-t">AI 불일치 ${b.mismatch}건</text>`
+      : `<text x="${labelW + w + 12}" y="${y + 26}" class="rfc-axis-t">${b.n}건</text>`;
+    return `
+      <text x="8" y="${y + 20}" class="hsc-hs-t">HS ${escapeHtml(b.hs)}</text>
+      <text x="8" y="${y + 36}" class="rfc-axis-t">${escapeHtml(b.item_name)}</text>
+      <rect x="${labelW}" y="${y + 10}" width="${w.toFixed(1)}" height="22" class="hsc-bar"><title>HS ${escapeHtml(b.hs)} · ${escapeHtml(b.item_name)} · 신고 ${b.n}건${b.mismatch ? ` · AI 불일치 ${b.mismatch}건` : ""}</title></rect>
+      ${b.mismatch ? `<text x="${labelW + 8}" y="${y + 26}" class="hsc-n-t">${b.n}건</text>` : ""}
+      ${mm}`;
+  }).join("");
+  const mmList = (d.mismatches || []).map(m => `
+    <div class="hsc-mm-row">
+      <b>${escapeHtml(m.ref || "")}</b>
+      <span>신고 <b>HS ${escapeHtml(m.declared_hs || "")}</b> → AI 추천 <b class="rfc-neg">HS ${escapeHtml(m.ai_hs || "")}</b></span>
+      <span class="muted">${escapeHtml(m.note || "")}${m.date ? ` · ${escapeHtml(String(m.date).slice(0, 10))}` : ""}</span>
+    </div>`).join("");
+  const caption = `신고 세번 ${bars.length}종 · 신고 ${d.total}건 — AI 분류 추천 불일치 ` +
+    `<b class="${(d.mismatches || []).length ? "rfc-neg" : "rfc-pos"}">${(d.mismatches || []).length}건</b>` +
+    (d.other_events ? ` · 분류 정정 이력 ${d.other_events}건` : "");
+  return `
+    <div class="net-rf-chart" data-net-chart="hs_check">
+      <div class="rfc-head">
+        <span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="hsc-lg-bar"></i>세번별 신고건수 <i class="hsc-lg-mm"></i>AI 추천 불일치</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="신고 세번별 신고건수와 AI 분류 불일치">
+        ${rows}
+      </svg>
+      ${mmList ? `<div class="hsc-list"><div class="hsc-list-head">AI 분류 불일치 내역</div>${mmList}</div>` : ""}
+    </div>`;
+}
+
+/* ── 검증 차트 공용: 기간별 스택 막대(2~3계열) + 하단 내역 목록 ──
+   FTA(월별 감면액: 정상/직접운송 검토)·관세환급(분기별 신청액: 지급/심사중/보류)이 공유한다. */
+function stackedBarChartHtml(opts){
+  const { chartId, caption, legend, periods, series, listHead, listRows, unitFmt } = opts;
+  if(!periods.length) return `<div class="profile-net-empty">${escapeHtml(opts.emptyText || "표시할 데이터가 없습니다.")}</div>`;
+  const W = 980, H = 320, L = 62, R = 18, T = 26, B = 40;
+  const iw = W - L - R, ih = H - T - B;
+  const slot = iw / periods.length;
+  const barW = Math.min(46, slot * 0.58);
+  const totals = periods.map(p => series.reduce((s, sr) => s + (sr.get(p) || 0), 0));
+  const vMax = (Math.max(...totals) || 1) * 1.12;
+  const yV = v => T + ih - (v / vMax) * ih;
+  const fmt = unitFmt || fmtKrwShort;
+  const bars = periods.map((p, i) => {
+    const xc = L + slot * i + slot / 2;
+    let acc = 0;
+    const segs = series.map(sr => {
+      const v = sr.get(p) || 0;
+      if(!v) return "";
+      const y1 = yV(acc + v), y0 = yV(acc);
+      acc += v;
+      return `<rect x="${(xc - barW / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, y0 - y1).toFixed(1)}" class="${sr.cls}"/>`;
+    }).join("");
+    const tip = series.map(sr => `${sr.name} ${fmt(sr.get(p) || 0) || "0"}`).join(" / ");
+    return `<g><title>${escapeHtml(p)} · ${tip}</title>${segs}</g>`;
+  }).join("");
+  const yTicks = [1, 2, 3, 4].map(i => {
+    const v = vMax / 4 * i;
+    return `<line x1="${L}" x2="${W - R}" y1="${yV(v).toFixed(1)}" y2="${yV(v).toFixed(1)}" class="rfc-grid"/>
+            <text x="${L - 8}" y="${(yV(v) + 4).toFixed(1)}" text-anchor="end" class="rfc-axis-t">${fmt(v)}</text>`;
+  }).join("");
+  const step = Math.max(1, Math.ceil(periods.length / 10));
+  const xLabels = periods.filter((_, i) => i % step === 0).map(p =>
+    `<text x="${(L + slot * periods.indexOf(p) + slot / 2).toFixed(1)}" y="${H - B + 17}" text-anchor="middle" class="rfc-axis-t">${escapeHtml(p)}</text>`).join("");
+  const legendHtml = legend.map(l => `<i class="${l.cls}"></i>${escapeHtml(l.name)}`).join(" ");
+  return `
+    <div class="net-rf-chart" data-net-chart="${escapeHtml(chartId)}">
+      <div class="rfc-head">
+        <span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend">${legendHtml}</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img">
+        ${yTicks}${bars}
+        <line x1="${L}" x2="${W - R}" y1="${(T + ih).toFixed(1)}" y2="${(T + ih).toFixed(1)}" class="rfc-axis"/>
+        ${xLabels}
+      </svg>
+      ${listRows && listRows.length ? `<div class="hsc-list"><div class="hsc-list-head">${escapeHtml(listHead || "내역")}</div>${listRows.join("")}</div>` : ""}
+    </div>`;
+}
+
+/* ── FTA 원산지 검증 차트: 월별 FTA 감면액(정상/직접운송 검토) + 사후검증·검토대상 내역 ── */
+function buildFtaCheckArea(key, companyId){
+  const entry = ensureInvData(key, "fta_check", companyId);
+  if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> FTA 감면 이력 로딩 중...</div>`;
+  if(!entry.data) return `<div class="profile-net-empty">FTA 감면 이력을 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
+  const d = entry.data;
+  if(!(d.months || []).length) return `<div class="profile-net-empty">FTA 감면 신고 이력이 없습니다.</div>`;
+  const periods = d.months.map(m => m.ym);
+  const okMap = new Map(d.months.map(m => [m.ym, m.ok]));
+  const riskyMap = new Map(d.months.map(m => [m.ym, m.risky]));
+  const verifRows = (d.verifications || []).map(v => `
+    <div class="hsc-mm-row"><b>${escapeHtml(v.co_no || "")}</b>
+      <span>사후검증 <b class="rfc-neg">${escapeHtml(v.result || "")}</b> · ${escapeHtml(v.agency || "")}</span>
+      <span class="muted">${escapeHtml(v.note || "")}${v.date ? ` · ${escapeHtml(v.date)}` : ""}</span></div>`);
+  const riskyRows = (d.risky || []).map(r => `
+    <div class="hsc-mm-row"><b>${escapeHtml(r.ref || "")}</b>
+      <span>${escapeHtml(r.co_no || "")} · <b class="rfc-neg">${escapeHtml(r.status || "")}</b> · 감면 ${fmtKrwShort(r.amount) || "-"}</span>
+      <span class="muted">${escapeHtml(r.date || "")}</span></div>`);
+  const caption = `${escapeHtml((d.agreements || []).join("/") || "FTA")} 감면 신고 ${d.claims_n}건 · ${fmtKrwShort(d.reduction_total) || "0"}` +
+    ` — 직접운송 검토 <b class="rfc-neg">${d.risky_n}건</b>${(d.verifications || []).length ? ` · 사후검증 ${d.verifications.length}건` : ""}`;
+  return stackedBarChartHtml({
+    chartId: "fta_check", caption,
+    legend: [{ name: "감면액(정상)", cls: "ftc-lg-ok" }, { name: "직접운송 검토", cls: "ftc-lg-risky" }],
+    periods,
+    series: [{ name: "정상", cls: "ftc-bar-ok", get: p => okMap.get(p) },
+             { name: "직접운송 검토", cls: "ftc-bar-risky", get: p => riskyMap.get(p) }],
+    listHead: "원산지 검증 대상·이력",
+    listRows: [...verifRows, ...riskyRows],
+  });
+}
+
+/* ── 관세환급 검증 차트: 분기별 환급 신청액(지급/심사중/보류) + 이상 신청 내역 ── */
+function buildRefundCheckArea(key, companyId){
+  const entry = ensureInvData(key, "refund_check", companyId);
+  if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 환급 신청 이력 로딩 중...</div>`;
+  if(!entry.data) return `<div class="profile-net-empty">환급 신청 이력을 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
+  const d = entry.data;
+  if(!(d.quarters || []).length) return `<div class="profile-net-empty">관세환급 신청 이력이 없습니다.</div>`;
+  const periods = d.quarters.map(q => q.q);
+  const maps = {
+    paid: new Map(d.quarters.map(q => [q.q, q.paid])),
+    pending: new Map(d.quarters.map(q => [q.q, q.pending])),
+    hold: new Map(d.quarters.map(q => [q.q, q.hold])),
+  };
+  const anomalyRows = (d.anomalies || []).map(a => `
+    <div class="hsc-mm-row"><b>${escapeHtml(a.date || "")}</b>
+      <span>${escapeHtml(a.type || "")} ${fmtKrwShort(a.amount) || "-"} · <b class="rfc-neg">${escapeHtml(a.status || "")}</b></span>
+      <span class="muted">${escapeHtml(a.note || "")}</span></div>`);
+  const holdN = (d.anomalies || []).filter(a => a.status === "보류").length;
+  const caption = `환급 신청 ${d.claims_n}건 · ${fmtKrwShort(d.total) || "0"}` +
+    (holdN ? ` — 보류 <b class="rfc-neg">${holdN}건</b>(수출이행 근거 미확인)` : " — 분기별 추이");
+  return stackedBarChartHtml({
+    chartId: "refund_check", caption,
+    legend: [{ name: "지급", cls: "rfd-lg-paid" }, { name: "심사중", cls: "rfd-lg-pending" }, { name: "보류", cls: "rfd-lg-hold" }],
+    periods,
+    series: [{ name: "지급", cls: "rfd-bar-paid", get: p => maps.paid.get(p) },
+             { name: "심사중", cls: "rfd-bar-pending", get: p => maps.pending.get(p) },
+             { name: "보류", cls: "rfd-bar-hold", get: p => maps.hold.get(p) }],
+    listHead: "이상 신청 내역",
+    listRows: anomalyRows,
+  });
+}
+
 /* 위험구성 원인분석: 검증할 위험요인 선택 칩 — 지표값 내림차순, 근거 없는 요인(0%)은 흐리게 */
 function buildRiskFactorBar(raw, state, key){
   if(viewModeOf(state).id !== "riskcause") return "";
@@ -2318,16 +2704,34 @@ function renderPanelContent(targetType, targetId){
     state.analysisResult = computeAnalysis(state._autorun, projected, state.analysisSel);
     state._autorun = null;
   }
-  const graphArea = projected.nodes.length
-    ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
-    : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`;
+  // 관계·경로가 본질이 아닌 요인은 관계망 대신 검증 차트로 표시 (기업 프로파일에서만)
+  // - 저가신고: 신고단가 추이 + 동일품목 타 신고 상·하한 밴드
+  // - 역외자금: 월별 역외 루트 수입금액·비중 추이 (역외 관계인이 없으면 관계 그래프 유지)
+  // - HS 분류: 세번별 신고건수 + AI 분류 추천 불일치 내역
+  // - FTA 원산지: 월별 감면액(정상/직접운송 검토) + 사후검증 이력
+  // - 관세환급: 분기별 신청액(지급/심사중/보류) + 이상 신청 내역
+  const rfSel = (targetType === "company" && viewModeOf(state).id === "riskcause")
+    ? (selectedRiskFactor(riskFactorList(raw), state) || {}) : {};
+  const chartBuilders = {
+    undervaluation: () => buildPriceTrendArea(key, targetId),
+    offshore_fund: () => offshoreTrendData(raw) ? offshoreTrendSvgHtml(raw) : "",
+    hs_classification: () => buildHsCheckArea(key, targetId),
+    fta_origin_misuse: () => buildFtaCheckArea(key, targetId),
+    customs_refund: () => buildRefundCheckArea(key, targetId),
+  };
+  const chartHtml = chartBuilders[rfSel.code] ? chartBuilders[rfSel.code]() : "";
+  const chartKind = chartHtml ? rfSel.code : "";
+  const graphArea = chartHtml
+    || (projected.nodes.length
+      ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
+      : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`);
   const main = `
     ${buildViewToggle(state, key)}
     ${isProjectable ? buildRiskFactorBar(raw, state, key) : ""}
     ${buildFilterBar(chipSource, state, key)}
-    ${buildLaneHeader(projected)}
+    ${chartKind ? "" : buildLaneHeader(projected)}
     ${buildPathBanner(state, key)}
-    <div class="profile-net-graph-area">${projected.nodes.length ? buildAlignToolbar(key) : ""}${graphArea}</div>
+    <div class="profile-net-graph-area">${!chartKind && projected.nodes.length ? buildAlignToolbar(key) : ""}${graphArea}</div>
     <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>
     <div class="profile-net-bottom">
       ${buildAnalysisResult(state, key)}

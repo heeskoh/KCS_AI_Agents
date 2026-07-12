@@ -2324,6 +2324,61 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .net-rf-chip.on b{color:#ffe9c7}
 .net-rf-chip.zero{opacity:.55}
 .net-rf-chip.zero b{color:#94a3b8}
+/* 저가신고 검증 차트: 신고단가 월별 추이 + 동일품목 타 신고 상·하한 밴드 */
+.net-rf-chart{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;padding:10px 14px}
+.net-rf-chart svg{flex:1;min-height:0;width:100%}
+.rfc-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:2px 2px 8px}
+.rfc-caption{font-size:12px;font-weight:800;color:#334155}
+.rfc-caption b.rfc-neg{color:#dc2626}
+.rfc-caption b.rfc-pos{color:#16a34a}
+.rfc-legend{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#64748b}
+.rfc-legend i{display:inline-block;margin-left:8px}
+.rfc-lg-band{width:14px;height:10px;background:#dbeafe;border:1px solid #bfdbfe;border-radius:2px}
+.rfc-lg-median{width:14px;height:0;border-top:2px dashed #2563eb}
+.rfc-lg-line{width:14px;height:0;border-top:2.5px solid #dc2626}
+.rfc-band{fill:#dbeafe;stroke:#bfdbfe;stroke-width:1;opacity:.85}
+.rfc-band-line{stroke:#bfdbfe;stroke-width:5;stroke-linecap:round;opacity:.85}
+.rfc-median{stroke:#2563eb;stroke-width:1.6;stroke-dasharray:6 4}
+.rfc-median-t{font-size:11px;font-weight:700;fill:#2563eb}
+.rfc-line{fill:none;stroke:#dc2626;stroke-width:2.4;stroke-linejoin:round}
+.rfc-dot{fill:#dc2626;stroke:#fff;stroke-width:1.2;cursor:default}
+.rfc-grid{stroke:#eef2f7;stroke-width:1}
+.rfc-axis{stroke:#cbd5e1;stroke-width:1.2}
+.rfc-axis-t{font-size:10.5px;fill:#94a3b8}
+/* 역외자금 검증 차트: 월별 역외 루트 수입금액(스택 막대) + 역외 비중 라인 */
+.ofc-bar-off{fill:#f59e0b;opacity:.9}
+.ofc-bar-other{fill:#dbe7f6}
+.ofc-share-line{fill:none;stroke:#b45309;stroke-width:2;stroke-dasharray:5 3}
+.ofc-share-dot{fill:#b45309;stroke:#fff;stroke-width:1;cursor:default}
+.ofc-share-t{fill:#b45309}
+.ofc-lg-off{width:12px;height:10px;background:#f59e0b;border-radius:2px}
+.ofc-lg-other{width:12px;height:10px;background:#dbe7f6;border-radius:2px}
+.ofc-lg-share{width:14px;height:0;border-top:2px dashed #b45309}
+/* HS 분류 검증 차트: 세번별 신고건수 막대 + AI 불일치 내역 */
+.net-rf-chart[data-net-chart="hs_check"] svg{flex:none}
+.hsc-bar{fill:#60a5fa;opacity:.85}
+.hsc-bar-mm{fill:#dc2626;opacity:.9}
+.hsc-hs-t{font-size:12.5px;font-weight:800;fill:#334155}
+.hsc-n-t{font-size:11px;font-weight:700;fill:#fff}
+.hsc-mm-t{font-size:11px;font-weight:800;fill:#dc2626}
+.hsc-lg-bar{width:12px;height:10px;background:#60a5fa;border-radius:2px}
+.hsc-lg-mm{width:12px;height:10px;background:#dc2626;border-radius:2px}
+/* FTA·관세환급 검증 차트 (스택 막대 공용) */
+.ftc-bar-ok{fill:#60a5fa;opacity:.85}
+.ftc-bar-risky{fill:#f97316;opacity:.9}
+.ftc-lg-ok{width:12px;height:10px;background:#60a5fa;border-radius:2px}
+.ftc-lg-risky{width:12px;height:10px;background:#f97316;border-radius:2px}
+.rfd-bar-paid{fill:#60a5fa;opacity:.85}
+.rfd-bar-pending{fill:#fbbf24;opacity:.9}
+.rfd-bar-hold{fill:#dc2626;opacity:.9}
+.rfd-lg-paid{width:12px;height:10px;background:#60a5fa;border-radius:2px}
+.rfd-lg-pending{width:12px;height:10px;background:#fbbf24;border-radius:2px}
+.rfd-lg-hold{width:12px;height:10px;background:#dc2626;border-radius:2px}
+.net-rf-chart[data-net-chart="fta_check"] svg,.net-rf-chart[data-net-chart="refund_check"] svg{flex:none}
+.hsc-list{margin-top:6px;border:1px solid #fecaca;border-radius:10px;background:#fff8f8;padding:8px 12px;overflow-y:auto}
+.hsc-list-head{font-size:11px;font-weight:800;color:#b91c1c;margin-bottom:6px}
+.hsc-mm-row{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:12px;color:#334155;padding:4px 0;border-top:1px dashed #fecaca}
+.hsc-mm-row:first-of-type{border-top:0}
 .net-hidden-chip{margin-left:auto;border:1px solid #fcd34d;background:#fffbeb;color:#b45309;font-size:11px;font-weight:700;border-radius:8px;padding:4px 10px;cursor:pointer;transition:.12s}
 .net-hidden-chip:hover{background:#fef3c7;border-color:#f59e0b}
 .profile-net-filter-chip.net-route-on{border-color:#7dd3fc;background:#f0f9ff;color:#0369a1}
