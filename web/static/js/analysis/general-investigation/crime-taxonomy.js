@@ -187,6 +187,18 @@ export function crimeAnalysisPlan(crimes){
   };
 }
 
+/* ── 혐의 기반 프로파일 그래프 스코프 — 프로파일 공유 기준은 '화면'이 아니라 '죄명'이다 ──
+   - 관세포탈 계열(c1 관세수입 침해): 관세조사·관세수사의 기본 대상 죄명으로 두 업무의
+     기업 프로파일이 동일 내용을 공유한다 → 공용 스코프("company:{id}") 사용.
+   - 그 외 죄명(밀수출입·외환·마약 등): 죄명이 다르면 프로파일에서 봐야 할 내용이 다르므로
+     대분류별 스코프("company.crime-{categoryId}:{id}")로 그래프 상태(뷰 모드·필터·검증 차트)를
+     분리한다 — 같은 죄명끼리만 공유되고, 죄명이 달라지면 변경분이 서로 섞이지 않는다.
+   - 혐의 미지정은 공용 스코프(기존 동작 유지). */
+export function profileGraphTypeForCrimes(categoryId, base = "company"){
+  if(!categoryId || categoryId === "c1") return base;
+  return `${base}.crime-${categoryId}`;
+}
+
 export function crimeCategoryById(id){
   return CRIME_TAXONOMY.find(category => category.id === id) || null;
 }

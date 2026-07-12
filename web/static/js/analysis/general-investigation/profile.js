@@ -1,6 +1,6 @@
 import { escapeHtml } from "../../core/dom.js";
 import { profileNetworkLayout } from "../shared/network-graph.js";
-import { crimeCategoryById, crimeOffenseById, CRIME_PROFILE_EMPHASIS } from "./crime-taxonomy.js";
+import { crimeCategoryById, crimeOffenseById, CRIME_PROFILE_EMPHASIS, profileGraphTypeForCrimes } from "./crime-taxonomy.js";
 
 function riskTone(score){
   const value = Number(score || 0);
@@ -228,6 +228,8 @@ export function renderProfilePanel(deps){
     }
     // 수사 기업 대상: 혐의 뱃지 + 좌측 대시보드/우측 관계망(60:40) — 프로파일이 전체 화면 사용
     // (외부 정보 수집·정리 섹션은 기초자료 수집/등록 탭으로 이동)
+    // 프로파일 그래프는 죄명 기준으로 공유/분리: 관세포탈(c1)은 관세조사와 공용 스코프,
+    // 그 외 죄명은 crime-{categoryId} 스코프로 분리(profileGraphTypeForCrimes 참조)
     return crimeStrip + profileNetworkLayout(
       deps.canvasProfilePanel(companyId, {
         selectedLabel: "수사 대상 기업",
@@ -236,7 +238,7 @@ export function renderProfilePanel(deps){
         reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
         scenarioAction: `<button class="btn" data-gi-tab="scenario">분석 시나리오 설정</button>`,
       }),
-      "company", companyId,
+      profileGraphTypeForCrimes(aCase.crimes?.categoryId), companyId,
     );
   }
   const person = deps.riskPersonById(aCase.personId);
@@ -250,9 +252,10 @@ export function renderProfilePanel(deps){
     return `<div class="profile-loading">우범자 통합 프로파일 로딩 중...</div>`;
   }
   // 우범자 프로파일: 혐의 뱃지 + 좌측 위험내역/우측 관계망(60:40) — 프로파일이 전체 화면 사용
+  // 기업과 동일하게 죄명 기준으로 그래프 스코프 분리(관세포탈 외 죄명은 각자 프로파일)
   return crimeStrip + profileNetworkLayout(
     renderPersonFullProfile(aCase, person, detail, type),
-    "person", personId, undefined, "general",
+    profileGraphTypeForCrimes(aCase.crimes?.categoryId, "person"), personId, undefined, "general",
   );
 }
 
