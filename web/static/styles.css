@@ -299,6 +299,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
    My AI 분석만 노출: 업무 탭·캔버스·바로가기·대시보드 등 포털 크롬 숨김.
    창 크기(가로 30%·최대 높이)는 호출측 window.open 이 지정한다. ── */
 body.copilot-mode .tb-tabs,
+body.copilot-mode .tb-right,
 body.copilot-mode .tb-ic,
 body.copilot-mode .tb-copilot-btn,
 body.copilot-mode .home-canvas-card,
