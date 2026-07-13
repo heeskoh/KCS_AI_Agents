@@ -8818,11 +8818,13 @@ function riskDashboardContent(){
 
   const q = riskDashboardFilter.query.toLowerCase();
   const minS = riskDashboardFilter.minScore;
+  // 위험도점수 내림차순 정렬(동점이면 업체명순) — filter가 새 배열을 반환하므로 원본 불변
   const filtered = companies.filter(c => {
     if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
     if(minS && (c.risk_score||0) < minS) return false;
     return true;
-  });
+  }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
+    || String(a.company_name||"").localeCompare(String(b.company_name||""), "ko"));
 
   return `
     <div class="risk-dashboard">
