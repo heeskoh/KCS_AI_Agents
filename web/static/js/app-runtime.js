@@ -27,6 +27,7 @@ import { agenticServicePage as renderAgenticServicePage, agenticInspectorHtml, a
 import { createAgenticFlow, loadDrawflow } from "./pages/agentic-flow.js";
 import { networkGraphPanelHtml } from "./analysis/shared/network-graph.js";
 import { openFileRegisterPopup } from "./pages/file-register-popup.js";
+import { openSourceAddPopup } from "./pages/source-add-popup.js";
 import "./pages/service-detail-popup.js";   // AI 서비스 상세 팝업(신규) — self-init, 기존 코드 무변경
 import { serviceInputStripHtml } from "./pages/service-workspace-ui.js";   // 3세트 UI 입력값 스트립(신규)
 import { getServiceSettings, settingValueLabel, setServiceSetting } from "./pages/service-config-popup.js";   // 리뷰모드 인라인 설정 UI
@@ -7744,108 +7745,28 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
   `;
 }
 
-/* ── 기초자료 데이터 소스 추가(파일 외 소스: 웹사이트·내부 데이터 링크·외부 API) ──
-   파일은 기존 파일 등록 팝업을 그대로 사용하고, 나머지 유형은 인라인 폼으로 등록해
-   업로드 기록(uploadedFilesByCompany)에 소스 행으로 영속화한다. */
-let sourceAddKind = null;   // "web" | "internal" | "api" | null — 열려 있는 소스 등록 폼
-
-const INTERNAL_LINK_OPTIONS = [
-  ["cdw",      "CDW 자연어조회 — 수입신고·기업 원장", "CDW 자연어조회"],
-  ["profile",  "기업 프로파일·위험지표 DB",           "CDW 자연어조회"],
-  ["external", "전자통관 외부정보(국세청·한국은행)",   "전자통관외부정보조회"],
-];
-const API_AUTH_OPTIONS = [["key", "API Key"], ["oauth", "OAuth2"], ["none", "인증 없음"]];
-
-function sourceAddFormHtml(){
-  if(!sourceAddKind) return "";
-  const forms = {
-    web: `
-      <div class="source-add-form-row">
-        <input id="srcWebUrl" type="text" placeholder="수집할 웹사이트 URL (https://...)">
-        <input id="srcWebKeyword" type="text" placeholder="수집 키워드 (선택)">
-      </div>
-      <p class="muted">등록 시 웹 정보수집(웹검색) 서비스로 외부 정보 수집이 예약됩니다.</p>`,
-    internal: `
-      <div class="source-add-form-row">
-        <select id="srcInternalKind">
-          ${INTERNAL_LINK_OPTIONS.map(([id, label]) => `<option value="${id}">${escapeHtml(label)}</option>`).join("")}
-        </select>
-        <input id="srcInternalQuery" type="text" placeholder="연결 조건/메모 (선택) — 예: 최근 24개월 수입신고">
-      </div>
-      <p class="muted">내부 데이터는 링크로 연결되어 분석 시 실시간 조회됩니다.</p>`,
-    api: `
-      <div class="source-add-form-row">
-        <input id="srcApiName" type="text" placeholder="API 이름 (예: UNI-PASS 화물추적)">
-        <input id="srcApiUrl" type="text" placeholder="엔드포인트 URL (https://...)">
-        <select id="srcApiAuth">
-          ${API_AUTH_OPTIONS.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}
-        </select>
-      </div>
-      <p class="muted">외부 API를 연계 등록하면 분석 단계에서 호출 가능한 소스로 사용됩니다.</p>`,
-  };
-  const titles = { web: "웹사이트 소스 등록", internal: "내부 데이터 링크 등록", api: "외부 API 연계 등록" };
-  return `
-    <div class="source-add-form">
-      <strong>${titles[sourceAddKind]}</strong>
-      ${forms[sourceAddKind]}
-      <div class="source-add-form-actions">
-        <button type="button" class="btn secondary" data-source-cancel>취소</button>
-        <button type="button" class="btn" data-source-submit="${sourceAddKind}">소스 등록</button>
-      </div>
-    </div>`;
-}
-
-/* 인라인 폼 제출 → 소스 행 생성(영속). 유형별 활용 AI 서비스·상태를 함께 기록한다. */
-function registerDataSource(kind){
+/* ── 기초자료 데이터 소스 추가 — 모든 소스 등록은 소스 추가 팝업에서 시작 ──
+   팝업(source-add-popup.js)이 유형별 입력·검증을 담당하고, 여기서는 완성된
+   소스 기록(rec)을 업로드 기록(uploadedFilesByCompany)에 영속화한다. */
+function addSourceRecord(rec){
   const companyId = activeCanvasCompanyId;
-  if(!companyId) return;
-  const val = id => (document.getElementById(id)?.value || "").trim();
-  let rec = null;
-  if(kind === "web"){
-    const url = val("srcWebUrl");
-    if(!url){ alert("수집할 웹사이트 URL을 입력하세요."); return; }
-    const keyword = val("srcWebKeyword");
-    rec = { name: url, type: "웹사이트",
-      extracted: [keyword ? `키워드: ${keyword}` : "웹 정보수집 예약"],
-      agents: ["웹 정보수집 요청 agent"], result: "수집 요청 접수", status: "수집중", tone: "running" };
-  } else if(kind === "internal"){
-    const kindId = val("srcInternalKind") || "cdw";
-    const opt = INTERNAL_LINK_OPTIONS.find(([id]) => id === kindId) || INTERNAL_LINK_OPTIONS[0];
-    const query = val("srcInternalQuery");
-    rec = { name: opt[1], type: "내부 데이터 링크",
-      extracted: [query || "전체 연동"],
-      agents: [opt[2]], result: "링크 연결됨", status: "연결됨", tone: "done" };
-  } else if(kind === "api"){
-    const name = val("srcApiName"), url = val("srcApiUrl");
-    if(!name || !url){ alert("API 이름과 엔드포인트 URL을 입력하세요."); return; }
-    const auth = API_AUTH_OPTIONS.find(([id]) => id === val("srcApiAuth"))?.[1] || "API Key";
-    rec = { name, type: "외부 API 연계",
-      extracted: [url, `인증: ${auth}`],
-      agents: ["외부 API 연계"], result: "연계 등록 완료", status: "연계 등록", tone: "done" };
-  }
-  if(!rec) return;
+  if(!companyId || !rec) return;
   if(!Array.isArray(uploadedFilesByCompany[companyId])) uploadedFilesByCompany[companyId] = [];
   uploadedFilesByCompany[companyId].unshift({ id: uid(), uploadedAt: new Date().toISOString(), ...rec });
-  sourceAddKind = null;
   saveCanvasState();
   render(currentPage);
 }
 
-/* 패널 상단 웹 검색(NotebookLM식) — 검색어를 웹 정보수집 요청 소스로 접수 */
-function registerWebSearchSource(){
-  const companyId = activeCanvasCompanyId;
-  const input = document.getElementById("srcWebSearchInput");
-  const query = (input?.value || "").trim();
-  if(!companyId || !query) return;
-  if(!Array.isArray(uploadedFilesByCompany[companyId])) uploadedFilesByCompany[companyId] = [];
-  uploadedFilesByCompany[companyId].unshift({
-    id: uid(), uploadedAt: new Date().toISOString(),
-    name: `웹 검색 — ${query}`, type: "웹 검색",
-    extracted: [`키워드: ${query}`],
-    agents: ["웹 정보수집 요청 agent"], result: "수집 요청 접수", status: "수집중", tone: "running",
+/* 소스 추가 팝업 열기 — 파일 계열은 파일 등록 팝업으로 전환, 나머지는 rec 영속화 */
+function openSourceAddPopupFor(subjectRaw){
+  let subject = (subjectRaw || "").trim(), subjectId = "";
+  const m = subject.match(/^(.*)\s*\(([^)]+)\)\s*$/);
+  if(m){ subject = m[1].trim(); subjectId = m[2].trim(); }
+  openSourceAddPopup({
+    subject, subjectId,
+    onFile: files => openUploadPopupFor(subjectRaw, files || undefined),
+    onRegister: addSourceRecord,
   });
-  saveCanvasState();
-  render(currentPage);
 }
 
 /* 기초자료 파일 등록 팝업 열기 — 버튼 클릭과 소스 패널 드래그 앤 드롭이 공용.
@@ -7939,30 +7860,10 @@ function canvasDataPanel(companyIdOverride, options = {}){
       <h3>${escapeHtml(heading)}</h3>
       ${description ? `<p class="muted" style="margin:-8px 0 14px">${escapeHtml(description)}</p>` : ""}
       <div class="upload-summary-grid">
-        <div class="source-add-panel" data-source-drop data-upload-subject="${subjectName}">
-        <div class="source-add-head">
-          <strong>데이터 소스 추가</strong>
-          <div class="source-add-search">
-            <input id="srcWebSearchInput" type="text" placeholder="웹에서 새 소스를 검색하세요 (Enter) — 웹 정보수집 서비스로 접수">
-            <button type="button" data-source-search title="웹 소스 검색 요청">🔍</button>
-          </div>
-        </div>
-        <div class="source-add-buttons">
-          <button type="button" class="source-add-btn" data-upload-open data-upload-subject="${subjectName}">
-            <strong>📄 파일 업로드</strong><small>드래그 앤 드롭 · PDF · XLS · 이미지</small>
-          </button>
-          <button type="button" class="source-add-btn${sourceAddKind === "web" ? " active" : ""}" data-source-add="web">
-            <strong>🌐 웹사이트</strong><small>웹 정보수집(웹검색) 서비스</small>
-          </button>
-          <button type="button" class="source-add-btn${sourceAddKind === "internal" ? " active" : ""}" data-source-add="internal">
-            <strong>🗄️ 내부 데이터 링크</strong><small>CDW · 기업 프로파일 등 내부 DB</small>
-          </button>
-          <button type="button" class="source-add-btn${sourceAddKind === "api" ? " active" : ""}" data-source-add="api">
-            <strong>🔌 외부 API</strong><small>외부 시스템 연계 등록</small>
-          </button>
-        </div>
-        ${sourceAddFormHtml()}
-        </div>
+        <button type="button" class="source-add-panel source-add-open" data-source-open data-source-drop data-upload-subject="${subjectName}">
+          <strong>＋ 데이터 소스 추가</strong>
+          <span>웹 검색 · 파일(드롭 가능) · 웹사이트 · 내부 데이터 링크 · 외부 API</span>
+        </button>
         <div class="upload-stat-card"><span>총 등록 소스</span><strong>${totalDocs}</strong></div>
         <div class="upload-stat-card"><span>정상추출 자동승인</span><strong>80</strong></div>
         <div class="upload-stat-card warn"><span>검토필요 이상감지</span><strong>44</strong></div>
@@ -11725,26 +11626,10 @@ document.addEventListener("click", (event)=>{
     if(rec && confirm(`"${rec.name}" 업로드를 삭제하시겠습니까?`)) deleteUploadedFile(uploadDel.dataset.uploadDelete);
     return;
   }
-  /* ── 기초자료 데이터 소스 추가(웹사이트·내부 데이터 링크·외부 API) ── */
-  const srcAdd = event.target.closest("[data-source-add]");
-  if(srcAdd){
-    const kind = srcAdd.dataset.sourceAdd;
-    sourceAddKind = sourceAddKind === kind ? null : kind;   // 같은 버튼 재클릭 시 닫기
-    render(currentPage);
-    return;
-  }
-  if(event.target.closest("[data-source-cancel]")){
-    sourceAddKind = null;
-    render(currentPage);
-    return;
-  }
-  const srcSubmit = event.target.closest("[data-source-submit]");
-  if(srcSubmit){
-    registerDataSource(srcSubmit.dataset.sourceSubmit);
-    return;
-  }
-  if(event.target.closest("[data-source-search]")){
-    registerWebSearchSource();
+  /* ── 기초자료 데이터 소스 추가 팝업 열기 ── */
+  const srcOpen = event.target.closest("[data-source-open]");
+  if(srcOpen){
+    openSourceAddPopupFor(srcOpen.dataset.uploadSubject || "");
     return;
   }
 
@@ -12708,13 +12593,6 @@ document.addEventListener("keydown", (event) => {
   if(event.target?.id === "coachFileLinkName" || event.target?.id === "coachFileLinkUrl"){
     event.preventDefault();
     coachAddFileLink();
-    return;
-  }
-  // 기초자료 데이터 소스 추가: 웹 검색 입력 Enter → 웹 정보수집 소스 접수
-  if(event.target?.id === "srcWebSearchInput"){
-    if(event.isComposing || event.keyCode === 229) return;   // 한글 IME 조합 중 무시
-    event.preventDefault();
-    registerWebSearchSource();
     return;
   }
   if(event.target?.id === "scenarioShareEmailInput"){

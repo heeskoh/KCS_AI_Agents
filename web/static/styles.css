@@ -1759,30 +1759,44 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .step-move-btn:hover:not(:disabled){background:#dbeafe;border-color:#93c5fd;color:#1d4ed8}
 .step-move-btn:disabled{opacity:.35;cursor:default}
 .data-upload-board h3{margin:0 0 14px;font-size:18px}
-/* 데이터 소스 추가 패널 — 파일 업로드 + 웹사이트/내부 데이터 링크/외부 API 소스 등록.
+/* 데이터 소스 추가 버튼 카드 — 클릭하면 소스 추가 팝업이 열린다(파일 드롭도 지원).
    현황(통계) 카드와 같은 upload-summary-grid 한 줄에 배치된다. */
-.source-add-panel{border:2px dashed #c3d0e6;border-radius:14px;background:#f7faff;padding:10px 14px;display:flex;flex-direction:column;gap:8px;justify-content:center;transition:border-color .12s,background .12s}
+.source-add-panel{border:2px dashed #c3d0e6;border-radius:14px;background:#f7faff;padding:10px 14px;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
+.source-add-panel:hover{border-color:#93c5fd;background:#eef4ff}
 .source-add-panel.dragging{border-color:#2f6fed;background:#eef4ff}
-.source-add-head{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;min-width:0}
-.source-add-head strong{font-size:14px;color:var(--text);white-space:nowrap}
-.source-add-search{flex:1;min-width:0;display:flex;align-items:center;gap:4px;border:1.5px solid #c9d7ef;border-radius:999px;background:#fff;padding:2px 4px 2px 12px}
-.source-add-search:focus-within{border-color:#2f6fed}
-.source-add-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:12px;font-family:inherit;color:var(--text);padding:5px 0}
-.source-add-search button{border:none;background:transparent;font-size:13px;cursor:pointer;padding:3px 8px;border-radius:999px}
-.source-add-search button:hover{background:#eef4ff}
-.source-add-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.source-add-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;border:1.5px solid var(--line);border-radius:999px;background:#fff;padding:6px 8px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
-.source-add-btn:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(47,111,237,.12)}
-.source-add-btn.active{border-color:#2f6fed;background:#eef4ff}
-.source-add-btn strong{font-size:12px;color:var(--text);white-space:nowrap}
-.source-add-btn small{font-size:10px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.source-add-form{border:1.5px solid #cfe0ff;border-radius:12px;background:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-width:860px;width:100%;margin:0 auto}
-.source-add-form>strong{font-size:13.5px;color:var(--text)}
-.source-add-form>p.muted{margin:0;font-size:11.5px}
-.source-add-form-row{display:flex;flex-wrap:wrap;gap:8px}
-.source-add-form-row input,.source-add-form-row select{flex:1;min-width:200px;border:1.5px solid #d8e0ec;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none}
-.source-add-form-row input:focus,.source-add-form-row select:focus{border-color:#2f6fed}
-.source-add-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.source-add-panel strong{font-size:16px;color:#2f6fed}
+.source-add-panel span{font-size:11.5px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 소스 추가 팝업(sap) — NotebookLM식: 웹 검색 + 파일 드롭존 + 소스 유형 버튼 */
+.sap-modal{width:720px;max-width:94vw;max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(15,23,42,.32);display:flex;flex-direction:column;overflow:hidden;animation:fre-popin .28s cubic-bezier(.2,.8,.2,1)}
+.sap-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 20px;border-bottom:1px solid #eef1f6}
+.sap-head strong{display:block;font-size:16px;font-weight:800;color:#16213d}
+.sap-head>div>span{display:block;margin-top:3px;font-size:12px;color:var(--muted)}
+.sap-head-right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.sap-head-right .muted{font-size:12px}
+.sap-head-right [data-sap-close]{width:30px;height:30px;border:none;background:#f3f5f9;border-radius:8px;color:#5a6577;font-size:15px;cursor:pointer;line-height:1}
+.sap-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.sap-search{display:flex;align-items:center;gap:4px;border:1.5px solid #c9d7ef;border-radius:999px;background:#fff;padding:3px 6px 3px 14px}
+.sap-search:focus-within{border-color:#2f6fed}
+.sap-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;font-family:inherit;color:var(--text);padding:7px 0}
+.sap-search button{border:none;background:transparent;font-size:14px;cursor:pointer;padding:5px 10px;border-radius:999px}
+.sap-search button:hover{background:#eef4ff}
+.sap-dropzone{border:2px dashed #c3d0e6;border-radius:12px;background:#f7faff;padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .12s,background .12s}
+.sap-dropzone:hover,.sap-dropzone.dragging{border-color:#2f6fed;background:#eef4ff}
+.sap-dropzone strong{display:block;font-size:15px;color:var(--text)}
+.sap-dropzone span{display:block;margin-top:5px;font-size:12px;color:var(--muted)}
+.sap-kind-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sap-kind-btn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;border:1.5px solid var(--line);border-radius:12px;background:#fff;padding:9px 8px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.sap-kind-btn:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(47,111,237,.12)}
+.sap-kind-btn.active{border-color:#2f6fed;background:#eef4ff}
+.sap-kind-btn strong{font-size:12.5px;color:var(--text);white-space:nowrap}
+.sap-kind-btn small{font-size:10.5px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sap-form{border:1.5px solid #cfe0ff;border-radius:12px;background:#f5f9ff;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.sap-form>strong{font-size:13.5px;color:var(--text)}
+.sap-form>p.muted{margin:0;font-size:11.5px}
+.sap-form-row{display:flex;flex-wrap:wrap;gap:8px}
+.sap-form-row input,.sap-form-row select{flex:1;min-width:180px;border:1.5px solid #d8e0ec;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none}
+.sap-form-row input:focus,.sap-form-row select:focus{border-color:#2f6fed}
+.sap-form-actions{display:flex;justify-content:flex-end;gap:8px}
 .upload-summary-grid{display:grid;grid-template-columns:2.8fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px}
 .upload-stat-card{min-height:0;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:var(--shadow);padding:10px 14px;display:grid;align-content:center}
 .upload-stat-card span{font-size:12px;font-weight:900;text-align:right}
