@@ -7860,7 +7860,8 @@ function canvasDataPanel(companyIdOverride, options = {}){
       </div>
       <h3>${escapeHtml(heading)}</h3>
       ${description ? `<p class="muted" style="margin:-8px 0 14px">${escapeHtml(description)}</p>` : ""}
-      <div class="source-add-panel">
+      <div class="upload-summary-grid">
+        <div class="source-add-panel">
         <div class="source-add-head">
           <strong>데이터 소스 추가</strong>
           <span>소스 유형을 선택해 조사 자료를 등록하세요 — 파일 · 웹사이트 · 내부 데이터 · 외부 API</span>
@@ -7880,8 +7881,7 @@ function canvasDataPanel(companyIdOverride, options = {}){
           </button>
         </div>
         ${sourceAddFormHtml()}
-      </div>
-      <div class="upload-summary-grid">
+        </div>
         <div class="upload-stat-card"><span>총 등록 소스</span><strong>${totalDocs}</strong></div>
         <div class="upload-stat-card"><span>정상추출 자동승인</span><strong>80</strong></div>
         <div class="upload-stat-card warn"><span>검토필요 이상감지</span><strong>44</strong></div>
