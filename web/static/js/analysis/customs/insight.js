@@ -11,8 +11,9 @@ import { insightVizHtml } from "./insight-viz.js";
 
 const CHAT_MOUNT_ID = "ciInsightChat";
 
-/* 분석 관점 탭 — 선택 시 대응하는 분석 결과 시각화(insight-viz.js)를 표시 */
-const PERSPECTIVES = [
+/* 분석 관점 탭 — 선택 시 대응하는 분석 결과 시각화(insight-viz.js)를 표시.
+   관세수사 수사정보 분석 탭도 동일 워크벤치를 공유한다(general-investigation/insight.js). */
+export const PERSPECTIVES = [
   { id: "A", label: "신고·물품 정합성 분석", desc: "신고내용 대사·검증 · 가격·분류 적정성 · 증빙 불일치 탐지" },
   { id: "B", label: "물류·경로 분석",        desc: "경로 역추적 · 공급망 구조 · 우회·환적 탐지" },
   { id: "C", label: "자금흐름 분석",         desc: "자금 흐름 추적 · 시계열·소유주 분석 · 자금세탁 구조 해체" },
@@ -174,7 +175,7 @@ export function renderCiInsightPanel(deps, uctx){
    인라인한 뒤 직렬화한다(미인라인 시 저장 이미지가 무채색으로 깨짐). */
 const VIZ_STYLE_PROPS = ["fill", "stroke", "stroke-width", "stroke-dasharray", "stroke-linecap",
   "font-size", "font-weight", "font-family", "letter-spacing", "opacity"];
-function downloadCurrentViz(perspId, companyId){
+export function downloadCurrentViz(perspId, companyId){
   const svg = document.querySelector(".ci-insight-viz svg");
   if(!svg){ alert("저장할 시각화가 없습니다."); return; }
   const clone = svg.cloneNode(true);

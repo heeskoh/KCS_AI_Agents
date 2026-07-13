@@ -1,14 +1,16 @@
-/* "수사정보 분석" 탭 — 3단 구조.
+/* "수사정보 분석" 탭 — 3단 구조. 중앙은 관세조사 수사정보 분석과 동일한
+   AI정보분석 워크벤치(분석 관점 A~E 시각화)를 공유한다 — 관계망은 프로파일 탭 담당.
    좌: Chat UI(실시간 LLM, 사건·수집정보 컨텍스트 주입)
-   중: 시각화(관계망 그래프 / 단서 타임라인 뷰 전환)
+   중: AI정보분석 시각화(관점 탭 A~E, customs/insight-viz.js 공용) + 단서 타임라인 뷰
    우: 수집된 정보 그룹핑 카드(수사단서 문서·기초자료·AI 분석결과·프로파일 요약)
    카드 클릭 시 좌측 채팅 입력에 인용 삽입. 대화는 aCase.insightChat에 영속(50개 캡). */
 import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
-import { networkGraphPanelHtml } from "../shared/network-graph.js";
 import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
 import { crimeSummary } from "./crime-taxonomy.js";
 import { leadTypeById, leadDocLabel, leadTimelineHtml } from "./leads.js";
+import { insightVizHtml } from "../customs/insight-viz.js";
+import { PERSPECTIVES, downloadCurrentViz } from "../customs/insight.js";
 
 const CHAT_MOUNT_ID = "giInsightChat";
 
@@ -125,20 +127,26 @@ export function giInsightGroupsHtml(deps, aCase){
 }
 
 /* ── 렌더: 3단 레이아웃 ─────────────────────────────────────────── */
+/* 시각화에 반영할 대상(기업 프로파일 또는 인물 폴백) */
+function vizTargetOf(deps, aCase){
+  if(aCase.targetType === "person"){
+    return { company_id: aCase.personId || aCase.caseId, company_name: aCase.targetName };
+  }
+  return (deps.getScenarioCompanies?.() || []).find(c => c.company_id === aCase.companyId)
+    || { company_id: aCase.companyId, company_name: aCase.targetName };
+}
+
 export function renderInsightPanel(deps){
   const aCase = deps.activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">진행중인 수사에서 사건을 먼저 선택하세요.</div>`;
   if(!Array.isArray(aCase.insightChat)) aCase.insightChat = [];
-  const view = generalInvestigationState.insightView || "network";
-  // ".insight" 스코프: 프로파일 탭의 관계망과 그래프 상태(뷰 모드·필터·검증 차트)를 분리 —
-  // 같은 기업이라도 수사정보 분석의 사건 관계망은 독립적으로 동작한다.
-  const targetType = aCase.targetType === "person" ? "person.insight" : "company.insight";
-  const targetId = aCase.targetType === "person" ? (aCase.personId || "") : (aCase.companyId || "");
+  // 뷰: 분석 관점 A~E(관세조사와 공용 워크벤치) + 단서 타임라인. 구버전 "network"는 A로 폴백.
+  const stored = generalInvestigationState.insightView;
+  const view = (stored === "leads" || PERSPECTIVES.some(p => p.id === stored)) ? stored : "A";
+  const persp = PERSPECTIVES.find(p => p.id === view);
   const centerHtml = view === "leads"
     ? `<div class="gi-insight-leads-view">${leadTimelineHtml(aCase, generalInvestigationState.activeLeadId)}</div>`
-    : (targetId
-        ? networkGraphPanelHtml(targetType, targetId, "사건 관계망", { domain: "general" })
-        : `<div class="profile-loading">대상 ID가 없어 관계망을 조회할 수 없습니다.</div>`);
+    : insightVizHtml(view, vizTargetOf(deps, aCase));
   return `
     <div class="gi-insight-page">
       <div class="gi-insight-head">
@@ -164,10 +172,16 @@ export function renderInsightPanel(deps){
         </aside>
         <section class="gi-insight-center-col">
           <div class="gi-insight-col-head">
-            <div class="gi-insight-view-tabs">
-              <button type="button" class="gi-insight-view-tab${view === "network" ? " active" : ""}" data-gi-insight-view="network">관계망</button>
-              <button type="button" class="gi-insight-view-tab${view === "leads" ? " active" : ""}" data-gi-insight-view="leads">단서 타임라인</button>
-            </div>
+            <strong>AI정보분석 시각화</strong>
+            ${persp ? `<button type="button" class="btn secondary ci-viz-download" data-gi-viz-download
+              title="현재 시각화를 PNG 이미지로 저장">⬇ 이미지 저장</button>` : ""}
+          </div>
+          <div class="gi-insight-view-tabs ci-insight-persp-tabs">
+            ${PERSPECTIVES.map(p => `
+              <button type="button" class="gi-insight-view-tab${p.id === view ? " active" : ""}"
+                data-gi-insight-view="${p.id}" title="${escapeHtml(p.desc)}">${escapeHtml(p.label)}</button>
+            `).join("")}
+            <button type="button" class="gi-insight-view-tab${view === "leads" ? " active" : ""}" data-gi-insight-view="leads">단서 타임라인</button>
           </div>
           <div class="gi-insight-center-body">${centerHtml}</div>
         </section>
@@ -200,6 +214,11 @@ ${history ? `\n[최근 대화]\n${history}\n` : ""}
 ${userText}`;
     },
     onDone: () => deps.saveCanvasState?.(),
+  });
+  // 이미지 저장 — 현재 관점의 시각화를 PNG로 다운로드 (관세조사 워크벤치 공용 로직)
+  document.querySelector("[data-gi-viz-download]")?.addEventListener("click", () => {
+    const view = generalInvestigationState.insightView || "A";
+    downloadCurrentViz(view, aCase.companyId || aCase.personId || aCase.caseId);
   });
 }
 

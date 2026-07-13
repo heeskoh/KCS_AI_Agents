@@ -15,7 +15,7 @@ export const generalInvestigationState = {
   activeLeadId: null,
   leadDraftStreaming: false,
   crimeDraft: null,
-  // 수사정보 분석 탭 UI 상태
-  insightView: "network",
+  // 수사정보 분석 탭 UI 상태 — 분석 관점 A~E(관세조사 공용 워크벤치) 또는 "leads"
+  insightView: "A",
   insightGroupsOpen: {},
 };
