@@ -8919,11 +8919,10 @@ function sharedRiskCard(c){
       <div class="ci-card-top-row">
         <div class="ci-card-name-head">
           <strong class="ci-card-name">${escapeHtml(c.company_name || c.company_id)}</strong>
-          <span class="muted ci-card-id">${cardId}</span>
+          <span class="muted ci-card-id">${cardId} <em class="ci-card-industry">[${escapeHtml(industryLabel(c.industry_code))}]</em></span>
         </div>
         <button class="btn ci-card-select-btn ${band.cls}" data-investigation-select="${escapeHtml(c.company_id)}">${band.label}</button>
       </div>
-      <span class="muted ci-card-industry">${escapeHtml(industryLabel(c.industry_code))}</span>
       <div class="risk-card-scores">
         <div><span class="muted">위험도점수</span><strong class="${band.cls}">${score.toFixed(1)}</strong></div>
         <div><span class="muted">주요 위험</span><div class="risk-card-tags">${visibleTags}${moreTags}</div></div>
