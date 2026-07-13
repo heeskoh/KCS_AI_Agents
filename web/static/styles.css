@@ -1761,16 +1761,16 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .data-upload-board h3{margin:0 0 14px;font-size:18px}
 /* 데이터 소스 추가 패널 — 파일 업로드 + 웹사이트/내부 데이터 링크/외부 API 소스 등록.
    현황(통계) 카드와 같은 upload-summary-grid 한 줄에 배치된다. */
-.source-add-panel{border:2px dashed #c3d0e6;border-radius:16px;background:#f7faff;padding:14px 18px;display:flex;flex-direction:column;gap:10px;justify-content:center}
-.source-add-head{text-align:center}
-.source-add-head strong{display:block;font-size:16px;color:var(--text)}
-.source-add-head span{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
-.source-add-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.source-add-btn{display:flex;flex-direction:column;align-items:center;gap:3px;border:1.5px solid var(--line);border-radius:999px;background:#fff;padding:8px 14px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.source-add-panel{border:2px dashed #c3d0e6;border-radius:14px;background:#f7faff;padding:10px 14px;display:flex;flex-direction:column;gap:8px;justify-content:center}
+.source-add-head{display:flex;align-items:baseline;justify-content:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.source-add-head strong{font-size:14px;color:var(--text);white-space:nowrap}
+.source-add-head span{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.source-add-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.source-add-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;border:1.5px solid var(--line);border-radius:999px;background:#fff;padding:6px 8px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .source-add-btn:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(47,111,237,.12)}
 .source-add-btn.active{border-color:#2f6fed;background:#eef4ff}
-.source-add-btn strong{font-size:13.5px;color:var(--text)}
-.source-add-btn small{font-size:11px;color:var(--muted)}
+.source-add-btn strong{font-size:12px;color:var(--text);white-space:nowrap}
+.source-add-btn small{font-size:10px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .source-add-form{border:1.5px solid #cfe0ff;border-radius:12px;background:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-width:860px;width:100%;margin:0 auto}
 .source-add-form>strong{font-size:13.5px;color:var(--text)}
 .source-add-form>p.muted{margin:0;font-size:11.5px}
@@ -1778,13 +1778,10 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .source-add-form-row input,.source-add-form-row select{flex:1;min-width:200px;border:1.5px solid #d8e0ec;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none}
 .source-add-form-row input:focus,.source-add-form-row select:focus{border-color:#2f6fed}
 .source-add-form-actions{display:flex;justify-content:flex-end;gap:8px}
-.upload-summary-grid{display:grid;grid-template-columns:2.4fr 1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}
-.upload-drop-card,.upload-stat-card{min-height:96px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:var(--shadow);padding:16px;display:grid;align-content:center}
-.upload-drop-card{cursor:pointer;text-align:center;color:var(--text)}
-.upload-drop-card strong{font-size:20px}
-.upload-drop-card span{margin-top:7px;color:var(--muted);font-size:13px}
-.upload-stat-card span{font-size:15px;font-weight:900;text-align:right}
-.upload-stat-card strong{display:block;margin-top:8px;font-size:42px;line-height:1;text-align:right;color:#050b18}
+.upload-summary-grid{display:grid;grid-template-columns:2.8fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.upload-stat-card{min-height:0;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:var(--shadow);padding:10px 14px;display:grid;align-content:center}
+.upload-stat-card span{font-size:12px;font-weight:900;text-align:right}
+.upload-stat-card strong{display:block;margin-top:4px;font-size:26px;line-height:1;text-align:right;color:#050b18}
 .upload-stat-card.warn strong{color:#b45309}
 .upload-stat-card.active strong{color:#123c85}
 .upload-table-wrap{border:1px solid var(--line);border-radius:16px;background:white;box-shadow:var(--shadow);overflow:auto}
