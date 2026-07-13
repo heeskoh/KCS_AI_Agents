@@ -2744,7 +2744,7 @@ function renderPanelContent(targetType, targetId){
     <div class="profile-net-bottom">
       ${buildAnalysisResult(state, key)}
       ${state.workbench ? buildPathFinder(raw, state, key) : ""}
-      ${buildConditionBuilder(raw, state, key)}
+      ${state.workbench ? buildConditionBuilder(raw, state, key) : ""}
       <div class="profile-net-list-head">
         <strong>관계 데이터 목록</strong>
         <span class="muted">노드 ${projected.nodes.length} · 관계 ${projected.edges.length}</span>
