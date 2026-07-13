@@ -2743,7 +2743,7 @@ function renderPanelContent(targetType, targetId){
     <div class="resize-gutter y" data-resize-target="next" data-resize-min="80" title="드래그하여 상·하 프레임 크기 조절"></div>
     <div class="profile-net-bottom">
       ${buildAnalysisResult(state, key)}
-      ${buildPathFinder(raw, state, key)}
+      ${state.workbench ? buildPathFinder(raw, state, key) : ""}
       ${buildConditionBuilder(raw, state, key)}
       <div class="profile-net-list-head">
         <strong>관계 데이터 목록</strong>
