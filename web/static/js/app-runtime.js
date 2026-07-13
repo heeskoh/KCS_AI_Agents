@@ -7831,6 +7831,84 @@ function registerDataSource(kind){
   render(currentPage);
 }
 
+/* 패널 상단 웹 검색(NotebookLM식) — 검색어를 웹 정보수집 요청 소스로 접수 */
+function registerWebSearchSource(){
+  const companyId = activeCanvasCompanyId;
+  const input = document.getElementById("srcWebSearchInput");
+  const query = (input?.value || "").trim();
+  if(!companyId || !query) return;
+  if(!Array.isArray(uploadedFilesByCompany[companyId])) uploadedFilesByCompany[companyId] = [];
+  uploadedFilesByCompany[companyId].unshift({
+    id: uid(), uploadedAt: new Date().toISOString(),
+    name: `웹 검색 — ${query}`, type: "웹 검색",
+    extracted: [`키워드: ${query}`],
+    agents: ["웹 정보수집 요청 agent"], result: "수집 요청 접수", status: "수집중", tone: "running",
+  });
+  saveCanvasState();
+  render(currentPage);
+}
+
+/* 기초자료 파일 등록 팝업 열기 — 버튼 클릭과 소스 패널 드래그 앤 드롭이 공용.
+   droppedFiles가 있으면 팝업이 드롭존을 건너뛰고 바로 속성 분석을 시작한다. */
+function openUploadPopupFor(subjectRaw, droppedFiles){
+  let subject = (subjectRaw || "").trim(), subjectId = "";
+  const m = subject.match(/^(.*)\s*\(([^)]+)\)\s*$/);   // "이름 (C-1023)" → 이름 + 식별자 분리
+  if(m){ subject = m[1].trim(); subjectId = m[2].trim(); }
+  // 이 사건(기업/개인)에 등록된 활성 업무특화 RAG → 팝업 동작방식 선택에 표시.
+  // 목록은 canAccessRag 통과분만이므로(사용 권한 보유) 팝업에서 설정 변경도 허용된다.
+  const registeredRags = activeRagsForCompany(activeCanvasCompanyId).map(r => ({
+    id: r.id, name: r.name, meta: r.meta,
+    perm: r.perm || "", validity: r.validity || "", expiry: r.expiry || "무기한",
+    ownerName: r.ownerName || "", createdAt: r.createdAt || "",
+  }));
+  // 대상 유형(개인/기업) 추정
+  let subjectType = "company";
+  try { if(currentPage === "generalinv" && activeGenInvCase()?.targetType === "person") subjectType = "person"; } catch(e){ /* noop */ }
+  const subjectInfo = { name: subject, type: subjectType };
+  openFileRegisterPopup({ subject, subjectId, registeredRags, droppedFiles, onSubmit: (payload) => {
+    saveUploadedFile(payload);   // 사건별 업로드 영속 저장(파일 여러 개 가능)
+    const rag = payload && payload.rag;
+    const files = payload && payload.files && payload.files.length ? payload.files : (payload && payload.file ? [payload.file] : []);
+    if(rag && (rag.mode || "new") === "new" && rag.name && rag.name.trim()){
+      // 신규 업무특화 RAG 생성: 전역 레지스트리 등록 + 분석 프로세스 맨 앞에 검색 단계 추가
+      registerCustomRag(rag, files, subjectInfo);
+      prependCustomRagSearchStep(rag.name.trim());
+    } else if(rag && rag.mode === "existing" && rag.existingId){
+      // 기존 RAG에 추가: 레지스트리 기록이면 자료 추가, 빌트인 샘플이면 실제 기록으로 등록 —
+      // 어느 쪽이든 시나리오의 RAG 선택 드롭다운에서 선택 가능해진다.
+      // 사용 권한 = 설정 변경 권한: 팝업에서 바꾼 검색권한·유효기간을 함께 반영한다.
+      const found = findRagById(rag.existingId);
+      if(found){
+        if(rag.existingPerm) found.rag.perm = rag.existingPerm;
+        if(rag.existingValidity){
+          if(rag.existingValidity === "custom"){
+            // 임의 설정: 날짜가 지정된 경우에만 만료일 변경
+            if(rag.existingCustomExpiry){
+              found.rag.validity = "custom";
+              found.rag.expiry = rag.existingCustomExpiry;
+            }
+          } else {
+            found.rag.validity = rag.existingValidity;
+            found.rag.expiry = ragExpiryFromValidity(rag.existingValidity);
+          }
+        }
+        appendRagFiles(found.rag, files);   // 메타(검색권한 포함)도 여기서 갱신
+        saveCanvasState();
+        prependCustomRagSearchStep(found.rag.name, found.rag.id);
+      } else if(rag.existingName){
+        registerCustomRag({
+          name: rag.existingName,
+          perm: rag.existingPerm || "org",
+          validity: rag.existingValidity || "none",
+          customExpiry: rag.existingCustomExpiry || "",
+        }, files, subjectInfo);
+        prependCustomRagSearchStep(rag.existingName);
+      }
+    }
+    render(currentPage);   // 표에 저장된 업로드 반영(고객·일반·특수 수사 공통)
+  }});
+}
+
 function canvasDataPanel(companyIdOverride, options = {}){
   // null/undefined 모두 안전하게 처리
   const resolvedCompanyId = companyIdOverride || activeCanvasCompanyId;
@@ -7861,14 +7939,17 @@ function canvasDataPanel(companyIdOverride, options = {}){
       <h3>${escapeHtml(heading)}</h3>
       ${description ? `<p class="muted" style="margin:-8px 0 14px">${escapeHtml(description)}</p>` : ""}
       <div class="upload-summary-grid">
-        <div class="source-add-panel">
+        <div class="source-add-panel" data-source-drop data-upload-subject="${subjectName}">
         <div class="source-add-head">
           <strong>데이터 소스 추가</strong>
-          <span>소스 유형을 선택해 조사 자료를 등록하세요 — 파일 · 웹사이트 · 내부 데이터 · 외부 API</span>
+          <div class="source-add-search">
+            <input id="srcWebSearchInput" type="text" placeholder="웹에서 새 소스를 검색하세요 (Enter) — 웹 정보수집 서비스로 접수">
+            <button type="button" data-source-search title="웹 소스 검색 요청">🔍</button>
+          </div>
         </div>
         <div class="source-add-buttons">
           <button type="button" class="source-add-btn" data-upload-open data-upload-subject="${subjectName}">
-            <strong>📄 파일 업로드</strong><small>PDF · XLS · DOCX · 이미지 문서</small>
+            <strong>📄 파일 업로드</strong><small>드래그 앤 드롭 · PDF · XLS · 이미지</small>
           </button>
           <button type="button" class="source-add-btn${sourceAddKind === "web" ? " active" : ""}" data-source-add="web">
             <strong>🌐 웹사이트</strong><small>웹 정보수집(웹검색) 서비스</small>
@@ -11634,63 +11715,7 @@ document.addEventListener("click", (event)=>{
   /* ── 기초자료 파일 등록 팝업 열기 ── */
   const uploadOpen = event.target.closest("[data-upload-open]");
   if(uploadOpen){
-    const subjectRaw = (uploadOpen.dataset.uploadSubject || "").trim();
-    let subject = subjectRaw, subjectId = "";
-    const m = subjectRaw.match(/^(.*)\s*\(([^)]+)\)\s*$/);   // "이름 (C-1023)" → 이름 + 식별자 분리
-    if(m){ subject = m[1].trim(); subjectId = m[2].trim(); }
-    // 이 사건(기업/개인)에 등록된 활성 업무특화 RAG → 팝업 동작방식 선택에 표시.
-    // 목록은 canAccessRag 통과분만이므로(사용 권한 보유) 팝업에서 설정 변경도 허용된다.
-    const registeredRags = activeRagsForCompany(activeCanvasCompanyId).map(r => ({
-      id: r.id, name: r.name, meta: r.meta,
-      perm: r.perm || "", validity: r.validity || "", expiry: r.expiry || "무기한",
-      ownerName: r.ownerName || "", createdAt: r.createdAt || "",
-    }));
-    // 대상 유형(개인/기업) 추정
-    let subjectType = "company";
-    try { if(currentPage === "generalinv" && activeGenInvCase()?.targetType === "person") subjectType = "person"; } catch(e){ /* noop */ }
-    const subjectInfo = { name: subject, type: subjectType };
-    openFileRegisterPopup({ subject, subjectId, registeredRags, onSubmit: (payload) => {
-      saveUploadedFile(payload);   // 사건별 업로드 영속 저장(파일 여러 개 가능)
-      const rag = payload && payload.rag;
-      const files = payload && payload.files && payload.files.length ? payload.files : (payload && payload.file ? [payload.file] : []);
-      if(rag && (rag.mode || "new") === "new" && rag.name && rag.name.trim()){
-        // 신규 업무특화 RAG 생성: 전역 레지스트리 등록 + 분석 프로세스 맨 앞에 검색 단계 추가
-        registerCustomRag(rag, files, subjectInfo);
-        prependCustomRagSearchStep(rag.name.trim());
-      } else if(rag && rag.mode === "existing" && rag.existingId){
-        // 기존 RAG에 추가: 레지스트리 기록이면 자료 추가, 빌트인 샘플이면 실제 기록으로 등록 —
-        // 어느 쪽이든 시나리오의 RAG 선택 드롭다운에서 선택 가능해진다.
-        // 사용 권한 = 설정 변경 권한: 팝업에서 바꾼 검색권한·유효기간을 함께 반영한다.
-        const found = findRagById(rag.existingId);
-        if(found){
-          if(rag.existingPerm) found.rag.perm = rag.existingPerm;
-          if(rag.existingValidity){
-            if(rag.existingValidity === "custom"){
-              // 임의 설정: 날짜가 지정된 경우에만 만료일 변경
-              if(rag.existingCustomExpiry){
-                found.rag.validity = "custom";
-                found.rag.expiry = rag.existingCustomExpiry;
-              }
-            } else {
-              found.rag.validity = rag.existingValidity;
-              found.rag.expiry = ragExpiryFromValidity(rag.existingValidity);
-            }
-          }
-          appendRagFiles(found.rag, files);   // 메타(검색권한 포함)도 여기서 갱신
-          saveCanvasState();
-          prependCustomRagSearchStep(found.rag.name, found.rag.id);
-        } else if(rag.existingName){
-          registerCustomRag({
-            name: rag.existingName,
-            perm: rag.existingPerm || "org",
-            validity: rag.existingValidity || "none",
-            customExpiry: rag.existingCustomExpiry || "",
-          }, files, subjectInfo);
-          prependCustomRagSearchStep(rag.existingName);
-        }
-      }
-      render(currentPage);   // 표에 저장된 업로드 반영(고객·일반·특수 수사 공통)
-    }});
+    openUploadPopupFor(uploadOpen.dataset.uploadSubject || "");
     return;
   }
   // 기초자료 업로드 행 삭제
@@ -11700,7 +11725,6 @@ document.addEventListener("click", (event)=>{
     if(rec && confirm(`"${rec.name}" 업로드를 삭제하시겠습니까?`)) deleteUploadedFile(uploadDel.dataset.uploadDelete);
     return;
   }
-
   /* ── 기초자료 데이터 소스 추가(웹사이트·내부 데이터 링크·외부 API) ── */
   const srcAdd = event.target.closest("[data-source-add]");
   if(srcAdd){
@@ -11717,6 +11741,10 @@ document.addEventListener("click", (event)=>{
   const srcSubmit = event.target.closest("[data-source-submit]");
   if(srcSubmit){
     registerDataSource(srcSubmit.dataset.sourceSubmit);
+    return;
+  }
+  if(event.target.closest("[data-source-search]")){
+    registerWebSearchSource();
     return;
   }
 
@@ -12628,6 +12656,27 @@ document.addEventListener("change", (event) => {
 document.getElementById("promptRun")?.addEventListener("click",()=>render("home"));
 document.getElementById("profileSwitcherBtn")?.addEventListener("click", openUserSelectModal);
 
+/* 기초자료 데이터 소스 추가 패널: 파일 드래그 앤 드롭(NotebookLM식) —
+   드롭하면 파일 등록 팝업이 열리고 드롭존 없이 바로 속성 분석이 시작된다. */
+document.addEventListener("dragover", (event) => {
+  const zone = event.target.closest?.("[data-source-drop]");
+  if(!zone || ![...(event.dataTransfer?.types || [])].includes("Files")) return;
+  event.preventDefault();
+  zone.classList.add("dragging");
+});
+document.addEventListener("dragleave", (event) => {
+  const zone = event.target.closest?.("[data-source-drop]");
+  if(zone && !zone.contains(event.relatedTarget)) zone.classList.remove("dragging");
+});
+document.addEventListener("drop", (event) => {
+  const zone = event.target.closest?.("[data-source-drop]");
+  if(!zone) return;
+  event.preventDefault();
+  zone.classList.remove("dragging");
+  const files = event.dataTransfer?.files ? [...event.dataTransfer.files] : [];
+  if(files.length) openUploadPopupFor(zone.dataset.uploadSubject || "", files);
+});
+
 document.addEventListener("keydown", (event) => {
   if(event.key !== "Escape") return;
   const drawer = document.querySelector(".home-dashboard-drawer.open");
@@ -12659,6 +12708,13 @@ document.addEventListener("keydown", (event) => {
   if(event.target?.id === "coachFileLinkName" || event.target?.id === "coachFileLinkUrl"){
     event.preventDefault();
     coachAddFileLink();
+    return;
+  }
+  // 기초자료 데이터 소스 추가: 웹 검색 입력 Enter → 웹 정보수집 소스 접수
+  if(event.target?.id === "srcWebSearchInput"){
+    if(event.isComposing || event.keyCode === 229) return;   // 한글 IME 조합 중 무시
+    event.preventDefault();
+    registerWebSearchSource();
     return;
   }
   if(event.target?.id === "scenarioShareEmailInput"){

@@ -1761,10 +1761,15 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .data-upload-board h3{margin:0 0 14px;font-size:18px}
 /* 데이터 소스 추가 패널 — 파일 업로드 + 웹사이트/내부 데이터 링크/외부 API 소스 등록.
    현황(통계) 카드와 같은 upload-summary-grid 한 줄에 배치된다. */
-.source-add-panel{border:2px dashed #c3d0e6;border-radius:14px;background:#f7faff;padding:10px 14px;display:flex;flex-direction:column;gap:8px;justify-content:center}
-.source-add-head{display:flex;align-items:baseline;justify-content:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.source-add-panel{border:2px dashed #c3d0e6;border-radius:14px;background:#f7faff;padding:10px 14px;display:flex;flex-direction:column;gap:8px;justify-content:center;transition:border-color .12s,background .12s}
+.source-add-panel.dragging{border-color:#2f6fed;background:#eef4ff}
+.source-add-head{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;min-width:0}
 .source-add-head strong{font-size:14px;color:var(--text);white-space:nowrap}
-.source-add-head span{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.source-add-search{flex:1;min-width:0;display:flex;align-items:center;gap:4px;border:1.5px solid #c9d7ef;border-radius:999px;background:#fff;padding:2px 4px 2px 12px}
+.source-add-search:focus-within{border-color:#2f6fed}
+.source-add-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:12px;font-family:inherit;color:var(--text);padding:5px 0}
+.source-add-search button{border:none;background:transparent;font-size:13px;cursor:pointer;padding:3px 8px;border-radius:999px}
+.source-add-search button:hover{background:#eef4ff}
 .source-add-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .source-add-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;border:1.5px solid var(--line);border-radius:999px;background:#fff;padding:6px 8px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .source-add-btn:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(47,111,237,.12)}

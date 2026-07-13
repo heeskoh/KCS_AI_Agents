@@ -772,4 +772,7 @@ export function openFileRegisterPopup(opts = {}){
   S = initState(opts);
   ov.style.display = "flex";
   rerender();
+  // 데이터 소스 추가 패널에 드롭된 파일: 드롭존 단계를 건너뛰고 바로 속성 분석 시작
+  const dropped = Array.isArray(opts.droppedFiles) ? opts.droppedFiles : [];
+  if(dropped.length) startAnalyze(dropped);
 }
