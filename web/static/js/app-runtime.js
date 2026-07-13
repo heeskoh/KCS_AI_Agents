@@ -1124,6 +1124,15 @@ const AI_SERVICE_REGISTRY = {
       { value: "precedent", label: "판례/유권해석" },
     ],
   },
+  address_check: {
+    label: "주소확인 AI 서비스", type: "address_check", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "입력한 주소의 건물 용도를 확인해 가정집(주거용)인지 상가건물(사업용)인지 판별하고 근거를 제시",
+    personInstruction: "대상자 주소지의 건물 용도를 확인해 가정집(주거용)인지 상가건물(사업용)인지 판별하고 근거를 제시",
+    behaviorOptions: [
+      { value: "building_use", label: "건물용도 판별(가정집/상가)" },
+      { value: "biz_presence", label: "사업장 실재성 확인" },
+    ],
+  },
   ocr: {
     label: "OCR/문서인식 AI 서비스", type: "ocr", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
     defaultInstruction: "첨부 문서에서 주요 항목을 추출하고 신고자료와 대조할 수 있도록 구조화",
@@ -3718,6 +3727,9 @@ const AI_SERVICE_INPUTS = {
   ],
   law: [
     { key:"issue", label:"검토 쟁점/법령", placeholder:"예: 과세가격 로열티 포함 여부", required:true },
+  ],
+  address_check: [
+    { key:"address", label:"확인 주소", placeholder:"예: 서울 금천구 가산디지털1로 951", required:true },
   ],
   ocr: [
     { key:"doc", label:"대상 문서", placeholder:"첨부 파일을 지정하세요", required:true },

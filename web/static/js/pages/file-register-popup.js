@@ -34,6 +34,7 @@ const GROUPS = [
     ["web_search", "웹 정보수집 요청", "참고 URL 등록 후 업체·공급망·가격 변동 외부정보 수집 요청"],
     ["patent", "특허정보 조회", "특허/로열티 거래·과세가격 반영 여부 확인"],
     ["law", "법령 검토", "관련 법령·고시·판례·유권해석 근거 검색"],
+    ["address_check", "주소확인", "주소가 가정집(주거용)인지 상가건물(사업용)인지 확인"],
     ["mail_share", "내부메일 공유", "분석결과 보고서를 지정 수신자에게 메일 공유"],
   ]},
   { title: "보고서 생성 및 검증", agents: [
@@ -58,6 +59,9 @@ const CONFIG = {
   law: [
     { key: "scope", label: "검토 범위", type: "opt", def: "customs",
       options: [["customs", "관세법"], ["fta", "FTA·협정"], ["trade", "대외무역법"], ["all", "전체"]] },
+  ],
+  address_check: [
+    { key: "address", label: "확인 주소", type: "text", def: "", placeholder: "예: 서울 금천구 가산디지털1로 951" },
   ],
   translate: [
     { key: "lang", label: "대상 언어", type: "opt", def: "ko",

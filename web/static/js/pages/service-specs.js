@@ -250,6 +250,16 @@ export const SERVICE_SPECS = {
     checks: ["조문 번호 실재 검증", "개정 이력(시행일) 확인"],
     sample: ["관세법 제38조 외 근거 3건 — 판례 1건 첨부"],
   },
+  "주소확인": {
+    tag: "외부연계", desc: "주소를 입력하면 건축물대장·지도·상권 정보를 대조해 해당 주소가 가정집(주거용)인지 상가건물(사업용)인지 확인합니다.",
+    inputs: [
+      { name: "확인 주소", type: "텍스트", req: true, source: "직접 입력", rule: "도로명 또는 지번 주소" },
+      { name: "분석범위", type: "다중선택", req: false, source: "기본: 건물용도 판별", rule: "건물용도 판별(가정집/상가) · 사업장 실재성 확인" },
+    ],
+    output: { format: "주소 확인 판정 표", fields: [["판정", "가정집(주거용) / 상가건물(사업용) / 복합"], ["건물 정보", "건축물 용도·층수·규모"], ["근거", "건축물대장·지도·상권 정보 대조 결과"], ["조사 시사점", "위장 사업장·유령 주소 가능성"]] },
+    checks: ["주소 형식(도로명/지번) 유효성 확인", "판정 불가 시 '확인 필요' 표기(단정 금지)"],
+    sample: ["서울 금천구 가산디지털1로 951 — 상가건물(지식산업센터) 판정, 사업장 실재 가능성 높음"],
+  },
   "내부메일 공유": {
     tag: "외부연계", desc: "분석결과 보고서를 지정 수신자에게 메일로 공유합니다.",
     inputs: [
@@ -441,6 +451,9 @@ export const SERVICE_EDIT_META = {
   "내부메일 공유": {
     "수신자 메일": { control: "text", required: true, pattern: "^[\\w.+-]+@customs\\.go\\.kr$", placeholder: "name@customs.go.kr", patternMsg: "내부 도메인(@customs.go.kr) 메일만 사용할 수 있습니다" },
   },
+  "주소확인": {
+    "확인 주소": { control: "text", required: true, placeholder: "예: 서울 금천구 가산디지털1로 951" },
+  },
   "수입신고검증": {
     "비교 기간": { control: "number", def: 24, min: 1, max: 60, unit: "개월" },
     "불일치 임계값": { control: "number", def: 15, min: 1, max: 50, unit: "%" },
@@ -481,6 +494,7 @@ export const SERVICE_RUNTIME = {
   "웹 정보수집 요청": { runtimeKey: "web_search", defaultBehaviors: ["company_news", "supply_chain"], defaultBehaviorLabels: ["업체 기사", "공급망/가격"] },
   "특허정보 조회": { runtimeKey: "patent", defaultBehaviors: ["royalty_check", "patent_lookup"], defaultBehaviorLabels: ["로열티 확인", "특허 정보 조회"] },
   "법령 검토": { runtimeKey: "law", defaultBehaviors: ["law_basis", "precedent"], defaultBehaviorLabels: ["법령 근거", "판례/유권해석"] },
+  "주소확인": { runtimeKey: "address_check", defaultBehaviors: ["building_use"], defaultBehaviorLabels: ["건물용도 판별(가정집/상가)"] },
   "내부메일 공유": { runtimeKey: "mail_share", defaultBehaviors: ["email_share"], defaultBehaviorLabels: ["이메일 공유"] },
   /* ── 보고서 생성 및 검증 ── */
   "보고서 생성": { runtimeKey: "report_generate", defaultBehaviors: ["full_report"], defaultBehaviorLabels: ["전체 보고서"] },
@@ -510,6 +524,7 @@ const ALIASES = {
   "통신내역 AI 분석 서비스": "통신내역 분석",     // 레지스트리 표기
   "범죄자금내역 추적 AI 서비스": "범죄자금내역 추적",
   "결과통합 AI서비스": "결과통합",                // 레지스트리 표기(붙임 표기)
+  "주소확인 AI 서비스": "주소확인",               // 레지스트리 표기
 };
 
 /* 공백 무시 매칭 인덱스: "관세정보 RAG" ↔ "관세정보RAG" 같은 표기 변형을 흡수 */
