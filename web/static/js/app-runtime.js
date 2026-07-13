@@ -6553,6 +6553,7 @@ function commonAnalysisReportPanel({
           </div>
           <div${reportAttr} class="markdown-output">${reportHtml}</div>
         </section>
+        <div class="resize-gutter x" data-resize-target="next" data-resize-min="280" title="드래그하여 보고서·검증 영역 폭 조절"></div>
         <section class="scenario-result-panel">
           <div class="scenario-result-panel-head">
             <h3>${escapeHtml(validationTitle)}</h3>

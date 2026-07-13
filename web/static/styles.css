@@ -1168,7 +1168,12 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .ci-viz-download{margin-left:auto;padding:3px 10px;font-size:11px}
 /* ── 관세수사 분석 보고서 3단: 단계별 목록 | 표준 형식 문서 | 검증 ── */
 .gi-tab-body:has(> .gi-report3){overflow:hidden;display:flex;flex-direction:column}
-.gi-report3{display:grid;grid-template-columns:260px 1fr 330px;gap:10px;flex:1;min-height:0;height:100%}
+/* 3단(목록/보고서/검증) — 리사이즈 거터로 각 영역 폭을 동적 조절(flex + .resize-gutter.x) */
+.gi-report3{display:flex;gap:0;flex:1;min-height:0;height:100%;align-items:stretch}
+.gi-report3>.resize-gutter.x{flex:none}
+.gi-report3>.gi-report3-col:first-child{flex:0 0 260px;min-width:0}
+.gi-report3>section.gi-report3-col{flex:1 1 auto;min-width:0}
+.gi-report3>.gi-report3-col:last-child{flex:0 0 330px;min-width:0}
 .gi-report3-col{display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}
 .gi-report3-list{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 .gi-report3-item{display:grid;gap:3px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;padding:9px 11px;text-align:left;cursor:pointer}
@@ -1691,7 +1696,11 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .job-meta strong{color:#123c85}
 .canvas-report-wrap{display:flex;flex-direction:column;height:100%}
 .canvas-report-wrap .canvas-selected-company{flex:none;margin-bottom:10px}
-.scenario-results.canvas-report-results{flex:1;min-height:0;margin-top:0;grid-auto-rows:1fr;align-items:stretch;grid-template-columns:minmax(0,6fr) minmax(0,4fr)}
+/* 보고서/검증 2단 — 리사이즈 거터로 폭을 동적 조절(flex + .resize-gutter.x) */
+.scenario-results.canvas-report-results{display:flex;gap:0;flex:1;min-height:0;margin-top:0;align-items:stretch}
+.canvas-report-results>.resize-gutter.x{flex:none}
+.canvas-report-results>.scenario-result-panel:first-child{flex:1 1 60%;min-width:0}
+.canvas-report-results>.scenario-result-panel:last-child{flex:0 0 40%;min-width:0}
 .canvas-report-results .scenario-result-panel{height:auto}
 .profile-run-archive{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;padding:13px 14px;border:1px solid #cfe0fb;border-radius:13px;background:#f8fbff}
 .profile-run-archive.changed{border-color:#f59e0b;background:#fffbeb}
@@ -2465,6 +2474,8 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
   .profile-net-left{flex:none;width:auto !important;overflow-y:visible}
   .profile-net-right{flex:none;width:auto !important;height:auto;min-height:560px}
   .resize-gutter.x{display:none}
+  .gi-report3{gap:10px}
+  .scenario-results.canvas-report-results{gap:14px}
 }
 
 /* ── 워크벤치 프롬프트 영역: 마지막 입력 필드가 남은 공간 채우고 자체 스크롤 ── */

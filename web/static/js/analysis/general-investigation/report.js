@@ -151,10 +151,12 @@ export function renderReportPanel(deps){
         <div class="gi-insight-col-head"><strong>단계별 수사보고서</strong><span class="muted" style="font-size:11px">${docs.length}건</span></div>
         <div class="gi-report3-list">${listHtml}</div>
       </aside>
+      <div class="resize-gutter x" data-resize-min="200" title="드래그하여 보고서 목록 폭 조절"></div>
       <section class="gi-report3-col">
         <div class="gi-insight-col-head"><strong>${escapeHtml(docTitle)}</strong><span style="margin-left:auto;display:flex;gap:6px">${docActions}</span></div>
         <div class="gi-report3-doc">${docBody}</div>
       </section>
+      <div class="resize-gutter x" data-resize-target="next" data-resize-min="260" title="드래그하여 보고서·검증 영역 폭 조절"></div>
       <aside class="gi-report3-col">
         <div class="gi-insight-col-head"><strong>보고서 검증</strong><span style="margin-left:auto;display:flex;gap:6px">${validActions}</span></div>
         <div class="gi-report3-valid">${validBody}</div>
