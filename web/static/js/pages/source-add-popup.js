@@ -28,7 +28,18 @@ let _bound = false;
 function overlayEl(){ return document.getElementById("sourceAddOverlay"); }
 
 function formHtml(){
-  if(!S.kind || S.kind === "file") return "";
+  if(!S.kind) return "";
+  if(S.kind === "file"){
+    return `
+      <div class="sap-form">
+        <strong>파일 업로드</strong>
+        <p class="muted">PDF, XLS, XLSX, DOCX, 이미지 · 최대 50MB · 여러 개 선택 가능 — 선택하면 속성 분석과 AI 에이전트 선택(파일 등록)으로 이동합니다.</p>
+        <div class="sap-form-actions">
+          <button type="button" class="btn secondary" data-sap-kind-close>취소</button>
+          <button type="button" class="btn" data-sap-file-pick>파일 선택</button>
+        </div>
+      </div>`;
+  }
   const forms = {
     web: `
       <div class="sap-form-row">
@@ -90,8 +101,7 @@ function modalHtml(){
         </div>
         <div class="sap-kind-buttons">
           ${KIND_BUTTONS.map(k => `
-            <button type="button" class="sap-kind-btn${S.kind === k.id ? " active" : ""}"
-              ${k.id === "file" ? "data-sap-file" : `data-sap-kind="${k.id}"`}>
+            <button type="button" class="sap-kind-btn${S.kind === k.id ? " active" : ""}" data-sap-kind="${k.id}">
               <strong>${k.icon} ${escapeHtml(k.label)}</strong><small>${escapeHtml(k.desc)}</small>
             </button>
           `).join("")}
@@ -152,6 +162,25 @@ function submitSearch(){
   if(cb) cb(rec);
 }
 
+/* OS 파일 선택기 — 선택하면 팝업을 닫고 파일 등록 팝업으로 전환(드롭과 동일 경로) */
+function pickFiles(){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = true;
+  input.accept = ".pdf,.xls,.xlsx,.csv,.doc,.docx,.jpg,.jpeg,.png,.gif";
+  input.style.display = "none";
+  input.addEventListener("change", () => {
+    const files = input.files ? [...input.files] : [];
+    document.body.removeChild(input);
+    if(!files.length) return;
+    const cb = S?.onFile;
+    close();
+    if(cb) cb(files);
+  });
+  document.body.appendChild(input);
+  input.click();
+}
+
 function bindOverlay(ov){
   if(_bound) return;
   _bound = true;
@@ -161,7 +190,9 @@ function bindOverlay(ov){
     e.stopPropagation();   // 팝업 내부 클릭이 앱 전역 핸들러로 전파되지 않도록
     if(e.target === ov || e.target.closest("[data-sap-close]")){ close(); return; }
     if(e.target.closest("[data-sap-search]")){ submitSearch(); return; }
-    // 파일 계열(드롭존 클릭·파일 업로드 버튼): 파일 등록 팝업으로 전환
+    // 파일 폼의 [파일 선택]: OS 파일 선택기 → 선택 즉시 파일 등록 팝업으로 전환(속성 분석부터)
+    if(e.target.closest("[data-sap-file-pick]")){ pickFiles(); return; }
+    // 드롭존 클릭: 파일 등록 팝업으로 전환(빈 드롭존부터)
     if(e.target.closest("[data-sap-file]")){
       const cb = S.onFile;
       close();
