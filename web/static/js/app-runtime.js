@@ -8899,27 +8899,33 @@ function riskAlertCard(label, count){
 /* 공통 위험도 카드 — investigation 대시보드 / profile 페이지 동일 사용 */
 function riskCompanyCard(c){ return sharedRiskCard(c); }
 
+/* risk_score 구간 → 테두리 색·버튼 라벨 (조사 긴급도 밴드) */
+function riskScoreBand(score){
+  if(score >= 90) return { cls: "urgent",  label: "관세조사 - 시급" };
+  if(score >= 70) return { cls: "caution", label: "관세조사 - 주의" };
+  if(score >= 50) return { cls: "check",   label: "관세조사 - 확인" };
+  return { cls: "low", label: "위험도 낮음" };
+}
+
 function sharedRiskCard(c){
   const score = c.risk_score || 0;
-  const level = c.risk_level || "LOW";
-  const cls   = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warn" : "safe";
+  const band  = riskScoreBand(score);
   const tags  = companyRiskTags(c);
   const visibleTags = tags.slice(0,2).map(t => `<span class="risk-tag">${escapeHtml(t)}</span>`).join("");
   const moreTags = tags.length > 2 ? `<span class="risk-tag more">+${tags.length-2}개</span>` : "";
-  const scoreClass = level === "HIGH" ? "high" : level === "LOW" ? "good" : "";
   const cardId = `#TRG-26-${escapeHtml(c.company_id.replace("C-",""))}`;
   return `
-    <div class="risk-company-card ${cls}">
+    <div class="risk-company-card ${band.cls}">
       <div class="ci-card-top-row">
         <div class="ci-card-name-head">
           <strong class="ci-card-name">${escapeHtml(c.company_name || c.company_id)}</strong>
           <span class="muted ci-card-id">${cardId}</span>
         </div>
-        <button class="btn ci-card-select-btn ${cls}" data-investigation-select="${escapeHtml(c.company_id)}">조사대상 선정</button>
+        <button class="btn ci-card-select-btn ${band.cls}" data-investigation-select="${escapeHtml(c.company_id)}">${band.label}</button>
       </div>
       <span class="muted ci-card-industry">${escapeHtml(industryLabel(c.industry_code))}</span>
       <div class="risk-card-scores">
-        <div><span class="muted">위험도점수</span><strong class="${scoreClass}">${score.toFixed(1)}</strong></div>
+        <div><span class="muted">위험도점수</span><strong class="${band.cls}">${score.toFixed(1)}</strong></div>
         <div><span class="muted">주요 위험</span><div class="risk-card-tags">${visibleTags}${moreTags}</div></div>
       </div>
       <div class="risk-card-review">
@@ -9020,11 +9026,11 @@ function initRiskDashboard(){
       if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
       if(minS && (c.risk_score||0) < minS) return false;
       return true;
-    });
+    }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
+      || String(a.company_name||"").localeCompare(String(b.company_name||""), "ko"));
     const grid = document.getElementById("riskCompanyGrid");
     if(grid){
-      const cardFn = currentPage === "investigation" ? ciCompanyCard : riskCompanyCard;
-      grid.innerHTML = filtered.map(cardFn).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
+      grid.innerHTML = filtered.map(riskCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
     }
   });
 
