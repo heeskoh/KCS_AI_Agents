@@ -1759,7 +1759,25 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .step-move-btn:hover:not(:disabled){background:#dbeafe;border-color:#93c5fd;color:#1d4ed8}
 .step-move-btn:disabled{opacity:.35;cursor:default}
 .data-upload-board h3{margin:0 0 14px;font-size:18px}
-.upload-summary-grid{display:grid;grid-template-columns:2fr 1.08fr 1.08fr 1.08fr 1.08fr;gap:12px;margin-bottom:16px}
+/* 데이터 소스 추가 패널 — 파일 업로드 + 웹사이트/내부 데이터 링크/외부 API 소스 등록 */
+.source-add-panel{border:2px dashed #c3d0e6;border-radius:16px;background:#f7faff;padding:22px 24px;margin-bottom:14px;display:flex;flex-direction:column;gap:14px}
+.source-add-head{text-align:center}
+.source-add-head strong{display:block;font-size:17px;color:var(--text)}
+.source-add-head span{display:block;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.source-add-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.source-add-btn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:180px;border:1.5px solid var(--line);border-radius:999px;background:#fff;padding:10px 20px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.source-add-btn:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(47,111,237,.12)}
+.source-add-btn.active{border-color:#2f6fed;background:#eef4ff}
+.source-add-btn strong{font-size:13.5px;color:var(--text)}
+.source-add-btn small{font-size:11px;color:var(--muted)}
+.source-add-form{border:1.5px solid #cfe0ff;border-radius:12px;background:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-width:860px;width:100%;margin:0 auto}
+.source-add-form>strong{font-size:13.5px;color:var(--text)}
+.source-add-form>p.muted{margin:0;font-size:11.5px}
+.source-add-form-row{display:flex;flex-wrap:wrap;gap:8px}
+.source-add-form-row input,.source-add-form-row select{flex:1;min-width:200px;border:1.5px solid #d8e0ec;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;outline:none}
+.source-add-form-row input:focus,.source-add-form-row select:focus{border-color:#2f6fed}
+.source-add-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.upload-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .upload-drop-card,.upload-stat-card{min-height:96px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:var(--shadow);padding:16px;display:grid;align-content:center}
 .upload-drop-card{cursor:pointer;text-align:center;color:var(--text)}
 .upload-drop-card strong{font-size:20px}
