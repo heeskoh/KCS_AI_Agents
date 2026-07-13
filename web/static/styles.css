@@ -295,6 +295,27 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 }
 /* ── 홈 페이지 레이아웃 — 컬럼별 내부 스크롤 ── */
 .home-layout{display:flex;flex-direction:column;height:100%;gap:10px;min-height:0;position:relative;overflow:hidden;padding-bottom:62px}
+/* ── 관세행정 Copilot 모드(?copilot=1) — 기간계 호출용 독립 단일 UI.
+   My AI 분석만 노출: 업무 탭·캔버스·바로가기·대시보드 등 포털 크롬 숨김.
+   창 크기(가로 30%·최대 높이)는 호출측 window.open 이 지정한다. ── */
+body.copilot-mode .tb-tabs,
+body.copilot-mode .tb-ic,
+body.copilot-mode .tb-copilot-btn,
+body.copilot-mode .home-canvas-card,
+body.copilot-mode .home-bottom-nav,
+body.copilot-mode .home-dashboard-rail-toggle,
+body.copilot-mode .home-dashboard-drawer,
+body.copilot-mode .home-dashboard-backdrop{display:none !important}
+body.copilot-mode .topbar{padding:8px 14px;min-height:0}
+body.copilot-mode .tb-brand-text strong{font-size:15px}
+body.copilot-mode .content{padding:10px}
+body.copilot-mode .home-layout{padding-bottom:0}
+body.copilot-mode .home-focus-grid{grid-template-columns:1fr}
+body.copilot-mode .home-composer-bar{flex-wrap:wrap;row-gap:6px}
+body.copilot-mode .home-greeting-row h1{font-size:20px}
+/* 포털 상단 Copilot 실행 버튼 */
+.tb-copilot-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid #c9d7ef;border-radius:999px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.tb-copilot-btn:hover{border-color:#2f6fed;background:#e6efff}
 .home-focus-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(230px,1fr);gap:8px;flex:1;min-height:0;align-items:stretch}
 .home-col-card{overflow-y:auto;display:flex;flex-direction:column;min-height:0}
 .home-col-card>*{flex:none}

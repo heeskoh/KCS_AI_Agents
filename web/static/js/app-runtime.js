@@ -2769,6 +2769,24 @@ let companyScenarios = {};   // { [companyId]: scenarioItem[] }
 let uploadedFilesByCompany = {};   // { [companyId]: uploadRecord[] } — 분석작업(기업)별 업로드 파일. userWorkspaces 스냅샷으로 사용자별 분리·영속
 let ragsByCompany = {};   // { [companyId]: ragRecord[] } — 사건(기업/개인)별 업무특화 RAG. 전역 공유 레지스트리(top-level 저장), 권한으로 가시성 제어
 let currentPage = "home";
+
+/* ── 관세행정 Copilot 모드 — 기간계 시스템에서 ?copilot=1 로 호출하는 독립 단일 UI.
+   My AI 분석(home)만 노출하고 포털 크롬(업무 탭·바로가기·캔버스·대시보드)은 숨긴다.
+   호출 예: window.open("http://<host>:8000/?copilot=1", "kcsCopilot",
+            `width=${Math.round(screen.availWidth*0.3)},height=${screen.availHeight}`) */
+const isCopilotMode = new URLSearchParams(location.search).has("copilot");
+
+function applyCopilotChrome(){
+  document.body.classList.add("copilot-mode");
+  document.title = "관세행정 Copilot";
+  const brand = document.querySelector(".tb-brand-text");
+  if(brand){
+    const strong = brand.querySelector("strong");
+    const span = brand.querySelector("span");
+    if(strong) strong.textContent = "관세행정 Copilot";
+    if(span) span.textContent = "기간계 연계 AI 분석 어시스턴트";
+  }
+}
 let riskDashboardFilter = { query: "", minScore: 0 };
 
 /* ── 실시간 프롬프트 코치 상태 ── */
@@ -12549,6 +12567,14 @@ document.addEventListener("change", (event) => {
 document.getElementById("promptRun")?.addEventListener("click",()=>render("home"));
 document.getElementById("profileSwitcherBtn")?.addEventListener("click", openUserSelectModal);
 
+// 관세행정 Copilot 새 창 실행 — 화면 가로 30% 폭 · 최대 높이(기간계 호출과 동일한 방식)
+document.getElementById("copilotOpenBtn")?.addEventListener("click", () => {
+  const w = Math.max(420, Math.round(screen.availWidth * 0.3));
+  const h = screen.availHeight;
+  window.open(`${location.origin}/?copilot=1`, "kcsCopilot",
+    `width=${w},height=${h},left=${screen.availWidth - w},top=0,resizable=yes`);
+});
+
 /* 기초자료 데이터 소스 추가 패널: 파일 드래그 앤 드롭(NotebookLM식) —
    드롭하면 파일 등록 팝업이 열리고 드롭존 없이 바로 속성 분석이 시작된다. */
 document.addEventListener("dragover", (event) => {
@@ -12657,5 +12683,6 @@ function shutdownAllServers(){
   syncSidebarCollapseIcons();
   updateProfileDisplay();
   updateAdminMenuVisibility();
+  if(isCopilotMode) applyCopilotChrome();
   render();
 })();
