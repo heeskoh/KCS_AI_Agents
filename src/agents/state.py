@@ -43,6 +43,7 @@ class CustomsState(TypedDict, total=False):
     patent_result: Optional[str]            # 특허정보조회               (agent_patent)
     rag_create_result: Optional[str]        # RAG 생성                   (agent_rag_create)
     law_result: Optional[str]               # 법령정보                   (agent_law)
+    address_check_result: Optional[str]     # 주소확인(카카오지도)        (agent_address_check)
     ontology_result: Optional[str]          # 관세온톨로지               (agent_ontology)
     origin_analysis_result: Optional[str]   # 원산지 분석                (agent_origin_analysis)
     abnormal_trade_result: Optional[str]    # 이상거래 검증              (agent_abnormal_trade)

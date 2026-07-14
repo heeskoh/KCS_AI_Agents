@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.agents.agent_abnormal_trade import agent_abnormal_trade
+from src.agents.agent_address_check import agent_address_check
 from src.agents.agent_audit_search import agent_audit_search
 from src.agents.agent_bigdata import agent_bigdata
 from src.agents.agent_company import agent_company
@@ -110,6 +111,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("patent", "특허정보 조회", agent_patent, "patent_result", "patent_agent"),
     AgentModule("rag_create", "RAG 생성", agent_rag_create, "rag_create_result", "rag_create_agent"),
     AgentModule("law", "법령 검토", agent_law, "law_result", "law_agent"),
+    AgentModule("address_check", "주소확인", agent_address_check, "address_check_result", "address_check_agent"),
     AgentModule("result_synthesis", "최종 결과 종합", agent_result_synthesis, "result_synthesis_result", "result_synthesis_agent", ("final_synthesis",)),
     AgentModule("report", "보고서 생성", agent_report, "final_report", "report_agent", ("report_generate",)),
     AgentModule("validation", "보고서 검증", agent_validate, "validation_result", "validate_agent", ("report_validate", "validate")),

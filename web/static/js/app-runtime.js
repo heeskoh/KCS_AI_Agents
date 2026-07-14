@@ -1126,8 +1126,8 @@ const AI_SERVICE_REGISTRY = {
   },
   address_check: {
     label: "주소확인 AI 서비스", type: "address_check", group: EXTERNAL_AI_GROUP, permissionGroup: "agents",
-    defaultInstruction: "입력한 주소의 건물 용도를 확인해 가정집(주거용)인지 상가건물(사업용)인지 판별하고 근거를 제시",
-    personInstruction: "대상자 주소지의 건물 용도를 확인해 가정집(주거용)인지 상가건물(사업용)인지 판별하고 근거를 제시",
+    defaultInstruction: "카카오지도(로컬) API로 입력 주소를 확인해 개인주소(주거용)인지 사업장(상업용)인지 판별하고 근거를 제시",
+    personInstruction: "대상자 주소지를 카카오지도(로컬) API로 확인해 주거지 실재 여부와 사업장 여부를 판별하고 근거를 제시",
     behaviorOptions: [
       { value: "building_use", label: "건물용도 판별(가정집/상가)" },
       { value: "biz_presence", label: "사업장 실재성 확인" },
