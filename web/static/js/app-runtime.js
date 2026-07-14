@@ -6997,9 +6997,31 @@ function applyJobOverride(job){
   };
 }
 
+/* 전역 상태 동기화: 카드에 저장된 상태가 실행 이력(아카이브·사전 준비 결과)보다
+   뒤처지면 읽기 시점에 보정한다 — 실행 중·시나리오 변경(재실행 필요) 상태는 유지. */
+function syncJobStatusWithArchive(job){
+  const st = job.status || {};
+  if(st.tone === "running" || job.scenarioChanged) return job;
+  const archive = currentRunArchive(job.companyId);
+  const items = archive?.scenarioItems || [];
+  if(!items.length) return job;
+  const outputs = archive.stepOutputs || {};
+  const done = items.filter(it => outputs[it.id]).length;
+  if(!done) return job;
+  const storedDone = Number(st.done) || 0;
+  if(storedDone >= done && st.label && st.label !== "대기") return job;
+  const complete = done >= items.length;
+  return {
+    ...job,
+    status: { label: complete ? "완료" : "진행중", done, total: items.length,
+      pct: Math.round(done / items.length * 100), tone: complete ? "done" : "running" },
+    tab: complete ? "report" : job.tab,
+  };
+}
+
 function canvasJobs(){
   // 기본 샘플 작업 없음 — AI 캔버스는 사용자가 직접 등록·분석한 작업만 관리한다.
-  return customCanvasJobs.map(applyJobOverride);
+  return customCanvasJobs.map(applyJobOverride).map(syncJobStatusWithArchive);
 }
 
 /* AI 캔버스는 "현재 사용자가 분석한 작업"만 관리한다.
