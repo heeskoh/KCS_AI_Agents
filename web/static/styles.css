@@ -1874,11 +1874,17 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config{display:flex;flex-direction:column}
 .scenario-config-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .scenario-config-title h3{margin:0;font-size:18px;color:var(--text)}
-.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:410px}
+.scenario-service-zone{display:grid;grid-template-columns:auto auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:470px}
 .scenario-service-zone strong{font-size:13px;color:#14532d;white-space:nowrap}
+.scenario-runall-btn{white-space:nowrap;font-weight:800}
 /* Template zone — colored background block */
-.scenario-template-zone{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:620px}
+/* 분석 템플릿: 기본 접힘 — 토글 버튼만 표시, 열면 선택/적용/등록 컨트롤 노출 */
+.scenario-template-zone{display:flex;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:0}
+.scenario-template-zone.open{min-width:620px}
 .scenario-template-zone strong{font-size:14px;color:#0f172a;white-space:nowrap}
+.scenario-template-toggle{white-space:nowrap}
+.scenario-template-controls{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.scenario-template-controls .scenario-template-select{flex:1;min-width:200px}
 .scenario-template-zone-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .scenario-template-zone-head span{font-size:12px;font-weight:800;color:#53617b}
 .scenario-template-apply-btn{padding:7px 10px;font-size:12px;white-space:nowrap}

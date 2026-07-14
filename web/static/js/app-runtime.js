@@ -2769,6 +2769,7 @@ let sbNewDraft = {                    // 신규 업무분석 초안
   template: "special-investigation",
   enabledSubtabs: [], defaultTab: "",
 };
+let scenarioTemplateZoneOpen = false;   // 분석 템플릿 패널 접기(기본 닫힘) — 세션 한정 UI 상태
 let latestReport = "보고서가 아직 생성되지 않았습니다.";
 let latestValidation = "검증 결과가 아직 없습니다.";
 const canvasStateKey = "kcs_ai_canvas_state_v1";
@@ -8742,6 +8743,8 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
         </div>
 
         <div class="scenario-service-zone">
+          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
+            ${archived ? "disabled" : ""} title="시나리오의 모든 단계를 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
           <strong>AI 서비스</strong>
           <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
           <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add
@@ -8750,17 +8753,20 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             ${archived ? "disabled" : ""}>선택 삭제</button>
         </div>
 
-        <div class="scenario-template-zone">
-          <strong>분석 템플릿</strong>
-          <select id="scenarioTemplateSelect" class="scenario-template-select">
-            ${templateOptionsHtml}
-          </select>
-          <button id="scenarioTemplateApplyButton" type="button"
-            class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
-            템플릿적용하기
-          </button>
-          <button id="scenarioSaveButton" type="button"
-            class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
+        <div class="scenario-template-zone${scenarioTemplateZoneOpen ? " open" : ""}">
+          <button id="scenarioTemplateToggle" type="button" class="btn secondary scenario-template-toggle"
+            title="분석 템플릿 패널 ${scenarioTemplateZoneOpen ? "닫기" : "열기"}">🧩 분석 템플릿 ${scenarioTemplateZoneOpen ? "▴" : "▾"}</button>
+          <span class="scenario-template-controls" ${scenarioTemplateZoneOpen ? "" : `style="display:none"`}>
+            <select id="scenarioTemplateSelect" class="scenario-template-select">
+              ${templateOptionsHtml}
+            </select>
+            <button id="scenarioTemplateApplyButton" type="button"
+              class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
+              템플릿적용하기
+            </button>
+            <button id="scenarioSaveButton" type="button"
+              class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
+          </span>
         </div>
       </div>
 
@@ -9245,6 +9251,8 @@ function initScenarioWorkbench(){
 
   // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 실행·초기화 버튼이 렌더되지 않는다 — 옵셔널 바인딩
   document.getElementById("scenarioRunButton")?.addEventListener("click", runScenarioWorkflow);
+  // 헤더 [전체 시나리오 수행] — 리뷰 모드 등 하단 실행 버튼이 없는 레이아웃에서도 전체 실행 제공
+  document.getElementById("scenarioRunAllButton")?.addEventListener("click", runScenarioWorkflow);
   document.getElementById("scenarioClearButton")?.addEventListener("click", clearScenarioResults);
   document.getElementById("scenarioReviewRunButton")?.addEventListener("click", runSelectedScenarioService);
   // 리뷰 모드: 분석범위 설정 팝업(체크박스 행 대체)
@@ -10393,6 +10401,8 @@ function initGiScenarioWorkbench(){
     if(!ensureDirectUrlTargets(toRun)) return;
     giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
   });
+  document.getElementById("scenarioRunAllButton")?.addEventListener("click",
+    () => document.getElementById("scenarioRunButton")?.click());
 
   // 리뷰 모드(관세조사와 동일 구조): 선택 서비스 단독 실시간 실행
   document.getElementById("scenarioReviewRunButton")?.addEventListener("click", runSelectedScenarioService);
@@ -10529,6 +10539,8 @@ function initDrugScenarioWorkbench(){
     if(!ensureDirectUrlTargets(scenarioRunItems)) return;
     if(toRun.length) drugStreamSteps(aCase, toRun);
   });
+  document.getElementById("scenarioRunAllButton")?.addEventListener("click",
+    () => document.getElementById("scenarioRunButton")?.click());
 
   document.getElementById("scenarioClearButton")?.addEventListener("click", () => {
     aCase.stepStates  = {};
@@ -11734,6 +11746,18 @@ document.addEventListener("click", (event)=>{
   /* ── 보고서 워크벤치: 보고서 생성 / 보고서 검증 ── */
   if(event.target.closest("#wbReportGenBtn")){ wbGenerateReport(); return; }
   if(event.target.closest("#wbReportValidateBtn")){ wbValidateReport(); return; }
+
+  /* ── 분석 템플릿 패널 접기/펼치기 (재렌더 없이 표시만 토글) ── */
+  const tplToggle = event.target.closest("#scenarioTemplateToggle");
+  if(tplToggle){
+    scenarioTemplateZoneOpen = !scenarioTemplateZoneOpen;
+    const controls = tplToggle.parentElement?.querySelector(".scenario-template-controls");
+    if(controls) controls.style.display = scenarioTemplateZoneOpen ? "" : "none";
+    tplToggle.parentElement?.classList.toggle("open", scenarioTemplateZoneOpen);
+    tplToggle.innerHTML = `🧩 분석 템플릿 ${scenarioTemplateZoneOpen ? "▴" : "▾"}`;
+    tplToggle.title = `분석 템플릿 패널 ${scenarioTemplateZoneOpen ? "닫기" : "열기"}`;
+    return;
+  }
 
   /* ── 기초자료 데이터 소스 추가 팝업 열기 ── */
   const srcOpen = event.target.closest("[data-source-open]");
