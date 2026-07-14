@@ -76,24 +76,27 @@ def _kakao_get(url: str, params: dict) -> Optional[dict]:
 
 
 def _judge(building: str, places: list[dict], address: str, fulltext: str = "") -> tuple[str, list[str]]:
-    """(판정, 근거 목록) — 사업장 / 개인주소(주거) / 복합 / 확인 필요"""
+    """(판정, 근거 목록) — 명확하면 '가정집'/'사업장', 불명확(혼재·무신호)하면 '확인'"""
     reasons: list[str] = []
     text = f"{building} {address} {fulltext}"
     residential = any(h in text for h in _RESIDENTIAL_HINTS) or bool(_UNIT_PATTERN.search(text))
-    business_bldg = any(h in text for h in _BUSINESS_HINTS)
+    business = any(h in text for h in _BUSINESS_HINTS) or bool(places)
     if residential:
-        reasons.append(f"건물명/주소 표기에 주거 신호(아파트·빌라·동/호수 등) 확인 ({building or address})")
-    if business_bldg:
-        reasons.append(f"건물명에 상업시설 신호 확인 ({building})")
+        reasons.append(f"주거 신호(아파트·빌라·동/호수 등) 확인 ({building or address})")
+    if any(h in text for h in _BUSINESS_HINTS):
+        reasons.append(f"건물명/주소에 상업시설 신호 확인 ({building or address})")
     if places:
         names = ", ".join(p.get("place_name", "") for p in places[:5])
         reasons.append(f"해당 위치 등록 사업장 {len(places)}건 — {names}")
-    if places or business_bldg:
-        return ("복합(주상복합 추정)" if residential else "사업장(상업용)"), reasons
+    if residential and business:
+        reasons.append("주거·사업장 신호가 함께 확인됨(주상복합 등) — 현장 확인 필요")
+        return "확인", reasons
     if residential:
-        return "개인주소(주거용)", reasons
-    reasons.append("주거·사업장 신호가 모두 확인되지 않음")
-    return "확인 필요", reasons
+        return "가정집", reasons
+    if business:
+        return "사업장", reasons
+    reasons.append("주거·사업장 신호가 모두 확인되지 않음 — 추가 확인 필요")
+    return "확인", reasons
 
 
 def agent_address_check(state: CustomsState) -> CustomsState:
@@ -105,21 +108,29 @@ def agent_address_check(state: CustomsState) -> CustomsState:
         item.get("instruction", "") for item in scenario.get("scenario_items", [])
         if item.get("type") == "address_check"
     )
-    lines = [
-        "[주소확인 결과]",
-        f"조회 방식: {'카카오지도(카카오 로컬) Open API' if KAKAO_REST_API_KEY and httpx else '모의 판정 (KAKAO_REST_API_KEY 미설정 — 주소 표기 휴리스틱)'}",
-        f"입력 주소: {address or '(주소 미확인 — 지시문에서 주소를 찾지 못함)'}",
-        "",
-    ]
     if not address:
-        lines.append("확인 주소가 입력되지 않았습니다. '확인 주소' 입력값에 도로명 또는 지번 주소를 등록하세요.")
-        return {**state, "address_check_result": "\n".join(lines)}
+        return {**state, "address_check_result": "\n".join([
+            "[주소확인 결과]",
+            "입력 주소: (주소 미확인 — 지시문에서 주소를 찾지 못함)",
+            "",
+            "확인 주소가 입력되지 않았습니다. '확인 주소' 입력값에 도로명 또는 지번 주소를 등록하세요.",
+        ])}
 
     building = ""
     places: list[dict] = []
     road, jibun, coords = "", "", ""
 
     addr_data = _kakao_get(_ADDR_SEARCH_URL, {"query": address, "size": 1})
+    api_ok = bool(addr_data and addr_data.get("documents"))
+    method = ("카카오지도(카카오 로컬) Open API" if api_ok
+              else "모의 판정 (카카오 API 호출 실패/무응답 — 주소 표기 휴리스틱)" if KAKAO_REST_API_KEY and httpx
+              else "모의 판정 (KAKAO_REST_API_KEY 미설정 — 주소 표기 휴리스틱)")
+    lines = [
+        "[주소확인 결과]",
+        f"조회 방식: {method}",
+        f"입력 주소: {address}",
+        "",
+    ]
     if addr_data and addr_data.get("documents"):
         doc = addr_data["documents"][0]
         road_doc = doc.get("road_address") or {}
@@ -134,7 +145,11 @@ def agent_address_check(state: CustomsState) -> CustomsState:
             kw = _kakao_get(_KEYWORD_SEARCH_URL,
                             {"query": building or address, "x": x, "y": y, "radius": 30, "size": 10})
             places = list((kw or {}).get("documents") or [])
-        lines += [
+
+    # 카카오 상세는 판정 아래에 배치 — 1차 판정을 결과 최상단에 먼저 제공한다.
+    detail: list[str] = []
+    if road or jibun or coords:
+        detail += [
             "■ 카카오지도 주소 확인",
             f"  도로명: {road or '-'}",
             f"  지번: {jibun or '-'}",
@@ -142,20 +157,21 @@ def agent_address_check(state: CustomsState) -> CustomsState:
             f"  좌표(위도, 경도): {coords or '-'}",
             "",
         ]
-        if places:
-            lines.append("■ 해당 위치 등록 사업장(카카오 플레이스)")
-            for p in places[:5]:
-                lines.append(f"  - {p.get('place_name', '')} · {p.get('category_name', '')}")
-            lines.append("")
+    if places:
+        detail.append("■ 해당 위치 등록 사업장(카카오 플레이스)")
+        for p in places[:5]:
+            detail.append(f"  - {p.get('place_name', '')} · {p.get('category_name', '')}")
+        detail.append("")
 
     verdict, reasons = _judge(building, places, address, fulltext)
-    lines += [f"■ 판정: {verdict}", ""]
+    lines += [f"■ 1차 판정: {verdict}", ""]
     lines += [f"  - {r}" for r in reasons]
+    lines.append("")
+    lines += detail
     lines += [
-        "",
         "■ 조사 시사점",
-        ("  - 사업장 주소로 신고되었으나 주거용으로 판정되면 위장 사업장·유령 주소 가능성 검토"
-         if "주거" in verdict or verdict == "확인 필요"
+        ("  - 사업장 주소로 신고되었으나 가정집으로 판정되면 위장 사업장·유령 주소 가능성 검토"
+         if verdict in ("가정집", "확인")
          else "  - 등록 상호와 신고 업체명 일치 여부, 실제 영업 여부(현장 확인) 대사 권고"),
     ]
     print(f"[Agent] 주소확인 완료 — 판정: {verdict}")
