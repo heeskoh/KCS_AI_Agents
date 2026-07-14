@@ -2264,9 +2264,9 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .profile-net-frame-head h4{margin:0;font-size:14px;color:#123c85}
 .profile-net-frame-head .muted{font-size:11px;white-space:nowrap}
 .profile-net-body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;background:#f8fbff;padding:0}
-.profile-net-graph-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 8px;overflow:hidden;position:relative}
-/* 검증 차트(층위 패널 포함)가 프레임보다 길면 차트 영역 자체 스크롤 — 그래프(cy) 모드는 기존 유지 */
-.profile-net-graph-area:has(.net-rf-chart){overflow-y:auto;align-items:flex-start}
+/* 그래프 영역: 내용이 프레임보다 길면 항상 세로 스크롤(cy 그래프는 100% 높이라 스크롤 미발생) */
+.profile-net-graph-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 8px;overflow-y:auto;overflow-x:hidden;position:relative}
+.profile-net-graph-area:has(.net-rf-chart){align-items:flex-start}
 .profile-net-graph-area .net-rf-chart{height:auto;max-height:none}
 /* 노드/관계 상세 정보 패널 (그래프 우상단 오버레이) */
 .net-detail-panel{position:absolute;top:12px;right:14px;width:262px;max-height:calc(100% - 24px);overflow-y:auto;background:#fff;border:1px solid #c7dcf7;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);z-index:5;display:none}
