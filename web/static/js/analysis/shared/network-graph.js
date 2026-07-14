@@ -2482,6 +2482,19 @@ function chartDataTableHtml(chartKind, companyId, raw){
           fmtKrwShort(remit) || "0", fmtKrwShort(remit - r.off) || "0"];
       });
     }
+  } else if(chartKind === "related_party"){
+    // 거래집중 히트맵의 원천 거래내역 — 거래일시·거래상대·품목·거래금액
+    cols = ["거래일시", "거래상대", "거래 품목", "거래금액"];
+    rows = [...declRecords(raw).values()]
+      .map(r => {
+        const p = r.decl.properties || {};
+        return { d: String(p.trade_date || "").slice(0, 10), sup: r.sup ? r.sup.name : "기타",
+          item: (r.item && r.item.name) || p.item_name || r.decl.name, v: Number(p.value) || 0 };
+      })
+      .filter(r => r.d)
+      .sort((a, b) => b.d.localeCompare(a.d))
+      .slice(0, 60)
+      .map(r => [r.d, r.sup, r.item, fmtKrwShort(r.v) || "0"]);
   } else {
     const api = { undervaluation: "price_trend", hs_classification: "hs_check",
       fta_origin_misuse: "fta_check", customs_refund: "refund_check" }[chartKind];
