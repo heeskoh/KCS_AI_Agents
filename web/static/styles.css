@@ -1174,7 +1174,8 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .gi-insight-group-head strong{font-size:12px;color:#123c85}
 .gi-insight-group-head span{margin-left:auto;font-size:11px;color:var(--muted);font-weight:700}
 .gi-insight-group-head i{font-style:normal;color:#94a3b8}
-.gi-insight-group-body{display:flex;flex-direction:column;gap:6px;padding:8px}
+/* 그룹(기초자료·RAG·AI 분석결과 등) 내부 카드가 많으면 그룹 단위로 자체 스크롤 */
+.gi-insight-group-body{display:flex;flex-direction:column;gap:6px;padding:8px;max-height:280px;overflow-y:auto}
 .gi-insight-card{display:grid;gap:2px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;padding:8px 10px;text-align:left;cursor:pointer}
 .gi-insight-card:hover{border-color:#93c5fd;background:#f4f8ff}
 .gi-insight-card strong{font-size:12px;color:#1e3a8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
