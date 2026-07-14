@@ -8288,25 +8288,69 @@ function wbReportContext(){
 function wbReportReady(){
   return !!latestReport && !/아직 생성되지 않았습니다|대기 중입니다/.test(latestReport);
 }
-/* [보고서 생성] — 시나리오 분석 미완료면 안내, 완료면 보고서 단계 결과를 워크벤치에 적용 */
+
+/* 보고서/검증 서비스 결과를 "분석 보고서 및 검증" 탭 상태에 등록 —
+   시나리오 전체 실행·개별 실행·워크벤치 버튼이 모두 이 경로를 공유한다. */
+function applyReportStepOutput(item, output){
+  if(!output || !item) return;
+  const isReport = item.key === "report_generate" || item.type === "report";
+  const isValid = item.key === "report_validate" || ["validation", "approve"].includes(item.type);
+  if(!isReport && !isValid) return;
+  const company = activeCanvasCompany();
+  const companyName = company ? `${company.company_name} (${company.company_id})` : activeCanvasCompanyId;
+  if(isReport){
+    latestReport = output;
+    const el = document.getElementById("scenarioReportOutput");
+    if(el) setMarkdown(el, ensureReportRequiredSections(latestReport, "customs", { targetName: companyName }));
+    document.getElementById("wbReportValidateBtn")?.removeAttribute("disabled");
+  } else {
+    latestValidation = output;
+    const el = document.getElementById("scenarioValidationOutput");
+    if(el){
+      // 보고서 워크벤치에서는 검증 대시보드로, 시나리오 탭에서는 마크다운으로 표시
+      if(document.getElementById("wbReportValidateBtn")) el.innerHTML = renderValidationDashboard(latestValidation);
+      else setMarkdown(el, latestValidation);
+    }
+  }
+  saveCanvasState();
+}
+
+/* 보고서/검증 시나리오 단계 찾기 + 워크벤치에서 실행 시 시나리오 상태 하이드레이션 */
+function wbFindScenarioItem(kind){
+  const match = it => kind === "report"
+    ? (it.key === "report_generate" || it.type === "report")
+    : (it.key === "report_validate" || ["validation", "approve"].includes(it.type));
+  // 시나리오 탭을 거치지 않았으면 아카이브(사전 준비 포함)에서 단계·선행 결과를 복원
+  if(scenarioLoadedForCompany !== activeCanvasCompanyId){
+    const archive = currentRunArchive();
+    if(archive?.scenarioItems?.length){
+      scenarioItems = archive.scenarioItems.map((it, i) => normalizeScenarioItem({ ...it }, i));
+      stepOutputs = { ...(archive.stepOutputs || {}) };
+      stepStatuses = Object.fromEntries(Object.keys(stepOutputs).map(id => [id, "완료"]));
+      scenarioLoadedForCompany = activeCanvasCompanyId;
+    }
+  }
+  return scenarioItems.find(match) || null;
+}
+
+/* [보고서 생성] — 시나리오 분석 미완료면 안내, 완료면 보고서 생성 AI 서비스를 재호출 */
 function wbGenerateReport(){
   const ctx = wbReportContext();
   if(!ctx.analysisDone){ alert("분석을 완료해주세요."); return; }
-  const out = ctx.reportItem ? ctx.outputs[ctx.reportItem.id] : "";
-  if(!out){ alert("보고서 생성 단계 결과가 없습니다. 분석 시나리오에서 보고서 생성 단계를 실행해주세요."); return; }
-  latestReport = out;
-  saveCanvasState();
-  render(currentPage);
+  const item = wbFindScenarioItem("report");
+  if(!item){ alert("시나리오에 보고서 생성 단계가 없습니다. 분석 시나리오에서 단계를 추가해주세요."); return; }
+  const el = document.getElementById("scenarioReportOutput");
+  if(el) setMarkdown(el, "보고서 생성 AI 서비스 실행 중...");
+  runSingleScenarioItem(item);   // 시나리오와 동일한 보고서 생성 서비스 호출
 }
-/* [보고서 검증] — 보고서 생성 완료 후 검증 단계 결과를 적용 */
+/* [보고서 검증] — 보고서 생성 완료 후 보고서 검증 AI 서비스를 재호출 */
 function wbValidateReport(){
   if(!wbReportReady()){ alert("보고서 생성을 먼저 완료해주세요."); return; }
-  const ctx = wbReportContext();
-  const out = ctx.validItem ? ctx.outputs[ctx.validItem.id] : "";
-  if(!out){ alert("보고서 검증 단계 결과가 없습니다. 분석 시나리오에서 보고서 검증 단계를 실행해주세요."); return; }
-  latestValidation = out;
-  saveCanvasState();
-  render(currentPage);
+  const item = wbFindScenarioItem("validate");
+  if(!item){ alert("시나리오에 보고서 검증 단계가 없습니다. 분석 시나리오에서 단계를 추가해주세요."); return; }
+  const el = document.getElementById("scenarioValidationOutput");
+  if(el) el.innerHTML = `<div class="profile-loading">보고서 검증 AI 서비스 실행 중...</div>`;
+  runSingleScenarioItem(item);   // 시나리오와 동일한 보고서 검증 서비스 호출
 }
 
 function canvasReportPanel(){
@@ -10776,6 +10820,7 @@ function runSingleScenarioItem(item){
     if(data.status === "done"){
       stepStatuses[item.id] = "완료";
       stepOutputs[item.id] = data.output || "결과 없음";
+      applyReportStepOutput(item, data.output);   // 보고서/검증 서비스 결과 → 분석 보고서 및 검증 탭 반영
       openedSteps.add(item.id);
       saveIntermediateResults(companyId);
       renderScenarioList();
