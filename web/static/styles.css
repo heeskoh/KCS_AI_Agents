@@ -2265,6 +2265,9 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .profile-net-frame-head .muted{font-size:11px;white-space:nowrap}
 .profile-net-body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;background:#f8fbff;padding:0}
 .profile-net-graph-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 8px;overflow:hidden;position:relative}
+/* 검증 차트(층위 패널 포함)가 프레임보다 길면 차트 영역 자체 스크롤 — 그래프(cy) 모드는 기존 유지 */
+.profile-net-graph-area:has(.net-rf-chart){overflow-y:auto;align-items:flex-start}
+.profile-net-graph-area .net-rf-chart{height:auto;max-height:none}
 /* 노드/관계 상세 정보 패널 (그래프 우상단 오버레이) */
 .net-detail-panel{position:absolute;top:12px;right:14px;width:262px;max-height:calc(100% - 24px);overflow-y:auto;background:#fff;border:1px solid #c7dcf7;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);z-index:5;display:none}
 .net-detail-head{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #edf2fb;background:#f8fbff;border-radius:10px 10px 0 0;position:sticky;top:0}
@@ -2383,13 +2386,17 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .net-path-clear-inline{border:1px solid #f59e0b;background:#fff;color:#b45309;font-size:11px;font-weight:800;border-radius:8px;padding:3px 10px;cursor:pointer}
 .net-path-clear-inline:hover{background:#fffbeb}
 /* ── 프로파일 4-뷰 토글 + 경로 레인 ── */
-.profile-net-views{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#fbfdff;border-bottom:1px solid #e4edf9}
-.net-view-btn{border:1px solid #dbe7f6;background:#fff;color:#475569;font-size:12px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer;transition:.12s}
+.profile-net-views{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 10px;background:#fbfdff;border-bottom:1px solid #e4edf9}
+.net-views-title{font-size:13.5px;color:#123c85;margin-right:6px;white-space:nowrap}
+.profile-net-views .net-view-tools{margin-left:auto}
+.net-view-btn{border:1px solid #dbe7f6;background:#fff;color:#475569;font-size:11.5px;font-weight:700;border-radius:8px;padding:4px 9px;cursor:pointer;transition:.12s;white-space:nowrap}
 .net-view-btn:hover{border-color:#93c5fd;background:#f0f6ff}
 .net-view-btn.on{border-color:#2563eb;background:#2563eb;color:#fff}
 .net-view-desc{margin-left:6px;font-size:11px;color:#94a3b8}
 /* 위험구성 원인분석: 검증할 위험요인 선택 칩 */
-.net-rf-bar{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:7px 14px;background:#fffdf5;border-bottom:1px solid #f3e8c8}
+.net-rf-bar{flex:none;display:flex;align-items:center;flex-wrap:nowrap;overflow-x:auto;gap:5px;padding:5px 10px;background:#fffdf5;border-bottom:1px solid #f3e8c8}
+.net-rf-bar .net-rf-label{white-space:nowrap;font-size:10.5px}
+.net-rf-bar .net-rf-chip{white-space:nowrap;padding:3px 8px;font-size:10.5px;flex:none}
 .net-rf-label{font-size:11px;font-weight:800;color:#92700c;margin-right:2px}
 .net-rf-chip{border:1px solid #e7dcb8;background:#fff;color:#57534e;font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;cursor:pointer;transition:.12s}
 .net-rf-chip b{font-weight:800;color:#b45309}
