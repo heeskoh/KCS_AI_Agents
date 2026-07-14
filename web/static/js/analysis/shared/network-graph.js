@@ -2495,8 +2495,34 @@ function chartDataTableHtml(chartKind, companyId, raw){
       .sort((a, b) => b.d.localeCompare(a.d))
       .slice(0, 60)
       .map(r => [r.d, r.sup, r.item, fmtKrwShort(r.v) || "0"]);
+  } else if(chartKind === "hs_classification"){
+    // HS 분류: 집계(건수)가 아닌 신고 내역을 표시 — AI 불일치(이상건)는 행 강조·배지로 구분
+    const d = _invDataCache.get(`hs_check:${companyId}`)?.data;
+    const mmByRef = new Map((d?.mismatches || []).map(m => [String(m.ref || ""), m]));
+    const recs = [...declRecords(raw).values()].map(r => {
+      const p = r.decl.properties || {};
+      return { ref: r.decl.name, d: String(p.trade_date || "").slice(0, 10),
+        hs: p.hs_code || p.hs || p.global_hs || "",
+        item: (r.item && r.item.name) || p.item_name || "", mm: mmByRef.get(r.decl.name) || null };
+    }).sort((a, b) => (b.mm ? 1 : 0) - (a.mm ? 1 : 0) || b.d.localeCompare(a.d)).slice(0, 60);
+    if(recs.length){
+      const head = ["신고번호", "신고일", "신고 HS", "품목", "AI 추천 HS", "판정"];
+      const body = recs.map(r => `
+        <tr class="${r.mm ? "hs-mm-row" : ""}">
+          <td>${escapeHtml(r.ref)}</td><td>${escapeHtml(r.d)}</td><td>${escapeHtml(r.hs)}</td><td>${escapeHtml(r.item)}</td>
+          <td>${r.mm ? `<b class="rfc-neg">${escapeHtml(r.mm.ai_hs || "")}</b>` : "—"}</td>
+          <td>${r.mm ? `<span class="hs-mm-badge" title="${escapeHtml(r.mm.note || "")}">⚠ AI 불일치</span>` : `<span class="hs-ok-badge">일치</span>`}</td>
+        </tr>`).join("");
+      return `
+        <div class="profile-net-table-wrap">
+          <table class="profile-net-table">
+            <thead><tr>${head.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>`;
+    }
   } else {
-    const api = { undervaluation: "price_trend", hs_classification: "hs_check",
+    const api = { undervaluation: "price_trend",
       fta_origin_misuse: "fta_check", customs_refund: "refund_check" }[chartKind];
     const d = api ? _invDataCache.get(`${api}:${companyId}`)?.data : null;
     if(d){

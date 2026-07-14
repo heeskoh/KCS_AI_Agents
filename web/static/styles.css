@@ -2513,6 +2513,11 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .ccl-lim-t{font-size:10px;fill:#94a3b8}
 .ccl-lg-line{width:14px;height:0;border-top:2px solid #2563eb}
 .ccl-lg-lim{width:14px;height:0;border-top:2px dashed #dc2626}
+/* HS 구성 데이터(신고 내역): AI 불일치(이상건) 행 강조·배지 */
+.profile-net-table tr.hs-mm-row{background:#fff5f5}
+.profile-net-table tr.hs-mm-row td{color:#7f1d1d}
+.hs-mm-badge{display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:800;white-space:nowrap}
+.hs-ok-badge{display:inline-block;background:#ecfdf5;color:#047857;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap}
 /* 6) HS 혼동행렬 */
 .cfm-n{font-size:12px;fill:#fff;font-weight:800}
 .cfm-n.bad{fill:#fff}
