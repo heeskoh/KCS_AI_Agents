@@ -2428,6 +2428,25 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .ofc-lg-off{width:12px;height:10px;background:#f59e0b;border-radius:2px}
 .ofc-lg-other{width:12px;height:10px;background:#dbe7f6;border-radius:2px}
 .ofc-lg-share{width:14px;height:0;border-top:2px dashed #b45309}
+/* 외환 송금액 라인(통관가액 대비 초과 송금 대사) */
+.ofc-remit-line{fill:none;stroke:#dc2626;stroke-width:2.4}
+.ofc-remit-dot{fill:#dc2626;stroke:#fff;stroke-width:1;cursor:default}
+.ofc-lg-remit{width:14px;height:0;border-top:2.4px solid #dc2626}
+/* 다출처 교차 데이터 층위 패널 — 내부 보유/외부 수집 구분 */
+.ofc-layers{border-top:1px dashed var(--line);margin-top:10px;padding-top:10px}
+.ofc-layers-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ofc-layers-head strong{font-size:13px}
+.ofc-layers-head .muted{font-size:11px;flex:1;min-width:200px}
+.ofc-layers-head .btn{height:26px;padding:0 10px;font-size:11px}
+.ofc-layers-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ofc-layer{border:1px solid var(--line);border-radius:10px;background:#fbfdff;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.ofc-layer>strong{font-size:11.5px;color:#1e3a8a}
+.ofc-layer-item{display:flex;align-items:flex-start;gap:6px;font-size:11px;line-height:1.45;color:#334155}
+.ofc-layer-item small{font-size:10px}
+.ofc-badge{flex:none;font-style:normal;font-size:9.5px;font-weight:800;border-radius:5px;padding:1px 6px;margin-top:1px}
+.ofc-badge.int{background:#e8f0fe;color:#1d4ed8}
+.ofc-badge.ext{background:#fdeaea;color:#c0392b}
+@media(max-width:1400px){.ofc-layers-grid{grid-template-columns:repeat(2,1fr)}}
 /* HS 분류 검증 차트: 세번별 신고건수 막대 + AI 불일치 내역 */
 .net-rf-chart[data-net-chart="hs_check"] svg{flex:none}
 .hsc-bar{fill:#60a5fa;opacity:.85}

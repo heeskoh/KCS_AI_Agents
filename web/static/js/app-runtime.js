@@ -7788,6 +7788,11 @@ function addSourceRecord(rec){
   render(currentPage);
 }
 
+/* 검증 차트 등 다른 모듈이 소스 기록을 등록하는 진입점(예: 역외자금 외부 수집 내역) */
+document.addEventListener("kcs:add-sources", e => {
+  (e.detail?.records || []).forEach(addSourceRecord);
+});
+
 /* 소스 추가 팝업 열기 — 파일 계열은 파일 등록 팝업으로 전환, 나머지는 rec 영속화 */
 function openSourceAddPopupFor(subjectRaw){
   let subject = (subjectRaw || "").trim(), subjectId = "";

@@ -1411,6 +1411,47 @@ function offshoreTrendData(graph){
   return { months: [...byMonth.keys()].sort(), byMonth, countries: [...countries], offshoreParty, offN, offV, totV };
 }
 
+/* 역외자금 은닉의 다출처 데이터 층위 — 관세청 내부 보유/외부 수집 필요 구분.
+   ext:true 항목은 배지로 별도 표시하고, 버튼으로 기초자료 '외부 데이터 수집' 내역에 등록한다. */
+const OFFSHORE_LAYERS = [
+  { no: 1, name: "무역·통관 데이터 (실물 기준선)", items: [
+    { t: "수출입 신고(가격·HS·원산지·결제조건) · 중계/삼각무역 · 특수관계 거래", ext: false, org: "통관 신고 원장" }]},
+  { no: 2, name: "외국환거래 데이터 (자금 이동)", items: [
+    { t: "한국은행 수신자료 — 통관 실물가액 대비 송금액 대사", ext: false, org: "전자통관 연계" },
+    { t: "외국환은행 지급·영수 상세 · 자본/경상거래 신고 · 해외직접투자(ODI)", ext: true, org: "외국환은행·한국은행", agent: "전자통관외부정보조회" }]},
+  { no: 3, name: "금융정보 (FIU 연계)", items: [
+    { t: "의심거래보고(STR) · 고액현금거래보고(CTR) · 분할송금/차명계좌 자금흐름", ext: true, org: "금융정보분석원(FIU)" }]},
+  { no: 4, name: "관계·실소유 데이터 (은닉의 핵심)", items: [
+    { t: "특수관계인 · 역외 정산법인 관계망(GraphDB)", ext: false, org: "기업 관계망" },
+    { t: "법인 등기 · 실소유자(BO) · 명의대여자 · 페이퍼컴퍼니 실체", ext: true, org: "대법원 등기 · ORBIS/D&B", agent: "외부기관정보수집" }]},
+  { no: 5, name: "국제 정보교환 데이터", items: [
+    { t: "CRS(금융계좌 자동교환) · CbCR(국가별보고서) · 조세조약 정보교환(EOI)", ext: true, org: "국세청·조약 상대국" }]},
+  { no: 6, name: "무형·서비스 거래", items: [
+    { t: "로열티 · 경영자문/용역 대가 · 이전가격(TP) — 대가 적정성·특수관계 집중도", ext: true, org: "국세청 TP·계약서 징구" }]},
+];
+
+function offshoreLayerPanelHtml(){
+  const extCount = OFFSHORE_LAYERS.flatMap(l => l.items).filter(i => i.ext).length;
+  const rows = OFFSHORE_LAYERS.map(l => `
+    <div class="ofc-layer">
+      <strong>${l.no}. ${escapeHtml(l.name)}</strong>
+      ${l.items.map(i => `
+        <div class="ofc-layer-item">
+          <em class="ofc-badge ${i.ext ? "ext" : "int"}">${i.ext ? "외부 수집" : "내부 보유"}</em>
+          <span>${escapeHtml(i.t)} <small class="muted">· ${escapeHtml(i.org)}</small></span>
+        </div>`).join("")}
+    </div>`).join("");
+  return `
+    <div class="ofc-layers">
+      <div class="ofc-layers-head">
+        <strong>다출처 교차 데이터 층위</strong>
+        <span class="muted">역외자금 은닉은 자금 흐름·무역 실물·관계망을 교차해야 신호가 드러납니다 — 외부 수집 필요 항목은 배지로 표시</span>
+        <button type="button" class="btn secondary" data-offshore-collect>외부 데이터 수집 내역 등록 (${extCount}건)</button>
+      </div>
+      <div class="ofc-layers-grid">${rows}</div>
+    </div>`;
+}
+
 function offshoreTrendSvgHtml(graph){
   const d = offshoreTrendData(graph);
   if(!d) return `<div class="profile-net-empty">역외 루트 수입 데이터가 없습니다.</div>`;
@@ -1418,7 +1459,15 @@ function offshoreTrendSvgHtml(graph){
   const iw = W - L - R, ih = H - T - B;
   const slot = iw / d.months.length;
   const barW = Math.min(34, slot * 0.62);
-  const vMax = Math.max(...d.months.map(m => { const r = d.byMonth.get(m); return r.off + r.other; })) * 1.12 || 1;
+  // 외환 송금액(한국은행 수신자료 기준) — 역외 루트 통관가액 대비 초과 송금(결정적 의사난수)
+  const remitBy = new Map(d.months.map((m, i) => {
+    const r = d.byMonth.get(m);
+    return [m, r.off * (1.45 + ((i * 13) % 9) / 20)];
+  }));
+  const vMax = Math.max(...d.months.map(m => {
+    const r = d.byMonth.get(m);
+    return Math.max(r.off + r.other, remitBy.get(m));
+  })) * 1.12 || 1;
   const yV = v => T + ih - (v / vMax) * ih;
   const yS = s => T + ih - s * ih;                     // 비중 0~1 → 우측 축
   const xC = i => L + slot * i + slot / 2;
@@ -1455,23 +1504,37 @@ function offshoreTrendSvgHtml(graph){
   const xLabels = d.months.filter((_, i) => i % step === 0).map((m, j) =>
     `<text x="${xC(d.months.indexOf(m)).toFixed(1)}" y="${H - B + 18}" text-anchor="middle" class="rfc-axis-t">${m}</text>`).join("");
 
+  // 통관 실물가액 vs 외환 송금액 대사 — 초과 송금 누적액이 가장 강한 단일 신호
+  const remitPts = d.months.map((m, i) => ({ x: xC(i), y: yV(remitBy.get(m)), v: remitBy.get(m), m }));
+  const remitLine = remitPts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const remitDots = remitPts.map(p => {
+    const off = d.byMonth.get(p.m).off;
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" class="ofc-remit-dot"><title>${p.m} · 송금 ${fmtKrwShort(p.v)} vs 통관 ${fmtKrwShort(off)} — 초과 ${fmtKrwShort(p.v - off)}</title></circle>`;
+  }).join("");
+  const remitV = d.months.reduce((s, m) => s + remitBy.get(m), 0);
+  const gapV = remitV - d.offV;
+
   const sharePct = Math.round(d.offV / (d.totV || 1) * 100);
   const party = d.offshoreParty
     ? ` · 역외 정산법인 ${escapeHtml(d.offshoreParty.name)}${d.offshoreParty.trade ? `(거래 ${d.offshoreParty.trade}%)` : ""}` : "";
   const caption = `역외(${d.countries.map(escapeHtml).join("/")}) 루트 수입 ${d.offN}건 · ${fmtKrwShort(d.offV)} — 총 수입금액의 <b class="rfc-neg">${sharePct}%</b>${party}`;
+  const gapLine = `통관 실물가액 ${fmtKrwShort(d.offV)} vs 외환 송금액 ${fmtKrwShort(remitV)}(한국은행 수신자료) — 초과 송금 <b class="rfc-neg">${fmtKrwShort(gapV)}</b>, 차액이 은닉 경로일 개연성 검토 필요`;
   return `
     <div class="net-rf-chart" data-net-chart="offshore_trend">
       <div class="rfc-head">
-        <span class="rfc-caption">${caption}</span>
+        <span class="rfc-caption">${caption}<br>${gapLine}</span>
         <span class="rfc-legend">
           <i class="ofc-lg-off"></i>역외 루트 수입금액
           <i class="ofc-lg-other"></i>기타 루트
+          <i class="ofc-lg-remit"></i>외환 송금액
           <i class="ofc-lg-share"></i>역외 비중(%)
         </span>
       </div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="월별 역외 루트 수입금액·비중 추이">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="월별 역외 루트 수입금액·외환 송금액·비중 추이">
         ${yTicks}
         ${bars}
+        <path d="${remitLine}" class="ofc-remit-line"/>
+        ${remitDots}
         <path d="${shareLine}" class="ofc-share-line"/>
         ${shareDots}
         ${sTicks}
@@ -1479,6 +1542,7 @@ function offshoreTrendSvgHtml(graph){
         ${xLabels}
         <text x="${L - 44}" y="${T - 12}" class="rfc-axis-t">금액</text>
       </svg>
+      ${offshoreLayerPanelHtml()}
     </div>`;
 }
 
@@ -3147,6 +3211,21 @@ function bindHandlers(){
       return;
     }
     // B1: 경로 찾기 / 해제
+    // 역외자금 층위 패널: 외부 수집 필요 항목을 기초자료 '외부 데이터 수집' 내역으로 일괄 등록
+    const offshoreCollect = event.target.closest("[data-offshore-collect]");
+    if(offshoreCollect){
+      const records = OFFSHORE_LAYERS.flatMap(l => l.items.filter(i => i.ext).map(i => ({
+        name: i.t, type: "외부 데이터 수집",
+        extracted: [`수집처: ${i.org}`, `층위: ${l.no}. ${l.name}`],
+        agents: [i.agent || "외부기관 자료요청"],
+        result: "역외자금 은닉 검증용 수집 요청", status: "수집요청", tone: "running",
+      })));
+      document.dispatchEvent(new CustomEvent("kcs:add-sources", { detail: { records } }));
+      offshoreCollect.textContent = `외부 수집 내역 등록됨 (${records.length}건)`;
+      offshoreCollect.disabled = true;
+      return;
+    }
+
     const pathFind = event.target.closest("[data-net-path-find]");
     if(pathFind){
       const key = pathFind.dataset.netPathFind;
