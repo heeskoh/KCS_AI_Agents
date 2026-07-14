@@ -1859,7 +1859,10 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .scenario-workbench{margin-top:0}
 .scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:6px}
 .scenario-workbench-v2.result-full-active{height:auto;overflow:visible}
-.scenario-work-header{display:grid;grid-template-columns:minmax(180px,1fr) minmax(410px,auto) minmax(520px,auto);align-items:center;gap:8px;border:none;border-radius:0;background:transparent;padding:0;flex:none}
+/* 헤더 4열: 제목(1fr) | 전체 수행 | AI 서비스 | 분석 템플릿(우측 끝 — 열리면 좌측으로 확장) */
+.scenario-work-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;border:none;border-radius:0;background:transparent;padding:0;flex:none}
+.scenario-work-header .scenario-title-row{min-width:0;overflow:hidden}
+.scenario-runall-zone{justify-self:end}
 .scenario-title-row{display:flex;justify-content:space-between;gap:16px;align-items:center;min-width:0;flex:none}
 .scenario-title-row h3{margin:0;font-size:15px}
 .scenario-title-row p{display:none}
@@ -1874,12 +1877,12 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config{display:flex;flex-direction:column}
 .scenario-config-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .scenario-config-title h3{margin:0;font-size:18px;color:var(--text)}
-.scenario-service-zone{display:grid;grid-template-columns:auto auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:470px}
+.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:410px}
 .scenario-service-zone strong{font-size:13px;color:#14532d;white-space:nowrap}
 .scenario-runall-btn{white-space:nowrap;font-weight:800}
 /* Template zone — colored background block */
-/* 분석 템플릿: 기본 접힘 — 토글 버튼만 표시, 열면 선택/적용/등록 컨트롤 노출 */
-.scenario-template-zone{display:flex;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:0}
+/* 분석 템플릿: 우측 끝 고정·기본 접힘 — 열면 컨트롤이 왼쪽으로 확장되며 앞 영역을 밀어냄 */
+.scenario-template-zone{display:flex;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:0;justify-self:end}
 .scenario-template-zone.open{min-width:620px}
 .scenario-template-zone strong{font-size:14px;color:#0f172a;white-space:nowrap}
 .scenario-template-toggle{white-space:nowrap}

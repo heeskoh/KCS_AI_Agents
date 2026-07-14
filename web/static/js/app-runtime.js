@@ -8742,9 +8742,12 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
           </div>
         </div>
 
-        <div class="scenario-service-zone">
+        <div class="scenario-runall-zone">
           <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
             ${archived ? "disabled" : ""} title="시나리오의 모든 단계를 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
+        </div>
+
+        <div class="scenario-service-zone">
           <strong>AI 서비스</strong>
           <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
           <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add
