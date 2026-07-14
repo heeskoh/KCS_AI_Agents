@@ -8247,9 +8247,49 @@ function prependCustomRagSearchStep(ragName, ragId){
   return true;
 }
 
+/* 보고서 워크벤치: 시나리오 아카이브 기준 분석 완료 판정 + 보고서/검증 단계 결과 조회 */
+function wbReportContext(){
+  const archive = currentRunArchive();
+  const items = archive?.scenarioItems || [];
+  const outputs = archive?.stepOutputs || {};
+  const isReportStep = it => ["report_generate", "report_validate"].includes(it.key)
+    || ["report", "validation", "approve", "result_synthesis"].includes(it.type);
+  const analysis = items.filter(it => !isReportStep(it));
+  return {
+    outputs,
+    analysisDone: analysis.length > 0 && analysis.every(it => outputs[it.id]),
+    reportItem: items.find(it => it.key === "report_generate" || it.type === "report"),
+    validItem: items.find(it => it.key === "report_validate" || ["validation", "approve"].includes(it.type)),
+  };
+}
+function wbReportReady(){
+  return !!latestReport && !/아직 생성되지 않았습니다|대기 중입니다/.test(latestReport);
+}
+/* [보고서 생성] — 시나리오 분석 미완료면 안내, 완료면 보고서 단계 결과를 워크벤치에 적용 */
+function wbGenerateReport(){
+  const ctx = wbReportContext();
+  if(!ctx.analysisDone){ alert("분석을 완료해주세요."); return; }
+  const out = ctx.reportItem ? ctx.outputs[ctx.reportItem.id] : "";
+  if(!out){ alert("보고서 생성 단계 결과가 없습니다. 분석 시나리오에서 보고서 생성 단계를 실행해주세요."); return; }
+  latestReport = out;
+  saveCanvasState();
+  render(currentPage);
+}
+/* [보고서 검증] — 보고서 생성 완료 후 검증 단계 결과를 적용 */
+function wbValidateReport(){
+  if(!wbReportReady()){ alert("보고서 생성을 먼저 완료해주세요."); return; }
+  const ctx = wbReportContext();
+  const out = ctx.validItem ? ctx.outputs[ctx.validItem.id] : "";
+  if(!out){ alert("보고서 검증 단계 결과가 없습니다. 분석 시나리오에서 보고서 검증 단계를 실행해주세요."); return; }
+  latestValidation = out;
+  saveCanvasState();
+  render(currentPage);
+}
+
 function canvasReportPanel(){
   const company = activeCanvasCompany();
   const companyName = `${company.company_name} (${company.company_id})`;
+  const ready = wbReportReady();
   return commonAnalysisReportPanel({
     selectedLabel: "선택 기업",
     targetText: escapeHtml(companyName),
@@ -8259,6 +8299,10 @@ function canvasReportPanel(){
     validationHtml: renderValidationDashboard(latestValidation),
     reportId: "scenarioReportOutput",
     validationId: "scenarioValidationOutput",
+    reportActions: `<button id="wbReportGenBtn" type="button" class="btn"
+      title="시나리오 분석이 완료된 경우 보고서 단계 결과를 적용합니다">▶ 보고서 생성</button>`,
+    validationActions: `<button id="wbReportValidateBtn" type="button" class="btn secondary"
+      ${ready ? "" : `disabled title="보고서 생성 후 실행할 수 있습니다"`}>▶ 보고서 검증</button>`,
   });
 }
 
@@ -11665,6 +11709,10 @@ document.addEventListener("click", (event)=>{
     if(rec && confirm(`"${rec.name}" 업로드를 삭제하시겠습니까?`)) deleteUploadedFile(uploadDel.dataset.uploadDelete);
     return;
   }
+  /* ── 보고서 워크벤치: 보고서 생성 / 보고서 검증 ── */
+  if(event.target.closest("#wbReportGenBtn")){ wbGenerateReport(); return; }
+  if(event.target.closest("#wbReportValidateBtn")){ wbValidateReport(); return; }
+
   /* ── 기초자료 데이터 소스 추가 팝업 열기 ── */
   const srcOpen = event.target.closest("[data-source-open]");
   if(srcOpen){
