@@ -2456,6 +2456,8 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 @media(max-width:1400px){.ofc-layers-grid{grid-template-columns:repeat(2,1fr)}}
 /* 위험지표 재구성 차트 공통 주석/노트 */
 .rfc-note{margin:6px 2px 0;font-size:11px;line-height:1.5}
+/* 복수 차트 세로 스택(FTA 경유 흐름 + 월별 감면액 등) — 그래프 영역 스크롤과 연동 */
+.rfc-stack{display:flex;flex-direction:column;gap:10px;width:100%;min-height:0;align-self:flex-start}
 /* 1) 저가신고 박스플롯 */
 .bxp-box{fill:#dbeafe;stroke:#93c5fd;stroke-width:1}
 .bxp-whisker{stroke:#94a3b8;stroke-width:1.2}

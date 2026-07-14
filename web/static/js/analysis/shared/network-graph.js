@@ -1678,7 +1678,7 @@ function buildFtaCheckArea(key, companyId){
       ${ftaFlowHtml(d)}
       <p class="rfc-note muted">신고 원산지(중국)와 실제 선적·경유국(홍콩 환적)의 어긋남 — 비가공증명·B/L 대사로 우회 여부 확인.</p>
     </div>`;
-  return flow + stackedBarChartHtml({
+  return `<div class="rfc-stack">` + flow + stackedBarChartHtml({
     chartId: "fta_check", caption: "월별 감면액 시계열 — 협정 발효 전후 특정국발 급증(전환 vs 우회) 확인",
     legend: [{ name: "감면액(정상)", cls: "ftc-lg-ok" }, { name: "직접운송 검토", cls: "ftc-lg-risky" }],
     periods,
@@ -1686,7 +1686,7 @@ function buildFtaCheckArea(key, companyId){
              { name: "직접운송 검토", cls: "ftc-bar-risky", get: p => riskyMap.get(p) }],
     listHead: "원산지 검증 대상·이력",
     listRows: [...verifRows, ...riskyRows],
-  });
+  }) + `</div>`;
 }
 
 /* ── 관세환급 검증 차트: 분기별 환급 신청액(지급/심사중/보류) + 이상 신청 내역 ── */
