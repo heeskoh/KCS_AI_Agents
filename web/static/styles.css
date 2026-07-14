@@ -1924,9 +1924,6 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .scenario-setting-multi{border:1px solid #cfe0fb;background:#fff;color:#3b4a63;border-radius:6px;padding:2px 8px;font-size:10.5px;font-weight:800;cursor:pointer}
 .scenario-setting-multi.on{background:#2f6fed;border-color:#2f6fed;color:#fff}
 /* 리뷰 모드: "분석범위별 상세설정" 라벨 라인 + 분석범위 설정 버튼(팝업) */
-.scenario-detail-label-row{display:flex;align-items:center;gap:10px}
-.scenario-behavior-config-btn{border:1px solid #cfe0fb;background:#f2f7ff;color:#2456c9;border-radius:7px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer}
-.scenario-behavior-config-btn:disabled{opacity:.5;cursor:not-allowed}
 /* 리뷰 모드: 우측 패널 보기 탭(분석 결과 | 통합 프롬프트) */
 .scenario-result-tabs{display:flex;gap:6px}
 .scenario-result-tab{border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer}

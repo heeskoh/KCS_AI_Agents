@@ -8722,10 +8722,6 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
             <div id="scenarioRagPanel"></div>
             ${reviewMode ? `
             <div class="scenario-field scenario-behavior-prompt-field">
-              <span class="scenario-detail-label-row">분석범위별 상세설정
-                <button id="scenarioBehaviorConfigButton" type="button" class="scenario-behavior-config-btn"
-                  ${archived ? "disabled" : ""}>분석범위 설정</button>
-              </span>
               <div id="scenarioBehaviorPromptList" class="scenario-behavior-prompt-list"></div>
             </div>
             ` : `
