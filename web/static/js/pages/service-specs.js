@@ -191,7 +191,7 @@ export const SERVICE_SPECS = {
     sample: ["엔터티 18 · 관계 32 구성 — 신규 연결 5건"],
   },
   "보고서 요약": {
-    tag: "분석지원", desc: "요약 대상을 조사관용 핵심 요약으로 정리합니다.",
+    tag: "보고서", desc: "요약 대상을 조사관용 핵심 요약으로 정리합니다.",
     inputs: [
       { name: "요약 대상", type: "문서/결과", req: true, source: "첨부문서·선행 단계 결과", rule: "-" },
       { name: "요약 길이", type: "선택", req: false, source: "기본: 보통", rule: "짧게 / 보통 / 상세" },
@@ -211,7 +211,7 @@ export const SERVICE_SPECS = {
     sample: ["영문 계약서 → 국문 번역 완료 (용어 매핑 12건)"],
   },
   "표준보고서 생성": {
-    tag: "분석지원", desc: "입력자료를 유사사례 표준보고서 형식으로 재구성합니다.",
+    tag: "보고서", desc: "입력자료를 유사사례 표준보고서 형식으로 재구성합니다.",
     inputs: [
       { name: "입력자료", type: "문서/결과", req: true, source: "업로드·선행 결과", rule: "-" },
       { name: "표준 양식", type: "선택", req: false, source: "기본: 조사보고서 양식", rule: "-" },

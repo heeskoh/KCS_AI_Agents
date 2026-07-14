@@ -1170,7 +1170,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   report_standard: {
-    label: "표준보고서 생성 AI 서비스", type: "report_standard", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    label: "표준보고서 생성 AI 서비스", type: "report_standard", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "입력자료를 유사사례 표준보고서 형식으로 재구성",
     behaviorOptions: [
       { value: "match_template", label: "템플릿 형식 적용" },
@@ -1178,7 +1178,7 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
   summary: {
-    label: "보고서 요약 AI 서비스", type: "summary", group: LLM_SERVICE_GROUP, permissionGroup: "agents",
+    label: "보고서 요약 AI 서비스", type: "summary", group: REPORT_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "요약 대상을 조사관용 핵심 요약으로 정리",
     personInstruction: "요약 대상을 개인 수사 담당자용 핵심 요약으로 정리",
     behaviorOptions: [
@@ -2278,7 +2278,7 @@ function giScenarioInstructionPreview(step, targetType = "company"){
   const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
   const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
   const webTargets = scenarioItemWebTargets({ ...step, key: sourceKey });
-  const suffix = webTargets.length ? ` · URL ${webTargets.length}건` : "";
+  const suffix = webTargetCountSuffix(webTargets);
   return `${behaviors.join(", ")} · ${instruction}${suffix}`;
 }
 
@@ -2288,10 +2288,7 @@ function giScenarioRunInstruction(step, targetType = "company"){
   const normalizedTarget = normalizeTargetType(targetType || step.target_type || step.targetType);
   const instruction = step.instruction || step.note || sourceDefaultInstruction(sourceKey, normalizedTarget) || "기본 분석";
   const webTargets = scenarioItemWebTargets({ ...step, key: sourceKey });
-  const webTargetText = webTargets.length
-    ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
-    : "";
-  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(step.extraPrompts)}${webTargetText}`;
+  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(step.extraPrompts)}${webTargetPromptText(webTargets)}`;
 }
 
 function giStepSourceOptionsHtml(selectedKey = ""){
@@ -4543,6 +4540,22 @@ function ensureMailShareRecipients(items, rerun){
   return false;
 }
 
+/* 등록분(URL/키워드) → 프롬프트 본문·요약 표기 공용 헬퍼 */
+function webTargetPromptText(webTargets){
+  const urls = webTargets.filter(t => t.url);
+  const kws = webTargets.filter(t => !t.url && t.query);
+  return (urls.length ? `\n\n[직접 등록 URL]\n${urls.map(t => `- ${t.url}${t.query ? `\n  검색 내용: ${t.query}` : ""}`).join("\n")}` : "")
+    + (kws.length ? `\n\n[주요 검색 키워드]\n${kws.map(t => `- ${t.query}`).join("\n")}` : "");
+}
+function webTargetCountSuffix(webTargets){
+  const urlN = webTargets.filter(t => t.url).length;
+  const kwN = webTargets.length - urlN;
+  const parts = [];
+  if(urlN) parts.push(`URL ${urlN}건`);
+  if(kwN) parts.push(`키워드 ${kwN}건`);
+  return parts.length ? ` · ${parts.join("·")}` : "";
+}
+
 function normalizeWebTargets(value){
   const rawItems = Array.isArray(value) ? value : [];
   const seen = new Set();
@@ -4554,7 +4567,7 @@ function normalizeWebTargets(value){
     // 로그인 필요 사이트용 선택 자격증명(데모: workspace_state 평문 저장, 화면에는 PW 마스킹만 표시)
     const loginId = String(item.loginId || item.login_id || "").trim();
     const loginPw = String(item.loginPw || item.login_pw || "");
-    if(!url) return;
+    if(!url && !query) return;   // URL 직접 등록 또는 키워드 단독 등록 모두 허용
     const key = `${url}\n${query}`;
     if(seen.has(key)) return;
     seen.add(key);
@@ -4600,23 +4613,23 @@ function webTargetPanelHtml(item, scope){
     ? targets.map((target, index) => `
         <div class="scenario-web-target-chip">
           <span>
-            <strong>${escapeHtml(target.url)}</strong>
-            <small>${escapeHtml(target.query || "수집 내용 미지정")}</small>
+            <strong>${target.url ? escapeHtml(target.url) : `🔍 ${escapeHtml(target.query)}`}</strong>
+            <small>${target.url ? escapeHtml(target.query || "수집 내용 미지정") : "주요 검색 키워드"}</small>
             ${target.loginId ? `<small class="scenario-web-target-login">🔒 로그인정보 등록 (${escapeHtml(target.loginId)} / •••)</small>` : ""}
           </span>
-          <button type="button" data-web-target-remove="${scope}" data-index="${index}" aria-label="URL 삭제">×</button>
+          <button type="button" data-web-target-remove="${scope}" data-index="${index}" aria-label="등록 삭제">×</button>
         </div>
       `).join("")
-    : `<span class="scenario-web-target-empty">등록된 URL이 없습니다.</span>`;
+    : `<span class="scenario-web-target-empty">등록된 URL·검색 키워드가 없습니다.</span>`;
   return `
     <div class="scenario-web-target-panel">
       <div class="scenario-web-target-head">
-        <strong>수집 대상 URL 등록</strong>
-        <span>수집을 요청할 URL과 수집 내용을 등록하세요. 로그인이 필요한 사이트는 ID/PW를 함께 등록할 수 있습니다.</span>
+        <strong>수집 대상 URL·검색 키워드 등록</strong>
+        <span>수집을 요청할 URL을 직접 등록하거나, URL 없이 주요 검색 키워드만 등록할 수 있습니다. 로그인이 필요한 사이트는 ID/PW를 함께 등록하세요.</span>
       </div>
       <div class="scenario-web-target-form">
-        <input id="${urlId}" class="scenario-web-target-url" type="url" placeholder="https://">
-        <input id="${queryId}" class="scenario-web-target-query" type="text" placeholder="수집할 내용">
+        <input id="${urlId}" class="scenario-web-target-url" type="url" placeholder="https:// (선택 — 키워드만 등록 가능)">
+        <input id="${queryId}" class="scenario-web-target-query" type="text" placeholder="수집할 내용 / 주요 검색 키워드">
         <input id="${loginIdId}" class="scenario-web-target-login-id" type="text" placeholder="로그인 ID (선택)" autocomplete="off">
         <input id="${loginPwId}" class="scenario-web-target-login-pw" type="password" placeholder="로그인 PW (선택)" autocomplete="new-password">
         <button type="button" class="btn secondary" data-web-target-add="${scope}">등록</button>
@@ -4657,8 +4670,8 @@ function addWebTargetToScope(scope){
   const query = String(queryInput?.value || "").trim();
   const loginId = String(loginIdInput?.value || "").trim();
   const loginPw = String(loginPwInput?.value || "");
-  if(!url) return false;
-  if(!isValidHttpUrl(url)){
+  if(!url && !query) return false;   // URL 직접 등록 또는 주요 검색 키워드 단독 등록
+  if(url && !isValidHttpUrl(url)){
     alert("http 또는 https URL을 입력하세요.");
     urlInput?.focus();
     return false;
@@ -9249,18 +9262,14 @@ function scenarioRunInstruction(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
   const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
   const webTargets = scenarioItemWebTargets(item);
-  const webTargetText = webTargets.length
-    ? `\n\n[직접 등록 URL]\n${webTargets.map(target => `- ${target.url}${target.query ? `\n  검색 내용: ${target.query}` : ""}`).join("\n")}`
-    : "";
-  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(item.extraPrompts)}${webTargetText}`;
+  return `[분석범위]\n- ${behaviors.join("\n- ")}\n\n${instruction}${extraPromptsRunText(item.extraPrompts)}${webTargetPromptText(webTargets)}`;
 }
 
 function scenarioInstructionPreview(item){
   const behaviors = sourceBehaviorLabels(item.key, item.behaviors);
   const instruction = item.instruction || sourceDefaultInstruction(item.key, item.target_type || item.targetType || "company") || "기본 분석";
   const webTargets = scenarioItemWebTargets(item);
-  const suffix = webTargets.length ? ` · URL ${webTargets.length}건` : "";
-  return `${behaviors.join(", ")} · ${instruction}${suffix}`;
+  return `${behaviors.join(", ")} · ${instruction}${webTargetCountSuffix(webTargets)}`;
 }
 
 function initScenarioWorkbench(){
