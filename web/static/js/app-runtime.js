@@ -2794,6 +2794,20 @@ function applyCopilotChrome(){
     if(span) span.textContent = "기간계 연계 AI 분석 어시스턴트";
   }
 }
+
+/* Copilot 모드: 홈 렌더 후 안내 문구를 자동 선택 방식에 맞게 교체 —
+   업무지식베이스/AI 서비스 픽커는 숨겨지고 의도분석이 자동 선택한다. */
+function copilotAdjustComposer(){
+  if(!isCopilotMode) return;
+  const greet = document.querySelector("#homeGreeting p");
+  if(greet) greet.textContent = "원하는 분석 업무를 자연어로 설명해보세요. AI가 의도를 파악해 필요한 업무지식베이스와 AI 서비스를 자동 선택하여 분석합니다.";
+  const ta = document.getElementById("coachPrompt");
+  if(ta){
+    const txt = "질문을 입력하세요. AI가 의도를 파악해 업무지식베이스와 AI 서비스를 자동 선택하여 분석합니다.";
+    ta.dataset.initialText = txt;
+    if(ta.classList.contains("is-initial")) ta.value = txt;
+  }
+}
 let riskDashboardFilter = { query: "", minScore: 0 };
 
 /* ── 실시간 프롬프트 코치 상태 ── */
@@ -5380,7 +5394,9 @@ async function homeRunAnalysis(prompt, btn){
       <h3>AI통합분석결과</h3>
       <div class="home-running-line">
         <span class="home-running-dot"></span>
-        <span>${hasSelectedInternalTool ? "선택된 데이터소스와 AI 서비스를 준비합니다." : "선택된 데이터소스/AI 서비스가 없어 LLM 자체 답변으로 처리합니다."}</span>
+        <span>${hasSelectedInternalTool ? "선택된 데이터소스와 AI 서비스를 준비합니다."
+          : isCopilotMode ? "의도를 분석해 필요한 업무지식베이스·AI 서비스를 자동 선택합니다."
+          : "선택된 데이터소스/AI 서비스가 없어 LLM 자체 답변으로 처리합니다."}</span>
       </div>
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
     `;
@@ -5395,7 +5411,9 @@ async function homeRunAnalysis(prompt, btn){
     (coachSuggestions || []).flatMap(s => s.uses || [])
   )];
 
-  if(!hasSelectedInternalTool){
+  // Copilot 모드: 수동 선택 없이도 의도분석(/api/analyze_intent)으로 진행 —
+  // LLM이 필요한 업무지식베이스·AI 서비스를 자동 선택해 실행한다.
+  if(!hasSelectedInternalTool && !isCopilotMode){
     let answer = "";
     let reasoning = "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변";
     try {
@@ -10948,6 +10966,7 @@ function render(page="home"){
     scenarioLoadedForCompany = null;
     coachInitHome();
     homeRenderShareEmailPanel();
+    copilotAdjustComposer();
   }
   if(page === "profile"){
     loadScenarioCompanies();

@@ -313,6 +313,11 @@ body.copilot-mode .content{padding:10px}
 body.copilot-mode .home-layout{padding-bottom:0}
 body.copilot-mode .home-focus-grid{grid-template-columns:1fr}
 body.copilot-mode .home-composer-bar{flex-wrap:wrap;row-gap:6px}
+/* Copilot 컴포저: 파일첨부·실행만 노출 — 지식베이스/AI서비스/LLM모드는 의도분석이 자동 선택, 코칭 제안 패널 숨김 */
+body.copilot-mode .home-picker-trigger,
+body.copilot-mode .home-llm-mode-btn,
+body.copilot-mode .home-composer-actions .home-action-btn:not(.run),
+body.copilot-mode .coach-sugg-panel{display:none !important}
 body.copilot-mode .home-greeting-row h1{font-size:20px}
 /* 포털 상단 Copilot 실행 버튼 */
 .tb-copilot-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid #c9d7ef;border-radius:999px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
