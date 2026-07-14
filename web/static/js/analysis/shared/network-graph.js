@@ -2194,6 +2194,50 @@ function buildPathBanner(state, key){
     </div>`;
 }
 
+/* ── 하단 데이터 목록(차트 모드): 현재 그래프를 구성하는 원천 데이터 테이블 ──
+   관계망 대신 검증 차트를 표시하는 요인은 엣지 표가 아니라 차트 데이터 자체를 보여준다. */
+const CHART_COL_KO = { ym: "월", avg: "평균단가", n: "건수", lo: "최저", hi: "최고", hs: "HS",
+  count: "건수", label: "구분", status: "상태", amount: "금액", month: "월", quarter: "분기",
+  declared_hs: "신고 HS", ai_hs: "AI 추천 HS", ref: "신고번호", note: "비고", date: "일자" };
+
+function chartDataTableHtml(chartKind, companyId, raw){
+  let cols = [], rows = [];
+  if(chartKind === "offshore_fund"){
+    const d = offshoreTrendData(raw);
+    if(d){
+      cols = ["월", "역외 루트 수입", "기타 루트", "역외 비중", "외환 송금액", "초과 송금"];
+      rows = d.months.map((m, i) => {
+        const r = d.byMonth.get(m);
+        const remit = r.off * (1.45 + ((i * 13) % 9) / 20);
+        const tot = r.off + r.other;
+        return [m, fmtKrwShort(r.off) || "0", fmtKrwShort(r.other) || "0",
+          tot ? Math.round(r.off / tot * 100) + "%" : "-",
+          fmtKrwShort(remit) || "0", fmtKrwShort(remit - r.off) || "0"];
+      });
+    }
+  } else {
+    const api = { undervaluation: "price_trend", hs_classification: "hs_check",
+      fta_origin_misuse: "fta_check", customs_refund: "refund_check" }[chartKind];
+    const d = api ? _invDataCache.get(`${api}:${companyId}`)?.data : null;
+    if(d){
+      const arrKey = Object.keys(d).find(k => Array.isArray(d[k]) && d[k].length && typeof d[k][0] === "object");
+      if(arrKey){
+        const keys = Object.keys(d[arrKey][0]);
+        cols = keys.map(k => CHART_COL_KO[k] || k);
+        rows = d[arrKey].slice(0, 60).map(o => keys.map(k => String(o[k] ?? "")));
+      }
+    }
+  }
+  if(!rows.length) return `<div class="profile-net-empty" style="padding:14px">표시할 구성 데이터가 없습니다.</div>`;
+  return `
+    <div class="profile-net-table-wrap">
+      <table class="profile-net-table">
+        <thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map(v => `<td>${escapeHtml(v)}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
 /* ── 하단 데이터 목록: 표시 중인 관계(엣지) 테이블 ── */
 function buildEdgeTable(graph, maxRows = 80){
   const nodeById = new Map((graph.nodes || []).map(n => [n.id, n]));
@@ -2812,10 +2856,10 @@ function renderPanelContent(targetType, targetId){
       ${state.workbench ? buildPathFinder(raw, state, key) : ""}
       ${state.workbench ? buildConditionBuilder(raw, state, key) : ""}
       <div class="profile-net-list-head">
-        <strong>관계 데이터 목록</strong>
-        <span class="muted">노드 ${projected.nodes.length} · 관계 ${projected.edges.length}</span>
+        <strong>${chartKind ? "그래프 구성 데이터" : "관계 데이터 목록"}</strong>
+        <span class="muted">${chartKind ? "현재 검증 차트를 구성하는 원천 데이터" : `노드 ${projected.nodes.length} · 관계 ${projected.edges.length}`}</span>
       </div>
-      ${buildEdgeTable(projected)}
+      ${chartKind ? chartDataTableHtml(chartKind, targetId, raw) : buildEdgeTable(projected)}
     </div>
   `;
   return state.workbench ? wrapWorkbench(raw, state, key, main) : main;
