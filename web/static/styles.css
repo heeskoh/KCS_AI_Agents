@@ -2454,6 +2454,62 @@ body.copilot-mode .home-greeting-row h1{font-size:20px}
 .ofc-badge.int{background:#e8f0fe;color:#1d4ed8}
 .ofc-badge.ext{background:#fdeaea;color:#c0392b}
 @media(max-width:1400px){.ofc-layers-grid{grid-template-columns:repeat(2,1fr)}}
+/* 위험지표 재구성 차트 공통 주석/노트 */
+.rfc-note{margin:6px 2px 0;font-size:11px;line-height:1.5}
+/* 1) 저가신고 박스플롯 */
+.bxp-box{fill:#dbeafe;stroke:#93c5fd;stroke-width:1}
+.bxp-whisker{stroke:#94a3b8;stroke-width:1.2}
+.bxp-med{stroke:#2563eb;stroke-width:2}
+.bxp-dot{fill:#2563eb;stroke:#fff;stroke-width:1}
+.bxp-dot.out{fill:#dc2626}
+.bxp-lg-box{width:12px;height:10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:2px}
+.bxp-lg-dot{width:10px;height:10px;background:#2563eb;border-radius:50%}
+.bxp-lg-out{width:10px;height:10px;background:#dc2626;border-radius:50%}
+/* 2) 역외자금 Sankey */
+.snk-flow{opacity:.55}
+.snk-flow.ok{fill:#bfdbfe}
+.snk-flow.risk{fill:#fcd34d}
+.snk-flow.hot{fill:#fca5a5}
+.snk-node{fill:#64748b;rx:3}
+.snk-node.base{fill:#2563eb}
+.snk-node.ok{fill:#3b82f6}
+.snk-node.risk{fill:#d97706}
+.snk-node.hot{fill:#dc2626}
+.snk-t{font-size:11.5px;fill:#334155;font-weight:700}
+.snk-v{fill:#64748b;font-weight:600}
+.snk-col{font-size:11px;fill:#94a3b8;font-weight:800}
+.snk-lg-ok{width:12px;height:10px;background:#bfdbfe;border-radius:2px}
+.snk-lg-risk{width:12px;height:10px;background:#fcd34d;border-radius:2px}
+.snk-lg-hot{width:12px;height:10px;background:#fca5a5;border-radius:2px}
+/* 3) 거래집중 히트맵 */
+.hm-cell{stroke:#fff;stroke-width:1}
+.hm-row-t{font-size:11px;fill:#334155;font-weight:700}
+.hm-share-t{font-size:11px;fill:#64748b;font-weight:800}
+.hm-share-t.hot{fill:#dc2626}
+.hm-lg{width:12px;height:10px;background:rgba(180,83,9,.75);border-radius:2px}
+/* 4) FTA 경유 Flow */
+.ffm-flow{fill:none;stroke-linecap:round;opacity:.6}
+.ffm-flow.ok{stroke:#60a5fa}
+.ffm-flow.risk{stroke:#dc2626}
+.ffm-node{fill:#1d4ed8;stroke:#fff;stroke-width:2}
+.ffm-node.risk{fill:#dc2626}
+.ffm-lg-ok{width:14px;height:0;border-top:3px solid #60a5fa}
+.ffm-lg-risk{width:14px;height:0;border-top:3px solid #dc2626}
+/* 5) 환급 관리도 */
+.ccl-line{fill:none;stroke:#2563eb;stroke-width:2}
+.ccl-dot{fill:#2563eb;stroke:#fff;stroke-width:1}
+.ccl-dot.out{fill:#dc2626}
+.ccl-cl{stroke:#16a34a;stroke-width:1.6}
+.ccl-warn{stroke:#f59e0b;stroke-width:1.2;stroke-dasharray:5 3}
+.ccl-ucl{stroke:#dc2626;stroke-width:1.4;stroke-dasharray:6 3}
+.ccl-lim-t{font-size:10px;fill:#94a3b8}
+.ccl-lg-line{width:14px;height:0;border-top:2px solid #2563eb}
+.ccl-lg-lim{width:14px;height:0;border-top:2px dashed #dc2626}
+/* 6) HS 혼동행렬 */
+.cfm-n{font-size:12px;fill:#fff;font-weight:800}
+.cfm-n.bad{fill:#fff}
+.cfm-lg-ok{width:12px;height:10px;background:rgba(37,99,235,.8);border-radius:2px}
+.cfm-lg-bad{width:12px;height:10px;background:rgba(220,38,38,.85);border-radius:2px}
 /* HS 분류 검증 차트: 세번별 신고건수 막대 + AI 불일치 내역 */
 .net-rf-chart[data-net-chart="hs_check"] svg{flex:none}
 .hsc-bar{fill:#60a5fa;opacity:.85}

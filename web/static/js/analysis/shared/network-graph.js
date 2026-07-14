@@ -1288,7 +1288,7 @@ function buildPriceTrendArea(key, companyId){
   const entry = ensureInvData(key, "price_trend", companyId);
   if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 신고단가 추이 로딩 중...</div>`;
   if(!entry.data) return `<div class="profile-net-empty">신고단가 추이를 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
-  return priceTrendSvgHtml(entry.data);
+  return priceBoxplotHtml(entry.data);
 }
 
 function priceTrendSvgHtml(d){
@@ -1586,18 +1586,17 @@ function hsCheckHtml(d){
       <span>신고 <b>HS ${escapeHtml(m.declared_hs || "")}</b> → AI 추천 <b class="rfc-neg">HS ${escapeHtml(m.ai_hs || "")}</b></span>
       <span class="muted">${escapeHtml(m.note || "")}${m.date ? ` · ${escapeHtml(String(m.date).slice(0, 10))}` : ""}</span>
     </div>`).join("");
-  const caption = `신고 세번 ${bars.length}종 · 신고 ${d.total}건 — AI 분류 추천 불일치 ` +
+  const caption = `혼동행렬 — 신고 세번 ${bars.length}종 · 신고 ${d.total}건, AI 분류 추천 불일치 ` +
     `<b class="${(d.mismatches || []).length ? "rfc-neg" : "rfc-pos"}">${(d.mismatches || []).length}건</b>` +
     (d.other_events ? ` · 분류 정정 이력 ${d.other_events}건` : "");
+  void rows; void W; void H;   // 구 막대 차트 산출물(혼동행렬로 대체)
   return `
     <div class="net-rf-chart" data-net-chart="hs_check">
       <div class="rfc-head">
         <span class="rfc-caption">${caption}</span>
-        <span class="rfc-legend"><i class="hsc-lg-bar"></i>세번별 신고건수 <i class="hsc-lg-mm"></i>AI 추천 불일치</span>
+        <span class="rfc-legend"><i class="cfm-lg-ok"></i>신고=AI 일치 <i class="cfm-lg-bad"></i>대각선 이탈(오분류 의심)</span>
       </div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="신고 세번별 신고건수와 AI 분류 불일치">
-        ${rows}
-      </svg>
+      ${hsConfusionHtml(d)}
       ${mmList ? `<div class="hsc-list"><div class="hsc-list-head">AI 분류 불일치 내역</div>${mmList}</div>` : ""}
     </div>`;
 }
@@ -1670,10 +1669,17 @@ function buildFtaCheckArea(key, companyId){
     <div class="hsc-mm-row"><b>${escapeHtml(r.ref || "")}</b>
       <span>${escapeHtml(r.co_no || "")} · <b class="rfc-neg">${escapeHtml(r.status || "")}</b> · 감면 ${fmtKrwShort(r.amount) || "-"}</span>
       <span class="muted">${escapeHtml(r.date || "")}</span></div>`);
-  const caption = `${escapeHtml((d.agreements || []).join("/") || "FTA")} 감면 신고 ${d.claims_n}건 · ${fmtKrwShort(d.reduction_total) || "0"}` +
-    ` — 직접운송 검토 <b class="rfc-neg">${d.risky_n}건</b>${(d.verifications || []).length ? ` · 사후검증 ${d.verifications.length}건` : ""}`;
-  return stackedBarChartHtml({
-    chartId: "fta_check", caption,
+  const caption = `경유 흐름 — ${escapeHtml((d.agreements || []).join("/") || "FTA")} 감면 신고 ${d.claims_n}건 · ${fmtKrwShort(d.reduction_total) || "0"}` +
+    ` — 홍콩 환적(직접운송 검토) <b class="rfc-neg">${d.risky_n}건</b>${(d.verifications || []).length ? ` · 사후검증 ${d.verifications.length}건` : ""}`;
+  const flow = `
+    <div class="net-rf-chart" data-net-chart="fta_flow">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="ffm-lg-ok"></i>직접운송(정상) <i class="ffm-lg-risk"></i>환적 경유(우회 의심)</span></div>
+      ${ftaFlowHtml(d)}
+      <p class="rfc-note muted">신고 원산지(중국)와 실제 선적·경유국(홍콩 환적)의 어긋남 — 비가공증명·B/L 대사로 우회 여부 확인.</p>
+    </div>`;
+  return flow + stackedBarChartHtml({
+    chartId: "fta_check", caption: "월별 감면액 시계열 — 협정 발효 전후 특정국발 급증(전환 vs 우회) 확인",
     legend: [{ name: "감면액(정상)", cls: "ftc-lg-ok" }, { name: "직접운송 검토", cls: "ftc-lg-risky" }],
     periods,
     series: [{ name: "정상", cls: "ftc-bar-ok", get: p => okMap.get(p) },
@@ -1701,18 +1707,279 @@ function buildRefundCheckArea(key, companyId){
       <span>${escapeHtml(a.type || "")} ${fmtKrwShort(a.amount) || "-"} · <b class="rfc-neg">${escapeHtml(a.status || "")}</b></span>
       <span class="muted">${escapeHtml(a.note || "")}</span></div>`);
   const holdN = (d.anomalies || []).filter(a => a.status === "보류").length;
-  const caption = `환급 신청 ${d.claims_n}건 · ${fmtKrwShort(d.total) || "0"}` +
-    (holdN ? ` — 보류 <b class="rfc-neg">${holdN}건</b>(수출이행 근거 미확인)` : " — 분기별 추이");
-  return stackedBarChartHtml({
-    chartId: "refund_check", caption,
-    legend: [{ name: "지급", cls: "rfd-lg-paid" }, { name: "심사중", cls: "rfd-lg-pending" }, { name: "보류", cls: "rfd-lg-hold" }],
-    periods,
-    series: [{ name: "지급", cls: "rfd-bar-paid", get: p => maps.paid.get(p) },
-             { name: "심사중", cls: "rfd-bar-pending", get: p => maps.pending.get(p) },
-             { name: "보류", cls: "rfd-bar-hold", get: p => maps.hold.get(p) }],
-    listHead: "이상 신청 내역",
-    listRows: anomalyRows,
+  void periods; void maps;   // 구 스택 막대 산출물(관리도로 대체)
+  const caption = `관리도(Control Chart) — 환급 신청 ${d.claims_n}건 · ${fmtKrwShort(d.total) || "0"}` +
+    (holdN ? ` — 보류 <b class="rfc-neg">${holdN}건</b>(수출이행 근거 미확인)` : "");
+  return `
+    <div class="net-rf-chart" data-net-chart="refund_control">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="ccl-lg-line"></i>분기 환급 신청액 <i class="ccl-lg-lim"></i>관리한계(CL·±3σ) <i class="bxp-lg-out"></i>한계 접근/이탈</span></div>
+      ${refundControlChartHtml(d)}
+      ${anomalyRows.length ? `<div class="hsc-list"><div class="hsc-list-head">이상 신청 내역</div>${anomalyRows.join("")}</div>` : ""}
+    </div>`;
+}
+
+/* ══ 위험지표 검증 차트 재구성(지표별 최적 시각화) ═══════════════════
+   1 저가신고=분기 박스플롯+참조밴드  2 역외자금=자금흐름 Sankey
+   3 특수관계=거래집중 히트맵  4 FTA=경유 Flow(모식)+월별 시계열
+   5 환급=관리도(3σ)  6 HS=혼동행렬 히트맵 */
+
+/* 1) 저가신고 — 분기별 단가 박스플롯(동종 참조가격 밴드) + 하한 이탈 점 강조.
+   박스=동종 lo~hi(근사 IQR), 점=대상기업 월 신고단가(크기=신고건수, 밴드 하한 미만은 적색) */
+function priceBoxplotHtml(d){
+  const months = (d.company || []).map(c => c.ym).sort();
+  if(!months.length) return `<div class="profile-net-empty">표시할 신고단가 데이터가 없습니다.</div>`;
+  const qOf = ym => `${ym.slice(0, 4)}-Q${Math.ceil(Number(ym.slice(5, 7)) / 3)}`;
+  const quarters = [...new Set(months.map(qOf))];
+  const peerBy = new Map((d.peers || []).map(p => [p.ym, p]));
+  const compBy = new Map((d.company || []).map(c => [c.ym, c]));
+  const W = 980, H = 360, L = 58, R = 18, T = 28, B = 40;
+  const iw = W - L - R, ih = H - T - B;
+  const slot = iw / quarters.length, bw = Math.min(44, slot * 0.4);
+  const allV = [...(d.peers || []).map(p => p.hi), ...(d.company || []).map(c => c.hi || c.avg)];
+  const yMax = (Math.max(...allV, d.peer_median || 0) || 10) * 1.12;
+  const y = v => T + ih - (v / yMax) * ih;
+  const xQ = q => L + slot * quarters.indexOf(q) + slot / 2;
+  let suspects = 0;
+  const boxes = quarters.map(q => {
+    const ms = months.filter(m => qOf(m) === q && peerBy.has(m));
+    if(!ms.length) return "";
+    const lo = Math.min(...ms.map(m => peerBy.get(m).lo)), hi = Math.max(...ms.map(m => peerBy.get(m).hi));
+    const q1 = lo + (hi - lo) * 0.25, q3 = lo + (hi - lo) * 0.75, med = (lo + hi) / 2;
+    const x = xQ(q);
+    return `<g><title>${q} · 동종 분포 ${d.currency || "USD"} ${lo.toFixed(2)}~${hi.toFixed(2)}</title>
+      <line x1="${x}" x2="${x}" y1="${y(hi).toFixed(1)}" y2="${y(lo).toFixed(1)}" class="bxp-whisker"/>
+      <rect x="${(x - bw / 2).toFixed(1)}" y="${y(q3).toFixed(1)}" width="${bw}" height="${(y(q1) - y(q3)).toFixed(1)}" class="bxp-box"/>
+      <line x1="${(x - bw / 2).toFixed(1)}" x2="${(x + bw / 2).toFixed(1)}" y1="${y(med).toFixed(1)}" y2="${y(med).toFixed(1)}" class="bxp-med"/></g>`;
+  }).join("");
+  const dots = months.map(m => {
+    const c = compBy.get(m); if(!c) return "";
+    const p = peerBy.get(m);
+    const below = p && c.avg < p.lo;
+    if(below) suspects += 1;
+    const x = xQ(qOf(m)) + ((Number(m.slice(5, 7)) - 1) % 3 - 1) * (bw * 0.55);
+    const r = Math.min(7, 2.6 + Math.sqrt(c.n || 1));
+    return `<circle cx="${x.toFixed(1)}" cy="${y(c.avg).toFixed(1)}" r="${r.toFixed(1)}" class="bxp-dot${below ? " out" : ""}"><title>${m} · ${d.currency || "USD"} ${c.avg} · 신고 ${c.n}건${below ? " — 동종 하한 미만(저가 의심)" : ""}</title></circle>`;
+  }).join("");
+  const med = d.peer_median ? `<line x1="${L}" x2="${W - R}" y1="${y(d.peer_median).toFixed(1)}" y2="${y(d.peer_median).toFixed(1)}" class="rfc-median"/><text x="${W - R}" y="${(y(d.peer_median) - 5).toFixed(1)}" text-anchor="end" class="rfc-median-t">참조가격(동종 중앙값) ${d.peer_median}</text>` : "";
+  const yTicks = [1, 2, 3, 4].map(i => { const v = yMax / 4 * i;
+    return `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="rfc-grid"/><text x="${L - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" class="rfc-axis-t">${v.toFixed(1)}</text>`; }).join("");
+  const xLabels = quarters.map(q => `<text x="${xQ(q).toFixed(1)}" y="${H - B + 17}" text-anchor="middle" class="rfc-axis-t">${q}</text>`).join("");
+  const gap = Number.isFinite(Number(d.gap_pct)) ? Number(d.gap_pct) : null;
+  const caption = `HS ${d.hs} 분기별 단가 분포 — 하한 이탈(저가 의심) <b class="rfc-neg">${suspects}개월</b>` +
+    (gap !== null ? ` · 참조가격 대비 <b class="rfc-neg">${gap}%</b>` : "") + ` · 점 크기=신고 물량(건수)`;
+  return `
+    <div class="net-rf-chart" data-net-chart="price_box">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="bxp-lg-box"></i>동종 분포(박스) <i class="rfc-lg-median"></i>참조가격 <i class="bxp-lg-dot"></i>대상기업 <i class="bxp-lg-out"></i>하한 이탈</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="분기별 단가 박스플롯과 참조가격 밴드">
+        ${yTicks}${boxes}${med}${dots}
+        <line x1="${L}" x2="${W - R}" y1="${(T + ih).toFixed(1)}" y2="${(T + ih).toFixed(1)}" class="rfc-axis"/>${xLabels}
+      </svg>
+    </div>`;
+}
+
+/* 2) 역외자금 — 자금흐름 Sankey: 국내기업 → 경유지(조세피난처/직항) → 최종 수취처.
+   초과 송금(통관가액 초과분)은 역외 정산법인으로 향하는 적색 흐름으로 표시 */
+function offshoreSankeyHtml(graph){
+  const d = offshoreTrendData(graph);
+  if(!d) return `<div class="profile-net-empty">역외 루트 수입 데이터가 없습니다.</div>`;
+  const remitV = d.months.reduce((s, m, i) => s + d.byMonth.get(m).off * (1.45 + ((i * 13) % 9) / 20), 0);
+  const gapV = remitV - d.offV;
+  const otherV = d.totV - d.offV;
+  // 최종 수취처: 공급자별 역외/기타 합계
+  const supAgg = new Map();
+  declRecords(graph).forEach(r => {
+    const p = r.decl.properties || {};
+    const name = r.sup ? r.sup.name : "기타";
+    const country = (r.sup && r.sup.properties && r.sup.properties.country) || "";
+    const off = d.countries.includes(country);
+    const cur = supAgg.get(name) || { v: 0, off };
+    cur.v += Number(p.value) || 0;
+    supAgg.set(name, cur);
   });
+  const W = 980, H = 340, colX = [70, 460, 850], NW = 14;
+  const total = d.totV + gapV;
+  const sc = v => Math.max(4, (v / total) * 220);
+  // 좌: 대상기업 / 중: 경유지 2 / 우: 공급자들 + 정산법인
+  const midNodes = [
+    { id: "off", name: `${d.countries.join("/")} 경유(조세피난처)`, v: d.offV + gapV, cls: "risk" },
+    { id: "dir", name: "직항 루트", v: otherV, cls: "ok" },
+  ];
+  const rightNodes = [...supAgg.entries()].map(([name, a]) => ({ id: name, name, v: a.v, off: a.off, cls: a.off ? "risk" : "ok" }));
+  if(d.offshoreParty && gapV > 0) rightNodes.push({ id: "bo", name: `${d.offshoreParty.name} (초과 송금 수취 의심)`, v: gapV, off: true, cls: "hot" });
+  const layout = nodes => { let acc = 40; return nodes.map(n => { const h = sc(n.v); const o = { ...n, y: acc, h }; acc += h + 26; return o; }); };
+  const mid = layout(midNodes), right = layout(rightNodes);
+  const leftH = sc(total), leftY = 120;
+  const ribbon = (x1, y1, h1, x2, y2, h2, cls, tip) =>
+    `<path d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2} L${x2} ${y2 + h2} C ${(x1 + x2) / 2} ${y2 + h2}, ${(x1 + x2) / 2} ${y1 + h1}, ${x1} ${y1 + h1} Z" class="snk-flow ${cls}"><title>${tip}</title></path>`;
+  let flows = "", accL = leftY;
+  mid.forEach(m => {
+    const h = sc(m.v);
+    flows += ribbon(colX[0] + NW, accL, h, colX[1], m.y, m.h, m.cls, `${m.name} · ${fmtKrwShort(m.v)}`);
+    accL += h;
+  });
+  const offMid = mid[0], dirMid = mid[1];
+  let accOff = offMid.y, accDir = dirMid.y;
+  right.forEach(r => {
+    const src = (r.off || r.cls === "hot") ? offMid : dirMid;
+    const h = sc(r.v);
+    const sy = src === offMid ? accOff : accDir;
+    flows += ribbon(colX[1] + NW, sy, h, colX[2], r.y, r.h, r.cls, `${src.name} → ${r.name} · ${fmtKrwShort(r.v)}`);
+    if(src === offMid) accOff += h; else accDir += h;
+  });
+  const nodeRect = (x, n) => `<rect x="${x}" y="${n.y}" width="${NW}" height="${n.h.toFixed(1)}" class="snk-node ${n.cls || ""}"/><text x="${x + NW + 6}" y="${(n.y + n.h / 2 + 4).toFixed(1)}" class="snk-t">${escapeHtml(n.name)} <tspan class="snk-v">${fmtKrwShort(n.v)}</tspan></text>`;
+  const caption = `자금흐름 — 통관 ${fmtKrwShort(d.totV)} + 초과 송금 <b class="rfc-neg">${fmtKrwShort(gapV)}</b>(외환 송금 ${fmtKrwShort(remitV)} − 역외 통관가액) · 조세피난처 경유 비중 ${Math.round((d.offV + gapV) / total * 100)}%`;
+  return `
+    <div class="net-rf-chart" data-net-chart="offshore_sankey">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="snk-lg-ok"></i>정상 루트 <i class="snk-lg-risk"></i>조세피난처 경유 <i class="snk-lg-hot"></i>초과 송금(은닉 의심)</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="국내기업에서 경유지, 최종 수취처로 이어지는 자금흐름 Sankey">
+        ${flows}
+        <rect x="${colX[0]}" y="${leftY}" width="${NW}" height="${leftH.toFixed(1)}" class="snk-node base"/>
+        <text x="${colX[0]}" y="${leftY - 8}" class="snk-t">${escapeHtml((graph.nodes || []).find(n => n.id === graph.center)?.name || "대상기업")}</text>
+        ${mid.map(n => nodeRect(colX[1], n)).join("")}
+        ${right.map(n => nodeRect(colX[2], n)).join("")}
+        <text x="${colX[0]}" y="24" class="snk-col">국내(수입자)</text><text x="${colX[1]}" y="24" class="snk-col">경유지</text><text x="${colX[2]}" y="24" class="snk-col">최종 수취처</text>
+      </svg>
+      <p class="rfc-note muted">페이퍼컴퍼니 경유 n-hop 연결은 상단 뷰의 <b>수입신고/품목기반 관계망</b>에서 확인 — 실소유(BO)·CRS 해외계좌는 외부 수집 대상.</p>
+      ${offshoreLayerPanelHtml()}
+    </div>`;
+}
+
+/* 3) 특수관계 — 수입자×수출자(거래상대) 거래집중 히트맵(분기별): 특정 거래쌍 물량 집중을 정량화 */
+function tradeHeatmapHtml(graph){
+  const cells = new Map();   // sup → Map(q → v)
+  const qs = new Set();
+  declRecords(graph).forEach(r => {
+    const p = r.decl.properties || {};
+    const ym = String(p.trade_date || "").slice(0, 7);
+    if(ym.length < 7) return;
+    const q = `${ym.slice(0, 4)}-Q${Math.ceil(Number(ym.slice(5, 7)) / 3)}`;
+    qs.add(q);
+    const name = r.sup ? r.sup.name : "기타";
+    if(!cells.has(name)) cells.set(name, new Map());
+    const m = cells.get(name);
+    m.set(q, (m.get(q) || 0) + (Number(p.value) || 0));
+  });
+  if(!cells.size) return `<div class="profile-net-empty">거래 데이터가 없습니다.</div>`;
+  const quarters = [...qs].sort();
+  const sups = [...cells.entries()].map(([n, m]) => ({ n, tot: [...m.values()].reduce((a, b) => a + b, 0), m }))
+    .sort((a, b) => b.tot - a.tot).slice(0, 8);
+  const grand = sups.reduce((s, r) => s + r.tot, 0) || 1;
+  const vMax = Math.max(...sups.flatMap(s => [...s.m.values()])) || 1;
+  const W = 980, labelW = 240, cw = Math.min(88, (W - labelW - 90) / quarters.length), ch = 34, T = 34;
+  const H = T + sups.length * ch + 16;
+  const grid = sups.map((s, ri) => {
+    const share = Math.round(s.tot / grand * 100);
+    const rowCells = quarters.map((q, ci) => {
+      const v = s.m.get(q) || 0;
+      const a = v ? 0.12 + (v / vMax) * 0.88 : 0;
+      return `<rect x="${labelW + ci * cw}" y="${T + ri * ch}" width="${cw - 2}" height="${ch - 2}" rx="3" class="hm-cell" style="fill:rgba(180,83,9,${a.toFixed(2)})"><title>${escapeHtml(s.n)} · ${q} · ${fmtKrwShort(v) || "0"}</title></rect>`;
+    }).join("");
+    return `${rowCells}
+      <text x="8" y="${T + ri * ch + ch / 2 + 4}" class="hm-row-t">${escapeHtml(s.n.length > 18 ? s.n.slice(0, 17) + "…" : s.n)}</text>
+      <text x="${labelW + quarters.length * cw + 8}" y="${T + ri * ch + ch / 2 + 4}" class="hm-share-t${share >= 30 ? " hot" : ""}">${share}%</text>`;
+  }).join("");
+  const colT = quarters.map((q, ci) => `<text x="${labelW + ci * cw + (cw - 2) / 2}" y="${T - 10}" text-anchor="middle" class="rfc-axis-t">${q}</text>`).join("");
+  const top = sups[0];
+  const caption = `거래상대 집중도 — 상위 거래처 <b>${escapeHtml(top.n)}</b> 비중 <b class="rfc-neg">${Math.round(top.tot / grand * 100)}%</b> · 군집(커뮤니티)은 관계망 뷰에서 확인`;
+  return `
+    <div class="net-rf-chart" data-net-chart="party_heatmap">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="hm-lg"></i>분기별 거래금액(진할수록 집중)</span></div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="거래상대별 분기 거래집중 히트맵">${colT}${grid}</svg>
+      <p class="rfc-note muted">지분·임원 겸직·주소 공유·실소유자 연결은 <b>수입신고 관계망</b>의 특수관계 엣지로, 명의 위장 군집은 커뮤니티 탐지(관계망 분석 워크벤치)로 검증.</p>
+    </div>`;
+}
+
+/* 4) FTA — 경유 Flow(모식 지도): 원산지→환적지→도착 흐름 폭=건수, 우회(환적) 적색 + 월별 시계열 병기 */
+function ftaFlowHtml(d){
+  const ok = (d.claims_n || 0) - (d.risky_n || 0), risky = d.risky_n || 0;
+  const W = 980, H = 210;
+  const wOf = n => Math.max(4, Math.min(46, n * 4));
+  const arrow = (x1, y1, x2, y2, w, cls, tip) =>
+    `<path d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}" class="ffm-flow ${cls}" style="stroke-width:${w}"><title>${tip}</title></path>`;
+  const node = (x, y, name, cls) => `<circle cx="${x}" cy="${y}" r="7" class="ffm-node ${cls || ""}"/><text x="${x}" y="${y + 24}" text-anchor="middle" class="snk-t">${name}</text>`;
+  return `
+    <div class="ffm-wrap">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="원산지-환적지-도착지 경유 흐름 모식도">
+        <text x="20" y="26" class="snk-col">신고 원산지</text><text x="440" y="26" class="snk-col">환적·경유</text><text x="880" y="26" class="snk-col">도착</text>
+        ${arrow(90, 110, 890, 100, wOf(ok), "ok", `중국 → 한국 직접운송 ${ok}건 (정상)`)}
+        ${arrow(90, 120, 470, 150, wOf(risky), "risk", `중국 → 홍콩 환적 ${risky}건`)}
+        ${arrow(490, 150, 890, 115, wOf(risky), "risk", `홍콩 → 한국 ${risky}건 — 직접운송원칙 검토`)}
+        ${node(90, 115, "중국 (CN)")}
+        ${node(480, 150, "홍콩 (HKHKG) — 환적", "risk")}
+        ${node(890, 108, "한국 (KRICN/KRPUS)")}
+      </svg>
+    </div>`;
+}
+
+/* 5) 환급 — 관리도(Control Chart): 분기별 환급 신청액, CL·±3σ 관리한계 이탈 강조 */
+function refundControlChartHtml(d){
+  const quarters = d.quarters || [];
+  if(!quarters.length) return `<div class="profile-net-empty">관세환급 신청 이력이 없습니다.</div>`;
+  const vals = quarters.map(q => (q.paid || 0) + (q.pending || 0) + (q.hold || 0));
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const sd = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length) || 1;
+  const ucl = mean + 3 * sd, lcl = Math.max(0, mean - 3 * sd), warn = mean + 2 * sd;
+  const W = 980, H = 300, L = 62, R = 18, T = 26, B = 38;
+  const iw = W - L - R, ih = H - T - B;
+  const yMax = Math.max(ucl, ...vals) * 1.15;
+  const y = v => T + ih - (v / yMax) * ih;
+  const x = i => L + (i / Math.max(1, vals.length - 1)) * iw;
+  const line = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  let outN = 0;
+  const dots = vals.map((v, i) => {
+    const out = v > warn;
+    if(out) outN += 1;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${out ? 5 : 3.4}" class="ccl-dot${out ? " out" : ""}"><title>${quarters[i].q} · 신청 ${fmtKrwShort(v)}${out ? " — 관리한계 접근/이탈" : ""}</title></circle>`;
+  }).join("");
+  const hline = (v, cls, label) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="${cls}"/><text x="${W - R}" y="${(y(v) - 4).toFixed(1)}" text-anchor="end" class="ccl-lim-t">${label} ${fmtKrwShort(v)}</text>`;
+  const xLabels = quarters.map((q, i) => `<text x="${x(i).toFixed(1)}" y="${H - B + 17}" text-anchor="middle" class="rfc-axis-t">${q.q}</text>`).join("");
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="분기별 환급 신청액 관리도">
+      ${hline(ucl, "ccl-ucl", "UCL(+3σ)")}${hline(warn, "ccl-warn", "+2σ")}${hline(mean, "ccl-cl", "CL")}${lcl > 0 ? hline(lcl, "ccl-ucl", "LCL(−3σ)") : ""}
+      <path d="${line}" class="ccl-line"/>${dots}
+      <line x1="${L}" x2="${W - R}" y1="${(T + ih).toFixed(1)}" y2="${(T + ih).toFixed(1)}" class="rfc-axis"/>${xLabels}
+    </svg>
+    <p class="rfc-note muted">관리한계 접근/이탈 <b class="rfc-neg">${outN}분기</b> — 환급기준(수입원재료가액)·소요량 대비 과다환급 여부는 수출이행 내역 대사로 확인.</p>`;
+}
+
+/* 6) HS — 혼동행렬 히트맵: 신고 HS(행) × AI 추천 HS(열), 대각선 이탈=오류(적색) */
+function hsConfusionHtml(d){
+  const bars = d.bars || [];
+  if(!bars.length) return `<div class="profile-net-empty">표시할 신고 세번 데이터가 없습니다.</div>`;
+  const mm = d.mismatches || [];
+  const declared = bars.map(b => b.hs);
+  const aiSet = [...new Set([...declared, ...mm.map(m => (m.ai_hs || "").slice(0, 7)).filter(Boolean)])];
+  const cnt = new Map();   // `${row}|${col}` → n
+  bars.forEach(b => {
+    const miss = mm.filter(m => (m.declared_hs || "").startsWith(b.hs)).length;
+    cnt.set(`${b.hs}|${b.hs}`, b.n - miss);
+  });
+  mm.forEach(m => {
+    const rHs = declared.find(h => (m.declared_hs || "").startsWith(h)) || declared[0];
+    const c = (m.ai_hs || "").slice(0, 7);
+    cnt.set(`${rHs}|${c}`, (cnt.get(`${rHs}|${c}`) || 0) + 1);
+  });
+  const vMax = Math.max(...cnt.values()) || 1;
+  const labelW = 150, cw = 120, ch = 46, T = 56;
+  const W = Math.max(680, labelW + aiSet.length * cw + 30), H = T + declared.length * ch + 16;
+  const cellsSvg = declared.map((rHs, ri) => aiSet.map((cHs, ci) => {
+    const v = cnt.get(`${rHs}|${cHs}`) || 0;
+    const diag = rHs === cHs;
+    const a = v ? 0.15 + (v / vMax) * 0.85 : 0.04;
+    const fill = diag ? `rgba(37,99,235,${a.toFixed(2)})` : (v ? `rgba(220,38,38,${Math.min(1, a + 0.25).toFixed(2)})` : "rgba(148,163,184,.08)");
+    return `<rect x="${labelW + ci * cw}" y="${T + ri * ch}" width="${cw - 3}" height="${ch - 3}" rx="4" style="fill:${fill}"><title>신고 HS ${rHs} → AI ${cHs} · ${v}건${diag ? " (일치)" : v ? " — 오분류 의심(인접 세번·세율차 확인)" : ""}</title></rect>
+      ${v ? `<text x="${labelW + ci * cw + (cw - 3) / 2}" y="${T + ri * ch + ch / 2 + 3}" text-anchor="middle" class="cfm-n${diag ? "" : " bad"}">${v}</text>` : ""}`;
+  }).join("")).join("");
+  const rowT = declared.map((h, ri) => `<text x="8" y="${T + ri * ch + ch / 2 + 4}" class="hm-row-t">신고 ${h}</text>`).join("");
+  const colT = aiSet.map((h, ci) => `<text x="${labelW + ci * cw + (cw - 3) / 2}" y="${T - 12}" text-anchor="middle" class="rfc-axis-t">AI ${h}</text>`).join("");
+  const offDiag = mm.length;
+  return `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="신고 HS와 AI 추천 HS 혼동행렬">${colT}${rowT}${cellsSvg}</svg>
+    <p class="rfc-note muted">대각선(파랑)=일치 · 비대각(적색)=오분류 의심 <b class="rfc-neg">${offDiag}건</b> — 저세율 인접 세번으로 몰리면 고의 가능성, 세율차 검토 필요.</p>`;
 }
 
 /* 위험구성 원인분석: 검증할 위험요인 선택 칩 — 지표값 내림차순, 근거 없는 요인(0%)은 흐리게 */
@@ -2832,7 +3099,8 @@ function renderPanelContent(targetType, targetId){
     ? (selectedRiskFactor(riskFactorList(raw), state) || {}) : {};
   const chartBuilders = {
     undervaluation: () => buildPriceTrendArea(key, targetId),
-    offshore_fund: () => offshoreTrendData(raw) ? offshoreTrendSvgHtml(raw) : "",
+    offshore_fund: () => offshoreTrendData(raw) ? offshoreSankeyHtml(raw) : "",
+    related_party: () => tradeHeatmapHtml(raw),
     hs_classification: () => buildHsCheckArea(key, targetId),
     fta_origin_misuse: () => buildFtaCheckArea(key, targetId),
     customs_refund: () => buildRefundCheckArea(key, targetId),
