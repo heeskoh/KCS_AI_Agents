@@ -310,7 +310,8 @@ body.copilot-mode .home-dashboard-backdrop{display:none !important}
 body.copilot-mode .topbar{padding:8px 14px;min-height:0}
 body.copilot-mode .tb-brand-text strong{font-size:15px}
 body.copilot-mode .content{padding:10px}
-body.copilot-mode .home-layout{padding-bottom:0}
+/* 좁은 폭 반응형(height:auto·padding-bottom)을 눌러 화면 전체를 채우고 컴포저를 하단 고정 */
+body.copilot-mode .home-layout{height:100%;min-height:0;padding-bottom:0;overflow:hidden}
 body.copilot-mode .home-focus-grid{grid-template-columns:1fr}
 body.copilot-mode .home-composer-bar{flex-wrap:wrap;row-gap:6px}
 /* Copilot 컴포저: 파일첨부·실행만 노출 — 지식베이스/AI서비스/LLM모드는 의도분석이 자동 선택, 코칭 제안 패널 숨김 */
@@ -319,11 +320,10 @@ body.copilot-mode .home-llm-mode-btn,
 body.copilot-mode .home-composer-actions .home-action-btn:not(.run),
 body.copilot-mode .coach-sugg-panel{display:none !important}
 body.copilot-mode .home-greeting-row h1{font-size:20px}
-/* Copilot: 결과 전에는 카드가 내용(인사말+컴포저)만큼만 차지 — 하단 빈 공간 제거.
-   결과가 나오면 result-area가 flex 공간을 받아 자연히 확장된다. */
-body.copilot-mode .home-focus-grid{flex:none;align-items:start}
-body.copilot-mode .home-analysis-card{overflow:visible}
-body.copilot-mode .home-dynamic-area{flex:none}
+/* Copilot: 카드가 화면 전체 높이를 채우고 컴포저(프롬프트)는 하단에 고정.
+   인사말은 상단, 결과/여백은 그 사이(home-dynamic-area flex:1)가 차지한다. */
+body.copilot-mode .home-focus-grid{flex:1;align-items:stretch}
+body.copilot-mode .home-analysis-card{overflow:hidden}
 /* 포털 상단 Copilot 실행 버튼 */
 .tb-copilot-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid #c9d7ef;border-radius:999px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .tb-copilot-btn:hover{border-color:#2f6fed;background:#e6efff}
