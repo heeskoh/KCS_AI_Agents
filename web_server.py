@@ -747,6 +747,11 @@ _ATTACHMENT_TASK_WORDS = (
     "attached", "attachment", "file", "document", "pdf", "docx", "xlsx",
     "첨부", "파일", "문서", "요약", "읽", "번역", "설명",
 )
+# 첨부 파일을 실제로 가리키는지 판단하는 참조어 — 바른 오탐(예: "프로파일"의 '파일') 방지를 위해
+# 프롬프트에서 '프로파일/프로필'을 먼저 제거한 뒤 이 단어들을 찾는다.
+def _prompt_refers_to_file(prompt: str) -> bool:
+    cleaned = prompt.lower().replace("프로파일", " ").replace("프로필", " ")
+    return any(word in cleaned for word in _ATTACHMENT_TASK_WORDS)
 _INTERNAL_TASK_WORDS = (
     "기업", "회사", "관세", "통관", "수입신고", "심사", "조사", "위험",
     "cdw", "rag", "hs", "fta", "프로파일", "시나리오", "보고서", "c-",
@@ -756,10 +761,8 @@ _INTERNAL_TASK_WORDS = (
 def _is_attachment_direct_task(prompt: str, attached_files: list[dict]) -> bool:
     if not attached_files:
         return False
-    lowered = prompt.lower()
-    asks_file_work = any(word in lowered for word in _ATTACHMENT_TASK_WORDS)
-    asks_internal_work = any(word in lowered for word in _INTERNAL_TASK_WORDS)
-    return asks_file_work and not asks_internal_work
+    asks_internal_work = any(word in prompt.lower() for word in _INTERNAL_TASK_WORDS)
+    return _prompt_refers_to_file(prompt) and not asks_internal_work
 
 
 def _looks_like_communication_file(file_info: dict) -> bool:
@@ -933,7 +936,10 @@ def analyze_prompt_intent(body: dict) -> dict:
     coach_uses: list[str] = body.get("coach_uses") or []
     file_links: list[dict] = body.get("file_links") or []
     # 세션 업로드(upload_session_id) + 인라인 attached_files 모두 포함해 첨부 감지
-    attachment_inputs = [*_get_request_files(body), *file_links]
+    # 첨부는 프롬프트가 실제로 파일을 가리킬 때만 의도에 반영한다.
+    # (프롬프트에 파일 언급이 없으면 첨부는 무시하고 프롬프트 자체 의도만 파악)
+    attachment_inputs = ([*_get_request_files(body), *file_links]
+                         if _prompt_refers_to_file(prompt) else [])
 
     if not prompt:
         return {"error": "prompt required", "mode": "llm_direct", "agents": [], "llm_answer": ""}
