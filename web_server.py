@@ -927,9 +927,9 @@ def analyze_prompt_intent(body: dict) -> dict:
     """프롬프트를 LLM으로 분석하여 실행 모드(agents/llm_direct)와 필요 에이전트 목록을 반환한다."""
     prompt = (body.get("prompt") or "").strip()
     coach_uses: list[str] = body.get("coach_uses") or []
-    attached_files: list[dict] = body.get("attached_files") or []
     file_links: list[dict] = body.get("file_links") or []
-    attachment_inputs = [*attached_files, *file_links]
+    # 세션 업로드(upload_session_id) + 인라인 attached_files 모두 포함해 첨부 감지
+    attachment_inputs = [*_get_request_files(body), *file_links]
 
     if not prompt:
         return {"error": "prompt required", "mode": "llm_direct", "agents": [], "llm_answer": ""}
@@ -990,18 +990,24 @@ def analyze_prompt_intent(body: dict) -> dict:
             result["reasoning"] = (result["reasoning"] + " · 보고서 생성 제외").strip(" ·")
         if dropped_target:
             result["reasoning"] = (result["reasoning"] + " · 대상 미특정으로 기업기준 서비스 제외").strip(" ·")
-        # 남은 에이전트가 없으면 LLM 자체 답변으로 폴백
+
+        # (3) 파일 첨부 시 ocr/summary 선두 삽입 — 대상특정 서비스가 제외돼도 파일은 읽는다
+        if attachment_inputs:
+            if any(_looks_like_communication_file(f) for f in attachment_inputs) and "network" not in agents:
+                agents = ["network"] + agents
+            if "ocr" not in agents:
+                agents = ["ocr", "summary"] + agents
+            result["agents"] = agents
+
+        # 남은 에이전트가 없으면 LLM 자체 답변으로 폴백(첨부가 있으면 위에서 ocr 주입됨)
         if not agents:
             result["mode"] = "llm_direct"
 
-    # 파일 첨부 시 ocr/summary 선두 삽입
-    if attachment_inputs and result["mode"] == "agents":
-        agents = list(result["agents"])
-        if any(_looks_like_communication_file(file_info) for file_info in attachment_inputs) and "network" not in agents:
-            agents = ["network"] + agents
-        if "ocr" not in agents:
-            agents = ["ocr", "summary"] + agents
-        result["agents"] = agents
+    # 첨부 파일이 있는 llm_direct: 라우터가 파일을 못 본 채 낸 정형 답변을 비워,
+    # 프론트가 /api/llm_query 로 실제 추출 텍스트와 함께 재질의하도록 강제한다.
+    if result["mode"] == "llm_direct" and attachment_inputs:
+        result["llm_answer"] = ""
+        result["reasoning"] = (result.get("reasoning") or "") + " · 첨부 파일 내용 기반 답변"
 
     # 에이전트 메타 정보 추가
     result["agent_defs"] = [
