@@ -5573,6 +5573,20 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
   // llm_direct 모드는 homeShowLlmAnswer에서 이미 처리됨
   if(mode === "llm_direct") return;
 
+  // Copilot 모드: 상단 요약·위험 KPI 없이 각 서비스 수행 결과만 표시
+  if(isCopilotMode){
+    const agentCount = Object.keys(homeStepStatus).length;
+    const targetSummary = displayCompanyId ? `대상 기업 <b>${escapeHtml(displayCompanyId)}</b> · ` : "";
+    homePreserveDbResults(resultBox, () => {
+      resultBox.innerHTML = `
+        ${homePromptEchoHtml(prompt)}
+        <p class="muted" style="font-size:12px">${targetSummary}${agentCount}개 AI 서비스 실행 결과</p>
+        ${homeDetailMarkup()}
+      `;
+    });
+    return;
+  }
+
   // agents 모드: 실행된 에이전트 결과에서 요약 도출
   const reportText = homeResultByLabel("보고서 생성");
   const mlText     = Object.values(homeRunResults).find((_v, _i) =>
