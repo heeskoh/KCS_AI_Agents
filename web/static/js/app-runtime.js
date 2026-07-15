@@ -2849,6 +2849,8 @@ const HOME_LLM_MODES = [
   { mode: "ext_int", label: "외부LLM+내부LLM" },
 ];
 function homeLlmMode(){
+  // 관세행정 Copilot은 항상 내부LLM only 모드로 동작(내부 서비스 자동 선택)
+  if(isCopilotMode) return "int";
   return document.querySelector("[data-home-llm-mode]")?.dataset.llmMode || "ext_int";
 }
 function homeLlmModeReasoning(d){
