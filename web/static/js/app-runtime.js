@@ -5328,6 +5328,34 @@ function homePreserveDbResults(resultBox, render){
 }
 
 // ── 홈 분석 진입점 — 프롬프트 의도 분석 후 분기 ──────────────────────────────
+/* 미선택 실행에서 의도분석이 내부 서비스를 찾지 못한 경우의 폴백 —
+   내부LLM only: 내부 LLM 자체 답변 / 외부+내부: 외부 LLM 검색으로 전환 */
+async function homeNoInternalFallback(prompt, btn, llmMode, presetAnswer = ""){
+  const useMode = llmMode === "int" ? "int" : "ext";
+  let answer = (presetAnswer || "").trim();
+  let d = null;
+  if(!answer){
+    try {
+      const r = await fetch("/api/llm_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt, llm_mode: useMode,
+          upload_session_id: coachUploadSessionId || undefined,
+          attached_files: coachAttachedFileSummaries(),
+          file_links: coachFileLinkSummaries(),
+        }),
+      });
+      d = await r.json();
+      answer = d.answer || "결과를 가져올 수 없습니다.";
+    } catch(e) { answer = "LLM 호출에 실패했습니다."; }
+  }
+  const reasoning = llmMode === "int"
+    ? "의도분석 결과 해당 내부 서비스(CDW·RAG·AI서비스) 없음 → 내부 LLM 자체 답변"
+    : `내부 서비스에서 답변 항목 없음 → 외부 LLM 검색 · ${homeLlmModeReasoning({ ...(d || {}), llm_mode: "ext" })}`;
+  homeShowLlmAnswer(prompt, answer, reasoning, btn);
+}
+
 async function homeRunAnalysis(prompt, btn){
   if(homeEventSource){ try{ homeEventSource.close(); }catch(e){} homeEventSource = null; }
   homeRunResults = {};
@@ -5338,6 +5366,7 @@ async function homeRunAnalysis(prompt, btn){
   const selectedOptions = homeSelectedAnalysisOptions();
   const selectedRunAgents = homeRunAgentsFromSelection(selectedOptions);
   const hasSelectedInternalTool = selectedRunAgents.length > 0;
+  const llmMode = homeLlmMode();   // ext(외부only) | int(내부only) | ext_int(외부+내부)
   // AI 분석서비스 필수 입력값 검증 — 부족하면 실행 전에 대화형으로 되묻는다(선제적 clarify)
   if(hasSelectedInternalTool){
     const missing = homeFirstMissingRequired();
@@ -5395,8 +5424,8 @@ async function homeRunAnalysis(prompt, btn){
       <div class="home-running-line">
         <span class="home-running-dot"></span>
         <span>${hasSelectedInternalTool ? "선택된 데이터소스와 AI 서비스를 준비합니다."
-          : isCopilotMode ? "의도를 분석해 필요한 업무지식베이스·AI 서비스를 자동 선택합니다."
-          : "선택된 데이터소스/AI 서비스가 없어 LLM 자체 답변으로 처리합니다."}</span>
+          : (isCopilotMode || llmMode !== "ext") ? "의도를 분석해 권한 있는 내부 서비스(CDW·RAG·AI서비스)를 자동 선택합니다."
+          : "외부 LLM 단독 답변으로 처리합니다."}</span>
       </div>
       <div class="home-running-prompt">${escapeHtml(prompt)}</div>
     `;
@@ -5411,11 +5440,14 @@ async function homeRunAnalysis(prompt, btn){
     (coachSuggestions || []).flatMap(s => s.uses || [])
   )];
 
-  // Copilot 모드: 수동 선택 없이도 의도분석(/api/analyze_intent)으로 진행 —
-  // LLM이 필요한 업무지식베이스·AI 서비스를 자동 선택해 실행한다.
-  if(!hasSelectedInternalTool && !isCopilotMode){
+  // 미선택 실행의 모드별 동작:
+  //  (1) 외부LLM only(ext)      → 외부 LLM 단독 답변(아래 조기 분기)
+  //  (2) 내부LLM only(int)      → 의도분석으로 권한 있는 내부 서비스(CDW·RAG·AI서비스) 자동 선택
+  //  (3) 외부+내부(ext_int)     → 내부 우선 수행, 해당 내부 서비스가 없으면 외부 LLM 검색
+  //  Copilot 모드는 항상 의도분석 자동 라우팅.
+  if(!hasSelectedInternalTool && !isCopilotMode && llmMode === "ext"){
     let answer = "";
-    let reasoning = "선택된 데이터소스/AI 서비스 없음 · LLM 자체 답변";
+    let reasoning = "외부LLM only — 내부 서비스 미사용, 외부 LLM 단독 답변";
     try {
       const r = await fetch("/api/llm_query", {
         method: "POST",
@@ -5484,31 +5516,11 @@ async function homeRunAnalysis(prompt, btn){
   const detectedCompanyId = intent.company_id || detectCompanyId(prompt);
   const runCompanyId = detectedCompanyId || "__NO_COMPANY_SELECTED__";
 
-  // 2단계: 모드별 분기
+  // 2단계: 모드별 분기 — 의도분석이 내부 서비스 해당 없음(llm_direct)으로 판단한 경우:
+  // 내부LLM only → 내부 LLM 자체 답변 / 외부+내부 → 외부 LLM 검색(의도분석 답변 재사용)
   if(mode === "llm_direct" && !hasSelectedInternalTool){
-    // LLM 직접 답변 — 이미 intent.llm_answer에 포함됐거나 별도 쿼리
-    let answer = (intent.llm_answer || "").trim();
-    if(!answer){
-      // intent 분석에서 LLM이 답변을 주지 못한 경우 별도 호출
-      try {
-        const r = await fetch("/api/llm_query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            llm_mode: homeLlmMode(),
-            upload_session_id: coachUploadSessionId || undefined,
-            attached_files: coachAttachedFileSummaries(),
-            file_links: coachFileLinkSummaries(),
-          }),
-        });
-        const d = await r.json();
-        answer = d.answer || "결과를 가져올 수 없습니다.";
-      } catch(e) {
-        answer = "LLM 호출에 실패했습니다.";
-      }
-    }
-    homeShowLlmAnswer(prompt, answer, reasoning, btn);
+    await homeNoInternalFallback(prompt, btn, llmMode,
+      llmMode === "int" ? "" : (intent.llm_answer || ""));
     return;
   }
 
@@ -5516,6 +5528,11 @@ async function homeRunAnalysis(prompt, btn){
   const runAgents = selectedRunAgents.length ? selectedRunAgents : agentDefs;
 
   if(!runAgents.length){
+    if(!hasSelectedInternalTool){
+      // 의도분석이 실행할 내부 서비스를 찾지 못함 — 모드별 LLM 폴백
+      await homeNoInternalFallback(prompt, btn, llmMode);
+      return;
+    }
     setHomeActionLabel(btn, "AI실행");
     btn.disabled = false;
     return;
