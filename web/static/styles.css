@@ -319,6 +319,11 @@ body.copilot-mode .home-llm-mode-btn,
 body.copilot-mode .home-composer-actions .home-action-btn:not(.run),
 body.copilot-mode .coach-sugg-panel{display:none !important}
 body.copilot-mode .home-greeting-row h1{font-size:20px}
+/* Copilot: 결과 전에는 카드가 내용(인사말+컴포저)만큼만 차지 — 하단 빈 공간 제거.
+   결과가 나오면 result-area가 flex 공간을 받아 자연히 확장된다. */
+body.copilot-mode .home-focus-grid{flex:none;align-items:start}
+body.copilot-mode .home-analysis-card{overflow:visible}
+body.copilot-mode .home-dynamic-area{flex:none}
 /* 포털 상단 Copilot 실행 버튼 */
 .tb-copilot-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid #c9d7ef;border-radius:999px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .tb-copilot-btn:hover{border-color:#2f6fed;background:#e6efff}
