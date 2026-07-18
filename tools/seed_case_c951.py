@@ -53,8 +53,11 @@ FILERS = [
 ARRIVALS = ["KRICN", "KRPUS", "KRICN"]
 
 
-def build_declarations(start_id: int):
-    """24개월(2024-08~2026-07) 47건 — 분기별 단가 하락(4.55→3.80 USD)."""
+def build_declarations(start_id: int, peer_min: float):
+    """24개월(2024-08~2026-07) 47건 — 동종 타사 최소가 바로 아래에서 완만히 하락(진행형 저가신고).
+
+    단가는 peer_min(동일 HS 타사 신고단가 최소값) 대비 ~1.5%→~10% 아래로 분포시켜
+    '시장 최저가를 근소하게 밑도는' 현실적인 저가신고 패턴을 만든다(과거: 최소가의 절반 → 비현실적)."""
     headers, items = [], []
     base = datetime(2024, 8, 4)
     n = 47
@@ -63,7 +66,8 @@ def build_declarations(start_id: int):
         day_offset = int(i * (730 / n)) + (i * 7) % 11
         d = base + timedelta(days=day_offset)
         t = day_offset / 730.0                       # 0..1 진행률
-        unit = round(4.55 - 1.55 * t + ((i * 13) % 7 - 3) * 0.02, 2)   # 4.55 → ~3.80 (±0.06)
+        # peer_min * (0.985 → 0.90) + 소폭 지터 — 타사 최소가 바로 아래에서 시작해 서서히 더 낮게.
+        unit = round(peer_min * (0.985 - 0.085 * t) + ((i * 13) % 7 - 3) * 0.015, 2)
         qty = 10000 + ((i * 37) % 11) * 1000                            # 10k~20k
         # 3건은 노트북(대조군: 정상가)
         is_pc = i in (11, 27, 41)
@@ -189,7 +193,15 @@ def main():
 
     # ── 2) 수입신고 47건 + 품목 란 ───────────────────────────
     start_id = (con.execute("SELECT COALESCE(MAX(id), 0) FROM import_declarations").fetchone()[0] or 0) + 1
-    headers, items = build_declarations(start_id)
+    # 동일 HS 타사 신고단가 최소값 — C-951 단가를 이 값 '바로 아래'로 분포시키는 기준.
+    peer_min = con.execute(
+        """
+        SELECT round(min(d.payment_amount / i.tariff_quantity), 2)
+        FROM import_declarations d
+        JOIN import_declaration_items i ON i.declaration_id = d.id
+        WHERE d.global_hs = ? AND d.company_id <> ? AND i.tariff_quantity > 0 AND d.payment_amount > 0
+        """, [HS6, CID]).fetchone()[0] or 5.2
+    headers, items = build_declarations(start_id, peer_min)
     insert_dicts(con, "import_declarations", headers)
     insert_dicts(con, "import_declaration_items", items)
 

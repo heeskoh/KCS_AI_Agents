@@ -1422,9 +1422,11 @@ function presetPositions(graph){
   const laneIds = [...byLane.keys()].sort((a, b) => a - b);
   let cursorX = 0;
   const laneMeta = new Map();
+  const MAX_PER_COL = 8;   // 한 하위 열에 쌓는 최대 노드 수(수입신고 등 다수 레인 가독성)
   laneIds.forEach(laneId => {
     const n = byLane.get(laneId).length;
-    const subCols = n > 20 ? 3 : n > 9 ? 2 : 1;
+    // 노드가 많은 레인은 하위 열을 늘려 세로 길이를 8개 이하로 제한하고 가로로 펼친다.
+    const subCols = Math.max(1, Math.ceil(n / MAX_PER_COL));
     laneMeta.set(laneId, { x: cursorX, subCols });
     cursorX += (subCols - 1) * subW + laneGap;
   });

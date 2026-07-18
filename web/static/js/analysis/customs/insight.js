@@ -27,8 +27,11 @@ const groupsOpen = {};
 const selectedItems = new Map();   // itemKey → { title, text }
 let activePerspective = "A";
 let insightCenterMode = "viz";     // 중앙 모드: viz(정보분석 시각화) | graph(프로파일 관계 분석)
+let chatCollapsed = false;         // 좌측 'AI분석 대화창' 접힘
+let cardsCollapsed = false;        // 우측 '수집된 정보' 접힘
 
 const GRAPH_TITLE = "프로파일 관계 분석";
+const CHAT_TITLE = "AI분석 대화창";
 
 function activeCompanyOf(deps, uctx){
   const ctx = uctx?.target;
@@ -140,8 +143,14 @@ export function renderCiInsightPanel(deps, uctx){
   return `
     <div class="gi-insight-page">
       <div class="gi-insight-layout">
-        <aside class="gi-insight-chat-col">
-          <div class="gi-insight-col-head"><strong>조사 대화</strong></div>
+        <aside class="gi-insight-chat-col${chatCollapsed ? " collapsed" : ""}">
+          <button type="button" class="gi-insight-collapsed-bar" data-ci-insight-expand="chat" title="펼치기">
+            <span class="cbar-arrow">▶</span><span class="cbar-label">${escapeHtml(CHAT_TITLE)}</span>
+          </button>
+          <div class="gi-insight-col-head">
+            <strong>${escapeHtml(CHAT_TITLE)}</strong>
+            <button type="button" class="gi-insight-collapse-btn" data-ci-insight-collapse="chat" title="접기">◀</button>
+          </div>
           ${chatThreadHtml({
             mountId: CHAT_MOUNT_ID,
             messages,
@@ -149,7 +158,8 @@ export function renderCiInsightPanel(deps, uctx){
             emptyText: "예: \"관세환급 이상률의 근거와 우선 확인할 사항은?\"",
           })}
         </aside>
-        <div class="resize-gutter x" data-resize-min="240" title="드래그하여 좌·우 영역 크기 조절"></div>
+        <div class="resize-gutter x" data-ci-gutter="chat" data-resize-min="240"
+          title="드래그하여 좌·우 영역 크기 조절" ${chatCollapsed ? `style="display:none"` : ""}></div>
         <section class="gi-insight-center-col">
           <div class="gi-insight-col-head gi-insight-mode-head">
             <div class="gi-insight-mode-tabs">
@@ -174,9 +184,16 @@ export function renderCiInsightPanel(deps, uctx){
               : insightVizHtml(persp.id, company)}
           </div>
         </section>
-        <div class="resize-gutter x" data-resize-target="next" data-resize-min="260" title="드래그하여 좌·우 영역 크기 조절"></div>
-        <aside class="gi-insight-cards-col">
-          <div class="gi-insight-col-head"><strong>수집된 정보</strong></div>
+        <div class="resize-gutter x" data-ci-gutter="cards" data-resize-target="next" data-resize-min="260"
+          title="드래그하여 좌·우 영역 크기 조절" ${cardsCollapsed ? `style="display:none"` : ""}></div>
+        <aside class="gi-insight-cards-col${cardsCollapsed ? " collapsed" : ""}">
+          <button type="button" class="gi-insight-collapsed-bar" data-ci-insight-expand="cards" title="펼치기">
+            <span class="cbar-arrow">◀</span><span class="cbar-label">수집된 정보</span>
+          </button>
+          <div class="gi-insight-col-head">
+            <strong>수집된 정보</strong>
+            <button type="button" class="gi-insight-collapse-btn" data-ci-insight-collapse="cards" title="접기">▶</button>
+          </div>
           <div class="gi-insight-groups">${ciInsightGroupsHtml(deps, company)}</div>
         </aside>
       </div>
@@ -256,6 +273,20 @@ ${userText}`;
   document.querySelector("[data-ci-viz-download]")?.addEventListener("click", () => {
     downloadCurrentViz(activePerspective, companyId);
   });
+  // 좌측 'AI분석 대화창' / 우측 '수집된 정보' 접기·펼치기 (전체 재렌더 없이 클래스만 토글)
+  const setInsightCollapse = (which, collapsed) => {
+    if(which === "chat") chatCollapsed = collapsed; else cardsCollapsed = collapsed;
+    const col = document.querySelector(which === "chat" ? ".gi-insight-chat-col" : ".gi-insight-cards-col");
+    const gutter = document.querySelector(`[data-ci-gutter="${which}"]`);
+    if(col) col.classList.toggle("collapsed", collapsed);
+    if(gutter) gutter.style.display = collapsed ? "none" : "";
+  };
+  document.querySelectorAll("[data-ci-insight-collapse]").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); setInsightCollapse(btn.dataset.ciInsightCollapse, true); });
+  });
+  document.querySelectorAll("[data-ci-insight-expand]").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); setInsightCollapse(btn.dataset.ciInsightExpand, false); });
+  });
   // 중앙 모드 탭 — 정보분석 시각화 ↔ 프로파일 관계 분석(관계 그래프) 전환(중앙 영역만 갱신)
   document.querySelectorAll("[data-ci-insight-mode]").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -323,7 +354,7 @@ ${userText}`;
 
 export const insightSubtab = {
   id:    "insight",
-  label: "수사정보 분석",
+  label: "정보분석 워크벤치",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["network", "db_cdw"],
