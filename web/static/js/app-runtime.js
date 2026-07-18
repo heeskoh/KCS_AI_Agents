@@ -10818,13 +10818,18 @@ function runScenarioWorkflow(startIndex = 0){
     if(data.status === "running"){
       stepStatuses[item.id] = "실행 중";
       openedSteps.add(item.id);
+      // 전체 시나리오 수행: 현재 실행 중인 AI 서비스를 선택 상태로 바꿔 좌측 상세설정·우측 결과를 따라가게 한다.
+      selectedScenarioId = item.id;
       renderScenarioList();
+      syncScenarioEditor();
     }
     if(data.status === "done"){
       completed += 1;
       stepStatuses[item.id] = "완료";
       stepOutputs[item.id] = data.output || "결과 없음";
       openedSteps.add(item.id);
+      // 완료 단계의 결과가 즉시 보이도록 선택을 해당 단계로 유지(다음 단계 실행 시 자동 이동).
+      selectedScenarioId = item.id;
       updateScenarioProgress(completed);
       updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
       renderScenarioList();

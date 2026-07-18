@@ -1167,10 +1167,20 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .gi-insight-target{display:flex;align-items:center;gap:8px;border:1px solid #cfe0fb;border-radius:10px;background:#f8fbff;padding:6px 12px}
 .gi-insight-target b{font-size:13px;color:#123c85}
 .gi-insight-target small{color:#92400e;font-weight:700}
-.gi-insight-layout{display:grid;grid-template-columns:340px minmax(0,1fr) 360px;gap:12px;flex:1;min-height:0}
+/* 3열(조사대화/시각화/수집정보) — 리사이즈 거터로 각 열 폭을 동적 조절(flex + .resize-gutter.x) */
+.gi-insight-layout{display:flex;align-items:stretch;gap:0;flex:1;min-height:0}
+.gi-insight-chat-col{flex:0 0 340px}
+.gi-insight-center-col{flex:1 1 auto;min-width:0}
+.gi-insight-cards-col{flex:0 0 360px}
 .gi-insight-chat-col,.gi-insight-center-col,.gi-insight-cards-col{display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}
 .gi-insight-col-head{flex:none;display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);background:#f8fbff}
 .gi-insight-col-head strong{font-size:12.5px;color:#123c85}
+/* 중앙 모드 탭(정보분석 시각화 ↔ 프로파일 관계 분석) */
+.gi-insight-mode-head{padding-top:7px;padding-bottom:7px}
+.gi-insight-mode-tabs{display:inline-flex;gap:4px;border:1px solid #d8e0ec;border-radius:9px;padding:2px;background:#eef3fb}
+.gi-insight-mode-tab{border:0;background:transparent;color:#41506a;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.gi-insight-mode-tab.active{background:#1e40af;color:#fff}
+.gi-insight-col-head .ci-viz-download{margin-left:auto}
 .gi-insight-center-body{flex:1;min-height:0;overflow:auto;position:relative}
 .gi-insight-center-body .profile-net-frame{height:100%;border:0;border-radius:0}
 .gi-insight-leads-view{padding:12px;overflow-y:auto;height:100%}
@@ -1268,7 +1278,7 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .chat-thread-input{flex:none;display:flex;gap:6px;padding:9px;border-top:1px solid var(--line);background:#fcfdff}
 .chat-thread-input textarea{flex:1;min-width:0;border:1px solid #d8e0ec;border-radius:9px;padding:7px 10px;font-size:12.5px;font-family:inherit;resize:none;line-height:1.5}
 .chat-thread-input .btn{flex:none;align-self:flex-end}
-@media(max-width:1280px){.gi-insight-layout{grid-template-columns:300px minmax(0,1fr) 300px}}
+@media(max-width:1280px){.gi-insight-chat-col{flex-basis:300px}.gi-insight-cards-col{flex-basis:300px}}
 
 /* ── 프로파일: 혐의 뱃지 스트립 + 외부 정보 수집·정리 ───────────────── */
 .gi-profile-crime-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid #fde68a;border-radius:11px;background:#fffbeb;padding:8px 12px;margin-bottom:10px}

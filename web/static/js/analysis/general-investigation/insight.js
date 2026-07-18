@@ -170,6 +170,7 @@ export function renderInsightPanel(deps){
             emptyText: "예: \"확정된 단서를 근거로 우선 확인할 사항은?\"",
           })}
         </aside>
+        <div class="resize-gutter x" data-resize-min="240" title="드래그하여 좌·우 영역 크기 조절"></div>
         <section class="gi-insight-center-col">
           <div class="gi-insight-col-head">
             <strong>AI정보분석 시각화</strong>
@@ -185,6 +186,7 @@ export function renderInsightPanel(deps){
           </div>
           <div class="gi-insight-center-body">${centerHtml}</div>
         </section>
+        <div class="resize-gutter x" data-resize-target="next" data-resize-min="260" title="드래그하여 좌·우 영역 크기 조절"></div>
         <aside class="gi-insight-cards-col">
           <div class="gi-insight-col-head"><strong>수집된 정보</strong></div>
           <div class="gi-insight-groups">${giInsightGroupsHtml(deps, aCase)}</div>

@@ -8,6 +8,7 @@
 import { escapeHtml } from "../../core/dom.js";
 import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
 import { insightVizHtml } from "./insight-viz.js";
+import { networkGraphPanelHtml } from "../shared/network-graph.js";
 
 const CHAT_MOUNT_ID = "ciInsightChat";
 
@@ -25,6 +26,9 @@ export const PERSPECTIVES = [
 const groupsOpen = {};
 const selectedItems = new Map();   // itemKey → { title, text }
 let activePerspective = "A";
+let insightCenterMode = "viz";     // 중앙 모드: viz(정보분석 시각화) | graph(프로파일 관계 분석)
+
+const GRAPH_TITLE = "프로파일 관계 분석";
 
 function activeCompanyOf(deps, uctx){
   const ctx = uctx?.target;
@@ -132,6 +136,7 @@ export function renderCiInsightPanel(deps, uctx){
   if(!company) return `<div class="profile-loading">진행중인 관세조사에서 조사 대상을 먼저 선택하세요.</div>`;
   const messages = deps.getCustomsInsightChat?.(company.company_id) || [];
   const persp = PERSPECTIVES.find(p => p.id === activePerspective) || PERSPECTIVES[0];
+  const graphMode = insightCenterMode === "graph";
   return `
     <div class="gi-insight-page">
       <div class="gi-insight-layout">
@@ -144,23 +149,32 @@ export function renderCiInsightPanel(deps, uctx){
             emptyText: "예: \"관세환급 이상률의 근거와 우선 확인할 사항은?\"",
           })}
         </aside>
+        <div class="resize-gutter x" data-resize-min="240" title="드래그하여 좌·우 영역 크기 조절"></div>
         <section class="gi-insight-center-col">
-          <div class="gi-insight-col-head">
-            <strong>AI정보분석 시각화</strong>
+          <div class="gi-insight-col-head gi-insight-mode-head">
+            <div class="gi-insight-mode-tabs">
+              <button type="button" class="gi-insight-mode-tab${graphMode ? "" : " active"}"
+                data-ci-insight-mode="viz">AI정보분석 시각화</button>
+              <button type="button" class="gi-insight-mode-tab${graphMode ? " active" : ""}"
+                data-ci-insight-mode="graph">🕸️ ${escapeHtml(GRAPH_TITLE)}</button>
+            </div>
             ${selectedItems.size ? `<span class="muted" style="font-size:11px">활용 자료 ${selectedItems.size}건</span>` : ""}
             <button type="button" class="btn secondary ci-viz-download" data-ci-viz-download
-              title="현재 시각화를 PNG 이미지로 저장">⬇ 이미지 저장</button>
+              title="현재 시각화를 PNG 이미지로 저장" ${graphMode ? `style="display:none"` : ""}>⬇ 이미지 저장</button>
           </div>
-          <div class="gi-insight-view-tabs ci-insight-persp-tabs">
+          <div class="gi-insight-view-tabs ci-insight-persp-tabs" ${graphMode ? `style="display:none"` : ""}>
             ${PERSPECTIVES.map(p => `
               <button type="button" class="gi-insight-view-tab${p.id === persp.id ? " active" : ""}"
                 data-ci-insight-persp="${p.id}" title="${escapeHtml(p.desc)}">${escapeHtml(p.label)}</button>
             `).join("")}
           </div>
           <div class="gi-insight-center-body">
-            ${insightVizHtml(persp.id, company)}
+            ${graphMode
+              ? networkGraphPanelHtml("company", company.company_id, GRAPH_TITLE)
+              : insightVizHtml(persp.id, company)}
           </div>
         </section>
+        <div class="resize-gutter x" data-resize-target="next" data-resize-min="260" title="드래그하여 좌·우 영역 크기 조절"></div>
         <aside class="gi-insight-cards-col">
           <div class="gi-insight-col-head"><strong>수집된 정보</strong></div>
           <div class="gi-insight-groups">${ciInsightGroupsHtml(deps, company)}</div>
@@ -241,6 +255,25 @@ ${userText}`;
   // 이미지 저장 — 현재 관점의 시각화를 PNG로 다운로드
   document.querySelector("[data-ci-viz-download]")?.addEventListener("click", () => {
     downloadCurrentViz(activePerspective, companyId);
+  });
+  // 중앙 모드 탭 — 정보분석 시각화 ↔ 프로파일 관계 분석(관계 그래프) 전환(중앙 영역만 갱신)
+  document.querySelectorAll("[data-ci-insight-mode]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const mode = tab.dataset.ciInsightMode;
+      if(mode === insightCenterMode) return;
+      insightCenterMode = mode;
+      document.querySelectorAll("[data-ci-insight-mode]").forEach(b =>
+        b.classList.toggle("active", b.dataset.ciInsightMode === mode));
+      const perspRow = document.querySelector(".ci-insight-persp-tabs");
+      const dl = document.querySelector("[data-ci-viz-download]");
+      const body = document.querySelector(".gi-insight-center-body");
+      const graphMode = mode === "graph";
+      if(perspRow) perspRow.style.display = graphMode ? "none" : "";
+      if(dl) dl.style.display = graphMode ? "none" : "";
+      if(body) body.innerHTML = graphMode
+        ? networkGraphPanelHtml("company", company.company_id, GRAPH_TITLE)
+        : insightVizHtml(activePerspective, company);
+    });
   });
   // 분석 관점 탭 — 대응하는 분석 결과 시각화로 교체(중앙 영역만 갱신)
   document.querySelectorAll("[data-ci-insight-persp]").forEach(tab => {
