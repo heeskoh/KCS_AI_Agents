@@ -1,6 +1,7 @@
 import { escapeHtml } from "../../core/dom.js";
 import { profileNetworkLayout } from "../shared/network-graph.js";
 import { crimeCategoryById, crimeOffenseById, CRIME_PROFILE_EMPHASIS, profileGraphTypeForCrimes } from "./crime-taxonomy.js";
+import { indicatorSetForCase } from "../shared/risk-indicator-sets.js";
 
 function riskTone(score){
   const value = Number(score || 0);
@@ -230,11 +231,13 @@ export function renderProfilePanel(deps){
     // (외부 정보 수집·정리 섹션은 기초자료 수집/등록 탭으로 이동)
     // 프로파일 그래프는 죄명 기준으로 공유/분리: 관세포탈(c1)은 관세조사와 공용 스코프,
     // 그 외 죄명은 crime-{categoryId} 스코프로 분리(profileGraphTypeForCrimes 참조)
+    // 위험지표도 죄명 기준으로 세트 전환: 밀수·금지품(c2·c4·c7)은 밀수 6종, 그 외는 심사 6종
     return crimeStrip + profileNetworkLayout(
       deps.canvasProfilePanel(companyId, {
         selectedLabel: "수사 대상 기업",
         archive: null,
         changed: false,
+        indicatorSet: indicatorSetForCase(aCase.crimes),
         reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
         scenarioAction: `<button class="btn" data-gi-tab="scenario">분석 시나리오 설정</button>`,
       }),

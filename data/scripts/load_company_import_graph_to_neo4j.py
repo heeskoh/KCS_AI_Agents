@@ -170,6 +170,8 @@ def fetch_data() -> dict[str, Any]:
                    declared_value AS value, status, hs_code, item_name,
                    departure_port, arrival_port, overseas_supplier_name AS supplier,
                    filer_name, filer_representative,
+                   -- 밀수 '반입채널·검사회피' 분석 축 (없으면 NULL → 노드 속성 생략)
+                   transport_type, inspection_type,
                    COALESCE(NULLIF(departure_country, ''),
                             NULLIF(origin_country_name, ''), origin_country) AS dep_country
             FROM import_declarations
@@ -329,10 +331,12 @@ def merge_declaration(tx: ManagedTransaction, row: dict[str, Any]) -> None:
             d.value = $value, d.status = $status, d.hs_code = $hs_code,
             d.item_name = $item_name, d.updated_from = $source_tag
         SET d.filed_by_company = $company_id
+        SET d.transport_type = $transport_type, d.inspection_type = $inspection_type
         MERGE (c)-[r:FILED]->(d)
         SET r.trade_flow = $trade_flow, r.updated_from = $source_tag
         """,
-        {**row, "name": name, "source_tag": SOURCE_TAG},
+        {**row, "name": name, "source_tag": SOURCE_TAG,
+         "transport_type": row.get("transport_type"), "inspection_type": row.get("inspection_type")},
     )
 
 

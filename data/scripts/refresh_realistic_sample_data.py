@@ -356,7 +356,7 @@ HEADER_COLS = [
     "forwarder_name", "forwarder_code",
     "departure_country", "arrival_port", "transport_type", "vessel_name",
     "vessel_nationality", "carrier_code",
-    "arrival_date", "warehousing_date", "inspection_location",
+    "arrival_date", "warehousing_date", "inspection_location", "inspection_type",
     "total_weight", "total_weight_unit", "total_packages", "package_type",
     # 영역3: 거래 및 결제 / 총 과세 정보
     "transaction_type", "import_type", "collection_type",

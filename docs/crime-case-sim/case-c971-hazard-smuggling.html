@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C-971 (주)메디피아글로벌 · 위해물품 밀수 단계별 수사보고서</title>
+<style>
+/* dataviz 검증 팔레트(고정 슬롯 순서) — 카테고리: s1 blue, s2 aqua, s3 yellow, s4 green, s5 violet, s6 red */
+:root{
+  --surface:#fcfcfb; --surface-2:#f4f6f9; --line:#e3e8ef;
+  --ink:#0b1220; --ink-2:#52596b; --muted:#8a91a3;
+  --brand:#123c85; --accent:#2f6fed;
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s4:#008300; --s5:#4a3aa7; --s6:#e34948;
+  --bad:#c0392b; --bad-bg:#fdecec; --warn:#b45309; --warn-bg:#fff7ed; --ok:#1f9254; --ok-bg:#e7f5ec;
+  --paper:#fff; --paper-line:#dfe5ee;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Malgun Gothic',-apple-system,sans-serif;background:var(--surface-2);color:var(--ink);font-size:14px;line-height:1.5}
+header.app{background:#fff;border-bottom:1px solid var(--line);padding:13px 22px;display:flex;align-items:center;gap:13px;position:sticky;top:0;z-index:40}
+header.app .logo{width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px}
+header.app h1{font-size:16px;letter-spacing:-.01em}
+header.app .sub{font-size:12px;color:var(--muted);margin-top:1px}
+header.app .crime{margin-left:8px;font-size:11px;font-weight:800;color:#fff;background:var(--bad);border-radius:6px;padding:4px 10px}
+header.app .env{margin-left:auto;font-size:11px;font-weight:800;color:var(--warn);background:var(--warn-bg);border:1px dashed #fdba74;border-radius:7px;padding:4px 10px}
+
+.wrap{display:grid;grid-template-columns:250px minmax(0,1fr);gap:14px;padding:14px 22px;align-items:start}
+.nav{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;position:sticky;top:70px;max-height:calc(100vh - 90px);overflow-y:auto}
+.nav h2{font-size:11.5px;font-weight:800;color:var(--muted);margin:4px 6px 8px}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:9px;padding:8px 9px;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;font-family:inherit;margin-bottom:2px}
+.nav-item:hover{background:var(--surface-2)}
+.nav-item.active{background:#e8f0ff;border-color:#bcd3f7;color:var(--brand);font-weight:800}
+.nav-item .n{width:24px;height:22px;border-radius:5px;background:var(--surface-2);color:var(--ink-2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.nav-item.active .n{background:var(--accent);color:#fff}
+.nav-item.done .n{background:var(--ok-bg);color:var(--ok)}
+.nav-item .lab{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav .navfoot{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.nav .navfoot button{width:100%;border:1px solid var(--accent);background:#eef4ff;color:var(--accent);border-radius:8px;padding:7px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+
+/* 케이스 요약 */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.hero .score{text-align:center;border-right:1px solid var(--line);padding-right:18px}
+.hero .ring{width:94px;height:94px;border-radius:50%;background:conic-gradient(var(--bad) 84%,#eef2f8 0);display:flex;align-items:center;justify-content:center;margin:0 auto}
+.hero .ring b{width:72px;height:72px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:23px;font-weight:900;color:var(--bad)}
+.hero .ring b span{font-size:10px;font-weight:700;color:var(--muted)}
+.hero .lvl{margin-top:7px;font-size:12px;font-weight:800;color:var(--bad);background:var(--bad-bg);border-radius:6px;padding:3px 12px;display:inline-block}
+.hero .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 16px}
+.hero .kv div{font-size:11.5px;color:var(--muted)}
+.hero .kv div b{display:block;font-size:14px;color:var(--ink);font-weight:800;margin-top:1px}
+
+/* 보고서 문서 */
+.report{background:var(--paper);border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+.rep-head{border-bottom:2px solid var(--brand);padding:15px 20px 13px;background:linear-gradient(180deg,#f8fafd,#fff)}
+.rep-tagline{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.rep-no{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:5px;padding:3px 9px}
+.rep-sec{font-size:10.5px;font-weight:800;color:var(--bad);border:1px solid #f3c9c9;border-radius:5px;padding:2px 8px}
+.rep-svc{font-size:10.5px;font-weight:700;color:var(--accent);background:#eef4ff;border-radius:5px;padding:2px 8px}
+.rep-head h3{font-size:17px;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.rep-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--muted)}
+.rep-meta b{color:var(--ink-2);font-weight:700}
+.rep-body{padding:16px 20px 18px}
+.rep-sect{margin-bottom:16px}
+.rep-sect:last-child{margin-bottom:0}
+.rep-sect > h4{font-size:12.5px;font-weight:800;color:var(--brand);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:8px}
+.rep-sect p{font-size:13px;color:var(--ink-2);line-height:1.75}
+.rep-sect ul{margin:0;padding-left:18px}
+.rep-sect li{font-size:12.5px;color:var(--ink-2);line-height:1.7}
+.rep-sect li b{color:var(--bad)}
+.rep-sect li em{font-style:normal;color:var(--ink);font-weight:700}
+.concl{border:1px solid #f3c9c9;background:#fff7f7;border-radius:9px;padding:11px 14px}
+.concl.ok{border-color:#bfe5cd;background:var(--ok-bg)}
+.concl .ct{font-size:12px;font-weight:800;color:var(--bad);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.concl.ok .ct{color:var(--ok)}
+.concl p{font-size:12.5px;color:var(--ink-2);line-height:1.7}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.acts i{font-style:normal;font-size:11px;font-weight:800;color:#7c2d12;background:#ffedd5;border-radius:6px;padding:4px 10px}
+
+/* 표 */
+table.tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+table.tbl th{background:#f7faff;color:var(--ink-2);font-weight:800;text-align:right;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tbl th:first-child,table.tbl td:first-child{text-align:left}
+table.tbl td{padding:6px 9px;border-bottom:1px dashed #eef1f6;text-align:right;white-space:nowrap}
+table.tbl td.l{text-align:left;white-space:normal}
+table.tbl tr.hl td{background:#fdf3f3}
+table.tbl .neg{color:var(--bad);font-weight:800}
+table.tbl .pos{color:var(--ok);font-weight:700}
+.badge{font-size:10px;font-weight:800;border-radius:5px;padding:2px 7px;display:inline-block}
+.badge.hz{background:var(--bad-bg);color:var(--bad)}
+.badge.okb{background:var(--ok-bg);color:var(--ok)}
+.badge.wn{background:var(--warn-bg);color:var(--warn)}
+
+/* 지표 바 */
+.ind-bar{display:flex;align-items:center;gap:10px;margin:7px 0}
+.ind-bar .name{flex:0 0 140px;font-size:12.5px;font-weight:700}
+.ind-bar .track{flex:1;height:14px;background:#eef2f8;border-radius:7px;overflow:hidden}
+.ind-bar .fill{height:100%;border-radius:7px}
+.ind-bar .val{flex:0 0 46px;text-align:right;font-size:12.5px;font-weight:800}
+
+/* 통계 타일 */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:12px 13px;background:#fbfcfe}
+.tile span{font-size:11px;color:var(--muted);font-weight:700}
+.tile b{display:block;font-size:20px;font-weight:900;margin-top:3px;letter-spacing:-.02em}
+.tile em{font-style:normal;font-size:11px;color:var(--muted);font-weight:600}
+
+/* 차트 */
+.chart-wrap{margin-top:8px}
+.chart-title{font-size:12.5px;font-weight:800;color:var(--ink);margin-bottom:2px}
+.chart-note{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 2px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);font-weight:600}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend i.sq{width:11px;height:11px;border-radius:3px}
+svg .grid{stroke:#eef1f6;stroke-width:1}
+svg .axis{stroke:#cbd3df;stroke-width:1}
+svg text{font-family:inherit}
+svg .tick{fill:var(--muted);font-size:10px}
+svg .dlabel{font-size:10.5px;font-weight:700}
+.tip{position:fixed;pointer-events:none;background:#0b1220;color:#fff;border-radius:8px;padding:7px 10px;font-size:11.5px;line-height:1.5;z-index:60;opacity:0;transition:opacity .1s;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:250px}
+.hoverpt{cursor:pointer}
+@media print{
+  header.app,.nav,.navfoot{display:none}
+  .wrap{grid-template-columns:1fr;padding:0}
+  .report{page-break-after:always;box-shadow:none;border:0}
+}
+@media(max-width:960px){.wrap{grid-template-columns:1fr}.nav{position:static;max-height:none}.hero,.tiles{grid-template-columns:1fr 1fr}.hero .score{border-right:0}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">KCS</div>
+  <div>
+    <h1>(주)메디피아글로벌 <span style="color:var(--muted);font-weight:600;font-size:13px">C-971</span> · 단계별 수사보고서<span class="crime">위해물품 밀수</span></h1>
+    <div class="sub">관세수사 분석 워크스페이스 · 단계별 분석 → 보고서 자동 생성 (관세법 §269②·§270①, 약사법·식품위생법)</div>
+  </div>
+  <span class="env">STANDALONE 데모 · 가상 시뮬레이션 데이터</span>
+</header>
+
+<div class="wrap">
+  <nav class="nav">
+    <h2>수사 단계 · 생성 보고서</h2>
+    <div id="navList"></div>
+    <div class="navfoot"><button type="button" id="printBtn">🖨 전체 보고서 인쇄</button></div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* ═══════════ 케이스 데이터 (sample-data/위해물품_*.csv 와 동일) ═══════════ */
+const CASE = {
+  name:"(주)메디피아글로벌", id:"C-971", risk:84, level:"높음",
+  kv:[["사업자번호","512-86-97102"],["업종","건강기능식품·화장품 수입"],["설립연도","2019"],["직원수","14명"],
+      ["연매출","68.4억원"],["연간수입금액","41.2억원"],["대표","정밀수 (P-971)"],["수사관","임수사 · 본청 수사1팀"]],
+};
+const IND = [
+  {name:"위해물품 반입 의심", v:81.2, color:"var(--s6)"},
+  {name:"품명 위장 신고", v:74.0, color:"var(--s1)"},
+  {name:"통관검사 회피", v:66.5, color:"var(--s5)"},
+  {name:"수입요건 미이행", v:58.0, color:"var(--s3)"},
+  {name:"역외 자금이동", v:41.0, color:"var(--s2)"},
+  {name:"HS 분류 오류", v:15.0, color:"var(--s4)"},
+];
+// 성분분석 12건 (검출 8 / 적합 2 / 기준초과 1 · 나머지 1은 기준초과 수은과 동일 신고건)
+const ANALYSIS = [
+  {no:"AN-2026-1101", decl:"HZ-2026-0517", item:"건강기능식품(다이어트)", sub:"시부트라민", amt:"13.5mg/캡슐", std:"불검출(판매금지)", res:"위해물품"},
+  {no:"AN-2026-1102", decl:"HZ-2026-0517", item:"건강기능식품(다이어트)", sub:"페놀프탈레인", amt:"42mg/캡슐", std:"불검출(사용금지)", res:"위해물품"},
+  {no:"AN-2026-1103", decl:"HZ-2026-0625", item:"건강기능식품(활력)", sub:"실데나필", amt:"88mg/정", std:"의약품(허가필요)", res:"위해물품"},
+  {no:"AN-2026-1104", decl:"HZ-2026-0625", item:"건강기능식품(활력)", sub:"타다라필", amt:"21mg/정", std:"의약품(허가필요)", res:"위해물품"},
+  {no:"AN-2026-1105", decl:"HZ-2026-0421", item:"화장품(크림)", sub:"덱사메타손", amt:"0.08%", std:"사용금지", res:"위해물품"},
+  {no:"AN-2026-1106", decl:"HZ-2026-0421", item:"화장품(크림)", sub:"수은", amt:"3.2ppm", std:"1ppm 이하", res:"기준초과"},
+  {no:"AN-2026-1107", decl:"HZ-2026-0114", item:"건강기능식품(다이어트)", sub:"시부트라민", amt:"11.8mg/캡슐", std:"불검출(판매금지)", res:"위해물품"},
+  {no:"AN-2026-1108", decl:"HZ-2025-0915", item:"건강기능식품(다이어트)", sub:"시부트라민", amt:"12.4mg/캡슐", std:"불검출(판매금지)", res:"위해물품"},
+  {no:"AN-2026-1109", decl:"HZ-2025-0708", item:"화장품(크림)", sub:"덱사메타손", amt:"불검출", std:"사용금지", res:"적합"},
+  {no:"AN-2026-1110", decl:"HZ-2025-0512", item:"건강기능식품(활력)", sub:"실데나필", amt:"76mg/정", std:"의약품(허가필요)", res:"위해물품"},
+  {no:"AN-2026-1111", decl:"HZ-2025-0201", item:"건강기능식품(다이어트)", sub:"시부트라민", amt:"불검출", std:"불검출(판매금지)", res:"적합"},
+  {no:"AN-2026-1112", decl:"HZ-2025-1102", item:"건강기능식품(활력)", sub:"실데나필", amt:"81mg/정", std:"의약품(허가필요)", res:"위해물품"},
+];
+// 성분별 검출 건수
+const SUBSTANCE = [
+  {name:"시부트라민", n:3, color:"var(--s6)", note:"식욕억제제 · 2010년 퇴출(심혈관 위험)"},
+  {name:"실데나필",   n:3, color:"var(--s1)", note:"발기부전 치료 전문의약품"},
+  {name:"덱사메타손", n:1, color:"var(--s5)", note:"스테로이드 · 피부 위축"},
+  {name:"페놀프탈레인",n:1, color:"var(--s3)", note:"설사 유발 · 발암 우려"},
+  {name:"타다라필",   n:1, color:"var(--s2)", note:"발기부전 치료 전문의약품"},
+  {name:"수은",       n:1, color:"var(--s4)", note:"중금속 기준 3.2배 초과"},
+];
+// 월별 통관 패턴 (신고건수·특송건수·검사건수)
+const PATTERN = [
+  {m:"25-02",n:2,ex:2,ins:0},{m:"25-03",n:3,ex:3,ins:0},{m:"25-05",n:3,ex:3,ins:0},{m:"25-07",n:2,ex:1,ins:1},
+  {m:"25-09",n:4,ex:4,ins:0},{m:"25-11",n:3,ex:3,ins:0},{m:"25-12",n:3,ex:3,ins:0},{m:"26-01",n:4,ex:4,ins:0},
+  {m:"26-03",n:3,ex:3,ins:0},{m:"26-04",n:4,ex:4,ins:0},{m:"26-05",n:3,ex:3,ins:1},{m:"26-06",n:4,ex:4,ins:1},
+];
+// 유통·피해
+const DIST = [
+  {ch:"자사 온라인몰", item:"슬림에이스 다이어트", sold:18500, amt:462500000, rec:1900, side:3},
+  {ch:"오픈마켓 A",   item:"슬림에이스 다이어트", sold:9800,  amt:245000000, rec:820,  side:2},
+  {ch:"오픈마켓 B",   item:"파워업 활력정",     sold:7400,  amt:222000000, rec:640,  side:1},
+  {ch:"SNS 공동구매", item:"파워업 활력정",     sold:4200,  amt:126000000, rec:310,  side:1},
+  {ch:"해외직구 대행", item:"글로우 크림",       sold:2100,  amt:52500000,  rec:130,  side:0},
+];
+// 자금흐름
+const FUND = [
+  {d:"2026-01-20", from:"C-971 법인계좌", to:"박차명(개인)", amt:85000000, t:"계좌이체", memo:"판매대금 인출"},
+  {d:"2026-01-22", from:"박차명(개인)", to:"GUANGZHOU HEALTH TRADE", amt:82000000, t:"해외송금", memo:"물품대금(무역외)"},
+  {d:"2026-03-18", from:"C-971 법인계좌", to:"박차명(개인)", amt:92000000, t:"계좌이체", memo:"판매대금 인출"},
+  {d:"2026-03-20", from:"박차명(개인)", to:"GUANGZHOU HEALTH TRADE", amt:89000000, t:"해외송금", memo:"물품대금(무역외)"},
+  {d:"2026-05-12", from:"C-971 법인계좌", to:"박차명(개인)", amt:78000000, t:"계좌이체", memo:"판매대금 인출"},
+  {d:"2026-05-15", from:"박차명(개인)", to:"SHENZHEN VITA CO", amt:75000000, t:"해외송금", memo:"물품대금(무역외)"},
+  {d:"2026-06-28", from:"C-971 법인계좌", to:"정밀수(개인)", amt:64000000, t:"계좌이체", memo:"대표 인출"},
+  {d:"2026-06-30", from:"정밀수(개인)", to:"ATM 현금출금", amt:60000000, t:"현금출금", memo:"용도 불명"},
+];
+// 통신내역
+const COMM = [
+  {d:"2026-01-08 21:40", f:"정밀수(P-971)", t:"+86-135-****-7712", c:"메신저", m:"'성분 빼지 말고 그대로 보내라'"},
+  {d:"2026-01-09 22:15", f:"정밀수(P-971)", t:"+86-135-****-7712", c:"메신저", m:"'라벨은 건강식품으로 표기'"},
+  {d:"2026-04-30 23:05", f:"정밀수(P-971)", t:"박차명(P-972)", c:"메신저", m:"'특송으로 1500 아래로 쪼개서'"},
+  {d:"2026-05-14 08:20", f:"정밀수(P-971)", t:"박차명(P-972)", c:"통화", m:"'검사 걸렸다 당분간 중단'"},
+  {d:"2026-05-14 09:02", f:"정밀수(P-971)", t:"+86-135-****-7712", c:"메신저", m:"'다음 건 성분 낮춰서 보내'"},
+  {d:"2026-06-23 07:45", f:"박차명(P-972)", t:"정밀수(P-971)", c:"메신저", m:"'또 검사 지정됨'"},
+];
+const won = n => n.toLocaleString("ko-KR");
+const eok = n => (n/100000000).toFixed(1);
+const TOT = {
+  sold: DIST.reduce((s,d)=>s+d.sold,0), amt: DIST.reduce((s,d)=>s+d.amt,0),
+  rec: DIST.reduce((s,d)=>s+d.rec,0), side: DIST.reduce((s,d)=>s+d.side,0),
+};
+TOT.unrec = TOT.sold - TOT.rec;
+TOT.recRate = (TOT.rec/TOT.sold*100).toFixed(1);
+const FUND_OUT = FUND.filter(f=>f.t==="해외송금").reduce((s,f)=>s+f.amt,0);
+
+/* ═══════════ 차트 ═══════════ */
+// 성분별 검출 건수 — 가로 막대(카테고리 6, 직접 라벨)
+function substanceChart(){
+  const W=560,H=200,ml=88,mr=110,mt=8,mb=8;
+  const iw=W-ml-mr, rowH=(H-mt-mb)/SUBSTANCE.length, bh=16, max=3;
+  const bars=SUBSTANCE.map((s,i)=>{
+    const y=mt+rowH*i+(rowH-bh)/2, w=iw*s.n/max;
+    return `<text class="tick" x="${ml-8}" y="${y+12}" text-anchor="end" style="font-size:11px;fill:var(--ink);font-weight:600">${s.name}</text>
+      <rect class="hoverpt" x="${ml}" y="${y}" width="${w.toFixed(1)}" height="${bh}" rx="4" fill="${s.color}" data-t="${s.name} · 검출 ${s.n}건 — ${s.note}"/>
+      <text class="dlabel" x="${ml+w+7}" y="${y+12}" fill="${s.color}">${s.n}건</text>`;
+  }).join("");
+  return `<div class="chart-wrap">
+    <div class="chart-title">검출 성분별 건수 (분석 12건 · 검출 10건 = 위해물품 확정 9 + 기준초과 1)</div>
+    <div class="chart-note">막대에 마우스를 올리면 성분별 위해성 설명이 표시됩니다. 수은은 기준초과, 나머지 5종은 위해물품 확정 사유.</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="성분별 검출 건수">${bars}</svg>
+  </div>`;
+}
+// 월별 통관 패턴 — 신고건수(막대) + 검사건수(막대), 동일 축(건수)
+function patternChart(){
+  const W=720,H=240,ml=36,mr=16,mt=14,mb=42, iw=W-ml-mr, ih=H-mt-mb;
+  const ymax=5, gap=iw/PATTERN.length, bw=16;
+  const y=v=>mt+ih*(1-v/ymax);
+  const grid=[0,1,2,3,4,5].map(v=>`<line class="grid" x1="${ml}" y1="${y(v)}" x2="${ml+iw}" y2="${y(v)}"/><text class="tick" x="${ml-6}" y="${y(v)+3}" text-anchor="end">${v}</text>`).join("");
+  const bars=PATTERN.map((p,i)=>{
+    const cx=ml+gap*i+gap/2;
+    const b1=`<rect class="hoverpt" x="${cx-bw-2}" y="${y(p.n).toFixed(1)}" width="${bw}" height="${(mt+ih-y(p.n)).toFixed(1)}" rx="4" fill="var(--s1)" data-t="${p.m} · 신고 ${p.n}건 (특송 ${p.ex}건)"/>`;
+    const b2=p.ins?`<rect class="hoverpt" x="${cx+2}" y="${y(p.ins).toFixed(1)}" width="${bw}" height="${(mt+ih-y(p.ins)).toFixed(1)}" rx="4" fill="var(--s6)" data-t="${p.m} · 세관검사 ${p.ins}건"/>`:"";
+    return b1+b2+`<text class="tick" x="${cx}" y="${H-24}" text-anchor="middle">${p.m}</text>`;
+  }).join("");
+  return `<div class="chart-wrap">
+    <div class="chart-title">월별 수입신고 건수 대비 세관검사 건수</div>
+    <div class="chart-note">신고 38건 중 검사 3건(검사율 7.9%) — 특송·소액 분할로 검사 선별을 회피. 검사가 실시된 2건에서 즉시 위해성분 적발.</div>
+    <div class="legend"><span><i class="sq" style="background:var(--s1)"></i>수입신고 건수</span><span><i class="sq" style="background:var(--s6)"></i>세관검사 건수</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 신고·검사 건수">
+      ${grid}<line class="axis" x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ih}"/><line class="axis" x1="${ml}" y1="${mt+ih}" x2="${ml+iw}" y2="${mt+ih}"/>
+      ${bars}<text class="tick" x="${ml-24}" y="${mt+6}" transform="rotate(-90 ${ml-24} ${mt+6})">건수</text>
+    </svg></div>`;
+}
+// 유통 채널별 판매·회수 — 스택 막대(미회수 강조)
+function distChart(){
+  const W=680,H=240,ml=44,mr=16,mt=14,mb=52, iw=W-ml-mr, ih=H-mt-mb;
+  const ymax=20000, gap=iw/DIST.length, bw=42;
+  const y=v=>mt+ih*(1-v/ymax);
+  const grid=[0,5000,10000,15000,20000].map(v=>`<line class="grid" x1="${ml}" y1="${y(v)}" x2="${ml+iw}" y2="${y(v)}"/><text class="tick" x="${ml-6}" y="${y(v)+3}" text-anchor="end">${(v/1000)}k</text>`).join("");
+  const bars=DIST.map((d,i)=>{
+    const cx=ml+gap*i+gap/2, un=d.sold-d.rec;
+    const yRec=y(d.rec), yUn=y(d.sold);
+    // 미회수(상단, 빨강) + 회수(하단, 초록) — 2px 서피스 간격
+    return `<rect class="hoverpt" x="${cx-bw/2}" y="${yUn.toFixed(1)}" width="${bw}" height="${(yRec-yUn-2).toFixed(1)}" rx="4" fill="var(--s6)" data-t="${d.ch} · 미회수 ${won(un)}정"/>
+      <rect class="hoverpt" x="${cx-bw/2}" y="${yRec.toFixed(1)}" width="${bw}" height="${(mt+ih-yRec).toFixed(1)}" rx="4" fill="var(--s4)" data-t="${d.ch} · 회수 ${won(d.rec)}정"/>
+      <text class="dlabel" x="${cx}" y="${yUn-5}" text-anchor="middle" fill="var(--s6)">${won(un)}</text>
+      <text class="tick" x="${cx}" y="${H-32}" text-anchor="middle">${d.ch}</text>
+      <text class="tick" x="${cx}" y="${H-19}" text-anchor="middle" style="fill:var(--ink-2)">${d.item.split(" ")[0]}</text>`;
+  }).join("");
+  return `<div class="chart-wrap">
+    <div class="chart-title">유통 채널별 판매량 · 회수량 (단위: 정)</div>
+    <div class="chart-note">총 ${won(TOT.sold)}정 판매 중 ${won(TOT.rec)}정만 회수(회수율 ${TOT.recRate}%) — ${won(TOT.unrec)}정이 시중에 잔존.</div>
+    <div class="legend"><span><i class="sq" style="background:var(--s6)"></i>미회수(시중 잔존)</span><span><i class="sq" style="background:var(--s4)"></i>회수 완료</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="채널별 판매·회수">
+      ${grid}<line class="axis" x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ih}"/><line class="axis" x1="${ml}" y1="${mt+ih}" x2="${ml+iw}" y2="${mt+ih}"/>
+      ${bars}</svg></div>`;
+}
+function indicatorBars(){
+  return IND.map(d=>`<div class="ind-bar"><span class="name">${d.name}</span>
+    <span class="track"><span class="fill" style="width:${d.v}%;background:${d.color}"></span></span>
+    <span class="val" style="color:${d.color}">${d.v}%</span></div>`).join("");
+}
+
+/* ═══════════ 보고서 빌더 ═══════════ */
+function report({no, title, svc, scope, date, sections}){
+  return `<div class="report">
+    <div class="rep-head">
+      <div class="rep-tagline">
+        <span class="rep-no">${no}</span><span class="rep-sec">대외비 · 수사자료</span>
+        <span class="rep-svc">AI 서비스: ${svc}</span>
+      </div>
+      <h3>${title}</h3>
+      <div class="rep-meta">
+        <span>수사대상 <b>(주)메디피아글로벌 (C-971)</b></span>
+        <span>혐의 <b>위해물품 밀수</b></span>
+        <span>분석범위 <b>${scope.join(" · ")}</b></span>
+        <span>작성일 <b>${date}</b></span>
+        <span>작성 <b>임수사 · 본청 수사1팀</b></span>
+      </div>
+    </div>
+    <div class="rep-body">${sections}</div>
+  </div>`;
+}
+const S = (h, body) => `<div class="rep-sect"><h4>${h}</h4>${body}</div>`;
+const concl = (t, p, acts, ok) => `<div class="concl ${ok?"ok":""}"><div class="ct">${ok?"✔":"⚠"} ${t}</div><p>${p}</p>${acts?`<div class="acts">${acts.map(a=>`<i>${a}</i>`).join("")}</div>`:""}</div>`;
+
+/* ═══════════ 단계 정의 ═══════════ */
+const STEPS = [
+  { nav:"내사 착수", no:"제1보",
+    body:()=>`
+      <div class="card hero">
+        <div class="score"><div class="ring"><b>${CASE.risk}<span>AI 위험점수</span></b></div><div class="lvl">위험등급 ${CASE.level}</div></div>
+        <div class="kv">${CASE.kv.map(([k,v])=>`<div>${k}<b>${v}</b></div>`).join("")}</div>
+      </div>
+      ${report({no:"제1보", title:"위해물품 밀수 혐의 내사 착수 보고", svc:"CDW 조회 · 위험Case 분석",
+        scope:["위험지표 중심","선별기준 확인"], date:"2026-07-06", sections:
+        S("1. 내사 착수 경위", `<p>2026년 5월·6월 실시한 특송화물 물품검사에서 (주)메디피아글로벌이 '건강기능식품'으로 신고한 물품 2건에서
+          <b>시부트라민·실데나필 등 의약품 성분이 검출</b>되어, 동사의 최근 18개월 수입 전반에 대한 내사에 착수함.</p>`)
+        + S("2. 대상 개요", `<ul>
+            <li><em>업체</em> (주)메디피아글로벌(C-971) · 건강기능식품·화장품 수입 도매 · 설립 2019년 · 직원 14명</li>
+            <li><em>실운영자</em> 정밀수(P-971, 대표이사) / <em>자금관리</em> 박차명(P-972, 차명계좌 명의자)</li>
+            <li><em>수입 규모</em> 최근 18개월 신고 <em>38건</em> · 신고금액 합계 약 <em>5.3억원</em> · 전량 중국발</li>
+          </ul>`)
+        + S("3. AI 위험 지표", indicatorBars())
+        + concl("내사 착수 판단", "위해물품 반입 의심 81.2%, 품명 위장 신고 74.0%로 위험도가 높고, 물품검사 2건에서 실제 위해성분이 확인되어 <b>수사 전환 요건 충족</b>. 국민 건강에 직접적 위해가 발생하는 유형으로 <b>긴급 수사</b>가 필요함.",
+          ["수사 전환 승인 상신","전 신고건 성분분석 의뢰","유통 현황 긴급 파악"])
+      })}`,
+  },
+  { nav:"신고 위장 확인", no:"제2보",
+    body:()=>report({no:"제2보", title:"수입신고 품명 위장 확인 보고", svc:"수입신고검증 · OCR/문서인식",
+      scope:["신고 정합성","누락 증빙"], date:"2026-07-07", sections:
+      S("1. 분석 방법", `<p>최근 18개월 수입신고 38건의 신고품명·HS코드·첨부서류(인보이스·성분표)를 성분분석 결과 및 실제 유통 상품명과 대조함.</p>`)
+      + S("2. 신고 vs 실제 대조", `<table class="tbl">
+          <thead><tr><th>신고번호</th><th class="l">신고품명</th><th class="l">실제 유통 상품</th><th class="l">검출 성분</th><th>판정</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td>HZ-2026-0517</td><td class="l">건강기능식품(다이어트)</td><td class="l">슬림에이스 다이어트</td><td class="l">시부트라민 13.5mg</td><td><span class="badge hz">위장 확정</span></td></tr>
+            <tr class="hl"><td>HZ-2026-0625</td><td class="l">건강기능식품(활력)</td><td class="l">파워업 활력정</td><td class="l">실데나필 88mg</td><td><span class="badge hz">위장 확정</span></td></tr>
+            <tr class="hl"><td>HZ-2026-0421</td><td class="l">화장품(크림)</td><td class="l">글로우 크림</td><td class="l">덱사메타손 0.08%</td><td><span class="badge hz">위장 확정</span></td></tr>
+            <tr class="hl"><td>HZ-2026-0114</td><td class="l">건강기능식품(다이어트)</td><td class="l">슬림에이스 다이어트</td><td class="l">시부트라민 11.8mg</td><td><span class="badge hz">위장 확정</span></td></tr>
+            <tr class="hl"><td>HZ-2025-0915</td><td class="l">건강기능식품(다이어트)</td><td class="l">슬림에이스 다이어트</td><td class="l">시부트라민 12.4mg</td><td><span class="badge hz">위장 확정</span></td></tr>
+            <tr><td>HZ-2025-0201</td><td class="l">건강기능식품(다이어트)</td><td class="l">슬림에이스 다이어트</td><td class="l">불검출</td><td><span class="badge okb">적합</span></td></tr>
+          </tbody></table>`)
+      + S("3. 증빙 누락", `<ul>
+          <li>수입식품 <em>영업등록·수입신고 확인증</em> 미제출 — 식품위생 요건 미이행 전건</li>
+          <li>의약품 성분 함유 물품임에도 <em>수입 품목허가</em> 없음 — 약사법 위반</li>
+          <li>제출 성분표(공급자 발행)와 실제 분석 결과 <b>전면 불일치</b> — 허위 서류 제출</li>
+        </ul>`)
+      + concl("신고 위장 확정", "신고품명 '건강기능식품·화장품'은 <b>세관 검사 선별을 회피하기 위한 위장</b>이며, 실제 반입물품은 의약품 성분 함유 위해물품임. 관세법 §269②(밀수입) 및 §270①(부정수입)의 '허위신고에 의한 반입' 구성요건에 해당.",
+        ["공급자 발행 성분표 원본 압수","수입신고 대행 관세사 참고인 조사"])
+    }),
+  },
+  { nav:"위해성분 분석", no:"제3보",
+    body:()=>report({no:"제3보", title:"위해성분 분석 결과 보고 (핵심 증거)", svc:"OCR/문서인식 · 위험Case 분석",
+      scope:["증빙 구조화","위험신호 정리"], date:"2026-07-08", sections:
+      S("1. 분석 개요", `<p>관세청 분석실·식품의약품안전처 합동으로 수입신고 12건의 보관시료·유통품을 정밀 분석함. <b>9건에서 위해성분이 검출</b>(검출률 75%)됨.</p>`)
+      + S("2. 검출 성분 현황", substanceChart())
+      + S("3. 분석 결과 상세", `<table class="tbl">
+          <thead><tr><th>분석번호</th><th>신고번호</th><th class="l">검출 성분</th><th>검출량</th><th class="l">법정 기준</th><th>판정</th></tr></thead>
+          <tbody>${ANALYSIS.map(a=>`<tr class="${a.res==="적합"?"":"hl"}">
+            <td>${a.no}</td><td>${a.decl}</td><td class="l">${a.sub}</td><td>${a.amt}</td><td class="l">${a.std}</td>
+            <td><span class="badge ${a.res==="적합"?"okb":a.res==="기준초과"?"wn":"hz"}">${a.res}</span></td></tr>`).join("")}
+          </tbody></table>`)
+      + S("4. 위해성 평가", `<ul>
+          <li><em>시부트라민</em> — 심혈관 부작용으로 <b>2010년 국내 판매 전면 금지</b>. 검출량 11.8~13.5mg/캡슐은 과거 허가용량(10~15mg)에 상당하는 고용량</li>
+          <li><em>실데나필·타다라필</em> — 전문의약품. 심혈관 질환자 복용 시 <b>중대 부작용 위험</b>. 검출량 76~88mg은 1회 최대 허가용량(100mg)에 근접</li>
+          <li><em>덱사메타손</em> — 화장품 사용금지 스테로이드. 장기 도포 시 피부 위축·혈관 확장</li>
+          <li><em>수은</em> — 화장품 기준(1ppm)의 <b>3.2배</b> 검출</li>
+        </ul>`)
+      + concl("위해물품 확정", "분석 12건 중 <b>9건이 위해물품으로 확정</b>되었고, 검출 성분은 모두 국민 건강에 직접적 위해를 가하는 판매금지·전문의약품 성분임. 본 건은 단순 관세 포탈이 아닌 <b>국민 건강 침해형 밀수</b>로, 유통 차단이 최우선 과제임.",
+        ["미분석 26건 전건 추가 분석 의뢰","식약처 위해평가 공식 요청","판매중단·회수명령 즉시 요청"])
+    }),
+  },
+  { nav:"품목분류·요건", no:"제4보",
+    body:()=>report({no:"제4보", title:"품목분류 및 수입요건 위반 검토 보고", svc:"품목분류검증 · 법령 검토",
+      scope:["분류 적정성","법령 근거"], date:"2026-07-09", sections:
+      S("1. 신고 HS 검토", `<table class="tbl">
+          <thead><tr><th class="l">신고 HS</th><th class="l">신고 품명</th><th class="l">적정 HS(실물 기준)</th><th class="l">수입요건</th><th>판정</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td class="l">2106.90-9099</td><td class="l">건강기능식품</td><td class="l">3004.90(의약품)</td><td class="l">수입 품목허가(식약처)</td><td><span class="badge hz">오분류</span></td></tr>
+            <tr class="hl"><td class="l">3304.99-0000</td><td class="l">화장품(크림)</td><td class="l">3004.90(의약품)</td><td class="l">수입 품목허가(식약처)</td><td><span class="badge hz">오분류</span></td></tr>
+          </tbody></table>`)
+      + S("2. 수입요건 이행 여부", `<ul>
+          <li><em>수입식품안전관리특별법</em> — 수입신고 확인증 미취득(전건). 영업등록 품목과 실제 반입물품 불일치</li>
+          <li><em>약사법</em> — 의약품 성분 함유 물품의 수입 품목허가 <b>없음</b>. 무허가 의약품 수입·판매</li>
+          <li><em>화장품법</em> — 사용금지 원료(덱사메타손) 함유, 중금속 기준 초과</li>
+          <li>세관장 확인대상 물품임에도 <b>요건 확인 절차 자체를 회피</b>(품명 위장으로 요건 대상에서 제외되도록 신고)</li>
+        </ul>`)
+      + concl("수입요건 전면 미이행", "실물 기준 정상 분류 시 HS 3004.90(의약품)에 해당하여 식약처 품목허가가 필수이나, 이를 회피할 목적으로 식품·화장품 HS로 위장 신고함. 관세법 §226(세관장 확인) 위반이 <b>품명 위장의 동기</b>임이 입증됨.",
+        ["식약처 품목허가 조회 결과 첨부","세관장 확인대상 회피 경위 조사"])
+    }),
+  },
+  { nav:"반입경로·검사회피", no:"제5보",
+    body:()=>report({no:"제5보", title:"반입 경로 및 통관검사 회피 패턴 분석 보고", svc:"운송경로 분석 · 이상거래 검증",
+      scope:["운송경로","신고패턴"], date:"2026-07-10", sections:
+      S("1. 반입 경로", `<ul>
+          <li>전량 <em>중국발</em>(광저우·선전) — 공급자 3사(GUANGZHOU HEALTH TRADE, SHENZHEN VITA CO, GZ COSMETIC LAB)</li>
+          <li>반입 형태: <em>특송화물 37건(97%)</em> / 일반화물 1건 — 동종업계 특송 비중(23%) 대비 <b>4배</b></li>
+          <li>공급자 3사 모두 동일 지역·동일 연락처 대역 사용 — <b>실질 동일 공급망</b> 의심</li>
+        </ul>`)
+      + S("2. 통관검사 회피 패턴", patternChart())
+      + S("3. 회피 수법 분석", `<ul>
+          <li><em>소액 분할신고</em> — 건당 신고금액을 <b>1,500만원 직하</b>(1,140~1,498만원)로 집중 조정, 고액 검사 선별 기준 회피</li>
+          <li><em>특송 집중</em> — 통관 소요시간이 짧은 특송 채널로 검사 선별 노출 최소화</li>
+          <li><em>검사 적발 후 중단</em> — 2026-05-14 물품검사 적발 직후 통신내역에서 <b>'검사 걸렸다 당분간 중단'</b> 지시 확인, 이후 6월까지 신고 축소</li>
+        </ul>`)
+      + concl("계획적 검사회피 입증", "신고 38건 중 검사는 3건(7.9%)에 불과했고, 검사가 실시된 2건에서 <b>즉시 위해성분이 적발</b>됨 — 미검사 물량 전체에 동일 위해성이 존재할 개연성이 높음. 소액 분할·특송 집중은 <b>검사 선별 기준을 인지한 계획적 회피</b>로 판단.",
+        ["잔여 26건 보관시료 전량 분석","차기 반입 화물 100% 검사 지정","공급자 3사 국제공조 확인"])
+    }),
+  },
+  { nav:"유통·피해 확산", no:"제6보",
+    body:()=>report({no:"제6보", title:"유통 실태 및 국민 피해 확산 분석 보고", svc:"웹 정보수집 요청 · 이상거래 검증",
+      scope:["업체 기사","URL 직접 등록"], date:"2026-07-13", sections:
+      S("1. 피해 규모 요약", `<div class="tiles">
+          <div class="tile"><span>총 판매량</span><b>${won(TOT.sold)}<em>정</em></b></div>
+          <div class="tile"><span>판매금액</span><b style="color:var(--bad)">${eok(TOT.amt)}<em>억원</em></b></div>
+          <div class="tile"><span>미회수(시중 잔존)</span><b style="color:var(--bad)">${won(TOT.unrec)}<em>정</em></b></div>
+          <div class="tile"><span>부작용 신고</span><b style="color:var(--bad)">${TOT.side}<em>건</em></b></div>
+        </div>`)
+      + S("2. 채널별 유통·회수", distChart())
+      + S("3. 채널별 상세", `<table class="tbl">
+          <thead><tr><th class="l">판매 채널</th><th class="l">판매 상품명</th><th>판매량(정)</th><th>판매금액(원)</th><th>회수량</th><th>미회수</th><th>부작용</th></tr></thead>
+          <tbody>${DIST.map(d=>`<tr><td class="l">${d.ch}</td><td class="l">${d.item}</td><td>${won(d.sold)}</td><td>${won(d.amt)}</td>
+            <td class="pos">${won(d.rec)}</td><td class="neg">${won(d.sold-d.rec)}</td><td>${d.side?`<span class="badge hz">${d.side}건</span>`:"-"}</td></tr>`).join("")}
+            <tr class="hl"><td class="l"><b>합계</b></td><td class="l">-</td><td><b>${won(TOT.sold)}</b></td><td><b>${won(TOT.amt)}</b></td>
+            <td class="pos"><b>${won(TOT.rec)}</b></td><td class="neg"><b>${won(TOT.unrec)}</b></td><td><b>${TOT.side}건</b></td></tr>
+          </tbody></table>`)
+      + S("4. 공개정보 수집 결과", `<ul>
+          <li>자사몰·오픈마켓 2곳·SNS 공동구매 등 <b>5개 채널</b>에서 판매 — 판매 페이지 12건 아카이브 보전</li>
+          <li>판매 페이지에 <b>'식약처 인증'·'의사 추천'</b> 등 허위·과장 광고 표기 확인(표시광고법 위반 병행)</li>
+          <li>소비자 후기에서 <em>심계항진·불면·어지럼증</em> 등 시부트라민 전형적 부작용 호소 다수</li>
+        </ul>`)
+      + concl("피해 확산 진행 중", `회수율이 <b>${TOT.recRate}%</b>에 불과해 <b>${won(TOT.unrec)}정</b>이 시중에 잔존하며, 부작용 신고 ${TOT.side}건이 접수됨. 판매는 현재도 일부 채널에서 진행 중으로 <b>즉시 차단 조치가 시급</b>함.`,
+        ["전 채널 판매중지·게시물 삭제 요청","식약처 회수명령·위해상품 판매차단시스템 등록","부작용 신고자 피해 진술 확보"])
+    }),
+  },
+  { nav:"범죄수익 추적", no:"제7보",
+    body:()=>report({no:"제7보", title:"범죄수익 및 자금흐름 추적 보고", svc:"자금흐름 관계분석 · 범죄수익 추적",
+      scope:["자금흐름내역","계좌·송금 이체내역","은닉 가능성"], date:"2026-07-14", sections:
+      S("1. 자금 구조", `<p>판매대금은 법인계좌로 입금된 후 <b>차명계좌(박차명)</b>를 경유해 중국 공급자에게 물품대금 명목으로 송금되며,
+        대표 정밀수는 별도로 법인자금을 인출해 <b>현금화</b>하는 이중 구조가 확인됨.</p>`)
+      + S("2. 자금흐름 내역", `<table class="tbl">
+          <thead><tr><th class="l">거래일</th><th class="l">출금</th><th class="l">입금</th><th>금액(원)</th><th class="l">유형 · 메모</th></tr></thead>
+          <tbody>${FUND.map(f=>`<tr class="${f.t==="해외송금"||f.t==="현금출금"?"hl":""}">
+            <td class="l">${f.d}</td><td class="l">${f.from}</td><td class="l">${f.to}</td>
+            <td class="${f.t==="해외송금"||f.t==="현금출금"?"neg":""}">${won(f.amt)}</td><td class="l">${f.t} · ${f.memo}</td></tr>`).join("")}
+          </tbody></table>`)
+      + S("3. 분석 결과", `<ul>
+          <li><em>해외송금 합계</em> <b>${won(FUND_OUT)}원</b> — 전액 차명계좌(박차명) 명의, 무역외 송금으로 처리(수입신고 대금과 별도)</li>
+          <li>법인 인출 → 차명계좌 → 해외송금이 <b>2일 내 연속 실행</b>되는 패턴 3회 반복 — 자금 세탁 목적의 경유 구조</li>
+          <li>대표 정밀수 개인 인출 6,400만원 중 <b>6,000만원 현금출금</b>(용도 불명) — 범죄수익 은닉 정황</li>
+          <li>판매금액 ${eok(TOT.amt)}억원 대비 신고 수입금액 5.3억원 — <b>수익 규모와 신고 규모의 현저한 괴리</b></li>
+        </ul>`)
+      + concl("범죄수익 특정", `위해물품 판매수익 약 <b>${eok(TOT.amt)}억원</b> 중 확인된 해외 유출 ${won(FUND_OUT)}원, 현금화 6,000만원. 차명계좌 경유·현금출금은 <b>범죄수익 은닉 행위</b>에 해당하여 범죄수익은닉규제법 적용이 가능하며, 몰수·추징 보전이 필요함.`,
+        ["법인·차명·개인 전 계좌 지급정지","몰수·추징 보전 청구","박차명 명의대여 경위 조사","중국 수취처 국제공조"])
+    }),
+  },
+  { nav:"공모관계", no:"제8보",
+    body:()=>report({no:"제8보", title:"공모관계 및 고의성 입증 보고", svc:"통신내역 관계분석 · 관계망 분석",
+      scope:["메신저","통화내역","관계망 분석"], date:"2026-07-15", sections:
+      S("1. 통신내역 분석", `<table class="tbl">
+          <thead><tr><th class="l">일시</th><th class="l">발신</th><th class="l">수신</th><th class="l">채널</th><th class="l">내용 요지</th></tr></thead>
+          <tbody>${COMM.map(c=>`<tr class="hl"><td class="l">${c.d}</td><td class="l">${c.f}</td><td class="l">${c.t}</td><td class="l">${c.c}</td><td class="l">${c.m}</td></tr>`).join("")}
+          </tbody></table>`)
+      + S("2. 고의성 입증 요소", `<ul>
+          <li><b>'성분 빼지 말고 그대로 보내라'</b>(2026-01-08) — 위해성분 함유를 <em>인식하고 의도적으로 반입</em>했음을 직접 입증</li>
+          <li><b>'라벨은 건강식품으로 표기'</b>(2026-01-09) — 품명 위장이 <em>사전 기획된 지시</em>임을 입증</li>
+          <li><b>'특송으로 1500 아래로 쪼개서'</b>(2026-04-30) — 소액 분할·특송이 <em>검사 회피 목적</em>임을 입증</li>
+          <li><b>'검사 걸렸다 당분간 중단'</b>(2026-05-14) — 적발 인지 후 증거 은폐·반입 조절 정황</li>
+        </ul>`)
+      + S("3. 공모 관계도", `<ul>
+          <li><em>정밀수(P-971)</em> 대표 · <b>총괄 지시</b> — 성분·라벨·분할 반입 전 과정 지시, 수익 현금화</li>
+          <li><em>박차명(P-972)</em> 자금·통관 실행 · <b>차명계좌 제공</b>, 분할신고 실행</li>
+          <li><em>중국 공급책</em>(+86-135-****-7712) · 위해성분 제조·라벨 위장 — 국제공조 대상</li>
+        </ul>`)
+      + concl("고의·공모 입증", "통신내역에서 <b>위해성분 인식·품명 위장 지시·검사 회피 지시</b>가 모두 직접 증거로 확보되어 고의성 다툼의 여지가 없음. 3인 공모 구조가 확인되며, 정밀수는 <b>주범(지시자)</b>, 박차명은 <b>실행 공범</b>에 해당.",
+        ["정밀수·박차명 체포영장 신청","휴대전화 포렌식 영장","중국 공급책 인터폴 공조"])
+    }),
+  },
+  { nav:"적용 법조", no:"제9보",
+    body:()=>report({no:"제9보", title:"적용 법조 및 구성요건 검토 보고", svc:"법령 검토",
+      scope:["법령 근거","판례/유권해석"], date:"2026-07-16", sections:
+      S("1. 적용 법조", `<table class="tbl">
+          <thead><tr><th class="l">법령</th><th class="l">조항</th><th class="l">구성요건 해당 사실</th><th class="l">법정형</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td class="l">관세법</td><td class="l">§269② 밀수입죄</td><td class="l">신고 품명과 다른 물품(의약품 성분 함유)을 반입</td><td class="l">5년 이하 징역 또는 관세액 10배 이하 벌금</td></tr>
+            <tr class="hl"><td class="l">관세법</td><td class="l">§270① 부정수입죄</td><td class="l">허위신고로 수입요건 회피</td><td class="l">3년 이하 징역 또는 벌금</td></tr>
+            <tr class="hl"><td class="l">관세법</td><td class="l">§226 세관장 확인</td><td class="l">요건 확인 대상 회피(품명 위장)</td><td class="l">§270 적용</td></tr>
+            <tr class="hl"><td class="l">약사법</td><td class="l">§31·§61·§93</td><td class="l">무허가 의약품 수입·판매(실데나필 등)</td><td class="l">5년 이하 징역 또는 5천만원 이하 벌금</td></tr>
+            <tr class="hl"><td class="l">식품위생법</td><td class="l">§7·§94</td><td class="l">판매금지 성분(시부트라민) 함유 식품 판매</td><td class="l">10년 이하 징역 또는 1억원 이하 벌금</td></tr>
+            <tr class="hl"><td class="l">화장품법</td><td class="l">§8·§36</td><td class="l">사용금지 원료·중금속 기준 초과</td><td class="l">3년 이하 징역 또는 3천만원 이하 벌금</td></tr>
+            <tr><td class="l">범죄수익은닉규제법</td><td class="l">§3</td><td class="l">차명계좌 경유·현금화로 수익 은닉</td><td class="l">5년 이하 징역</td></tr>
+          </tbody></table>`)
+      + S("2. 쟁점 검토", `<ul>
+          <li><em>죄수 관계</em> — 밀수입죄(관세법)와 약사법·식품위생법 위반은 <b>상상적 경합</b>. 가장 중한 식품위생법 §94(10년 이하) 기준 처단</li>
+          <li><em>고의 입증</em> — 통신내역상 '성분 그대로', '라벨은 건강식품' 지시로 <b>미필적 고의를 넘는 확정적 고의</b> 입증</li>
+          <li><em>유사 판례</em> — 시부트라민 함유 다이어트 식품 밀수 사건(2023고단XXXX): 징역 2년 6월 실형 + 추징. 본 건은 판매량·부작용 신고에서 <b>피해가 더 중대</b></li>
+          <li><em>몰수·추징</em> — 판매수익 ${eok(TOT.amt)}억원이 추징 대상. 미회수 물품은 몰수·폐기</li>
+        </ul>`)
+      + concl("혐의 적용 가능", "관세법상 밀수입죄를 기본으로 약사법·식품위생법·화장품법 위반이 경합하며, <b>모든 구성요건에서 고의성이 직접 증거로 입증</b>됨. 범죄수익은닉규제법 병합 적용으로 추징 보전이 가능.", null, true)
+    }),
+  },
+  { nav:"종합 수사보고", no:"종합",
+    body:()=>report({no:"종합보고", title:"위해물품 밀수 사건 수사결과 보고서", svc:"보고서 생성 · 보고서 검증",
+      scope:["전체 보고서","근거 검증","리스크 리뷰"], date:"2026-07-17", sections:
+      S("1. 혐의 요지", `<p>(주)메디피아글로벌(대표 정밀수)은 2025년 2월부터 2026년 6월까지 중국에서 <b>시부트라민·실데나필 등 판매금지·전문의약품 성분이 함유된 물품</b>을
+        '건강기능식품·화장품'으로 <b>품명을 위장하여 38회에 걸쳐 밀수입</b>하고, 이를 온라인 5개 채널을 통해 <b>${won(TOT.sold)}정(${eok(TOT.amt)}억원)</b> 판매하여
+        국민 건강에 위해를 가하였으며, 판매수익을 차명계좌를 통해 은닉·해외 유출한 혐의가 있음.</p>`)
+      + S("2. 수사 결과 요약", `<div class="tiles">
+          <div class="tile"><span>밀수 신고건수</span><b>38<em>건</em></b></div>
+          <div class="tile"><span>위해물품 확정</span><b style="color:var(--bad)">9<em>/12건 분석</em></b></div>
+          <div class="tile"><span>미회수 유통량</span><b style="color:var(--bad)">${won(TOT.unrec)}<em>정</em></b></div>
+          <div class="tile"><span>추징 대상 수익</span><b style="color:var(--bad)">${eok(TOT.amt)}<em>억원</em></b></div>
+        </div>
+        <table class="tbl" style="margin-top:10px">
+          <thead><tr><th class="l">단계</th><th class="l">보고서</th><th class="l">핵심 입증 사실</th></tr></thead>
+          <tbody>
+            <tr><td class="l">제2보</td><td class="l">신고 위장 확인</td><td class="l">신고품명 ≠ 실물 — 위장 5건 확정, 요건서류 전건 미제출</td></tr>
+            <tr class="hl"><td class="l">제3보</td><td class="l">위해성분 분석</td><td class="l">분석 12건 중 <b>9건 위해물품 확정</b>(시부트라민 13.5mg 등)</td></tr>
+            <tr><td class="l">제4보</td><td class="l">품목분류·요건</td><td class="l">실물 기준 HS 3004.90(의약품) — 품목허가 회피 목적 위장</td></tr>
+            <tr><td class="l">제5보</td><td class="l">검사회피 분석</td><td class="l">특송 92%·소액 분할 — 검사율 7.9%, 검사 2건 모두 적발</td></tr>
+            <tr class="hl"><td class="l">제6보</td><td class="l">유통·피해</td><td class="l">${won(TOT.sold)}정 판매 · 회수율 ${TOT.recRate}% · 부작용 ${TOT.side}건</td></tr>
+            <tr><td class="l">제7보</td><td class="l">범죄수익 추적</td><td class="l">차명 경유 해외송금 ${won(FUND_OUT)}원 · 현금화 6,000만원</td></tr>
+            <tr class="hl"><td class="l">제8보</td><td class="l">공모·고의</td><td class="l">'성분 빼지 말고' 등 <b>지시 메시지로 확정적 고의 입증</b></td></tr>
+            <tr><td class="l">제9보</td><td class="l">적용 법조</td><td class="l">관세법 §269② 외 약사법·식품위생법 등 경합</td></tr>
+          </tbody></table>`)
+      + S("3. 보고서 검증 결과", `<ul>
+          <li>근거 충실성 <em>94점</em> — 인용 출처 21건 전건 유효(성분분석서 12·통신 6·자금 8·유통 아카이브 12)</li>
+          <li>과도한 추론 <em>0건</em> — 모든 판단이 분석 데이터·직접 증거에 연결됨</li>
+          <li>보완 1건: 미분석 26건에 대한 위해성 추정은 <b>'개연성'</b>으로 표현(단정 회피) — 반영 완료</li>
+        </ul>`)
+      + concl("종합 판정 — 위해물품 밀수 혐의 상당", `(주)메디피아글로벌 및 정밀수·박차명에 대해 <b>관세법 §269②(밀수입) 및 약사법·식품위생법 위반 혐의가 상당</b>함.
+        국민 건강에 직접적 위해가 발생했고 <b>${won(TOT.unrec)}정이 여전히 시중에 유통</b> 중이므로, 신병 확보와 동시에 유통 차단·회수 조치가 병행되어야 함.
+        범죄수익 ${eok(TOT.amt)}억원에 대한 몰수·추징 보전이 필요함.`,
+        ["정밀수·박차명 체포영장 신청","사무실·물류창고 압수수색","전 계좌 지급정지 및 추징보전","식약처 회수명령·판매차단 요청","미분석 26건 전량 분석","중국 공급책 인터폴 공조","검찰 송치(구속 의견)"])
+    }),
+  },
+];
+
+/* ═══════════ 렌더 ═══════════ */
+const $=s=>document.querySelector(s);
+let cur=0;
+function renderNav(){
+  $("#navList").innerHTML=STEPS.map((s,i)=>`
+    <button class="nav-item ${i===cur?"active":""} ${i<cur?"done":""}" data-step="${i}">
+      <span class="n">${i<cur?"✓":s.no.replace("제","").replace("보","")}</span><span class="lab">${s.nav}</span>
+    </button>`).join("");
+}
+function renderStep(i){
+  cur=i; renderNav();
+  $("#main").innerHTML=STEPS[i].body();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+const tip=$("#tip");
+document.addEventListener("mousemove",e=>{
+  const t=e.target.closest("[data-t]");
+  if(t){ tip.textContent=t.dataset.t; tip.style.opacity="1";
+    tip.style.left=Math.min(e.clientX+12,innerWidth-tip.offsetWidth-8)+"px";
+    tip.style.top=(e.clientY+14)+"px"; }
+  else tip.style.opacity="0";
+});
+document.addEventListener("click",e=>{
+  const n=e.target.closest("[data-step]");
+  if(n){ renderStep(+n.dataset.step); return; }
+  if(e.target.closest("#printBtn")){
+    // 전체 보고서 인쇄: 모든 단계를 순서대로 렌더 후 인쇄
+    $("#main").innerHTML=STEPS.map(s=>s.body()).join("");
+    setTimeout(()=>{ window.print(); renderStep(cur); }, 300);
+  }
+});
+renderStep(0);
+</script>
+</body>
+</html>

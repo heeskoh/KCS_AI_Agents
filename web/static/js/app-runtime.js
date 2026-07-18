@@ -1,5 +1,6 @@
 ﻿import { dataTable, escapeHtml, markdownToHtml, renderValidationDashboard } from "./core/dom.js";
 import { composePrompt, setPromptOverride, savePromptOverrides } from "./analysis/shared/prompt-composer.js";
+import { indicatorItems, indicatorSetLabel, indicatorSetForCompany } from "./analysis/shared/risk-indicator-sets.js";
 import { createPageRegistry, pageNames } from "./core/page-registry.js";
 import { createCustomsInvestigation } from "./analysis/customs/index.js";
 import { registerCustomsEvents } from "./analysis/customs/events.js";
@@ -856,8 +857,8 @@ const REPORT_AI_GROUP = "보고서 생성 및 검증";
 const AI_SERVICE_GROUP = ANALYSIS_AI_GROUP;
 const DATA_SOURCE_GROUP = DB_SEARCH_GROUP;
 
-// 모든 사용자 그룹에 기본 granted 처리할 서비스는 AI_SERVICE_REGISTRY 정의 직후
-// DEFAULT_GRANTED_AGENTS 로 계산한다(분석지원·외부연계·보고서 그룹 전체 — 아래 참조).
+// 권한: 업무지식베이스(permissionGroup=dataSources)만 그룹별 rag 목록으로 제한하고,
+// AI 서비스(permissionGroup=agents)는 전체 사용자 허용 — buildGroupPermissions() 참조.
 
 const AI_SERVICE_REGISTRY = {
   // ── [업무지식베이스] 정형DB(Text-to-SQL) + 업무 영역별 RAG ──
@@ -1223,11 +1224,6 @@ const AI_SERVICE_REGISTRY = {
     ],
   },
 };
-
-// 전체 사용자에게 기본 granted: 분석지원·외부연계·보고서 그룹의 모든 AI 서비스(범용 도구)
-const DEFAULT_GRANTED_AGENTS = Object.entries(AI_SERVICE_REGISTRY)
-  .filter(([, svc]) => [LLM_SERVICE_GROUP, EXTERNAL_AI_GROUP, REPORT_AI_GROUP].includes(svc.group))
-  .map(([key]) => key);
 
 const targetConfig = (companyPrompt, personPrompt = companyPrompt, supports = { company:true, person:true }) => ({
   supports,
@@ -1968,6 +1964,9 @@ const specialDeps = {
   getScenarioCompanies: () => scenarioCompanies,
   isRiskPersonsLoading: () => riskPersonsLoading,
   isRiskPersonProfileLoading: personId => Boolean(riskPersonProfileLoading[personId]),
+  getRiskOrgProfile: orgId => riskOrgProfiles[orgId] || null,
+  isRiskOrgProfileLoading: orgId => Boolean(riskOrgProfileLoading[orgId]),
+  loadRiskOrgProfile,
   loadRiskPersons,
   loadRiskPersonProfile,
   loadScenarioCompanies,
@@ -2051,6 +2050,8 @@ let riskPersons          = [];
 let riskPersonsLoading   = false;
 let riskPersonProfiles   = {};
 let riskPersonProfileLoading = {};
+let riskOrgProfiles      = {};   // 마약수사 조직 프로파일(지표·연계인물) 캐시
+let riskOrgProfileLoading = {};
 
 const GEN_INV_TYPES = [
   { id:"t1", num:"①", label:"관세포탈 수사",              cls:"gi-t1" },
@@ -2090,6 +2091,9 @@ const genDeps = {
   getScenarioCompanies: () => scenarioCompanies,
   isRiskPersonsLoading: () => riskPersonsLoading,
   isRiskPersonProfileLoading: personId => Boolean(riskPersonProfileLoading[personId]),
+  getRiskOrgProfile: orgId => riskOrgProfiles[orgId] || null,
+  isRiskOrgProfileLoading: orgId => Boolean(riskOrgProfileLoading[orgId]),
+  loadRiskOrgProfile,
   loadRiskPersons,
   loadRiskPersonProfile,
   riskPersonById,
@@ -2767,6 +2771,7 @@ let sbNewDraft = {                    // 신규 업무분석 초안
   enabledSubtabs: [], defaultTab: "",
 };
 let scenarioTemplateZoneOpen = false;   // 분석 템플릿 패널 접기(기본 닫힘) — 세션 한정 UI 상태
+let scenarioServiceZoneOpen  = false;   // AI 서비스 패널 접기(기본 닫힘) — 분석 템플릿과 동일 토글 패턴
 let latestReport = "보고서가 아직 생성되지 않았습니다.";
 let latestValidation = "검증 결과가 아직 없습니다.";
 const canvasStateKey = "kcs_ai_canvas_state_v1";
@@ -6334,10 +6339,16 @@ function cssString(value){
   return String(value).replace(/"/g, '\\"');
 }
 
+/* 그룹 권한 산출 규칙:
+   - 업무지식베이스(permissionGroup=dataSources) : 그룹에 부여된 rag 목록에 따라 granted/locked
+   - AI 서비스(permissionGroup=agents)          : 전체 사용자 허용(범용 도구 — 권한 제한 없음)
+   저장 상태의 승인 이력(권한 요청→승인)은 loadCanvasState에서 granted로 병합된다. */
 function buildGroupPermissions(group){
   const perms = {};
   Object.keys(defaultUserPermissions).forEach(key => {
-    perms[key] = (group.rag.includes(key) || group.agents.includes(key) || DEFAULT_GRANTED_AGENTS.includes(key)) ? "granted" : "locked";
+    perms[key] = AI_SERVICE_REGISTRY[key]?.permissionGroup === "dataSources"
+      ? (group.rag.includes(key) ? "granted" : "locked")
+      : "granted";
   });
   return perms;
 }
@@ -7599,6 +7610,29 @@ function loadRiskPersonProfile(personId){
     });
 }
 
+function loadRiskOrgProfile(orgId){
+  if(!orgId) return;
+  if(riskOrgProfiles[orgId]) return;
+  if(riskOrgProfileLoading[orgId]) return;
+  riskOrgProfileLoading[orgId] = true;
+  fetch(`/api/risk-org-profile?org_id=${encodeURIComponent(orgId)}`)
+    .then(response => {
+      if(!response.ok) throw new Error(`조직 프로파일 API 오류: ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      riskOrgProfileLoading[orgId] = false;
+      if(!data.error) riskOrgProfiles[orgId] = data;
+      if(isSpecialInvestigationPage(currentPage) && specialInvestigationState.drugInvTab === "profile"){
+        renderSpecialInvestigation();
+      }
+    })
+    .catch(error => {
+      riskOrgProfileLoading[orgId] = false;
+      console.error(error);
+    });
+}
+
 function loadCompanyDetail(companyId){
   if(companyDetailCache[companyId]) return;
   companyDetailCache[companyId] = { loading: true };
@@ -7762,6 +7796,8 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
   const risk = cache.risk || {};
   const indicators = cache.risk_indicators || {};
   const declarations = cache.declarations || [];
+  // 위험지표 세트: 수사 프로파일은 혐의(options.indicatorSet)로 지정, 없으면 기업 crime_types로 추정
+  const indicatorSetKey = options.indicatorSet || indicatorSetForCompany(c);
   const riskLevel = c.risk_level || risk.risk_level || "-";
   const riskScore = c.risk_score ?? risk.risk_score;
   const riskLabel = riskLevel === "HIGH" ? "높음" : riskLevel === "LOW" ? "낮음" : riskLevel === "MEDIUM" ? "중간" : riskLevel;
@@ -7812,21 +7848,15 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
 
       <div class="card risk-panel">
         <div class="risk-panel-head">
-          <h3>AI 위험 지표 분석</h3>
+          <h3>AI 위험 지표 분석 <span class="muted" style="font-size:11.5px;font-weight:600">· ${escapeHtml(indicatorSetLabel(indicatorSetKey))}</span></h3>
           <div class="risk-circle ${riskTone(riskLevel)}">
             <strong>${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</strong>
             <span>${riskLabel}</span>
           </div>
         </div>
         <div class="risk-bars">
-          ${[
-            ["저가신고 의심률",        "undervaluation",    risk.undervaluation_suspicion_rate],
-            ["특수관계 이상률",        "related_party",     risk.related_party_anomaly_rate],
-            ["FTA 원산지 오용 의심률", "fta_origin_misuse", risk.fta_origin_misuse_suspicion_rate],
-            ["관세환급 이상률",        "customs_refund",    risk.customs_refund_anomaly_rate],
-            ["HS 분류 오류율",         "hs_classification", risk.hs_classification_error_rate],
-            ["역외자금 은닉 의심률",   "offshore_fund",     risk.offshore_fund_concealment_suspicion_rate],
-          ].map(([label, code, val]) => {
+          ${indicatorItems(indicatorSetKey).map(({ label, code, field }) => {
+            const val = risk[field];
             const pct = val != null ? Math.min(100, Number(val)) : 0;
             const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
             const meta = indicators[code] || {};
@@ -8850,34 +8880,39 @@ function sharedScenarioWorkbenchHtml(ctx = {}){
           </div>
         </div>
 
-        <div class="scenario-runall-zone">
-          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
-            ${archived ? "disabled" : ""} title="시나리오의 모든 단계를 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
-        </div>
+        <div class="scenario-header-actions">
+          <div class="scenario-runall-zone">
+            <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
+              ${archived ? "disabled" : ""} title="시나리오의 모든 단계를 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
+          </div>
 
-        <div class="scenario-service-zone">
-          <strong>AI 서비스</strong>
-          <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
-          <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add
-            ${archived ? "disabled" : ""}>단계 추가</button>
-          <button type="button" class="btn secondary scenario-template-apply-btn" data-scenario-quick-delete
-            ${archived ? "disabled" : ""}>선택 삭제</button>
-        </div>
+          <div class="scenario-service-zone${scenarioServiceZoneOpen ? " open" : ""}">
+            <button id="scenarioServiceToggle" type="button" class="btn secondary scenario-zone-toggle"
+              title="AI 서비스 패널 ${scenarioServiceZoneOpen ? "닫기" : "열기"}">🤖 AI 서비스 ${scenarioServiceZoneOpen ? "▴" : "▾"}</button>
+            <span class="scenario-service-controls" ${scenarioServiceZoneOpen ? "" : `style="display:none"`}>
+              <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
+              <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add
+                ${archived ? "disabled" : ""}>단계 추가</button>
+              <button type="button" class="btn secondary scenario-template-apply-btn" data-scenario-quick-delete
+                ${archived ? "disabled" : ""}>선택 삭제</button>
+            </span>
+          </div>
 
-        <div class="scenario-template-zone${scenarioTemplateZoneOpen ? " open" : ""}">
-          <button id="scenarioTemplateToggle" type="button" class="btn secondary scenario-template-toggle"
-            title="분석 템플릿 패널 ${scenarioTemplateZoneOpen ? "닫기" : "열기"}">🧩 분석 템플릿 ${scenarioTemplateZoneOpen ? "▴" : "▾"}</button>
-          <span class="scenario-template-controls" ${scenarioTemplateZoneOpen ? "" : `style="display:none"`}>
-            <select id="scenarioTemplateSelect" class="scenario-template-select">
-              ${templateOptionsHtml}
-            </select>
-            <button id="scenarioTemplateApplyButton" type="button"
-              class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
-              템플릿적용하기
-            </button>
-            <button id="scenarioSaveButton" type="button"
-              class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
-          </span>
+          <div class="scenario-template-zone${scenarioTemplateZoneOpen ? " open" : ""}">
+            <button id="scenarioTemplateToggle" type="button" class="btn secondary scenario-zone-toggle"
+              title="분석 템플릿 패널 ${scenarioTemplateZoneOpen ? "닫기" : "열기"}">🧩 분석 템플릿 ${scenarioTemplateZoneOpen ? "▴" : "▾"}</button>
+            <span class="scenario-template-controls" ${scenarioTemplateZoneOpen ? "" : `style="display:none"`}>
+              <select id="scenarioTemplateSelect" class="scenario-template-select">
+                ${templateOptionsHtml}
+              </select>
+              <button id="scenarioTemplateApplyButton" type="button"
+                class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>
+                템플릿적용하기
+              </button>
+              <button id="scenarioSaveButton" type="button"
+                class="btn secondary scenario-save-bottom">신규 템플릿으로 등록</button>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -10737,8 +10772,11 @@ function runScenarioWorkflow(startIndex = 0){
 
   const priorCompleted = scenarioItems.slice(0, runStartIndex).filter(item => stepStatuses[item.id] === "완료").length;
   let completed = priorCompleted;
+  // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 하단 실행 버튼(scenarioRunButton)이 렌더되지 않으므로
+  // null-safe 헬퍼로 활성/비활성만 반영한다(헤더 [전체 시나리오 수행]만으로도 실행 가능).
   const runButton = document.getElementById("scenarioRunButton");
-  runButton.disabled = true;
+  const setRunDisabled = value => { if(runButton) runButton.disabled = value; };
+  setRunDisabled(true);
   setScenarioStatus("실행 중");
   updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
   updateScenarioProgress(completed);
@@ -10760,13 +10798,13 @@ function runScenarioWorkflow(startIndex = 0){
       setScenarioStatus("완료");
       saveRunArchive(companyId);
       updateCanvasJobStatus(companyId, { label:"완료", done:scenarioItems.length - skippedItems.length, total:scenarioItems.length, pct:skippedItems.length ? Math.round(((scenarioItems.length - skippedItems.length) / scenarioItems.length) * 100) : 100, tone:"done" });
-      runButton.disabled = false;
+      setRunDisabled(false);
       scenarioEventSource.close();
     }
     if(data.status === "failed"){
       setScenarioStatus("실패");
       updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
-      runButton.disabled = false;
+      setRunDisabled(false);
       scenarioEventSource.close();
     }
   });
@@ -10809,7 +10847,7 @@ function runScenarioWorkflow(startIndex = 0){
       openedSteps.add(item.id);
       setScenarioStatus("오류");
       updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
-      runButton.disabled = false;
+      setRunDisabled(false);
       scenarioEventSource.close();
       saveIntermediateResults(companyId);
       renderScenarioList();
@@ -10825,7 +10863,7 @@ function runScenarioWorkflow(startIndex = 0){
         if(!stepOutputs[id]) stepOutputs[id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
       }
     });
-    runButton.disabled = false;
+    setRunDisabled(false);
     if(scenarioEventSource) scenarioEventSource.close();
     renderScenarioList();
     renderScenarioSteps();
@@ -11865,6 +11903,18 @@ document.addEventListener("click", (event)=>{
     tplToggle.parentElement?.classList.toggle("open", scenarioTemplateZoneOpen);
     tplToggle.innerHTML = `🧩 분석 템플릿 ${scenarioTemplateZoneOpen ? "▴" : "▾"}`;
     tplToggle.title = `분석 템플릿 패널 ${scenarioTemplateZoneOpen ? "닫기" : "열기"}`;
+    return;
+  }
+
+  /* ── AI 서비스 패널 접기/펼치기 (분석 템플릿과 동일 패턴) ── */
+  const svcToggle = event.target.closest("#scenarioServiceToggle");
+  if(svcToggle){
+    scenarioServiceZoneOpen = !scenarioServiceZoneOpen;
+    const controls = svcToggle.parentElement?.querySelector(".scenario-service-controls");
+    if(controls) controls.style.display = scenarioServiceZoneOpen ? "" : "none";
+    svcToggle.parentElement?.classList.toggle("open", scenarioServiceZoneOpen);
+    svcToggle.innerHTML = `🤖 AI 서비스 ${scenarioServiceZoneOpen ? "▴" : "▾"}`;
+    svcToggle.title = `AI 서비스 패널 ${scenarioServiceZoneOpen ? "닫기" : "열기"}`;
     return;
   }
 

@@ -595,6 +595,33 @@ def build_person_network_graph(person_id: str, limit: int = 60, hops: int = 1,
     return graph
 
 
+def build_org_network_graph(org_id: str, limit: int = 80, hops: int = 1,
+                            domain: str | None = None) -> dict[str, Any] | None:
+    """수사대상 조직(Organization) 중심 ego 관계망 — 연계 인물(person→org)·조직을 반환한다.
+
+    마약수사 조직 프로파일의 '조직 위계·역할'·'공급·자금 관계' 뷰의 원천 그래프.
+    우범자(person) 그래프와 대칭 구조이며, domain 지정 시 해당 도메인 엣지만 남긴다.
+    """
+    exists = _read(
+        "MATCH (o:Organization {org_id: $org_id}) RETURN o.org_id AS org_id LIMIT 1",
+        org_id=org_id,
+    )
+    if not exists:
+        return None
+
+    h = _clamp_hops(hops)
+    if h == 1:
+        query = "MATCH (o:Organization {org_id: $org_id})-[r]-(n) RETURN o, r, n LIMIT $limit"
+    else:
+        query = f"MATCH path = (o:Organization {{org_id: $org_id}})-[*1..{h}]-(n) RETURN path LIMIT $limit"
+    graph = _read_graph(query, org_id=org_id, limit=limit)
+    center_id = f"Organization:{org_id}"
+    graph = _filter_graph_by_domain(graph, domain, center_id)
+    graph["center"] = center_id
+    graph["domain"] = domain
+    return graph
+
+
 def _split_node_ref(ref: str) -> tuple[str, str]:
     """프런트 노드 id('{label}:{value}')를 (label, value)로 분리."""
     text = str(ref or "")

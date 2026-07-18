@@ -23,6 +23,7 @@ from src.neo4j_graph import (
     build_company_profile_graph,
     build_company_trade_routes,
     build_explore_graph,
+    build_org_network_graph,
     build_path_graph,
     build_person_network_graph,
 )
@@ -309,6 +310,63 @@ def list_risk_persons() -> list[dict[str, object]]:
             ORDER BY risk_score DESC NULLS LAST, person_id
             """
         ).df().to_dict("records")
+
+
+def get_risk_org_profile(org_id: str) -> dict[str, object]:
+    """마약수사 조직(Organization) 프로파일 — risk_org_profile + 조직 관리지표(risk_indicator entity_type='org')
+    + 연계 인물(network_edge). 우범자 프로파일과 대칭 구조."""
+    with duckdb.connect(str(DB_PATH), read_only=True) as conn:
+        profile = conn.execute(
+            "SELECT * FROM risk_org_profile WHERE org_id = ?", [org_id]
+        ).df()
+        if profile.empty:
+            return {"error": "org not found", "org_id": org_id}
+
+        indicators = conn.execute(
+            """
+            SELECT indicator_code, indicator_name, indicator_value, score, weight, reason,
+                   COALESCE(domain, '') AS domain,
+                   COALESCE(recommendation, '') AS recommendation,
+                   calculated_at
+            FROM risk_indicator
+            WHERE entity_type = 'org' AND entity_id = ?
+            ORDER BY score DESC NULLS LAST, weight DESC NULLS LAST
+            """,
+            [org_id],
+        ).df()
+        # 연계 인물(조직→인물 또는 인물→조직) — 역할·관계 요약
+        members = conn.execute(
+            """
+            WITH links AS (
+                SELECT CASE WHEN source_type='person' THEN source_id ELSE target_id END AS person_id,
+                       relation_type, confidence_score
+                FROM network_edge
+                WHERE (source_type='org' AND source_id=?) OR (target_type='org' AND target_id=?)
+            )
+            SELECT l.person_id,
+                   COALESCE(p.name, '') AS person_name,
+                   COALESCE(p.risk_score, 0) AS person_risk_score,
+                   l.relation_type, l.confidence_score
+            FROM links l
+            LEFT JOIN risk_person_profile p ON p.person_id = l.person_id
+            ORDER BY l.confidence_score DESC NULLS LAST
+            LIMIT 60
+            """,
+            [org_id, org_id],
+        ).df()
+
+    indicator_rows = indicators.to_dict("records")
+    return {
+        "profile": profile.to_dict("records")[0],
+        "indicators": indicator_rows,
+        "risk_indicators": {r["indicator_code"]: r for r in indicator_rows},
+        "members": members.to_dict("records"),
+        "summary": {
+            "indicator_count": len(indicator_rows),
+            "member_count": len(members),
+            "top_indicator": indicator_rows[0]["indicator_name"] if indicator_rows else "",
+        },
+    }
 
 
 def get_risk_person_profile(person_id: str) -> dict[str, object]:
@@ -2163,6 +2221,13 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(get_risk_person_profile(person_id))
             return
+        if parsed.path == "/api/risk-org-profile":
+            org_id = parse_qs(parsed.query).get("org_id", [""])[0].strip()
+            if not org_id:
+                self._send_json({"error": "org_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(get_risk_org_profile(org_id))
+            return
         if parsed.path == "/api/company":
             company_id = parse_qs(parsed.query).get("company_id", [""])[0].strip()
             if not company_id:
@@ -2313,6 +2378,25 @@ class WorkflowHandler(BaseHTTPRequestHandler):
                 return
             if graph is None:
                 self._send_json({"error": "person not found"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(graph)
+            return
+
+        if parsed.path == "/api/graph/org":
+            q = parse_qs(parsed.query)
+            org_id = q.get("org_id", [""])[0].strip()
+            hops = q.get("hops", ["1"])[0]
+            domain = (q.get("domain", [""])[0].strip() or None)
+            if not org_id:
+                self._send_json({"error": "org_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                graph = build_org_network_graph(org_id, hops=hops, domain=domain)
+            except Neo4jGraphError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            if graph is None:
+                self._send_json({"error": "org not found"}, HTTPStatus.NOT_FOUND)
                 return
             self._send_json(graph)
             return

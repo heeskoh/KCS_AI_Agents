@@ -20,18 +20,34 @@ from typing import Any
 # ── 지표 메타데이터 (단일 소유) ──────────────────────────────────────────────
 
 INDICATOR_NAMES: dict[str, str] = {
+    # ── 심사(관세조사) 세트 — entity_role=audit / 혐의 c1 관세수입 침해·c3 부정 통관 ──
     "undervaluation": "저가신고 의심률",
     "related_party": "특수관계 이상률",
     "fta_origin_misuse": "FTA 원산지 오용 의심률",
     "customs_refund": "관세환급 이상률",
     "hs_classification": "HS 분류 오류율",
     "offshore_fund": "역외자금 은닉 의심률",
+    # ── 밀수 세트 — 혐의 c2 밀수출입·c4 금지·제한 위반 ──
+    "disguise_declaration": "품명 위장 신고율",
+    "inspection_evasion": "통관검사 회피 지수",
+    "contraband_detection": "금지·위해물품 적발률",
+    "route_supplier_risk": "우범 경로·공급망 위험",
+    "accomplice_network": "공범·차명 관계망",
+    "proceeds_concealment": "범죄수익·자금 은닉",
 }
 
-# 산출 순서 (프로파일 표시·저장 순서)
-INDICATOR_ORDER: list[str] = list(INDICATOR_NAMES.keys())
+# 지표 세트(도메인) — 대상의 혐의/역할에 따라 프로파일에 표시할 6종을 고른다.
+INDICATOR_SETS: dict[str, list[str]] = {
+    "audit": ["undervaluation", "related_party", "fta_origin_misuse",
+              "customs_refund", "hs_classification", "offshore_fund"],
+    "smuggling": ["disguise_declaration", "inspection_evasion", "contraband_detection",
+                  "route_supplier_risk", "accomplice_network", "proceeds_concealment"],
+}
 
-# import_risk_scores 의 6개 rate 컬럼명 ↔ 지표 코드
+# 산출 순서 (프로파일 표시·저장 순서) — 기존 소비처 호환을 위해 심사 세트를 기본으로 유지
+INDICATOR_ORDER: list[str] = INDICATOR_SETS["audit"]
+
+# import_risk_scores 의 rate 컬럼명 ↔ 지표 코드
 INDICATOR_TO_RATE_FIELD: dict[str, str] = {
     "undervaluation": "undervaluation_suspicion_rate",
     "related_party": "related_party_anomaly_rate",
@@ -39,6 +55,12 @@ INDICATOR_TO_RATE_FIELD: dict[str, str] = {
     "customs_refund": "customs_refund_anomaly_rate",
     "hs_classification": "hs_classification_error_rate",
     "offshore_fund": "offshore_fund_concealment_suspicion_rate",
+    "disguise_declaration": "disguise_declaration_rate",
+    "inspection_evasion": "inspection_evasion_rate",
+    "contraband_detection": "contraband_detection_rate",
+    "route_supplier_risk": "route_supplier_risk_rate",
+    "accomplice_network": "accomplice_network_rate",
+    "proceeds_concealment": "proceeds_concealment_rate",
 }
 
 RECOMMENDATIONS: dict[str, str] = {
@@ -48,6 +70,13 @@ RECOMMENDATIONS: dict[str, str] = {
     "customs_refund": "관세환급 소요량(BOM) 산정 적정성 및 과다·반복 환급 정밀 심사 권고",
     "hs_classification": "신고 HS 품목분류 적정성 재검토 및 사전심사 신청 권고",
     "offshore_fund": "역외법인·조세회피처 자금흐름 및 외환거래 적정성 외환조사 권고",
+    # 밀수 세트
+    "disguise_declaration": "신고품명과 실물 대조(성분분석·정밀검사) 및 미검사 반입분 전량 분석 권고",
+    "inspection_evasion": "특송·소액 분할 반입 패턴에 대한 검사 선별기준 재조정 및 차기 화물 전량 검사 지정 권고",
+    "contraband_detection": "적발 물품 위해성 평가·유통 차단(회수명령) 및 미분석 반입분 확대 분석 권고",
+    "route_supplier_risk": "우범 경로·공급자 실체 확인을 위한 국제공조 및 동일 공급망 연계 기업 확대 조사 권고",
+    "accomplice_network": "차명·명의대여 경위 조사 및 공범 관계망 기반 동시 검거 계획 수립 권고",
+    "proceeds_concealment": "차명계좌 지급정지·자금흐름 관계분석 및 몰수·추징 보전 청구 권고",
 }
 
 # 정합성 규칙 임계치 (지표 점수 > threshold → 근거 존재 필수)

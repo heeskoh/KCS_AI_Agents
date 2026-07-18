@@ -54,6 +54,9 @@ const NODE_COLORS = {
   Entity:        "#0891b2",
   DeparturePort: "#0d9488",
   ArrivalPort:   "#c2410c",
+  // 반입채널·검사회피 뷰(밀수) 집계 노드
+  Channel:       "#7c3aed",
+  Inspection:    "#b45309",
 };
 const NODE_LABEL_KO = {
   Person: "인물", Company: "기업", Declaration: "수입신고",
@@ -67,6 +70,7 @@ const NODE_LABEL_KO = {
   ItemClass: "품목분류", RiskFactor: "위험요인",
   Phone: "전화번호", Account: "계좌", Place: "장소", Vehicle: "차량", Entity: "대상",
   DeparturePort: "출발항", ArrivalPort: "도착항",
+  Channel: "반입채널", Inspection: "통관검사",
 };
 
 function nodeColor(label){
@@ -232,6 +236,12 @@ function graphUrl(targetType, targetId, hops = 1){
     const st = filterStateFor(graphKey(targetType, targetId));
     const dq = st.domain ? `&domain=${encodeURIComponent(st.domain)}` : "";
     return `/api/graph/person?person_id=${encodeURIComponent(targetId)}${h}${dq}`;
+  }
+  // 마약수사 조직 프로파일: 조직 중심 ego 관계망(연계 인물·역할) — 우범자와 대칭
+  if(baseType(targetType) === "org"){
+    const st = filterStateFor(graphKey(targetType, targetId));
+    const dq = st.domain ? `&domain=${encodeURIComponent(st.domain)}` : "";
+    return `/api/graph/org?org_id=${encodeURIComponent(targetId)}${h}${dq}`;
   }
   return `/api/graph/company_profile?company_id=${encodeURIComponent(targetId)}`;
 }
@@ -723,7 +733,20 @@ const VIEW_MODES = [
   { id: "item", label: "품목기반 관계분석", icon: "📦", desc: "기업 → 품목 → 해외거래처 · 관세사 → 품목 (수입신고·항만은 엣지에 표시)" },
   { id: "riskcause", label: "위험구성 원인분석", icon: "🧩", desc: "검증할 위험요인을 선택하면 해당 요인 근거 검증에 필요한 관계망으로 재구성" },
   { id: "route", label: "경로분석", icon: "🛳️", desc: "기업 → 국가 → 항만 → 품목(수입신고 속성) → 항만 → 국가 (수출·수입 방향별)" },
+  { id: "channel", label: "반입채널·검사회피", icon: "📮", desc: "기업 → 반입채널(특송·일반) → 통관검사 구분 → 적발 신고 (밀수 수사: 검사 회피 구조 확인)" },
+  { id: "disguise", label: "품명 위장 대조", icon: "🏷️", desc: "신고품명(위장) → 통관검사 적발 → 실제 위해성분 → 정상 분류·위반법령 (밀수 수사: 품명 위장 구조 대조)" },
+  { id: "accomplice", label: "공범·자금 관계망", icon: "💰", desc: "기업 → 국내 공범(대표·차명) → 자금 은닉·세탁 → 해외 공급책 (밀수 수사: 공범·범죄수익 흐름)" },
 ];
+
+/* 밀수 수사 전용 뷰(반입채널·품명위장·공범자금)는 통관검사 구분(inspection_type)이 적재된
+   대상에서만 노출한다 — 검사 데이터가 있는 밀수 수사 대상에서만 의미가 있는 축이다. */
+const SMUGGLING_VIEW_IDS = ["channel", "disguise", "accomplice"];
+function hasInspectionData(graph){
+  return (graph.nodes || []).some(n => n.label === "Declaration" && n.properties?.inspection_type);
+}
+function availableViewModes(graph){
+  return VIEW_MODES.filter(v => !SMUGGLING_VIEW_IDS.includes(v.id) || hasInspectionData(graph));
+}
 
 function viewModeOf(state){
   const id = state.viewMode || "decl";
@@ -1119,8 +1142,253 @@ function applyLabelHiddenPost(graph, state){
 /* 화면에 표시할 최종 그래프: 필터 → 뷰 프로젝션 → 라벨/개별 숨김 */
 function displayedGraph(isProjectable, raw, state){
   const filtered = applyFilter(raw, state);
-  const projected = isProjectable ? projectForView(filtered, state.viewMode, state) : filtered;
+  let projected;
+  if(isProjectable) projected = projectForView(filtered, state.viewMode, state);
+  else if(isPersonDrugGraph(raw, state)) projected = projectPersonDrugView(filtered, state.viewMode, state.domain);
+  else projected = filtered;
   return applyHidden(applyLabelHiddenPost(projected, state), state);
+}
+
+/* 5) 반입채널·검사회피 — 밀수 수사 축. 신고 38건을 개별로 뿌리지 않고
+   [기업] → [반입채널] → [통관검사 구분] 으로 집계해 흐름을 보여주고,
+   실제 적발된 물품검사 신고만 개별 노드로 펼쳐 위험요인까지 연결한다.
+   "검사한 2건은 모두 적발 / 나머지 35건은 미검사 통과" 구조가 한 화면에 드러난다. */
+function viewChannelGraph(graph){
+  const recs = [...declRecords(graph).values()].filter(r => r.decl.properties?.inspection_type);
+  if(!recs.length) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(byId.get(graph.center), 0);
+
+  const CHANNEL_KO = { "항공": "특송(항공)", "특송": "특송(항공)", "해상": "일반화물(해상)" };
+  const total = recs.length;
+  const groups = new Map();   // "채널|검사구분" → 건수
+  const channels = new Map(); // 채널 → 건수
+  recs.forEach(r => {
+    const ch = CHANNEL_KO[r.decl.properties.transport_type] || (r.decl.properties.transport_type || "기타");
+    const insp = r.decl.properties.inspection_type;
+    channels.set(ch, (channels.get(ch) || 0) + 1);
+    const key = `${ch}|${insp}`;
+    groups.set(key, (groups.get(key) || 0) + 1);
+  });
+
+  // 레인1: 반입채널 (건수·비중)
+  const chNodes = new Map();
+  [...channels.entries()].sort((a, b) => b[1] - a[1]).forEach(([ch, n]) => {
+    const node = add({
+      id: `Channel:${ch}`, label: "Channel",
+      properties: { name: `${ch}`, 건수: `${n}건`, 비중: `${Math.round(n / total * 100)}%` },
+    }, 1);
+    chNodes.set(ch, node);
+    mk(centerN, node, "VIA_CHANNEL", `반입 ${n}건`, { 비중: `${Math.round(n / total * 100)}%` });
+  });
+
+  // 레인2: 통관검사 구분 (미검사·서류검사·물품검사)
+  const INSP_ORDER = ["미검사", "서류검사", "물품검사"];
+  const inspNodes = new Map();
+  INSP_ORDER.forEach(insp => {
+    const n = recs.filter(r => r.decl.properties.inspection_type === insp).length;
+    if(!n) return;
+    const node = add({
+      id: `Inspection:${insp}`, label: "Inspection",
+      properties: { name: `${insp}`, 건수: `${n}건`, 비중: `${Math.round(n / total * 100)}%` },
+    }, 2);
+    inspNodes.set(insp, node);
+  });
+  groups.forEach((n, key) => {
+    const [ch, insp] = key.split("|");
+    if(chNodes.get(ch) && inspNodes.get(insp)) mk(chNodes.get(ch), inspNodes.get(insp), "INSPECTED_AS", `${n}건`);
+  });
+
+  // 레인3: 물품검사 신고만 개별 표시 → 레인4: 기여 위험요인
+  recs.filter(r => r.decl.properties.inspection_type === "물품검사").forEach(r => {
+    const p = r.decl.properties || {};
+    const declN = add(r.decl, 3);
+    mk(inspNodes.get("물품검사"), declN, "SEIZED", "적발", {
+      신고번호: p.declaration_no || "", 신고품명: p.item_name || "",
+      신고금액: fmtKrwShort(p.value), 신고일: p.trade_date || "",
+    });
+    r.riskFactors.forEach(f => mk(declN, add(f, 4), "CONTRIBUTES_TO", "위험기여", { 신고번호: p.declaration_no || "" }));
+  });
+
+  return done(["대상기업", "반입채널", "통관검사", "적발신고", "위험요인"]);
+}
+
+/* 7) 공범·자금 관계망 — 밀수 수사 축. 특수관계인(RelatedParty)을 국내 공범(대표·차명)과
+   해외 공급책으로 나누고, 자금 은닉·공범 위험요인(RiskFactor)을 중간 단계로 삼아
+   [기업] → [국내 공범] → [자금 은닉·세탁] → [해외 공급책] 흐름으로 재구성한다. */
+function viewAccompliceGraph(graph){
+  const parties = (graph.nodes || []).filter(n => n.label === "RelatedParty");
+  if(!parties.length) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const center = byId.get(graph.center);
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(center, 0);
+  // 국내 공범(대표·차명 등, 비-역외) vs 해외 공급책(역외 또는 공급사)
+  const isOverseas = p => {
+    const pr = p.properties || {};
+    return pr.is_offshore === true || pr.is_offshore === "true"
+      || (pr.country && !["KOR", "KR", "대한민국", "한국"].includes(String(pr.country)));
+  };
+  const domestic = parties.filter(p => !isOverseas(p));
+  const overseas = parties.filter(p => isOverseas(p));
+  // 자금·공범 위험요인 (코드/이름에 공범·차명·자금·수익·은닉 포함)
+  const fundFactors = (graph.nodes || []).filter(n => n.label === "RiskFactor"
+    && /공범|차명|자금|수익|은닉|세탁|관계망/.test(String(n.properties?.name || n.name || "")));
+
+  const domNodes = domestic.map(p => add(p, 1));
+  const factorNodes = fundFactors.map(f => add(f, 2));
+  const ovNodes = overseas.map(p => add(p, 3));
+
+  domNodes.forEach(d => mk(centerN, d, "RELATED_PARTY", "공범", {
+    관계: (byId.get(d.id)?.properties || {}).relation_type || "",
+  }));
+  // 국내 공범 → 자금 은닉·세탁 위험요인 (수사 서사: 공범이 자금흐름 실행)
+  domNodes.forEach(d => factorNodes.forEach(f => mk(d, f, "FUND_FLOW", "자금 실행")));
+  // 자금 은닉 → 해외 공급책 (범죄수익 해외 유출)
+  factorNodes.forEach(f => ovNodes.forEach(o => mk(f, o, "REMIT_OUT", "해외송금")));
+  // 위험요인이 없으면 기업 → 해외 공급책 직접 연결(폴백)
+  if(!factorNodes.length) ovNodes.forEach(o => mk(centerN, o, "SUPPLIED_BY", "공급책"));
+
+  return done(["대상기업", "국내 공범", "자금 은닉·세탁", "해외 공급책"]);
+}
+
+/* ── 특별수사(마약·외환) 우범자·조직 전용 뷰 (person/org + domain=drug|forex 에서만 노출) ──
+   ego 관계망을 (A) 조직 위계·역할, (B) 자금·공급 관계로 재구성한다.
+   기업(company) 프로파일의 5-뷰와 완전히 별개 계층이며, 마약/외환 도메인 그래프에만 적용된다.
+   뷰 id(pdego/pdroles/pdflow)는 공유하되 레인·버킷·라벨은 도메인별로 달라진다. */
+function specialDrugForexViews(domain){
+  const isFx = domain === "forex";
+  return [
+    { id: "pdego",   label: "관계망(기본)",   icon: "🕸️",
+      desc: "수사대상 중심 1-hop 관계망 원본(사건·거주지 포함)" },
+    { id: "pdroles", label: "조직 위계·역할", icon: "🏛️",
+      desc: isFx ? "연계조직 → 총책 → 자금책 → 환치기·송금책 → 차명계좌주 (역할 기준 위계 재배치)"
+                 : "연계조직 → 총책 → 자금·중간 → 운반·모집 → 수하 (역할 기준 위계 재배치)" },
+    { id: "pdflow",  label: isFx ? "자금·송금 관계" : "공급·자금 관계", icon: "💸",
+      desc: isFx ? "환치기망·외환자금세탁·재산도피 등 관계유형별로 분리"
+                 : "마약공급망·밀수조직·자금세탁망 등 관계유형별로 분리" },
+  ];
+}
+const PERSON_DRUG_VIEW_IDS = ["pdego", "pdroles", "pdflow"];
+function isPersonDrugGraph(raw, state){
+  const center = String((raw && raw.center) || "");
+  const centered = center.startsWith("Person:") || center.startsWith("Organization:");
+  const dom = state && state.domain;
+  return centered && (dom === "drug" || dom === "forex");
+}
+function personDrugViewMode(state){
+  const id = state && state.viewMode;
+  return PERSON_DRUG_VIEW_IDS.includes(id) ? id : "pdego";
+}
+
+// 프로파일 역할(profile_type) → 위계 레인(1=총책, 2=자금책, 3=실행책, 4=말단). 조직은 레인0. 도메인별 매핑.
+function specialRoleLane(profileType, domain){
+  const t = String(profileType || "");
+  if(/총책|지휘|두목/.test(t)) return 1;
+  if(domain === "forex"){
+    if(/자금/.test(t)) return 2;                   // 자금책
+    if(/환치기|송금|환전|하왈라/.test(t)) return 3; // 환치기·송금책
+    if(/차명|명의|계좌/.test(t)) return 4;          // 차명계좌주
+    return 3;
+  }
+  // drug
+  if(/자금|세탁|중간|관리/.test(t)) return 2;
+  if(/운반|모집|공급|판매/.test(t)) return 3;
+  if(/수하|수취|수령|배달|하선/.test(t)) return 4;
+  return 3;   // 미분류 실행책
+}
+const SPECIAL_LANE_NAMES = {
+  drug:  ["연계 조직", "총책·지휘", "자금·중간책", "운반·모집책", "수하·수취책"],
+  forex: ["연계 조직", "총책·지휘", "자금책", "환치기·송금책", "차명계좌주"],
+};
+
+/* (A) 조직 위계·역할 — Person 노드를 프로파일 역할 위계로 열 배치, 연계 조직을 좌측(레인0) 허브로.
+   사건(Case)·거주지(Region) 등 위계와 무관한 노드는 제외해 조직 흐름만 남긴다. */
+function viewPersonDrugRoles(graph, domain){
+  const persons = (graph.nodes || []).filter(n => n.label === "Person");
+  const orgs    = (graph.nodes || []).filter(n => n.label === "Organization" || n.label === "Org");
+  if(persons.length <= 1) return graph;
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const kept = new Set();
+  const { add, mk, done } = viewBuilder(graph);
+  orgs.forEach(o => { add(o, 0); kept.add(o.id); });
+  persons.forEach(p => { add(p, specialRoleLane(p.properties && p.properties.profile_type, domain)); kept.add(p.id); });
+  (graph.edges || []).forEach(e => {
+    if(!kept.has(e.source) || !kept.has(e.target)) return;
+    const rel = (e.properties && e.properties.relation_type) || relLabelKo(e.type, e.properties);
+    const conf = e.properties && e.properties.confidence_score;
+    mk(byId.get(e.source), byId.get(e.target), e.type, rel,
+       conf != null ? { 신뢰도: `${Math.round(Number(conf) * 100)}%` } : {});
+  });
+  return done(SPECIAL_LANE_NAMES[domain] || SPECIAL_LANE_NAMES.drug);
+}
+
+/* (B) 자금·공급 관계 — 관계유형을 허브 노드로 삼아 [수사대상] → [관계유형] → [연계 인물/조직] 3단 분리. */
+const SPECIAL_REL_ORDER = {
+  drug:  ["마약공급망", "밀수조직", "자금세탁망", "공범", "거래", "기타"],
+  forex: ["환치기망", "외환자금세탁", "재산도피·역외", "공범", "거래", "기타"],
+};
+function specialRelBucket(rel, domain){
+  const r = String(rel || "");
+  if(domain === "forex"){
+    if(/환치기|하왈라/.test(r)) return "환치기망";
+    if(/자금|세탁|송금|환전/.test(r)) return "외환자금세탁";
+    if(/도피|역외|페이퍼|조세/.test(r)) return "재산도피·역외";
+    if(/공범/.test(r)) return "공범";
+    if(/거래|매매|판매/.test(r)) return "거래";
+    return "기타";
+  }
+  if(/공급/.test(r)) return "마약공급망";
+  if(/밀수|조직/.test(r)) return "밀수조직";
+  if(/자금|세탁|송금|환전/.test(r)) return "자금세탁망";
+  if(/공범/.test(r)) return "공범";
+  if(/거래|매매|판매/.test(r)) return "거래";
+  return "기타";
+}
+function viewPersonDrugFlow(graph, domain){
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const center = byId.get(graph.center);
+  if(!center) return graph;
+  const { add, mk, done } = viewBuilder(graph);
+  const centerN = add(center, 0);
+  const hubNodes = new Map();   // bucket → hub node
+  const bucketCount = new Map();
+  const ensureHub = bucket => {
+    if(hubNodes.has(bucket)) return hubNodes.get(bucket);
+    const node = add({ id: `SpecialRel:${bucket}`, label: "RiskFactor",
+      properties: { name: bucket } }, 1);
+    hubNodes.set(bucket, node);
+    return node;
+  };
+  (graph.edges || []).forEach(e => {
+    if(e.type !== "NETWORK_EDGE") return;
+    const other = e.source === center.id ? byId.get(e.target)
+                : e.target === center.id ? byId.get(e.source) : null;
+    if(!other) return;
+    const bucket = specialRelBucket(e.properties && e.properties.relation_type, domain);
+    const hub = ensureHub(bucket);
+    bucketCount.set(bucket, (bucketCount.get(bucket) || 0) + 1);
+    const otherN = add(other, 2);
+    const conf = e.properties && e.properties.confidence_score;
+    mk(otherN, hub, e.type, (other.properties && other.properties.profile_type) || "",
+       conf != null ? { 신뢰도: `${Math.round(Number(conf) * 100)}%` } : {});
+  });
+  if(!hubNodes.size) return graph;
+  // 중심 → 관계유형 허브 (건수 라벨)
+  (SPECIAL_REL_ORDER[domain] || SPECIAL_REL_ORDER.drug).forEach(bucket => {
+    if(!hubNodes.has(bucket)) return;
+    mk(centerN, hubNodes.get(bucket), "SPECIAL_REL", `${bucketCount.get(bucket) || 0}건`,
+       { 관계유형: bucket, 연계수: `${bucketCount.get(bucket) || 0}명` });
+  });
+  return done(["수사대상", "관계유형", "연계 인물·조직"]);
+}
+
+function projectPersonDrugView(graph, modeId, domain){
+  const id = personDrugViewMode({ viewMode: modeId });
+  if(id === "pdroles") return viewPersonDrugRoles(graph, domain);
+  if(id === "pdflow")  return viewPersonDrugFlow(graph, domain);
+  return graph;   // pdego: 원본 ego 그래프
 }
 
 /* canonical 그래프 → 현재 뷰 파생 그래프. 수입신고 노드가 없는 그래프(자유 관계분석의
@@ -1131,6 +1399,10 @@ function projectForView(graph, modeId, state){
   if(id === "item") return viewItemGraph(graph);
   if(id === "riskcause") return viewRiskFactorGraph(graph, state || {});
   if(id === "route") return viewRouteGraph(graph);
+  if(id === "channel") return viewChannelGraph(graph);
+  if(id === "accomplice") return viewAccompliceGraph(graph);
+  // disguise(품명 위장 대조)는 hs_check(성분분석) 데이터로 비교 패널을 렌더 — 그래프 프로젝션 대신
+  // renderPanelContent의 차트 경로에서 처리한다. 여기서는 원본 그래프를 그대로 둔다.
   return graph;
 }
 
@@ -1241,14 +1513,25 @@ function viewLayout(state, graph){
 }
 
 /* 회사 프로파일: 4-뷰 토글 바 (현재 뷰 강조) + 우측 도구(정렬 툴바·전체화면) */
-function buildViewToggle(state, key){
+function buildViewToggle(state, key, graph){
   const k = escapeHtml(key);
   const keyType = baseType(key.split(":")[0]);
   const isProfileViews = keyType === "company" || keyType === "explore";
   const cur = viewModeOf(state).id;
-  const btns = isProfileViews ? VIEW_MODES.map(v =>
+  // 반입채널·검사회피 뷰는 통관검사 데이터가 있는 대상(밀수 수사 등)에서만 노출
+  const modes = graph ? availableViewModes(graph) : VIEW_MODES;
+  // 특별수사(우범자·조직 + domain=drug|forex): 조직 위계·자금/공급 관계 전용 뷰 토글
+  const isDrugPersonViews = (keyType === "person" || keyType === "org")
+    && (state.domain === "drug" || state.domain === "forex");
+  const drugCur = personDrugViewMode(state);
+  let btns = isProfileViews ? modes.map(v =>
     `<button type="button" class="net-view-btn${v.id === cur ? " on" : ""}" data-net-view="${k}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
   ).join("") : "";
+  if(isDrugPersonViews){
+    btns = specialDrugForexViews(state.domain).map(v =>
+      `<button type="button" class="net-view-btn${v.id === drugCur ? " on" : ""}" data-net-view="${k}::${v.id}" title="${escapeHtml(v.desc)}">${v.icon} ${escapeHtml(v.label)}</button>`
+    ).join("");
+  }
   const nHidden = state.hiddenIds ? state.hiddenIds.size : 0;
   const hiddenChip = nHidden
     ? `<button type="button" class="net-hidden-chip" data-net-show-all="${k}" title="숨긴 노드를 모두 다시 표시">🙈 숨김 ${nHidden} · 모두 표시</button>`
@@ -1598,6 +1881,78 @@ function hsCheckHtml(d){
       </div>
       ${hsConfusionHtml(d)}
       ${mmList ? `<div class="hsc-list"><div class="hsc-list-head">AI 분류 불일치 내역</div>${mmList}</div>` : ""}
+    </div>`;
+}
+
+/* ── 품명 위장 대조(밀수 disguise 뷰) — hs_check(성분분석) 데이터 재사용 ──
+   신고품명(위장) → 통관검사 적발 → 실제 위해성분 → 정상 분류·위반법령 을 대조 카드로 표시. */
+function buildDisguiseArea(key, companyId){
+  const entry = ensureInvData(key, "hs_check", companyId);
+  if(entry.loading) return `<div class="profile-net-empty"><span class="home-running-dot"></span> 품명 위장 대조(성분분석) 로딩 중...</div>`;
+  if(!entry.data) return `<div class="profile-net-empty">품명 위장 대조 데이터를 불러오지 못했습니다.<br><span class="muted">${escapeHtml(entry.error)}</span></div>`;
+  return disguiseHtml(entry.data);
+}
+
+/* note 예: "물품검사 성분분석 — 시부트라민 … 검출. 신고품명 '건강기능식품(활력)'과 실물 불일치(식품위생법 …)" */
+function parseDisguiseNote(note){
+  const s = String(note || "");
+  const subM = s.match(/[—-]\s*(.+?)\s*검출/);
+  const itemM = s.match(/신고품명\s*'([^']+)'/);
+  const lawM = s.match(/불일치\s*\(([^)]+)\)/);
+  return {
+    substance: subM ? subM[1].trim() : "",
+    item: itemM ? itemM[1].trim() : "",
+    law: lawM ? lawM[1].trim() : "",
+  };
+}
+
+function disguiseHtml(d){
+  const bars = d.bars || [];
+  const mismatches = d.mismatches || [];
+  const total = d.total || 0;
+  const disguiseCount = mismatches.length;
+  const caption = `신고품명 ${bars.length}종 · 신고 ${total}건 중 성분분석 위장 확정 `
+    + `<b class="rfc-neg">${disguiseCount}건</b> — 신고품명과 실물(위해성분) 불일치`;
+  // 품명별 위장(불일치) 요약 막대
+  const barRows = bars.map(b => {
+    const mm = b.mismatch || 0;
+    const pct = b.n ? Math.round((mm / b.n) * 100) : 0;
+    return `
+      <div class="dsg-bar-row">
+        <span class="dsg-item">${escapeHtml(b.item_name)} <small class="muted">HS ${escapeHtml(b.hs)}</small></span>
+        <div class="dsg-track"><i class="${mm ? "bad" : "ok"}" style="width:${Math.max(4, pct)}%"></i></div>
+        <strong class="${mm ? "rfc-neg" : "rfc-pos"}">${mm ? `위장 ${mm}/${b.n}건` : `${b.n}건`}</strong>
+      </div>`;
+  }).join("");
+  // 위장 적발 대조 카드: 신고품명 → 실제 성분 → 정상HS/위반법령
+  const cards = mismatches.map(m => {
+    const p = parseDisguiseNote(m.note);
+    return `
+      <div class="dsg-card">
+        <div class="dsg-col dsg-declared">
+          <span class="dsg-tag">신고품명(위장)</span>
+          <b>${escapeHtml(p.item || "-")}</b>
+          <small class="muted">HS ${escapeHtml(m.declared_hs || "")}</small>
+        </div>
+        <span class="dsg-arrow">→ 통관검사 적발 →</span>
+        <div class="dsg-col dsg-actual">
+          <span class="dsg-tag bad">실제 위해성분</span>
+          <b class="rfc-neg">${escapeHtml(p.substance || "-")}</b>
+          <small class="muted">정상분류 HS ${escapeHtml(m.ai_hs || "")}${m.date ? ` · ${escapeHtml(String(m.date).slice(0,10))}` : ""}</small>
+        </div>
+        <div class="dsg-col dsg-law">
+          <span class="dsg-tag">위반법령</span>
+          <b>${escapeHtml(p.law || "-")}</b>
+          <small class="muted">신고번호 ${escapeHtml(m.ref || "")}</small>
+        </div>
+      </div>`;
+  }).join("");
+  return `
+    <div class="net-rf-chart" data-net-chart="disguise">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span></div>
+      <div class="dsg-bars">${barRows}</div>
+      ${cards ? `<div class="dsg-cards"><div class="hsc-list-head">품명 위장 적발 대조 (신고품명 → 실제 위해성분 → 위반법령)</div>${cards}</div>`
+              : `<div class="profile-net-empty">성분분석으로 확정된 위장 적발 건이 없습니다.</div>`}
     </div>`;
 }
 
@@ -2521,6 +2876,14 @@ function chartDataTableHtml(chartKind, companyId, raw){
           </table>
         </div>`;
     }
+  } else if(chartKind === "disguise"){
+    // 품명 위장 대조: 성분분석 적발 내역(신고품명 → 실제 위해성분 → 정상HS·위반법령)
+    const d = _invDataCache.get(`hs_check:${companyId}`)?.data;
+    cols = ["신고번호", "신고품명(위장)", "신고 HS", "실제 위해성분", "정상분류 HS", "위반법령"];
+    rows = (d?.mismatches || []).map(m => {
+      const p = parseDisguiseNote(m.note);
+      return [m.ref || "", p.item || "", m.declared_hs || "", p.substance || "", m.ai_hs || "", p.law || ""];
+    });
   } else {
     const api = { undervaluation: "price_trend",
       fta_origin_misuse: "fta_check", customs_refund: "refund_check" }[chartKind];
@@ -3144,14 +3507,18 @@ function renderPanelContent(targetType, targetId){
     fta_origin_misuse: () => buildFtaCheckArea(key, targetId),
     customs_refund: () => buildRefundCheckArea(key, targetId),
   };
-  const chartHtml = chartBuilders[rfSel.code] ? chartBuilders[rfSel.code]() : "";
-  const chartKind = chartHtml ? rfSel.code : "";
+  // 품명 위장 대조(disguise)는 최상위 뷰이면서 성분분석 비교 패널로 렌더(그래프 대신).
+  const isDisguiseView = baseType(targetType) === "company" && viewModeOf(state).id === "disguise";
+  const chartHtml = isDisguiseView
+    ? buildDisguiseArea(key, targetId)
+    : (chartBuilders[rfSel.code] ? chartBuilders[rfSel.code]() : "");
+  const chartKind = isDisguiseView ? "disguise" : (chartHtml ? rfSel.code : "");
   const graphArea = chartHtml
     || (projected.nodes.length
       ? `<div class="profile-net-cy" data-net-cy="${escapeHtml(key)}"></div>`
       : `<div class="profile-net-empty">표시할 관계망 데이터가 없습니다.<br><span class="muted">다른 뷰를 선택하거나 필터를 확인하세요.</span></div>`);
   const main = `
-    ${buildViewToggle(state, key)}
+    ${buildViewToggle(state, key, isProjectable ? raw : null)}
     ${isProjectable ? buildRiskFactorBar(raw, state, key) : ""}
     ${buildFilterBar(chipSource, state, key)}
     ${chartKind ? "" : buildLaneHeader(projected)}

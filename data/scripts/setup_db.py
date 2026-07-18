@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS import_declarations (
     transport_type        VARCHAR,
     vessel_name           VARCHAR,  vessel_nationality    VARCHAR,  carrier_code          VARCHAR,
     arrival_date          DATE,     warehousing_date      DATE,     inspection_location   VARCHAR,
+    -- 통관검사 구분(미검사/서류검사/물품검사) — 밀수 수사 '반입채널·검사회피' 분석 축
+    inspection_type       VARCHAR,
     total_weight          DOUBLE,   total_weight_unit     VARCHAR,  total_packages        INTEGER,
     package_type          VARCHAR,
     -- 영역3: 거래 및 결제 / 총 과세 정보
@@ -185,12 +187,20 @@ CREATE TABLE IF NOT EXISTS import_risk_scores (
     company_id                            VARCHAR,
     risk_level                            VARCHAR,
     risk_score                            DOUBLE,
+    -- 심사(관세조사) 세트 6종 — entity_role=audit / 혐의 c1·c3
     undervaluation_suspicion_rate         DOUBLE,
     related_party_anomaly_rate            DOUBLE,
     fta_origin_misuse_suspicion_rate      DOUBLE,
     customs_refund_anomaly_rate           DOUBLE,
     hs_classification_error_rate          DOUBLE,
     offshore_fund_concealment_suspicion_rate DOUBLE,
+    -- 밀수 세트 6종 — 혐의 c2(밀수출입)·c4(금지·제한 위반)
+    disguise_declaration_rate             DOUBLE,
+    inspection_evasion_rate               DOUBLE,
+    contraband_detection_rate             DOUBLE,
+    route_supplier_risk_rate              DOUBLE,
+    accomplice_network_rate               DOUBLE,
+    proceeds_concealment_rate             DOUBLE,
     generated_at                          TIMESTAMP
 )
 """

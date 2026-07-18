@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C-951 (주)로우텍무역 · 관세포탈 단계별 분석 결과</title>
+<style>
+/* dataviz 검증 팔레트(고정 슬롯 순서) — 저가신고=blue, 실거래=red, 벤치마크=gray */
+:root{
+  --surface:#fcfcfb; --surface-2:#f4f6f9; --line:#e3e8ef;
+  --ink:#0b1220; --ink-2:#52596b; --muted:#8a91a3;
+  --brand:#123c85; --accent:#2f6fed;
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s4:#008300; --s5:#4a3aa7; --s6:#e34948;
+  --bad:#c0392b; --bad-bg:#fdecec; --warn:#b45309; --warn-bg:#fff7ed; --ok:#1f9254; --ok-bg:#e7f5ec;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Malgun Gothic',-apple-system,sans-serif;background:var(--surface-2);color:var(--ink);font-size:14px;line-height:1.5}
+header.app{background:#fff;border-bottom:1px solid var(--line);padding:13px 22px;display:flex;align-items:center;gap:13px;position:sticky;top:0;z-index:40}
+header.app .logo{width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px}
+header.app h1{font-size:16px;letter-spacing:-.01em}
+header.app .sub{font-size:12px;color:var(--muted);margin-top:1px}
+header.app .crime{margin-left:8px;font-size:11px;font-weight:800;color:#fff;background:var(--bad);border-radius:6px;padding:4px 10px}
+header.app .env{margin-left:auto;font-size:11px;font-weight:800;color:var(--warn);background:var(--warn-bg);border:1px dashed #fdba74;border-radius:7px;padding:4px 10px}
+
+.wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;padding:14px 22px;align-items:start}
+/* 좌측 단계 네비 */
+.nav{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;position:sticky;top:70px;max-height:calc(100vh-90px);overflow-y:auto}
+.nav h2{font-size:11.5px;font-weight:800;color:var(--muted);margin:4px 6px 8px}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:9px;padding:8px 9px;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;font-family:inherit;margin-bottom:2px}
+.nav-item:hover{background:var(--surface-2)}
+.nav-item.active{background:#e8f0ff;border-color:#bcd3f7;color:var(--brand);font-weight:800}
+.nav-item .n{width:22px;height:22px;border-radius:50%;background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.nav-item.active .n{background:var(--accent);color:#fff}
+.nav-item.done .n{background:var(--ok-bg);color:var(--ok)}
+.nav-item .lab{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card h3{font-size:14.5px;font-weight:800;color:var(--brand);display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.card h3 .n{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.card .svc-scope{font-size:11.5px;color:var(--muted);margin:0 0 12px 30px}
+.card .svc-scope b{color:var(--ink-2);background:#eef2f8;border-radius:5px;padding:2px 7px;font-weight:700;margin-right:4px}
+
+/* 상단 케이스 요약 */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.hero .score{text-align:center;border-right:1px solid var(--line);padding-right:18px}
+.hero .score .ring{width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--bad) calc(87*1%),#eef2f8 0);display:flex;align-items:center;justify-content:center;margin:0 auto}
+.hero .score .ring b{width:74px;height:74px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:var(--bad)}
+.hero .score .ring b span{font-size:10.5px;font-weight:700;color:var(--muted)}
+.hero .score .lvl{margin-top:7px;font-size:12px;font-weight:800;color:var(--bad);background:var(--bad-bg);border-radius:6px;padding:3px 12px;display:inline-block}
+.hero .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 16px}
+.hero .kv div{font-size:11.5px;color:var(--muted)}
+.hero .kv div b{display:block;font-size:14px;color:var(--ink);font-weight:800;margin-top:1px}
+
+/* 지표 바 */
+.ind-bar{display:flex;align-items:center;gap:10px;margin:7px 0}
+.ind-bar .name{flex:0 0 130px;font-size:12.5px;font-weight:700}
+.ind-bar .track{flex:1;height:14px;background:#eef2f8;border-radius:7px;overflow:hidden}
+.ind-bar .fill{height:100%;border-radius:7px}
+.ind-bar .val{flex:0 0 44px;text-align:right;font-size:12.5px;font-weight:800}
+
+/* 결과 요약 박스 */
+.finding{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfcfe}
+.finding + .finding{margin-top:9px}
+.finding .ft{font-size:12.5px;font-weight:800;color:var(--ink);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.finding .ft .tag{font-size:10px;font-weight:800;border-radius:5px;padding:2px 7px}
+.tag.hit{background:var(--bad-bg);color:var(--bad)} .tag.chk{background:var(--warn-bg);color:var(--warn)} .tag.ok{background:var(--ok-bg);color:var(--ok)}
+.finding ul{margin:0;padding-left:17px}
+.finding li{font-size:12.5px;color:var(--ink-2);line-height:1.65}
+.finding li b{color:var(--bad)}
+
+/* 표 */
+table.tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+table.tbl th{background:#f7faff;color:var(--ink-2);font-weight:800;text-align:right;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tbl th:first-child,table.tbl td:first-child{text-align:left}
+table.tbl td{padding:6px 9px;border-bottom:1px dashed #eef1f6;text-align:right;white-space:nowrap}
+table.tbl tr.hl td{background:#fdf3f3}
+table.tbl .neg{color:var(--bad);font-weight:800}
+
+/* 차트 공통 */
+.chart-wrap{margin-top:6px}
+.chart-title{font-size:12.5px;font-weight:800;color:var(--ink);margin-bottom:2px}
+.chart-note{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 2px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);font-weight:600}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend i.dot{width:9px;height:9px;border-radius:50%}
+svg .grid{stroke:#eef1f6;stroke-width:1}
+svg .axis{stroke:#cbd3df;stroke-width:1}
+svg text{font-family:inherit}
+svg .tick{fill:var(--muted);font-size:10px}
+svg .dlabel{fill:var(--ink);font-size:10.5px;font-weight:700}
+.tip{position:fixed;pointer-events:none;background:#0b1220;color:#fff;border-radius:8px;padding:7px 10px;font-size:11.5px;line-height:1.5;z-index:60;opacity:0;transition:opacity .1s;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:240px}
+.hoverpt{cursor:pointer}
+
+.verdict{border:1.5px solid #f3c9c9;background:#fff7f7;border-radius:12px;padding:15px 17px}
+.verdict h4{font-size:14px;color:var(--bad);margin-bottom:8px}
+.verdict p{font-size:13px;line-height:1.75}
+.verdict .acts{margin-top:11px;display:flex;flex-wrap:wrap;gap:7px}
+.verdict .acts i{font-style:normal;font-size:11.5px;font-weight:800;color:#7c2d12;background:#ffedd5;border-radius:6px;padding:5px 11px}
+@media(max-width:960px){.wrap{grid-template-columns:1fr}.nav{position:static;max-height:none}.hero{grid-template-columns:1fr}.hero .score{border-right:0;border-bottom:1px solid var(--line);padding:0 0 14px}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">KCS</div>
+  <div>
+    <h1>(주)로우텍무역 <span style="color:var(--muted);font-weight:600;font-size:13px">C-951</span> · 단계별 분석 결과<span class="crime">관세포탈 · 저가신고 가격조작</span></h1>
+    <div class="sub">관세수사 분석 워크스페이스 · 사전 분석 완료 결과 뷰 (관세법 §270①, §270의2)</div>
+  </div>
+  <span class="env">STANDALONE 데모 · 가상 시뮬레이션 데이터</span>
+</header>
+
+<div class="wrap">
+  <nav class="nav">
+    <h2>분석 단계 (11)</h2>
+    <div id="navList"></div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+/* ═══════════ 실데이터 (customs.duckdb C-951 추출값) ═══════════ */
+const PROFILE = {
+  name:"(주)로우텍무역", id:"C-951", risk:87, level:"높음",
+  kv:[["사업자번호","214-87-95101"],["업종코드","G46"],["설립연도","2015"],["직원수","38명"],
+      ["연매출","214.0억원"],["연간수입","187.0억원"],["신고 관세액","9.4억원"],["관세사","한빛관세사무소"]],
+};
+const IND = [ // 지표 6종 (import_risk_scores)
+  {name:"저가신고 의심률", v:78.7, color:"var(--s6)"},
+  {name:"역외자금 은닉", v:55.0, color:"var(--s1)"},
+  {name:"특수관계 이상", v:46.0, color:"var(--s5)"},
+  {name:"FTA 원산지 오용", v:24.0, color:"var(--s3)"},
+  {name:"관세환급 이상", v:18.0, color:"var(--s2)"},
+  {name:"HS 분류 오류", v:12.5, color:"var(--s4)"},
+];
+// 24개월 무선통신 모듈(HS 8517.62) 신고단가 추이 (USD)
+const MONTHLY = [
+  ["24-08",4.53],["24-09",4.49],["24-10",4.39],["24-11",4.27],["24-12",4.31],["25-01",4.23],
+  ["25-02",4.10],["25-03",4.06],["25-04",4.06],["25-05",3.95],["25-06",3.81],["25-07",3.89],
+  ["25-08",3.80],["25-09",3.68],["25-10",3.55],["25-11",3.62],["25-12",3.49],["26-01",3.37],
+  ["26-02",3.37],["26-03",3.34],["26-04",3.23],["26-05",3.09],["26-06",3.17],["26-07",3.05],
+];
+const BENCH = 6.70;   // 동종물품 벤치마크 단가(USD)
+// 이중 인보이스 대사 (신고 vs 실거래, USD/개)
+const DUAL = [
+  {no:"DV2-C-951-42", qty:12000, decl:4.20, real:6.80},
+  {no:"DV2-C-951-44", qty:18000, decl:3.95, real:6.90},
+  {no:"DV2-C-951-45", qty:15000, decl:3.88, real:6.75},
+];
+// 홍콩 차액 정산 송금 (USD)
+const HK = [
+  {date:"2026-04-18", from:"(주)로우텍무역", amt:31200, memo:"기술수수료 · DV2-42 차액 일치"},
+  {date:"2026-05-07", from:"(주)로우텍무역", amt:53100, memo:"기술수수료 · DV2-44 차액 일치"},
+  {date:"2026-06-19", from:"김포탈(개인)",   amt:43050, memo:"컨설팅비 · 대표 개인 우회송금"},
+  {date:"2026-06-30", from:"(주)로우텍세컨드", amt:28400, memo:"수수료 · 가족법인 경유 분산"},
+];
+const won = n => n.toLocaleString("ko-KR");
+
+/* ═══════════ 차트 (인라인 SVG) ═══════════ */
+// 단가 추이 라인차트 — 신고단가(파랑) vs 벤치마크(회색 기준선)
+function unitTrendChart(){
+  const W=720,H=280,ml=44,mr=90,mt=16,mb=28;
+  const iw=W-ml-mr, ih=H-mt-mb;
+  const ymin=2.5, ymax=7.0;
+  const x=i=>ml+iw*i/(MONTHLY.length-1);
+  const y=v=>mt+ih*(1-(v-ymin)/(ymax-ymin));
+  const gy=[3,4,5,6,7];
+  const grid=gy.map(v=>`<line class="grid" x1="${ml}" y1="${y(v)}" x2="${ml+iw}" y2="${y(v)}"/><text class="tick" x="${ml-6}" y="${y(v)+3}" text-anchor="end">${v.toFixed(1)}</text>`).join("");
+  const xt=MONTHLY.map((m,i)=> i%3===0?`<text class="tick" x="${x(i)}" y="${H-8}" text-anchor="middle">${m[0]}</text>`:"").join("");
+  const line=MONTHLY.map((m,i)=>`${i?"L":"M"}${x(i).toFixed(1)} ${y(m[1]).toFixed(1)}`).join(" ");
+  const area=`M${x(0)} ${y(ymin)} `+MONTHLY.map((m,i)=>`L${x(i).toFixed(1)} ${y(m[1]).toFixed(1)}`).join(" ")+` L${x(MONTHLY.length-1)} ${y(ymin)} Z`;
+  const pts=MONTHLY.map((m,i)=>`<circle class="hoverpt" cx="${x(i).toFixed(1)}" cy="${y(m[1]).toFixed(1)}" r="8" fill="transparent" data-t="${m[0]} · 신고단가 USD ${m[1].toFixed(2)}"/><circle cx="${x(i).toFixed(1)}" cy="${y(m[1]).toFixed(1)}" r="2.6" fill="var(--s1)"/>`).join("");
+  const bench=`<line x1="${ml}" y1="${y(BENCH)}" x2="${ml+iw}" y2="${y(BENCH)}" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"/>`;
+  return `
+  <div class="chart-wrap">
+    <div class="chart-title">HS 8517.62 무선통신 모듈 · 월별 신고단가 추이</div>
+    <div class="chart-note">24개월간 USD 4.53 → 3.05 지속 하락. 동종물품 벤치마크(USD 6.70) 대비 최종 −54%.</div>
+    <div class="legend">
+      <span><i style="background:var(--s1)"></i>C-951 신고단가</span>
+      <span><i style="background:var(--muted)"></i>동종물품 벤치마크 6.70</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 신고단가 추이">
+      ${grid}<line class="axis" x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ih}"/><line class="axis" x1="${ml}" y1="${mt+ih}" x2="${ml+iw}" y2="${mt+ih}"/>
+      <path d="${area}" fill="var(--s1)" opacity="0.08"/>
+      <path d="${line}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>
+      ${bench}
+      <text x="${ml+iw+6}" y="${y(BENCH)+3}" fill="var(--muted)" font-size="10.5" font-weight="700">벤치 6.70</text>
+      <text x="${x(MONTHLY.length-1)+6}" y="${y(MONTHLY[MONTHLY.length-1][1])+3}" class="dlabel" fill="var(--s1)">3.05</text>
+      ${pts}${xt}
+      <text class="tick" x="${ml-30}" y="${mt+8}" transform="rotate(-90 ${ml-30} ${mt+8})">USD/개</text>
+    </svg>
+  </div>`;
+}
+// 이중 인보이스 그룹 막대 — 신고단가 vs 실거래단가
+function dualInvoiceChart(){
+  const W=560,H=230,ml=40,mr=16,mt=14,mb=40, iw=W-ml-mr, ih=H-mt-mb;
+  const ymax=8, gap=iw/DUAL.length, bw=26;
+  const y=v=>mt+ih*(1-v/ymax);
+  const gy=[0,2,4,6,8];
+  const grid=gy.map(v=>`<line class="grid" x1="${ml}" y1="${y(v)}" x2="${ml+iw}" y2="${y(v)}"/><text class="tick" x="${ml-6}" y="${y(v)+3}" text-anchor="end">${v}</text>`).join("");
+  const bars=DUAL.map((d,i)=>{
+    const cx=ml+gap*i+gap/2;
+    const bd=`<rect class="hoverpt" x="${cx-bw-3}" y="${y(d.decl).toFixed(1)}" width="${bw}" height="${(mt+ih-y(d.decl)).toFixed(1)}" rx="4" fill="var(--s1)" data-t="${d.no} · 세관신고 USD ${d.decl.toFixed(2)}"/><text class="dlabel" x="${cx-bw/2-3}" y="${y(d.decl)-5}" text-anchor="middle" fill="var(--s1)">${d.decl.toFixed(2)}</text>`;
+    const br=`<rect class="hoverpt" x="${cx+3}" y="${y(d.real).toFixed(1)}" width="${bw}" height="${(mt+ih-y(d.real)).toFixed(1)}" rx="4" fill="var(--s6)" data-t="${d.no} · 실거래 USD ${d.real.toFixed(2)}"/><text class="dlabel" x="${cx+bw/2+3}" y="${y(d.real)-5}" text-anchor="middle" fill="var(--s6)">${d.real.toFixed(2)}</text>`;
+    const lab=`<text class="tick" x="${cx}" y="${H-22}" text-anchor="middle">${d.no.replace("DV2-C-951","…")}</text><text class="tick" x="${cx}" y="${H-9}" text-anchor="middle">${won(d.qty)}개</text>`;
+    return bd+br+lab;
+  }).join("");
+  return `
+  <div class="chart-wrap">
+    <div class="chart-title">이중 인보이스 대사 · 세관신고가 vs 실거래가</div>
+    <div class="chart-note">압수 이메일에서 확보한 실거래 인보이스 대비 신고단가 −38~−43%. 차액은 홍콩으로 별도 송금.</div>
+    <div class="legend"><span><i style="background:var(--s1)"></i>세관 신고가</span><span><i style="background:var(--s6)"></i>실거래가(압수)</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="이중 인보이스 대사">
+      ${grid}<line class="axis" x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ih}"/><line class="axis" x1="${ml}" y1="${mt+ih}" x2="${ml+iw}" y2="${mt+ih}"/>
+      ${bars}
+    </svg>
+  </div>`;
+}
+// 지표 바 목록
+function indicatorBars(){
+  return `<div style="margin-top:2px">`+IND.map(d=>`
+    <div class="ind-bar">
+      <span class="name">${d.name}</span>
+      <span class="track"><span class="fill" style="width:${d.v}%;background:${d.color}"></span></span>
+      <span class="val" style="color:${d.color}">${d.v}%</span>
+    </div>`).join("")+`</div>`;
+}
+
+/* ═══════════ 단계 정의 (사전 분석 결과) ═══════════ */
+const STEPS = [
+  { svc:"CDW 조회 · 기업 프로파일", scope:["기업/신고 요약","위험지표 중심"],
+    body:()=>`
+      <div class="card hero">
+        <div class="score">
+          <div class="ring"><b>${PROFILE.risk}<span>AI 위험점수</span></b></div>
+          <div class="lvl">위험등급 ${PROFILE.level}</div>
+        </div>
+        <div class="kv">${PROFILE.kv.map(([k,v])=>`<div>${k}<b>${v}</b></div>`).join("")}</div>
+      </div>
+      <div class="card">
+        <h3><span class="n">✓</span>AI 위험 지표 분석</h3>
+        <div class="svc-scope">근거 데이터로 산출된 지표 6종 — 저가신고·역외자금이 위험점수를 견인</div>
+        ${indicatorBars()}
+        <div class="finding" style="margin-top:12px">
+          <div class="ft"><span class="tag hit">핵심</span>수사 착안</div>
+          <ul><li>저가신고 의심률 <b>78.7%</b> + 역외자금 은닉 <b>55%</b> — 저가신고와 해외 차액정산이 결합된 전형적 관세포탈 구조</li>
+          <li>24개월 수입신고 <b>47건</b>(무선통신 모듈 44 + 대조군 3) 원장 확보</li></ul>
+        </div>
+      </div>`,
+  },
+  { svc:"관세정보 RAG", scope:["관세정보 근거 확인","유사사례 비교"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>관세정보 RAG</h3>
+      <div class="svc-scope"><b>관세정보 근거 확인</b><b>유사사례 비교</b> 지식베이스에서 적용 기준·유사사례 검색</div>
+      <div class="finding"><div class="ft"><span class="tag ok">근거</span>적용 기준 확인</div>
+        <ul><li>관세평가 1방법(거래가격) 및 가산요소(권리사용료) 판단 기준 확인 — 관세법 §30·§30의2</li>
+        <li>이중 인보이스 저가신고 판례 3건 검색 — 「기술사용료 별도 지급 = 가산요소」 확립 판례(2024노XXXX) 확보</li></ul></div></div>`,
+  },
+  { svc:"조사정보 RAG", scope:["조사계획 수립","증빙 체크"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>조사정보 RAG</h3>
+      <div class="svc-scope"><b>조사계획 수립</b><b>증빙 체크</b> 과거 조사·수사보고서에서 동일 수법·필요 증빙 도출</div>
+      <div class="finding"><div class="ft"><span class="tag ok">근거</span>수법 비교·증빙 체크리스트</div>
+        <ul><li>동일 수법(이중 인보이스 + 홍콩 차액정산) 조사사례 2건 확인</li>
+        <li>필수 증빙: ① 실거래 인보이스(이메일) ② 공급계약 사이드레터 ③ 해외 송금 원장 ④ 대표 개인계좌</li></ul></div></div>`,
+  },
+  { svc:"수입신고검증", scope:["신고 정합성","누락 증빙"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>수입신고검증</h3>
+      <div class="svc-scope"><b>신고 정합성</b><b>누락 증빙</b> 첨부문서 추출값과 수입신고DB 항목별 대조</div>
+      ${dualInvoiceChart()}
+      <table class="tbl"><thead><tr><th>신고번호</th><th>수량(개)</th><th>신고단가</th><th>실거래단가</th><th>단가 편차</th><th>총액 차액(USD)</th></tr></thead>
+        <tbody>${DUAL.map(d=>{const gap=((d.decl/d.real-1)*100).toFixed(0);const diff=Math.round((d.real-d.decl)*d.qty);return `<tr class="hl"><td>${d.no}</td><td>${won(d.qty)}</td><td>${d.decl.toFixed(2)}</td><td>${d.real.toFixed(2)}</td><td class="neg">${gap}%</td><td class="neg">${won(diff)}</td></tr>`;}).join("")}
+        <tr><td><b>합계</b></td><td>${won(DUAL.reduce((s,d)=>s+d.qty,0))}</td><td colspan="3" style="text-align:right"><b>총 차액</b></td><td class="neg"><b>${won(DUAL.reduce((s,d)=>s+Math.round((d.real-d.decl)*d.qty),0))}</b></td></tr></tbody></table>
+      <div class="finding" style="margin-top:11px"><div class="ft"><span class="tag hit">불일치</span>확정 3건</div>
+        <ul><li>세관 제출 인보이스 대비 실거래가 <b>−38~−43%</b> 과소 신고 확정</li>
+        <li>패킹리스트 중량 +12% 편차 1건(DV2-…-43) 추가 확인</li></ul></div></div>`,
+  },
+  { svc:"품목분류검증", scope:["분류 적정성","대체 HS 후보"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>품목분류검증</h3>
+      <div class="svc-scope"><b>분류 적정성</b><b>대체 HS 후보</b> 신고 HS 분류·전략물자 해당 여부 검증</div>
+      <div class="finding"><div class="ft"><span class="tag ok">판정</span>HS 분류 적정</div>
+        <ul><li>신고 HS 8517.62-1000(무선통신 모듈) 분류 적정 — 전략물자 비해당</li>
+        <li>부속품 세번 검토 1건(오류율 12.5%) — 본 건 포탈 혐의와 무관, 별도 안내</li></ul></div></div>`,
+  },
+  { svc:"과세가격평가", scope:["과세가격 근거","저가신고 탐지"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>과세가격평가 · 저가신고 핵심 분석</h3>
+      <div class="svc-scope"><b>과세가격 근거</b><b>저가신고 탐지</b> 거래가격 결정요소·동종물품 신고가 비교</div>
+      ${unitTrendChart()}
+      <div class="finding" style="margin-top:12px"><div class="ft"><span class="tag hit">저가신고</span>정량 분석</div>
+        <ul><li>HS 8517.62 신고단가 평균 <b>USD 3.79</b> — 동종 벤치마크 USD 6.70 대비 <b>−43.4%</b></li>
+        <li>24개월 <b>USD 4.53 → 3.05</b> 지속 하락(분기당 약 −5%) — 점진적 저가신고 심화</li>
+        <li>가산요소(권리사용료 3%) 미신고 — 계약서 제12조에서 확인</li></ul></div>
+      <div class="finding"><div class="ft"><span class="tag chk">추징</span>예상세액 산정</div>
+        <ul><li>실거래가 기준 재산정 시 <b>추징 예상세액 약 4.2억원</b>(관세 1.1억 + 부가세 3.1억)</li>
+        <li>과거 가격심사 추징 1건(2025-03, 1.28억) · 과세가격 정정 1건(2025-11, 0.97억) 이력</li></ul></div></div>`,
+  },
+  { svc:"이상거래 검증", scope:["가격 패턴","신고패턴"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>이상거래 검증 · 자금흐름</h3>
+      <div class="svc-scope"><b>가격 패턴</b><b>신고패턴</b> 가격 급변·분할신고·차액 자금흐름 탐지</div>
+      <table class="tbl"><thead><tr><th>송금일</th><th style="text-align:left">송금인</th><th>금액(USD)</th><th style="text-align:left">명목 · 근거</th></tr></thead>
+        <tbody>${HK.map(h=>`<tr><td style="text-align:left">${h.date}</td><td style="text-align:left">${h.from}</td><td class="neg">${won(h.amt)}</td><td style="text-align:left;white-space:normal">${h.memo}</td></tr>`).join("")}
+        <tr><td colspan="2" style="text-align:left"><b>홍콩 HK NOMINEE LTD 수취 합계</b></td><td class="neg"><b>${won(HK.reduce((s,h)=>s+h.amt,0))}</b></td><td style="text-align:left">이중 인보이스 차액과 정합</td></tr></tbody></table>
+      <div class="finding" style="margin-top:11px"><div class="ft"><span class="tag hit">차액정산</span>구조 확정</div>
+        <ul><li>이중 인보이스 차액(USD 127,350)과 홍콩 송금 3건이 <b>건별 일치</b>(31,200·53,100·43,050) — 이중 인보이스↔송금 연결 입증</li>
+        <li>여기에 가족법인 <b>(주)로우텍세컨드</b> 경유 28,400 추가 분산·대표 김포탈 <b>개인계좌</b> 우회송금 — 자금 은닉 정황</li>
+        <li>특수관계 이상률 46% — HK NOMINEE(거래 34%)·가족법인(12%) 물량 분산</li></ul></div></div>`,
+  },
+  { svc:"법령 검토", scope:["법령 근거","판례/유권해석"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>법령 검토</h3>
+      <div class="svc-scope"><b>법령 근거</b><b>판례/유권해석</b> 적용 법조·구성요건·판례 검토</div>
+      <div class="finding"><div class="ft"><span class="tag ok">적용 법조</span>구성요건 충족</div>
+        <ul><li><b>관세법 §270①</b>(관세포탈) — 부정한 방법(이중 인보이스)으로 관세 포탈, 포탈세액 4.2억원</li>
+        <li><b>관세법 §270의2</b>(가격조작) — 실거래가와 다른 가격 신고, 경합 적용 검토</li>
+        <li>특정범죄가중법 적용 기준(연간 포탈 5억) 근접 — 추가 신고분 합산 시 적용 가능성</li></ul></div></div>`,
+  },
+  { svc:"보고서 생성", scope:["전체 보고서"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>보고서 생성</h3>
+      <div class="svc-scope"><b>전체 보고서</b> 선행 단계 결과를 공식 수사보고서 초안으로 통합</div>
+      <div class="finding"><div class="ft"><span class="tag ok">초안</span>수사보고서 생성 완료</div>
+        <ul><li>혐의사실 · 증거목록(실거래 인보이스 3건, 계약서, 홍콩 송금 4건) · 추징세액 산정근거 포함</li>
+        <li>단계별 분석 결과 자동 인용 — 근거 12건 연결</li></ul></div></div>`,
+  },
+  { svc:"보고서 검증", scope:["근거 검증","리스크 리뷰"],
+    body:()=>`<div class="card"><h3><span class="n">✓</span>보고서 검증</h3>
+      <div class="svc-scope"><b>근거 검증</b><b>리스크 리뷰</b> 근거 충실성·과도한 추론·출처 검증</div>
+      <div class="finding"><div class="ft"><span class="tag ok">검증</span>근거 충실성 91점</div>
+        <ul><li>출처 12건 전건 유효 · 과도한 추론 0건</li>
+        <li>보완 1건: 환율 적용 시점 명시(신고일 기준) 권고 — 반영 완료</li></ul></div></div>`,
+  },
+  { svc:"종합 판정", scope:["다음 수사 단계"],
+    body:()=>`<div class="card verdict">
+      <h4>⚖ 종합 판정 — 관세포탈(저가신고 가격조작) 혐의 상당</h4>
+      <p>(주)로우텍무역(C-951)은 무선통신 모듈을 24개월간 동종물품 대비 <b>−43%</b> 저가로 신고하고,
+      세관 제출용과 실거래용 <b>이중 인보이스</b>를 사용하면서 차액(대사분 USD 127,350)을 <b>홍콩 HK NOMINEE LTD</b>로
+      건별 정산 송금한 정황이 데이터로 확인된다. 포탈 예상세액은 약 <b>4.2억원</b>이며, 대표 개인계좌·가족법인을
+      경유한 자금 은닉 정황이 있다.</p>
+      <div class="acts">
+        <i>압수수색 영장 신청(회계·이메일)</i><i>홍콩 계좌 국제공조 요청</i>
+        <i>추징보전 조치</i><i>특가법 적용 검토</i><i>대표 개인계좌 추적</i>
+      </div>
+    </div>`,
+  },
+];
+
+/* ═══════════ 렌더 ═══════════ */
+const $=s=>document.querySelector(s);
+let cur=0;
+function renderNav(){
+  $("#navList").innerHTML=STEPS.map((s,i)=>`
+    <button class="nav-item ${i===cur?"active":""} ${i<cur?"done":""}" data-step="${i}">
+      <span class="n">${i<cur?"✓":i+1}</span><span class="lab">${s.svc.split(" · ")[0]}</span>
+    </button>`).join("");
+}
+function renderStep(i){
+  cur=i; renderNav();
+  $("#main").innerHTML = STEPS[i].body();
+  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",+b.dataset.step===i));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+/* 툴팁 (차트 hover) */
+const tip=$("#tip");
+document.addEventListener("mousemove",e=>{
+  const t=e.target.closest("[data-t]");
+  if(t){ tip.textContent=t.dataset.t; tip.style.opacity="1";
+    tip.style.left=Math.min(e.clientX+12,innerWidth-tip.offsetWidth-8)+"px";
+    tip.style.top=(e.clientY+14)+"px"; }
+  else tip.style.opacity="0";
+});
+document.addEventListener("click",e=>{
+  const n=e.target.closest("[data-step]");
+  if(n) renderStep(+n.dataset.step);
+});
+renderStep(0);
+</script>
+</body>
+</html>

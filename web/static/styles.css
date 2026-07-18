@@ -1872,9 +1872,11 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .scenario-workbench-v2{height:100%;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:6px}
 .scenario-workbench-v2.result-full-active{height:auto;overflow:visible}
 /* 헤더 4열: 제목(1fr) | 전체 수행 | AI 서비스 | 분석 템플릿(우측 끝 — 열리면 좌측으로 확장) */
-.scenario-work-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;border:none;border-radius:0;background:transparent;padding:0;flex:none}
-.scenario-work-header .scenario-title-row{min-width:0;overflow:hidden}
-.scenario-runall-zone{justify-self:end}
+.scenario-work-header{display:flex;justify-content:space-between;align-items:center;gap:8px;border:none;border-radius:0;background:transparent;padding:0;flex:none}
+.scenario-work-header .scenario-title-row{min-width:0;overflow:hidden;flex:1}
+/* 헤더 액션 그룹 — 전체수행·AI서비스·분석템플릿 토글을 우측 정렬로 정리 */
+.scenario-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
+.scenario-runall-zone{flex:none}
 .scenario-title-row{display:flex;justify-content:space-between;gap:16px;align-items:center;min-width:0;flex:none}
 .scenario-title-row h3{margin:0;font-size:15px}
 .scenario-title-row p{display:none}
@@ -1889,15 +1891,19 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .scenario-workbench-v2 .scenario-board,.scenario-workbench-v2 .scenario-config{display:flex;flex-direction:column}
 .scenario-config-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .scenario-config-title h3{margin:0;font-size:18px;color:var(--text)}
-.scenario-service-zone{display:grid;grid-template-columns:auto minmax(190px,1fr) auto auto;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:5px 9px;min-width:410px}
-.scenario-service-zone strong{font-size:13px;color:#14532d;white-space:nowrap}
+/* AI 서비스 존 — 분석 템플릿과 동일한 토글 패턴(기본 접힘, 열면 컨트롤 확장) */
+.scenario-service-zone{display:flex;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:4px 7px;min-width:0}
+.scenario-service-zone.open{min-width:430px}
+.scenario-service-controls{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.scenario-service-controls .scenario-template-select{flex:1;min-width:180px}
 .scenario-runall-btn{white-space:nowrap;font-weight:800}
+/* 존 토글 버튼(AI 서비스·분석 템플릿 공용) — 컴팩트 필 스타일 */
+.scenario-zone-toggle{white-space:nowrap;font-size:12px;font-weight:700;padding:4px 10px;border-radius:14px;line-height:1.2}
 /* Template zone — colored background block */
-/* 분석 템플릿: 우측 끝 고정·기본 접힘 — 열면 컨트롤이 왼쪽으로 확장되며 앞 영역을 밀어냄 */
-.scenario-template-zone{display:flex;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:5px 9px;min-width:0;justify-self:end}
+/* 분석 템플릿: 기본 접힘 — 열면 컨트롤이 왼쪽으로 확장되며 앞 영역을 밀어냄 */
+.scenario-template-zone{display:flex;align-items:center;gap:8px;background:#e8eef7;border:1px solid #d8e5f7;border-radius:7px;padding:4px 7px;min-width:0}
 .scenario-template-zone.open{min-width:620px}
 .scenario-template-zone strong{font-size:14px;color:#0f172a;white-space:nowrap}
-.scenario-template-toggle{white-space:nowrap}
 .scenario-template-controls{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .scenario-template-controls .scenario-template-select{flex:1;min-width:200px}
 .scenario-template-zone-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
@@ -2560,6 +2566,23 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .hsc-list-head{font-size:11px;font-weight:800;color:#b91c1c;margin-bottom:6px}
 .hsc-mm-row{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:12px;color:#334155;padding:4px 0;border-top:1px dashed #fecaca}
 .hsc-mm-row:first-of-type{border-top:0}
+/* ── 품명 위장 대조(밀수 disguise 뷰) ── */
+.dsg-bars{display:flex;flex-direction:column;gap:7px;padding:6px 2px 10px}
+.dsg-bar-row{display:grid;grid-template-columns:minmax(160px,1.4fr) minmax(120px,2fr) minmax(80px,auto);gap:12px;align-items:center;font-size:12px}
+.dsg-item{font-weight:700;color:#334155}
+.dsg-track{height:14px;background:#eef2f7;border-radius:7px;overflow:hidden}
+.dsg-track>i{display:block;height:100%;border-radius:7px}
+.dsg-track>i.bad{background:#dc2626}
+.dsg-track>i.ok{background:#16a34a}
+.dsg-cards{margin-top:6px;border:1px solid #fecaca;border-radius:10px;background:#fff8f8;padding:8px 12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.dsg-card{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed #fecaca}
+.dsg-card:first-of-type{border-top:0}
+.dsg-col{display:flex;flex-direction:column;gap:2px;min-width:150px;flex:1}
+.dsg-col b{font-size:13px;color:#1e293b}
+.dsg-col small{font-size:11px}
+.dsg-tag{display:inline-block;font-size:10px;font-weight:800;color:#475569;background:#eef2f7;border-radius:6px;padding:1px 7px;width:fit-content}
+.dsg-tag.bad{color:#b91c1c;background:#fee2e2}
+.dsg-arrow{font-size:11px;font-weight:800;color:#94a3b8;white-space:nowrap}
 .net-hidden-chip{margin-left:auto;border:1px solid #fcd34d;background:#fffbeb;color:#b45309;font-size:11px;font-weight:700;border-radius:8px;padding:4px 10px;cursor:pointer;transition:.12s}
 .net-hidden-chip:hover{background:#fef3c7;border-color:#f59e0b}
 .profile-net-filter-chip.net-route-on{border-color:#7dd3fc;background:#f0f9ff;color:#0369a1}
