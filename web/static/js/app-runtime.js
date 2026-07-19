@@ -923,6 +923,14 @@ const AI_SERVICE_REGISTRY = {
       { value: "counterparty", label: "해외거래처 확인" },
     ],
   },
+  rag_item: {
+    label: "품목정보RAG", type: "rag_item", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources",
+    defaultInstruction: "HSK 품목별 신고 가이드(품명·규격·성분·수입요건·유의사항) 기반 물품 신고요령 검색",
+    behaviorOptions: [
+      { value: "item_guide", label: "품목 신고요령 확인" },
+      { value: "requirement_check", label: "수입요건·유의사항 확인" },
+    ],
+  },
   rag_consultation: {
     label: "상담내역 RAG", type: "rag_consultation", group: RAG_SEARCH_GROUP, permissionGroup: "dataSources", selectable: false, adminVisible: false,
     defaultInstruction: "상담내역과 민원 질의 응답에서 유사 사례와 처리 흐름 확인",
@@ -1271,6 +1279,10 @@ const AI_SERVICE_TARGET_CONFIG = {
   rag_global: targetConfig(
     "국제협력 정보 기반으로 해외 거래구조와 위험 신호 확인",
     "국제 여행·체류·공조 정보 기반으로 개인 위험 신호 확인"
+  ),
+  rag_item: targetConfig(
+    "HSK 품목별 신고 가이드에서 해당 물품의 품명·규격·성분·수입요건·유의사항을 확인",
+    "개인 반입 물품의 HSK 품목별 신고 가이드(품명·규격·수입요건)를 확인"
   ),
   rag_consultation: targetConfig(
     "상담내역과 민원 질의 응답에서 유사 사례와 처리 흐름 확인",

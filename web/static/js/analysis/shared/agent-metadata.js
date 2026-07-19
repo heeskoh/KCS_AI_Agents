@@ -96,6 +96,13 @@ export const AI_SERVICE_CATALOG = {
     ],
     { company:true, person:true },
     false),
+  rag_item: cfg("품목정보 RAG", "rag_item", RAG_GROUP,
+    "HSK 품목별 신고 가이드에서 해당 물품의 품명·규격·성분·수입요건·유의사항 확인",
+    "개인 반입 물품의 HSK 품목별 신고 가이드(품명·규격·수입요건) 확인",
+    [
+      { value:"item_guide", label:"품목 신고요령 확인" },
+      { value:"requirement_check", label:"수입요건·유의사항 확인" },
+    ]),
 
   customs_value: cfg("과세가격평가 AI 서비스", "customs_value", ANALYSIS_AI_GROUP,
     "과세가격 결정 요소와 저가신고 가능성 검토",

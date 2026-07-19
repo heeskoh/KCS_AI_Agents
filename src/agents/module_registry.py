@@ -89,6 +89,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("rag_audit", "심사정보 RAG", result_key="rag_result", node_prefix="rag_audit_agent", runner_factory=_rag_runner),
     AgentModule("rag_investigation", "조사정보 RAG", result_key="rag_result", node_prefix="rag_investigation_agent", runner_factory=_rag_runner),
     AgentModule("rag_global", "국제협력 RAG", result_key="rag_result", node_prefix="rag_global_agent", runner_factory=_rag_runner),
+    AgentModule("rag_item", "품목정보 RAG", result_key="rag_result", node_prefix="rag_item_agent", runner_factory=_rag_runner),
     AgentModule("audit_search", "조사보고서 검색", agent_audit_search, "audit_search_result", "audit_search_agent"),
     AgentModule("bigdata", "빅데이터 통계 분석", agent_bigdata, "bigdata_result", "bigdata_agent"),
     AgentModule("ml", "ML 모델 실행", agent_ml, "ml_result", "ml_agent"),
