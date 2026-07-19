@@ -1,0 +1,937 @@
+{
+  "name": "kcs_unified_intent_routing",
+  "version": "1.1",
+  "description": "KCS AI 통합분석플랫폼 - AI 의도분석 에이전트용 통합 라우팅 사전. 사용자 프롬프트를 분석해 적합 서비스를 선택함. 두 계열(ai_service=분석·판단·생성 / info_retrieval=조회·검색)을 service_family로 구분함.",
+  "field_schema": {
+    "service_code": "서비스 식별자(고유). 포털 코드베이스 런타임 키/behavior 코드와 일치(확정)",
+    "service_name": "서비스 표시명(한글)",
+    "service_family": "ai_service | info_retrieval (라우팅 1차 게이트 기준)",
+    "category": "계열 내 세부 그룹",
+    "description": "서비스 한 줄 설명",
+    "keywords": "표층 룰 매칭용 키워드 배열",
+    "intent_examples": "임베딩 few-shot 앵커용 발화 예시 배열",
+    "hard_negatives": "인접 서비스와의 경계를 세우기 위한 오분류 유도 문장 배열",
+    "access_scope": "(정보검색 일부) 부서별 접근/수정 권한"
+  },
+  "routing": {
+    "step1_family_gate": {
+      "ai_service": "인출한 자료로 추론. 트리거: 판단/검증/분석/평가/생성/추적",
+      "info_retrieval": "사실·데이터·문서를 인출. 트리거: 조회/찾기/가져오기/내역/검색/이력"
+    },
+    "step2_service_select": "1) keywords 룰로 후보군 축소 → 2) intent_examples 임베딩 코사인 유사도로 최종 선택 → 3) hard_negatives로 경계 검증",
+    "multi_service": "한 프롬프트가 복수 서비스를 요구하면 단일 선택이 아닌 서비스 조합(파이프라인) 반환. '조회+분석'이 섞이면 info_retrieval → ai_service 순으로 반환",
+    "access_control": "access_scope가 있는 서비스는 요청자 부서 권한을 검증한 뒤 라우팅"
+  },
+  "provisional_codes": [],
+  "confusion_clusters_within_family": [
+    [
+      "proceeds_tracking",
+      "fund_trace"
+    ],
+    [
+      "network",
+      "fund_trace",
+      "comms_analysis"
+    ],
+    [
+      "declaration_verify",
+      "hs_verify",
+      "customs_value"
+    ],
+    [
+      "origin_analysis",
+      "route_analysis"
+    ],
+    [
+      "rag_create",
+      "rag_risk_select",
+      "rag_trade"
+    ],
+    [
+      "report_generate",
+      "report",
+      "result_synthesis"
+    ]
+  ],
+  "cross_family_disambiguation": [
+    {
+      "pair": [
+        "rag_customs",
+        "law"
+      ],
+      "rule": "관세정보RAG=내부 규정·법령·사례집 지식베이스 유사사례 검색 / law(AI 외부연계)=판례·유권해석 등 외부 법령근거 검토"
+    },
+    {
+      "pair": [
+        "external_agency",
+        "patent"
+      ],
+      "rule": "외부기관수집(KIPRIS)=특허 사실정보 조회 / patent(AI)=상표권 침해·로열티 반영 판단"
+    },
+    {
+      "pair": [
+        "external_agency",
+        "web_search"
+      ],
+      "rule": "외부기관수집=지정 상용·공공 DB 커넥터 조회 / web_search(AI)=임의 공개 웹·기사·URL 검색"
+    },
+    {
+      "pair": [
+        "rag_investigation",
+        "rag_risk_select"
+      ],
+      "rule": "조사정보RAG=조사·수사보고서 유사사례 문서검색 / rag_risk_select(AI)=위험선별 목적의 위험케이스 판단 보조"
+    },
+    {
+      "pair": [
+        "audit_history",
+        "rag_investigation"
+      ],
+      "rule": "조사소송이력조회=구조화 DB의 이력 조회 / 조사정보RAG=보고서 본문 대상 유사사례 검색"
+    },
+    {
+      "pair": [
+        "bigdata_model_results",
+        "ml"
+      ],
+      "rule": "빅데이터결과수집=사전 산출된 모델 결과 인출(실행 안 함) / ml(AI)=위험모델을 직접 실행해 스코어 산출"
+    },
+    {
+      "pair": [
+        "risk_focus",
+        "rag_risk_select"
+      ],
+      "rule": "통합위험정보조회=기 등록 위험정보 인출 / rag_risk_select(AI)=위험신호 신규 판단"
+    }
+  ],
+  "service_counts": {
+    "ai_service": 27,
+    "info_retrieval": 12,
+    "total": 39
+  },
+  "services": [
+    {
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "위험선별 기준과 선별 이력을 바탕으로 유사 위험케이스를 검색해 위험신호를 확인함.",
+      "keywords": [
+        "위험선별",
+        "선별기준",
+        "위험신호",
+        "유사케이스",
+        "선별이력",
+        "우범",
+        "과거 이력"
+      ],
+      "intent_examples": [
+        "이 업체 위험선별 기준에 걸리는지 봐줘",
+        "예전에 비슷한 위험케이스 있었는지 찾아줘",
+        "이 여행자 우범 신호 있는지 확인해줘"
+      ],
+      "hard_negatives": [
+        "위험모델 전부 돌려서 점수 매겨줘"
+      ]
+    },
+    {
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "원산지 증빙·FTA 적용요건·우회수입 가능성을 검증·시뮬레이션함.",
+      "keywords": [
+        "원산지",
+        "C/O",
+        "FTA",
+        "협정관세",
+        "세번변경",
+        "원산지증명",
+        "우회수입"
+      ],
+      "intent_examples": [
+        "이 물품 FTA 원산지 요건 충족하는지 검증해줘",
+        "원산지 증빙이랑 우회수입 가능성 봐줘"
+      ],
+      "hard_negatives": [
+        "경유지랑 운송경로 역추적해서 우회 구간 찾아줘"
+      ]
+    },
+    {
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "가격·거래상대방·신고패턴의 이상거래 징후를 검증함.",
+      "keywords": [
+        "이상거래",
+        "이상징후",
+        "가격 이상",
+        "거래상대방",
+        "신고패턴"
+      ],
+      "intent_examples": [
+        "이 거래 가격이나 신고패턴 이상한지 봐줘",
+        "송금·연락·이동 패턴 이상징후 검증해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "자금흐름·계좌 단서를 기반으로 범죄수익 은닉 가능성을 분석·판단함.",
+      "keywords": [
+        "범죄수익",
+        "은닉",
+        "자금세탁",
+        "현금화",
+        "계좌 추적"
+      ],
+      "intent_examples": [
+        "이 자금이 범죄수익 은닉인지 판단해줘",
+        "현금 반입 자금의 은닉 가능성 분석해줘"
+      ],
+      "hard_negatives": [
+        "이체내역 파일로 소유주 중심 자금 관계망 만들어줘"
+      ]
+    },
+    {
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "운송경로·공급망(개인: 여행경로·동행)을 역추적해 우회수입 가능성을 탐지함.",
+      "keywords": [
+        "운송경로",
+        "경유지",
+        "공급망",
+        "역추적",
+        "우회",
+        "여행경로",
+        "동행이력"
+      ],
+      "intent_examples": [
+        "운송경로 역추적해서 우회수입인지 봐줘",
+        "여행 경유지·동행 이력으로 우회 반입 탐지해줘"
+      ],
+      "hard_negatives": [
+        "이 물품 FTA 원산지 요건 충족하는지 봐줘"
+      ]
+    },
+    {
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "첨부문서 추출값과 수입신고DB를 대조해 품명·중량·가격 불일치와 화물 이상패턴을 확인함.",
+      "keywords": [
+        "수입신고",
+        "신고서 대조",
+        "품명 불일치",
+        "중량 불일치",
+        "가격 불일치",
+        "첨부문서",
+        "화물 이상"
+      ],
+      "intent_examples": [
+        "첨부 인보이스랑 수입신고 내용 대조해줘",
+        "휴대품 신고랑 실제 반입물품 불일치 확인해줘"
+      ],
+      "hard_negatives": [
+        "이 물품 HS코드 제대로 분류됐는지 검증해줘",
+        "이 신고가격 저가신고 아닌지 봐줘"
+      ]
+    },
+    {
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "품목분류(HS코드) 적정성과 전략물자·수출허가 등 규제대상 여부를 검증함.",
+      "keywords": [
+        "품목분류",
+        "HS코드",
+        "HSK",
+        "세번",
+        "전략물자",
+        "수출허가",
+        "규제대상"
+      ],
+      "intent_examples": [
+        "이 물품 HS코드 제대로 분류됐는지 검증해줘",
+        "전략물자·수출허가 대상인지 확인해줘"
+      ],
+      "hard_negatives": [
+        "첨부 인보이스랑 수입신고 품명·중량 대조해줘"
+      ]
+    },
+    {
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "service_family": "ai_service",
+      "category": "업무분석",
+      "description": "과세가격 결정요소를 검토해 저가·축소신고 가능성을 평가함.",
+      "keywords": [
+        "과세가격",
+        "저가신고",
+        "저평가",
+        "거래가격",
+        "가산요소",
+        "축소신고"
+      ],
+      "intent_examples": [
+        "이 신고가격 저가신고 아닌지 봐줘",
+        "과세가격 산정 근거 검토해줘"
+      ],
+      "hard_negatives": [
+        "로열티가 과세가격에 반영되는 특허 대상인지 확인해줘"
+      ]
+    },
+    {
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "전체 위험모델을 실행해 위험 패턴을 스코어링·비교함.",
+      "keywords": [
+        "모델 실행",
+        "ML",
+        "위험모델",
+        "위험스코어",
+        "위험점수",
+        "전체 모델"
+      ],
+      "intent_examples": [
+        "위험모델 전부 돌려서 점수 비교해줘",
+        "이 대상 ML 위험스코어 뽑아줘"
+      ],
+      "hard_negatives": [
+        "예전에 비슷한 위험케이스 있었는지 찾아줘"
+      ]
+    },
+    {
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "인물·거래·연락처·주소 관계망을 분석해 특수관계·페이퍼컴퍼니·공범 가능성을 식별함.",
+      "keywords": [
+        "관계망",
+        "네트워크",
+        "특수관계",
+        "페이퍼컴퍼니",
+        "공범",
+        "전달책",
+        "관계 구조"
+      ],
+      "intent_examples": [
+        "이 업체들 관계망 그려서 특수관계 찾아줘",
+        "동행자·연락처 관계망으로 공범 가능성 봐줘"
+      ],
+      "hard_negatives": [
+        "이체내역으로 자금흐름 관계망 만들어줘",
+        "통화·메신저 내역으로 관계망 분석해줘"
+      ]
+    },
+    {
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "자금이체·현금·가상계좌 내역을 소유주·시계열 중심으로 추적해 자금흐름 관계망을 구성함.",
+      "keywords": [
+        "자금흐름",
+        "자금이체",
+        "현금입출금",
+        "가상계좌",
+        "소유주",
+        "시계열 추적"
+      ],
+      "intent_examples": [
+        "이체내역 파일로 자금흐름 관계망 만들어줘",
+        "소유주 중심으로 자금 시계열 추적해줘"
+      ],
+      "hard_negatives": [
+        "이 자금이 범죄수익 은닉인지 판단해줘"
+      ]
+    },
+    {
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "통화·SMS·SNS·메신저 내역으로 통신 관계망을 분석해 핵심 연결자를 식별함.",
+      "keywords": [
+        "통신내역",
+        "통화",
+        "SMS",
+        "SNS",
+        "메신저",
+        "연락 관계",
+        "핵심 연결자"
+      ],
+      "intent_examples": [
+        "통화·메신저 내역으로 관계망 분석해줘",
+        "누가 핵심 연결자인지 통신내역으로 봐줘"
+      ],
+      "hard_negatives": [
+        "업체들 거래 특수관계 관계망 그려줘"
+      ]
+    },
+    {
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "첨부문서에서 주요 항목을 추출해 신고자료 대조용으로 구조화함.",
+      "keywords": [
+        "OCR",
+        "문서인식",
+        "문서추출",
+        "스캔",
+        "항목추출",
+        "구조화"
+      ],
+      "intent_examples": [
+        "이 PDF에서 주요 항목 추출해서 구조화해줘",
+        "첨부 문서 OCR 돌려줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "선택 자료를 RAG 지식으로 구성해 지식베이스에 적재함.",
+      "keywords": [
+        "RAG 생성",
+        "지식베이스",
+        "지식화",
+        "자료 적재",
+        "임베딩"
+      ],
+      "intent_examples": [
+        "이 자료들 RAG 지식으로 만들어줘",
+        "사건 자료 지식베이스에 넣어줘"
+      ],
+      "hard_negatives": [
+        "위험선별 기준으로 유사 위험케이스 검색해줘"
+      ]
+    },
+    {
+      "service_code": "ontology",
+      "service_name": "관세온톨로지",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "기업·거래·품목(개인: 우범여행자) 중심 관세 온톨로지·지식그래프를 구성함.",
+      "keywords": [
+        "온톨로지",
+        "지식그래프",
+        "개념관계",
+        "엔터티 관계"
+      ],
+      "intent_examples": [
+        "이 거래·품목으로 관세 온톨로지 구성해줘",
+        "우범여행자 지식그래프 만들어줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "translate",
+      "service_name": "문서 번역",
+      "service_family": "ai_service",
+      "category": "분석지원",
+      "description": "문서를 번역하고 관세용어를 정규화함.",
+      "keywords": [
+        "번역",
+        "translate",
+        "외국어 문서",
+        "원문 번역"
+      ],
+      "intent_examples": [
+        "이 외국어 인보이스 번역해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "service_family": "ai_service",
+      "category": "외부연계",
+      "description": "업체·인물·사건·가격 관련 공개 웹정보 또는 지정 URL에서 정보를 확인함.",
+      "keywords": [
+        "웹검색",
+        "검색",
+        "기사",
+        "공개정보",
+        "뉴스",
+        "URL"
+      ],
+      "intent_examples": [
+        "이 업체 공급망 관련 기사 검색해줘",
+        "이 URL에서 지정 정보 확인해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "service_family": "ai_service",
+      "category": "외부연계",
+      "description": "특허·상표권 침해 가능성과 로열티의 과세가격 반영 여부를 판단함.",
+      "keywords": [
+        "특허",
+        "상표권",
+        "지식재산권",
+        "로열티",
+        "침해"
+      ],
+      "intent_examples": [
+        "이 물품 상표권 침해 소지 있는지 봐줘",
+        "로열티가 과세가격 반영 대상인지 확인해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "service_family": "ai_service",
+      "category": "외부연계",
+      "description": "관련 법령·고시·판례·유권해석 근거를 검토함.",
+      "keywords": [
+        "법령",
+        "고시",
+        "판례",
+        "유권해석",
+        "근거 조문"
+      ],
+      "intent_examples": [
+        "이 사안 관련 법령·판례 찾아줘",
+        "처분 근거 조문 검토해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "service_family": "ai_service",
+      "category": "외부연계",
+      "description": "분석결과 보고서를 본문·첨부 요약으로 구성해 지정 수신자에게 공유함.",
+      "keywords": [
+        "메일",
+        "이메일",
+        "공유",
+        "발송",
+        "전송",
+        "수신자"
+      ],
+      "intent_examples": [
+        "이 보고서 요약해서 담당자에게 메일로 보내줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "address",
+      "service_name": "주소확인",
+      "service_family": "ai_service",
+      "category": "외부연계",
+      "description": "주소를 입력받아 도로명주소·건축물대장 API로 주거/사업장/혼합/판단불가를 판정함.",
+      "keywords": [
+        "주소",
+        "주거",
+        "사업장",
+        "건축물대장",
+        "용도 확인"
+      ],
+      "intent_examples": [
+        "이 주소가 주거지인지 사업장인지 확인해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "대상 자료를 통합해 공식 조사(개인: 수사)보고서 초안을 생성함.",
+      "keywords": [
+        "보고서 생성",
+        "조사보고서",
+        "수사보고서",
+        "초안",
+        "통합"
+      ],
+      "intent_examples": [
+        "분석 결과 모아서 조사보고서 초안 만들어줘"
+      ],
+      "hard_negatives": [
+        "이 자료를 유사사례 표준보고서 형식으로 재구성해줘",
+        "앞 단계 결과들을 이 양식으로 종합해줘"
+      ]
+    },
+    {
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "보고서의 근거 충실성·과도한 추론·출처를 검증함.",
+      "keywords": [
+        "보고서 검증",
+        "근거 검증",
+        "과도한 추론",
+        "출처 확인",
+        "팩트체크"
+      ],
+      "intent_examples": [
+        "이 보고서 근거랑 출처 제대로 됐는지 검증해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "result_synthesis",
+      "service_name": "결과통합",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "선행 단계 결과를 사용자가 지정한 최종 형식으로 종합함.",
+      "keywords": [
+        "결과통합",
+        "종합",
+        "최종 형식",
+        "취합"
+      ],
+      "intent_examples": [
+        "앞 단계 결과들을 이 양식으로 종합해줘"
+      ],
+      "hard_negatives": [
+        "분석 결과 모아서 조사보고서 초안 만들어줘"
+      ]
+    },
+    {
+      "service_code": "summary",
+      "service_name": "보고서 요약",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "대상 자료를 조사관(개인: 수사담당)용 핵심 요약으로 정리함.",
+      "keywords": [
+        "요약",
+        "핵심 정리",
+        "브리핑",
+        "요약본"
+      ],
+      "intent_examples": [
+        "이 내용 조사관용 핵심 요약으로 정리해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "rag_trade",
+      "service_name": "통관보고서 생성",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "통관·무역 정보에서 이상 징후와 참고 근거를 확인해 통관보고서를 구성함.",
+      "keywords": [
+        "통관보고서",
+        "무역정보",
+        "통관 이상징후",
+        "반입 근거"
+      ],
+      "intent_examples": [
+        "통관·무역 정보로 이상징후 뽑아 통관보고서 만들어줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "report",
+      "service_name": "표준보고서 생성",
+      "service_family": "ai_service",
+      "category": "보고서",
+      "description": "입력자료를 유사사례 표준보고서 형식으로 재구성함.",
+      "keywords": [
+        "표준보고서",
+        "유사사례",
+        "표준양식",
+        "서식 재구성"
+      ],
+      "intent_examples": [
+        "이 자료를 유사사례 표준보고서 형식으로 재구성해줘"
+      ],
+      "hard_negatives": [
+        "분석 결과 모아서 조사보고서 초안 만들어줘"
+      ]
+    },
+    {
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "service_family": "info_retrieval",
+      "category": "CDW조회",
+      "description": "자연어 질문을 해석해 CDW(관세 데이터 웨어하우스) 대상 SQL을 생성·실행하고 결과를 반환하는 Text-to-SQL 조회 서비스임. 판단·추론이 아니라 데이터 인출이 목적임.",
+      "keywords": [
+        "CDW",
+        "자연어질의",
+        "Text-to-SQL",
+        "SQL 생성",
+        "데이터 조회",
+        "쿼리",
+        "집계",
+        "통계 조회"
+      ],
+      "intent_examples": [
+        "작년 미신고 반입 상위 품목 CDW에서 뽑아줘",
+        "이 기업 최근 3년 수입 건수 자연어로 물어보면 조회되게 해줘",
+        "지역별 신고금액 합계 SQL로 집계해줘"
+      ],
+      "hard_negatives": [
+        "이 신고가격이 저가신고인지 판단해줘"
+      ]
+    },
+    {
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "service_family": "info_retrieval",
+      "category": "내부정보조회",
+      "description": "대상 기업의 기본 프로파일(개요·현황) 정보를 내부 DB에서 조회함.",
+      "keywords": [
+        "기업프로파일",
+        "업체 개요",
+        "기업 현황",
+        "회사 정보 조회",
+        "사업자 정보"
+      ],
+      "intent_examples": [
+        "이 업체 기본 프로파일 조회해줘",
+        "사업자번호로 기업 현황 가져와줘"
+      ],
+      "hard_negatives": [
+        "이 기업 빅데이터 분석 결과 가져와줘"
+      ]
+    },
+    {
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "service_family": "info_retrieval",
+      "category": "내부정보조회",
+      "description": "대상에 대해 기 등록된 위험정보를 통합 조회함. 신규 위험 판단이 아니라 축적된 위험정보 인출임.",
+      "keywords": [
+        "통합위험정보",
+        "위험정보 조회",
+        "기존 위험",
+        "등록된 위험",
+        "위험 이력"
+      ],
+      "intent_examples": [
+        "이 대상 통합위험정보 조회해줘",
+        "등록돼 있는 위험정보 다 가져와줘"
+      ],
+      "hard_negatives": [
+        "이 대상 위험신호 있는지 새로 판단해줘"
+      ]
+    },
+    {
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "service_family": "info_retrieval",
+      "category": "내부정보조회",
+      "description": "대상의 조사·소송 이력을 구조화 DB에서 조회함.",
+      "keywords": [
+        "조사이력",
+        "소송이력",
+        "조사소송 이력",
+        "처분 이력",
+        "이력 조회"
+      ],
+      "intent_examples": [
+        "이 업체 조사·소송 이력 조회해줘",
+        "과거 소송 걸린 적 있는지 이력 뽑아줘"
+      ],
+      "hard_negatives": [
+        "조사보고서에서 유사사례 검색해줘"
+      ]
+    },
+    {
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "service_family": "info_retrieval",
+      "category": "내부정보조회",
+      "description": "대상의 수출입 신고내역을 조회함.",
+      "keywords": [
+        "수출입신고내역",
+        "신고내역 조회",
+        "수입내역",
+        "수출내역",
+        "통관 내역"
+      ],
+      "intent_examples": [
+        "이 업체 수출입 신고내역 조회해줘",
+        "최근 수입 신고건 내역 가져와줘"
+      ],
+      "hard_negatives": [
+        "첨부 인보이스랑 신고내용 불일치 대조해줘"
+      ]
+    },
+    {
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "service_family": "info_retrieval",
+      "category": "빅데이터결과",
+      "description": "사전 산출된 빅데이터 모델 결과를 수집·조회함(기업정보분석 결과, 수출입공급망 분석 결과, 해외기업 특이정보). 모델을 실행하지 않고 산출물만 인출함.",
+      "keywords": [
+        "빅데이터 결과",
+        "모델 결과 수집",
+        "기업정보분석 결과",
+        "공급망 분석 결과",
+        "해외기업 특이정보"
+      ],
+      "intent_examples": [
+        "이 기업 빅데이터 분석 결과 가져와줘",
+        "수출입 공급망 분석 결과 수집해줘",
+        "해외기업 특이정보 있는지 조회해줘"
+      ],
+      "hard_negatives": [
+        "위험모델 전부 돌려서 스코어 산출해줘"
+      ]
+    },
+    {
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "service_family": "info_retrieval",
+      "category": "외부정보조회",
+      "description": "전자통관 연계 외부정보를 조회함: 무역 동향, 국세청 세적자료, 한국은행 수신자료, 여신금융협회 해외신용카드 사용내역.",
+      "keywords": [
+        "전자통관 외부정보",
+        "무역동향",
+        "국세청 세적자료",
+        "한국은행 수신자료",
+        "해외신용카드 사용내역",
+        "여신금융협회"
+      ],
+      "intent_examples": [
+        "이 대상 국세청 세적자료 조회해줘",
+        "해외신용카드 사용내역 가져와줘",
+        "무역 동향 자료 조회해줘"
+      ],
+      "hard_negatives": []
+    },
+    {
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "service_family": "info_retrieval",
+      "category": "외부정보조회",
+      "description": "지정 외부기관·상용 DB에서 기업/무역 원천정보를 수집함: 금융감독원 DART(전자공시), NICE평가정보 BizLINE, 한국기업데이터 CRETOP, 코리아PDS(KOREA PDS), 한국물가정보 KPI, 특허정보넷 KIPRIS, 뷰로반다익/ORBIS, Dun&Bradstreet(D&B), 행정정보 공동이용시스템, UN 무역통계, 트레이드맵, ImportGenius.",
+      "keywords": [
+        "외부기관 정보수집",
+        "DART",
+        "전자공시",
+        "BizLINE",
+        "CRETOP",
+        "KOREA PDS",
+        "KPI",
+        "KIPRIS",
+        "ORBIS",
+        "D&B",
+        "행정정보 공동이용",
+        "UN 무역통계",
+        "트레이드맵",
+        "ImportGenius"
+      ],
+      "intent_examples": [
+        "DART에서 이 기업 공시자료 수집해줘",
+        "CRETOP·BizLINE로 신용정보 가져와줘",
+        "트레이드맵·ImportGenius에서 무역통계 조회해줘",
+        "KIPRIS에서 특허정보 조회해줘"
+      ],
+      "hard_negatives": [
+        "이 물품 상표권 침해 소지 판단해줘",
+        "이 업체 관련 최신 기사 웹에서 검색해줘"
+      ]
+    },
+    {
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "service_family": "info_retrieval",
+      "category": "정보검색RAG",
+      "description": "관세 업무규정·관세법령·사례집을 대상으로 유사사례를 검색해 근거 문서를 제시함.",
+      "keywords": [
+        "관세정보RAG",
+        "업무규정 검색",
+        "관세법령 검색",
+        "사례집",
+        "유사사례 검색",
+        "규정 근거"
+      ],
+      "intent_examples": [
+        "이 사안 관련 업무규정이랑 유사사례 검색해줘",
+        "관세법령 사례집에서 비슷한 케이스 찾아줘"
+      ],
+      "hard_negatives": [
+        "이 사안 판례·유권해석 근거 검토해줘"
+      ],
+      "access_scope": "전 부서"
+    },
+    {
+      "service_code": "rag_audit",
+      "service_name": "심사정보RAG",
+      "service_family": "info_retrieval",
+      "category": "정보검색RAG",
+      "description": "심사결과보고서를 대상으로 유사사례를 검색함. 심사국 한정 접근.",
+      "keywords": [
+        "심사정보RAG",
+        "심사결과보고서",
+        "심사 유사사례",
+        "심사국"
+      ],
+      "intent_examples": [
+        "심사결과보고서에서 이 건이랑 유사한 사례 찾아줘",
+        "비슷한 심사 케이스 검색해줘"
+      ],
+      "hard_negatives": [
+        "조사·수사보고서에서 유사사례 찾아줘"
+      ],
+      "access_scope": "심사국 한정"
+    },
+    {
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "service_family": "info_retrieval",
+      "category": "정보검색RAG",
+      "description": "조사/수사결과보고서를 대상으로 유사사례를 검색함. 조사국 한정 접근.",
+      "keywords": [
+        "조사정보RAG",
+        "조사결과보고서",
+        "수사결과보고서",
+        "조사 유사사례",
+        "조사국"
+      ],
+      "intent_examples": [
+        "조사보고서에서 이 건이랑 유사한 사례 검색해줘",
+        "비슷한 수사 케이스 찾아줘"
+      ],
+      "hard_negatives": [
+        "이 업체 조사·소송 이력 조회해줘",
+        "위험선별 기준으로 위험케이스 판단해줘"
+      ],
+      "access_scope": "조사국 한정"
+    },
+    {
+      "service_code": "rag_global",
+      "service_name": "국제협력RAG",
+      "service_family": "info_retrieval",
+      "category": "정보검색RAG",
+      "description": "WCO 회의록 및 국제협력 내용을 검색함. 국제협력국은 수정 권한, 타부서는 조회 권한 보유.",
+      "keywords": [
+        "국제협력RAG",
+        "WCO 회의록",
+        "국제협력",
+        "국제협력국"
+      ],
+      "intent_examples": [
+        "WCO 회의록에서 이 주제 관련 내용 검색해줘",
+        "국제협력 관련 자료 찾아줘"
+      ],
+      "hard_negatives": [],
+      "access_scope": "국제협력국 수정권한 / 타부서 조회권한"
+    }
+  ]
+}

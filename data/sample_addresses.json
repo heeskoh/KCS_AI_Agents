@@ -1,0 +1,76 @@
+{
+  "service": "주소확인",
+  "description": "주소확인 AI서비스 테스트용 샘플 주소 10건. 입력(주소) → 도로명주소 API(admCd·번지·mtYn) → 건축물대장 주용도(mainPurpsCdNm) → 룰 매핑(주거/사업장/혼합/판단불가). category·main_purpose·adm_cd는 LLM 시뮬레이션 실행 결과값(참고).",
+  "samples": [
+    {
+      "address": "서울특별시 송파구 백제고분로 45, 102동 803호",
+      "category": "주거",
+      "main_purpose": "공동주택(bdKdcd=1)",
+      "adm_cd": "1171051000",
+      "note": "아파트 동·호수(공동주택)"
+    },
+    {
+      "address": "서울특별시 은평구 응암로 210, 302호",
+      "category": "주거",
+      "main_purpose": "공동주택(bdKdcd=1)",
+      "adm_cd": "11350108",
+      "note": "다세대주택"
+    },
+    {
+      "address": "경기도 고양시 일산동구 무궁화로 20",
+      "category": "주거",
+      "main_purpose": "공동주택(bdKdcd=1)",
+      "adm_cd": "4128510300",
+      "note": "단독·연립 주택가"
+    },
+    {
+      "address": "서울특별시 마포구 양화로 45, 1204호",
+      "category": "주거",
+      "main_purpose": "공동주택(bdKdcd=1)",
+      "adm_cd": "1144012700",
+      "note": "주거용 오피스텔"
+    },
+    {
+      "address": "서울특별시 금천구 가산디지털1로 145",
+      "category": "사업장",
+      "main_purpose": "업무시설",
+      "adm_cd": "1154510200",
+      "note": "지식산업센터(업무시설)"
+    },
+    {
+      "address": "서울특별시 중구 을지로 100",
+      "category": "사업장",
+      "main_purpose": "업무시설",
+      "adm_cd": "1114015900",
+      "note": "업무빌딩(오피스)"
+    },
+    {
+      "address": "경기도 화성시 향남읍 제약공단로 30 공장",
+      "category": "사업장",
+      "main_purpose": "공장",
+      "adm_cd": "4159038025",
+      "note": "제조공장·산업단지"
+    },
+    {
+      "address": "서울특별시 동대문구 왕산로 50 상가주택 (1~2층 판매시설, 3~5층 다세대주택 병용)",
+      "category": "혼합",
+      "main_purpose": "판매시설, 다세대주택",
+      "adm_cd": "1123000000",
+      "note": "상가주택(판매+주거) 혼합"
+    },
+    {
+      "address": "서울특별시 종로구 대학로 101 종합병원",
+      "category": "판단불가",
+      "main_purpose": "의료시설",
+      "adm_cd": "1101010100",
+      "note": "병원·의료시설"
+    },
+    {
+      "address": "서울특별시 노원구 화랑로 200 초등학교",
+      "category": "판단불가",
+      "main_purpose": "교육연구시설",
+      "adm_cd": "11350108",
+      "note": "학교·교육시설"
+    }
+  ]
+}

@@ -1,0 +1,2007 @@
+{
+  "name": "kcs_intent_keywords_index",
+  "version": "1.1",
+  "description": "표층 룰 매칭 엔진용 keywords flat 인덱스. keyword_norm은 매처 비교용 정규화 키(소문자+공백/구분점 제거). shared=true는 2개 이상 서비스가 공유하는 키워드로, 단독 룰로는 서비스를 특정할 수 없어 임베딩 2차 판별이 필요함. service_code는 확정 라우팅(kcs_unified_intent_routing v1.1)과 일치.",
+  "match_guidance": {
+    "single_service_keyword": "shared=false이면 해당 키워드 히트만으로 후보 서비스 확정 가능",
+    "shared_keyword": "shared=true이면 후보군만 좁히고 최종 선택은 intent_examples 임베딩으로 위임",
+    "normalization": "입력 프롬프트도 keyword_norm과 동일 규칙으로 정규화한 뒤 부분 문자열 매칭 권장"
+  },
+  "counts": {
+    "total": 221,
+    "unique_keywords": 221,
+    "shared_keywords": 0
+  },
+  "shared_keyword_map": {},
+  "records": [
+    {
+      "id": "rag_risk_select#kw01",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "위험선별",
+      "keyword_norm": "위험선별",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw02",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "선별기준",
+      "keyword_norm": "선별기준",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw03",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "위험신호",
+      "keyword_norm": "위험신호",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw04",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "유사케이스",
+      "keyword_norm": "유사케이스",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw05",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "선별이력",
+      "keyword_norm": "선별이력",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw06",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "우범",
+      "keyword_norm": "우범",
+      "shared": false
+    },
+    {
+      "id": "rag_risk_select#kw07",
+      "service_code": "rag_risk_select",
+      "service_name": "위험Case검색",
+      "family": "ai_service",
+      "keyword": "과거 이력",
+      "keyword_norm": "과거이력",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw01",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "원산지",
+      "keyword_norm": "원산지",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw02",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "C/O",
+      "keyword_norm": "co",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw03",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "FTA",
+      "keyword_norm": "fta",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw04",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "협정관세",
+      "keyword_norm": "협정관세",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw05",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "세번변경",
+      "keyword_norm": "세번변경",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw06",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "원산지증명",
+      "keyword_norm": "원산지증명",
+      "shared": false
+    },
+    {
+      "id": "origin_analysis#kw07",
+      "service_code": "origin_analysis",
+      "service_name": "원산지 검증",
+      "family": "ai_service",
+      "keyword": "우회수입",
+      "keyword_norm": "우회수입",
+      "shared": false
+    },
+    {
+      "id": "abnormal_trade#kw01",
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "family": "ai_service",
+      "keyword": "이상거래",
+      "keyword_norm": "이상거래",
+      "shared": false
+    },
+    {
+      "id": "abnormal_trade#kw02",
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "family": "ai_service",
+      "keyword": "이상징후",
+      "keyword_norm": "이상징후",
+      "shared": false
+    },
+    {
+      "id": "abnormal_trade#kw03",
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "family": "ai_service",
+      "keyword": "가격 이상",
+      "keyword_norm": "가격이상",
+      "shared": false
+    },
+    {
+      "id": "abnormal_trade#kw04",
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "family": "ai_service",
+      "keyword": "거래상대방",
+      "keyword_norm": "거래상대방",
+      "shared": false
+    },
+    {
+      "id": "abnormal_trade#kw05",
+      "service_code": "abnormal_trade",
+      "service_name": "이상거래 검증",
+      "family": "ai_service",
+      "keyword": "신고패턴",
+      "keyword_norm": "신고패턴",
+      "shared": false
+    },
+    {
+      "id": "proceeds_tracking#kw01",
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "family": "ai_service",
+      "keyword": "범죄수익",
+      "keyword_norm": "범죄수익",
+      "shared": false
+    },
+    {
+      "id": "proceeds_tracking#kw02",
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "family": "ai_service",
+      "keyword": "은닉",
+      "keyword_norm": "은닉",
+      "shared": false
+    },
+    {
+      "id": "proceeds_tracking#kw03",
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "family": "ai_service",
+      "keyword": "자금세탁",
+      "keyword_norm": "자금세탁",
+      "shared": false
+    },
+    {
+      "id": "proceeds_tracking#kw04",
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "family": "ai_service",
+      "keyword": "현금화",
+      "keyword_norm": "현금화",
+      "shared": false
+    },
+    {
+      "id": "proceeds_tracking#kw05",
+      "service_code": "proceeds_tracking",
+      "service_name": "범죄수익 추적",
+      "family": "ai_service",
+      "keyword": "계좌 추적",
+      "keyword_norm": "계좌추적",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw01",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "운송경로",
+      "keyword_norm": "운송경로",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw02",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "경유지",
+      "keyword_norm": "경유지",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw03",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "공급망",
+      "keyword_norm": "공급망",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw04",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "역추적",
+      "keyword_norm": "역추적",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw05",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "우회",
+      "keyword_norm": "우회",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw06",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "여행경로",
+      "keyword_norm": "여행경로",
+      "shared": false
+    },
+    {
+      "id": "route_analysis#kw07",
+      "service_code": "route_analysis",
+      "service_name": "운송경로 분석",
+      "family": "ai_service",
+      "keyword": "동행이력",
+      "keyword_norm": "동행이력",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw01",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "수입신고",
+      "keyword_norm": "수입신고",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw02",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "신고서 대조",
+      "keyword_norm": "신고서대조",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw03",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "품명 불일치",
+      "keyword_norm": "품명불일치",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw04",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "중량 불일치",
+      "keyword_norm": "중량불일치",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw05",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "가격 불일치",
+      "keyword_norm": "가격불일치",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw06",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "첨부문서",
+      "keyword_norm": "첨부문서",
+      "shared": false
+    },
+    {
+      "id": "declaration_verify#kw07",
+      "service_code": "declaration_verify",
+      "service_name": "수입신고검증",
+      "family": "ai_service",
+      "keyword": "화물 이상",
+      "keyword_norm": "화물이상",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw01",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "품목분류",
+      "keyword_norm": "품목분류",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw02",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "HS코드",
+      "keyword_norm": "hs코드",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw03",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "HSK",
+      "keyword_norm": "hsk",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw04",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "세번",
+      "keyword_norm": "세번",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw05",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "전략물자",
+      "keyword_norm": "전략물자",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw06",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "수출허가",
+      "keyword_norm": "수출허가",
+      "shared": false
+    },
+    {
+      "id": "hs_verify#kw07",
+      "service_code": "hs_verify",
+      "service_name": "품목분류검증",
+      "family": "ai_service",
+      "keyword": "규제대상",
+      "keyword_norm": "규제대상",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw01",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "과세가격",
+      "keyword_norm": "과세가격",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw02",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "저가신고",
+      "keyword_norm": "저가신고",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw03",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "저평가",
+      "keyword_norm": "저평가",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw04",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "거래가격",
+      "keyword_norm": "거래가격",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw05",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "가산요소",
+      "keyword_norm": "가산요소",
+      "shared": false
+    },
+    {
+      "id": "customs_value#kw06",
+      "service_code": "customs_value",
+      "service_name": "과세가격평가",
+      "family": "ai_service",
+      "keyword": "축소신고",
+      "keyword_norm": "축소신고",
+      "shared": false
+    },
+    {
+      "id": "ml#kw01",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "모델 실행",
+      "keyword_norm": "모델실행",
+      "shared": false
+    },
+    {
+      "id": "ml#kw02",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "ML",
+      "keyword_norm": "ml",
+      "shared": false
+    },
+    {
+      "id": "ml#kw03",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "위험모델",
+      "keyword_norm": "위험모델",
+      "shared": false
+    },
+    {
+      "id": "ml#kw04",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "위험스코어",
+      "keyword_norm": "위험스코어",
+      "shared": false
+    },
+    {
+      "id": "ml#kw05",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "위험점수",
+      "keyword_norm": "위험점수",
+      "shared": false
+    },
+    {
+      "id": "ml#kw06",
+      "service_code": "ml",
+      "service_name": "ML 모델 실행",
+      "family": "ai_service",
+      "keyword": "전체 모델",
+      "keyword_norm": "전체모델",
+      "shared": false
+    },
+    {
+      "id": "network#kw01",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "관계망",
+      "keyword_norm": "관계망",
+      "shared": false
+    },
+    {
+      "id": "network#kw02",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "네트워크",
+      "keyword_norm": "네트워크",
+      "shared": false
+    },
+    {
+      "id": "network#kw03",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "특수관계",
+      "keyword_norm": "특수관계",
+      "shared": false
+    },
+    {
+      "id": "network#kw04",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "페이퍼컴퍼니",
+      "keyword_norm": "페이퍼컴퍼니",
+      "shared": false
+    },
+    {
+      "id": "network#kw05",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "공범",
+      "keyword_norm": "공범",
+      "shared": false
+    },
+    {
+      "id": "network#kw06",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "전달책",
+      "keyword_norm": "전달책",
+      "shared": false
+    },
+    {
+      "id": "network#kw07",
+      "service_code": "network",
+      "service_name": "관계망 분석",
+      "family": "ai_service",
+      "keyword": "관계 구조",
+      "keyword_norm": "관계구조",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw01",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "자금흐름",
+      "keyword_norm": "자금흐름",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw02",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "자금이체",
+      "keyword_norm": "자금이체",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw03",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "현금입출금",
+      "keyword_norm": "현금입출금",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw04",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "가상계좌",
+      "keyword_norm": "가상계좌",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw05",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "소유주",
+      "keyword_norm": "소유주",
+      "shared": false
+    },
+    {
+      "id": "fund_trace#kw06",
+      "service_code": "fund_trace",
+      "service_name": "자금흐름 관계분석",
+      "family": "ai_service",
+      "keyword": "시계열 추적",
+      "keyword_norm": "시계열추적",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw01",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "통신내역",
+      "keyword_norm": "통신내역",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw02",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "통화",
+      "keyword_norm": "통화",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw03",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "SMS",
+      "keyword_norm": "sms",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw04",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "SNS",
+      "keyword_norm": "sns",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw05",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "메신저",
+      "keyword_norm": "메신저",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw06",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "연락 관계",
+      "keyword_norm": "연락관계",
+      "shared": false
+    },
+    {
+      "id": "comms_analysis#kw07",
+      "service_code": "comms_analysis",
+      "service_name": "통신내역 관계분석",
+      "family": "ai_service",
+      "keyword": "핵심 연결자",
+      "keyword_norm": "핵심연결자",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw01",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "OCR",
+      "keyword_norm": "ocr",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw02",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "문서인식",
+      "keyword_norm": "문서인식",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw03",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "문서추출",
+      "keyword_norm": "문서추출",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw04",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "스캔",
+      "keyword_norm": "스캔",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw05",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "항목추출",
+      "keyword_norm": "항목추출",
+      "shared": false
+    },
+    {
+      "id": "ocr#kw06",
+      "service_code": "ocr",
+      "service_name": "OCR/문서인식",
+      "family": "ai_service",
+      "keyword": "구조화",
+      "keyword_norm": "구조화",
+      "shared": false
+    },
+    {
+      "id": "rag_create#kw01",
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "family": "ai_service",
+      "keyword": "RAG 생성",
+      "keyword_norm": "rag생성",
+      "shared": false
+    },
+    {
+      "id": "rag_create#kw02",
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "family": "ai_service",
+      "keyword": "지식베이스",
+      "keyword_norm": "지식베이스",
+      "shared": false
+    },
+    {
+      "id": "rag_create#kw03",
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "family": "ai_service",
+      "keyword": "지식화",
+      "keyword_norm": "지식화",
+      "shared": false
+    },
+    {
+      "id": "rag_create#kw04",
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "family": "ai_service",
+      "keyword": "자료 적재",
+      "keyword_norm": "자료적재",
+      "shared": false
+    },
+    {
+      "id": "rag_create#kw05",
+      "service_code": "rag_create",
+      "service_name": "RAG 생성",
+      "family": "ai_service",
+      "keyword": "임베딩",
+      "keyword_norm": "임베딩",
+      "shared": false
+    },
+    {
+      "id": "ontology#kw01",
+      "service_code": "ontology",
+      "service_name": "관세온톨로지",
+      "family": "ai_service",
+      "keyword": "온톨로지",
+      "keyword_norm": "온톨로지",
+      "shared": false
+    },
+    {
+      "id": "ontology#kw02",
+      "service_code": "ontology",
+      "service_name": "관세온톨로지",
+      "family": "ai_service",
+      "keyword": "지식그래프",
+      "keyword_norm": "지식그래프",
+      "shared": false
+    },
+    {
+      "id": "ontology#kw03",
+      "service_code": "ontology",
+      "service_name": "관세온톨로지",
+      "family": "ai_service",
+      "keyword": "개념관계",
+      "keyword_norm": "개념관계",
+      "shared": false
+    },
+    {
+      "id": "ontology#kw04",
+      "service_code": "ontology",
+      "service_name": "관세온톨로지",
+      "family": "ai_service",
+      "keyword": "엔터티 관계",
+      "keyword_norm": "엔터티관계",
+      "shared": false
+    },
+    {
+      "id": "translate#kw01",
+      "service_code": "translate",
+      "service_name": "문서 번역",
+      "family": "ai_service",
+      "keyword": "번역",
+      "keyword_norm": "번역",
+      "shared": false
+    },
+    {
+      "id": "translate#kw02",
+      "service_code": "translate",
+      "service_name": "문서 번역",
+      "family": "ai_service",
+      "keyword": "translate",
+      "keyword_norm": "translate",
+      "shared": false
+    },
+    {
+      "id": "translate#kw03",
+      "service_code": "translate",
+      "service_name": "문서 번역",
+      "family": "ai_service",
+      "keyword": "외국어 문서",
+      "keyword_norm": "외국어문서",
+      "shared": false
+    },
+    {
+      "id": "translate#kw04",
+      "service_code": "translate",
+      "service_name": "문서 번역",
+      "family": "ai_service",
+      "keyword": "원문 번역",
+      "keyword_norm": "원문번역",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw01",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "웹검색",
+      "keyword_norm": "웹검색",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw02",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "검색",
+      "keyword_norm": "검색",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw03",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "기사",
+      "keyword_norm": "기사",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw04",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "공개정보",
+      "keyword_norm": "공개정보",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw05",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "뉴스",
+      "keyword_norm": "뉴스",
+      "shared": false
+    },
+    {
+      "id": "web_search#kw06",
+      "service_code": "web_search",
+      "service_name": "웹검색",
+      "family": "ai_service",
+      "keyword": "URL",
+      "keyword_norm": "url",
+      "shared": false
+    },
+    {
+      "id": "patent#kw01",
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "family": "ai_service",
+      "keyword": "특허",
+      "keyword_norm": "특허",
+      "shared": false
+    },
+    {
+      "id": "patent#kw02",
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "family": "ai_service",
+      "keyword": "상표권",
+      "keyword_norm": "상표권",
+      "shared": false
+    },
+    {
+      "id": "patent#kw03",
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "family": "ai_service",
+      "keyword": "지식재산권",
+      "keyword_norm": "지식재산권",
+      "shared": false
+    },
+    {
+      "id": "patent#kw04",
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "family": "ai_service",
+      "keyword": "로열티",
+      "keyword_norm": "로열티",
+      "shared": false
+    },
+    {
+      "id": "patent#kw05",
+      "service_code": "patent",
+      "service_name": "특허정보 조회",
+      "family": "ai_service",
+      "keyword": "침해",
+      "keyword_norm": "침해",
+      "shared": false
+    },
+    {
+      "id": "law#kw01",
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "family": "ai_service",
+      "keyword": "법령",
+      "keyword_norm": "법령",
+      "shared": false
+    },
+    {
+      "id": "law#kw02",
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "family": "ai_service",
+      "keyword": "고시",
+      "keyword_norm": "고시",
+      "shared": false
+    },
+    {
+      "id": "law#kw03",
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "family": "ai_service",
+      "keyword": "판례",
+      "keyword_norm": "판례",
+      "shared": false
+    },
+    {
+      "id": "law#kw04",
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "family": "ai_service",
+      "keyword": "유권해석",
+      "keyword_norm": "유권해석",
+      "shared": false
+    },
+    {
+      "id": "law#kw05",
+      "service_code": "law",
+      "service_name": "법령 검토",
+      "family": "ai_service",
+      "keyword": "근거 조문",
+      "keyword_norm": "근거조문",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw01",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "메일",
+      "keyword_norm": "메일",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw02",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "이메일",
+      "keyword_norm": "이메일",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw03",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "공유",
+      "keyword_norm": "공유",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw04",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "발송",
+      "keyword_norm": "발송",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw05",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "전송",
+      "keyword_norm": "전송",
+      "shared": false
+    },
+    {
+      "id": "mail_share#kw06",
+      "service_code": "mail_share",
+      "service_name": "내부메일 공유",
+      "family": "ai_service",
+      "keyword": "수신자",
+      "keyword_norm": "수신자",
+      "shared": false
+    },
+    {
+      "id": "address#kw01",
+      "service_code": "address",
+      "service_name": "주소확인",
+      "family": "ai_service",
+      "keyword": "주소",
+      "keyword_norm": "주소",
+      "shared": false
+    },
+    {
+      "id": "address#kw02",
+      "service_code": "address",
+      "service_name": "주소확인",
+      "family": "ai_service",
+      "keyword": "주거",
+      "keyword_norm": "주거",
+      "shared": false
+    },
+    {
+      "id": "address#kw03",
+      "service_code": "address",
+      "service_name": "주소확인",
+      "family": "ai_service",
+      "keyword": "사업장",
+      "keyword_norm": "사업장",
+      "shared": false
+    },
+    {
+      "id": "address#kw04",
+      "service_code": "address",
+      "service_name": "주소확인",
+      "family": "ai_service",
+      "keyword": "건축물대장",
+      "keyword_norm": "건축물대장",
+      "shared": false
+    },
+    {
+      "id": "address#kw05",
+      "service_code": "address",
+      "service_name": "주소확인",
+      "family": "ai_service",
+      "keyword": "용도 확인",
+      "keyword_norm": "용도확인",
+      "shared": false
+    },
+    {
+      "id": "report_generate#kw01",
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "family": "ai_service",
+      "keyword": "보고서 생성",
+      "keyword_norm": "보고서생성",
+      "shared": false
+    },
+    {
+      "id": "report_generate#kw02",
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "family": "ai_service",
+      "keyword": "조사보고서",
+      "keyword_norm": "조사보고서",
+      "shared": false
+    },
+    {
+      "id": "report_generate#kw03",
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "family": "ai_service",
+      "keyword": "수사보고서",
+      "keyword_norm": "수사보고서",
+      "shared": false
+    },
+    {
+      "id": "report_generate#kw04",
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "family": "ai_service",
+      "keyword": "초안",
+      "keyword_norm": "초안",
+      "shared": false
+    },
+    {
+      "id": "report_generate#kw05",
+      "service_code": "report_generate",
+      "service_name": "보고서 생성",
+      "family": "ai_service",
+      "keyword": "통합",
+      "keyword_norm": "통합",
+      "shared": false
+    },
+    {
+      "id": "report_validate#kw01",
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "family": "ai_service",
+      "keyword": "보고서 검증",
+      "keyword_norm": "보고서검증",
+      "shared": false
+    },
+    {
+      "id": "report_validate#kw02",
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "family": "ai_service",
+      "keyword": "근거 검증",
+      "keyword_norm": "근거검증",
+      "shared": false
+    },
+    {
+      "id": "report_validate#kw03",
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "family": "ai_service",
+      "keyword": "과도한 추론",
+      "keyword_norm": "과도한추론",
+      "shared": false
+    },
+    {
+      "id": "report_validate#kw04",
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "family": "ai_service",
+      "keyword": "출처 확인",
+      "keyword_norm": "출처확인",
+      "shared": false
+    },
+    {
+      "id": "report_validate#kw05",
+      "service_code": "report_validate",
+      "service_name": "보고서 검증",
+      "family": "ai_service",
+      "keyword": "팩트체크",
+      "keyword_norm": "팩트체크",
+      "shared": false
+    },
+    {
+      "id": "result_synthesis#kw01",
+      "service_code": "result_synthesis",
+      "service_name": "결과통합",
+      "family": "ai_service",
+      "keyword": "결과통합",
+      "keyword_norm": "결과통합",
+      "shared": false
+    },
+    {
+      "id": "result_synthesis#kw02",
+      "service_code": "result_synthesis",
+      "service_name": "결과통합",
+      "family": "ai_service",
+      "keyword": "종합",
+      "keyword_norm": "종합",
+      "shared": false
+    },
+    {
+      "id": "result_synthesis#kw03",
+      "service_code": "result_synthesis",
+      "service_name": "결과통합",
+      "family": "ai_service",
+      "keyword": "최종 형식",
+      "keyword_norm": "최종형식",
+      "shared": false
+    },
+    {
+      "id": "result_synthesis#kw04",
+      "service_code": "result_synthesis",
+      "service_name": "결과통합",
+      "family": "ai_service",
+      "keyword": "취합",
+      "keyword_norm": "취합",
+      "shared": false
+    },
+    {
+      "id": "summary#kw01",
+      "service_code": "summary",
+      "service_name": "보고서 요약",
+      "family": "ai_service",
+      "keyword": "요약",
+      "keyword_norm": "요약",
+      "shared": false
+    },
+    {
+      "id": "summary#kw02",
+      "service_code": "summary",
+      "service_name": "보고서 요약",
+      "family": "ai_service",
+      "keyword": "핵심 정리",
+      "keyword_norm": "핵심정리",
+      "shared": false
+    },
+    {
+      "id": "summary#kw03",
+      "service_code": "summary",
+      "service_name": "보고서 요약",
+      "family": "ai_service",
+      "keyword": "브리핑",
+      "keyword_norm": "브리핑",
+      "shared": false
+    },
+    {
+      "id": "summary#kw04",
+      "service_code": "summary",
+      "service_name": "보고서 요약",
+      "family": "ai_service",
+      "keyword": "요약본",
+      "keyword_norm": "요약본",
+      "shared": false
+    },
+    {
+      "id": "rag_trade#kw01",
+      "service_code": "rag_trade",
+      "service_name": "통관보고서 생성",
+      "family": "ai_service",
+      "keyword": "통관보고서",
+      "keyword_norm": "통관보고서",
+      "shared": false
+    },
+    {
+      "id": "rag_trade#kw02",
+      "service_code": "rag_trade",
+      "service_name": "통관보고서 생성",
+      "family": "ai_service",
+      "keyword": "무역정보",
+      "keyword_norm": "무역정보",
+      "shared": false
+    },
+    {
+      "id": "rag_trade#kw03",
+      "service_code": "rag_trade",
+      "service_name": "통관보고서 생성",
+      "family": "ai_service",
+      "keyword": "통관 이상징후",
+      "keyword_norm": "통관이상징후",
+      "shared": false
+    },
+    {
+      "id": "rag_trade#kw04",
+      "service_code": "rag_trade",
+      "service_name": "통관보고서 생성",
+      "family": "ai_service",
+      "keyword": "반입 근거",
+      "keyword_norm": "반입근거",
+      "shared": false
+    },
+    {
+      "id": "report#kw01",
+      "service_code": "report",
+      "service_name": "표준보고서 생성",
+      "family": "ai_service",
+      "keyword": "표준보고서",
+      "keyword_norm": "표준보고서",
+      "shared": false
+    },
+    {
+      "id": "report#kw02",
+      "service_code": "report",
+      "service_name": "표준보고서 생성",
+      "family": "ai_service",
+      "keyword": "유사사례",
+      "keyword_norm": "유사사례",
+      "shared": false
+    },
+    {
+      "id": "report#kw03",
+      "service_code": "report",
+      "service_name": "표준보고서 생성",
+      "family": "ai_service",
+      "keyword": "표준양식",
+      "keyword_norm": "표준양식",
+      "shared": false
+    },
+    {
+      "id": "report#kw04",
+      "service_code": "report",
+      "service_name": "표준보고서 생성",
+      "family": "ai_service",
+      "keyword": "서식 재구성",
+      "keyword_norm": "서식재구성",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw01",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "CDW",
+      "keyword_norm": "cdw",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw02",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "자연어질의",
+      "keyword_norm": "자연어질의",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw03",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "Text-to-SQL",
+      "keyword_norm": "texttosql",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw04",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "SQL 생성",
+      "keyword_norm": "sql생성",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw05",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "데이터 조회",
+      "keyword_norm": "데이터조회",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw06",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "쿼리",
+      "keyword_norm": "쿼리",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw07",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "집계",
+      "keyword_norm": "집계",
+      "shared": false
+    },
+    {
+      "id": "db_cdw#kw08",
+      "service_code": "db_cdw",
+      "service_name": "CDW 자연어분석",
+      "family": "info_retrieval",
+      "keyword": "통계 조회",
+      "keyword_norm": "통계조회",
+      "shared": false
+    },
+    {
+      "id": "profile_summary#kw01",
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "family": "info_retrieval",
+      "keyword": "기업프로파일",
+      "keyword_norm": "기업프로파일",
+      "shared": false
+    },
+    {
+      "id": "profile_summary#kw02",
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "family": "info_retrieval",
+      "keyword": "업체 개요",
+      "keyword_norm": "업체개요",
+      "shared": false
+    },
+    {
+      "id": "profile_summary#kw03",
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "family": "info_retrieval",
+      "keyword": "기업 현황",
+      "keyword_norm": "기업현황",
+      "shared": false
+    },
+    {
+      "id": "profile_summary#kw04",
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "family": "info_retrieval",
+      "keyword": "회사 정보 조회",
+      "keyword_norm": "회사정보조회",
+      "shared": false
+    },
+    {
+      "id": "profile_summary#kw05",
+      "service_code": "profile_summary",
+      "service_name": "기업프로파일조회",
+      "family": "info_retrieval",
+      "keyword": "사업자 정보",
+      "keyword_norm": "사업자정보",
+      "shared": false
+    },
+    {
+      "id": "risk_focus#kw01",
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "family": "info_retrieval",
+      "keyword": "통합위험정보",
+      "keyword_norm": "통합위험정보",
+      "shared": false
+    },
+    {
+      "id": "risk_focus#kw02",
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "family": "info_retrieval",
+      "keyword": "위험정보 조회",
+      "keyword_norm": "위험정보조회",
+      "shared": false
+    },
+    {
+      "id": "risk_focus#kw03",
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "family": "info_retrieval",
+      "keyword": "기존 위험",
+      "keyword_norm": "기존위험",
+      "shared": false
+    },
+    {
+      "id": "risk_focus#kw04",
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "family": "info_retrieval",
+      "keyword": "등록된 위험",
+      "keyword_norm": "등록된위험",
+      "shared": false
+    },
+    {
+      "id": "risk_focus#kw05",
+      "service_code": "risk_focus",
+      "service_name": "통합위험정보조회",
+      "family": "info_retrieval",
+      "keyword": "위험 이력",
+      "keyword_norm": "위험이력",
+      "shared": false
+    },
+    {
+      "id": "audit_history#kw01",
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "family": "info_retrieval",
+      "keyword": "조사이력",
+      "keyword_norm": "조사이력",
+      "shared": false
+    },
+    {
+      "id": "audit_history#kw02",
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "family": "info_retrieval",
+      "keyword": "소송이력",
+      "keyword_norm": "소송이력",
+      "shared": false
+    },
+    {
+      "id": "audit_history#kw03",
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "family": "info_retrieval",
+      "keyword": "조사소송 이력",
+      "keyword_norm": "조사소송이력",
+      "shared": false
+    },
+    {
+      "id": "audit_history#kw04",
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "family": "info_retrieval",
+      "keyword": "처분 이력",
+      "keyword_norm": "처분이력",
+      "shared": false
+    },
+    {
+      "id": "audit_history#kw05",
+      "service_code": "audit_history",
+      "service_name": "조사및소송 이력조회",
+      "family": "info_retrieval",
+      "keyword": "이력 조회",
+      "keyword_norm": "이력조회",
+      "shared": false
+    },
+    {
+      "id": "declaration_focus#kw01",
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "family": "info_retrieval",
+      "keyword": "수출입신고내역",
+      "keyword_norm": "수출입신고내역",
+      "shared": false
+    },
+    {
+      "id": "declaration_focus#kw02",
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "family": "info_retrieval",
+      "keyword": "신고내역 조회",
+      "keyword_norm": "신고내역조회",
+      "shared": false
+    },
+    {
+      "id": "declaration_focus#kw03",
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "family": "info_retrieval",
+      "keyword": "수입내역",
+      "keyword_norm": "수입내역",
+      "shared": false
+    },
+    {
+      "id": "declaration_focus#kw04",
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "family": "info_retrieval",
+      "keyword": "수출내역",
+      "keyword_norm": "수출내역",
+      "shared": false
+    },
+    {
+      "id": "declaration_focus#kw05",
+      "service_code": "declaration_focus",
+      "service_name": "수출입신고내역조회",
+      "family": "info_retrieval",
+      "keyword": "통관 내역",
+      "keyword_norm": "통관내역",
+      "shared": false
+    },
+    {
+      "id": "bigdata_model_results#kw01",
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "family": "info_retrieval",
+      "keyword": "빅데이터 결과",
+      "keyword_norm": "빅데이터결과",
+      "shared": false
+    },
+    {
+      "id": "bigdata_model_results#kw02",
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "family": "info_retrieval",
+      "keyword": "모델 결과 수집",
+      "keyword_norm": "모델결과수집",
+      "shared": false
+    },
+    {
+      "id": "bigdata_model_results#kw03",
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "family": "info_retrieval",
+      "keyword": "기업정보분석 결과",
+      "keyword_norm": "기업정보분석결과",
+      "shared": false
+    },
+    {
+      "id": "bigdata_model_results#kw04",
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "family": "info_retrieval",
+      "keyword": "공급망 분석 결과",
+      "keyword_norm": "공급망분석결과",
+      "shared": false
+    },
+    {
+      "id": "bigdata_model_results#kw05",
+      "service_code": "bigdata_model_results",
+      "service_name": "빅데이터모델 결과 수집",
+      "family": "info_retrieval",
+      "keyword": "해외기업 특이정보",
+      "keyword_norm": "해외기업특이정보",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw01",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "전자통관 외부정보",
+      "keyword_norm": "전자통관외부정보",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw02",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "무역동향",
+      "keyword_norm": "무역동향",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw03",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "국세청 세적자료",
+      "keyword_norm": "국세청세적자료",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw04",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "한국은행 수신자료",
+      "keyword_norm": "한국은행수신자료",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw05",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "해외신용카드 사용내역",
+      "keyword_norm": "해외신용카드사용내역",
+      "shared": false
+    },
+    {
+      "id": "db_external#kw06",
+      "service_code": "db_external",
+      "service_name": "전자통관외부정보조회",
+      "family": "info_retrieval",
+      "keyword": "여신금융협회",
+      "keyword_norm": "여신금융협회",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw01",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "외부기관 정보수집",
+      "keyword_norm": "외부기관정보수집",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw02",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "DART",
+      "keyword_norm": "dart",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw03",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "전자공시",
+      "keyword_norm": "전자공시",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw04",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "BizLINE",
+      "keyword_norm": "bizline",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw05",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "CRETOP",
+      "keyword_norm": "cretop",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw06",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "KOREA PDS",
+      "keyword_norm": "koreapds",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw07",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "KPI",
+      "keyword_norm": "kpi",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw08",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "KIPRIS",
+      "keyword_norm": "kipris",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw09",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "ORBIS",
+      "keyword_norm": "orbis",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw10",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "D&B",
+      "keyword_norm": "d&b",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw11",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "행정정보 공동이용",
+      "keyword_norm": "행정정보공동이용",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw12",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "UN 무역통계",
+      "keyword_norm": "un무역통계",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw13",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "트레이드맵",
+      "keyword_norm": "트레이드맵",
+      "shared": false
+    },
+    {
+      "id": "external_agency#kw14",
+      "service_code": "external_agency",
+      "service_name": "외부기관정보수집",
+      "family": "info_retrieval",
+      "keyword": "ImportGenius",
+      "keyword_norm": "importgenius",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw01",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "관세정보RAG",
+      "keyword_norm": "관세정보rag",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw02",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "업무규정 검색",
+      "keyword_norm": "업무규정검색",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw03",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "관세법령 검색",
+      "keyword_norm": "관세법령검색",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw04",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "사례집",
+      "keyword_norm": "사례집",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw05",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "유사사례 검색",
+      "keyword_norm": "유사사례검색",
+      "shared": false
+    },
+    {
+      "id": "rag_customs#kw06",
+      "service_code": "rag_customs",
+      "service_name": "관세정보RAG",
+      "family": "info_retrieval",
+      "keyword": "규정 근거",
+      "keyword_norm": "규정근거",
+      "shared": false
+    },
+    {
+      "id": "rag_audit#kw01",
+      "service_code": "rag_audit",
+      "service_name": "심사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "심사정보RAG",
+      "keyword_norm": "심사정보rag",
+      "shared": false
+    },
+    {
+      "id": "rag_audit#kw02",
+      "service_code": "rag_audit",
+      "service_name": "심사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "심사결과보고서",
+      "keyword_norm": "심사결과보고서",
+      "shared": false
+    },
+    {
+      "id": "rag_audit#kw03",
+      "service_code": "rag_audit",
+      "service_name": "심사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "심사 유사사례",
+      "keyword_norm": "심사유사사례",
+      "shared": false
+    },
+    {
+      "id": "rag_audit#kw04",
+      "service_code": "rag_audit",
+      "service_name": "심사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "심사국",
+      "keyword_norm": "심사국",
+      "shared": false
+    },
+    {
+      "id": "rag_investigation#kw01",
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "조사정보RAG",
+      "keyword_norm": "조사정보rag",
+      "shared": false
+    },
+    {
+      "id": "rag_investigation#kw02",
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "조사결과보고서",
+      "keyword_norm": "조사결과보고서",
+      "shared": false
+    },
+    {
+      "id": "rag_investigation#kw03",
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "수사결과보고서",
+      "keyword_norm": "수사결과보고서",
+      "shared": false
+    },
+    {
+      "id": "rag_investigation#kw04",
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "조사 유사사례",
+      "keyword_norm": "조사유사사례",
+      "shared": false
+    },
+    {
+      "id": "rag_investigation#kw05",
+      "service_code": "rag_investigation",
+      "service_name": "조사정보RAG",
+      "family": "info_retrieval",
+      "keyword": "조사국",
+      "keyword_norm": "조사국",
+      "shared": false
+    },
+    {
+      "id": "rag_global#kw01",
+      "service_code": "rag_global",
+      "service_name": "국제협력RAG",
+      "family": "info_retrieval",
+      "keyword": "국제협력RAG",
+      "keyword_norm": "국제협력rag",
+      "shared": false
+    },
+    {
+      "id": "rag_global#kw02",
+      "service_code": "rag_global",
+      "service_name": "국제협력RAG",
+      "family": "info_retrieval",
+      "keyword": "WCO 회의록",
+      "keyword_norm": "wco회의록",
+      "shared": false
+    },
+    {
+      "id": "rag_global#kw03",
+      "service_code": "rag_global",
+      "service_name": "국제협력RAG",
+      "family": "info_retrieval",
+      "keyword": "국제협력",
+      "keyword_norm": "국제협력",
+      "shared": false
+    },
+    {
+      "id": "rag_global#kw04",
+      "service_code": "rag_global",
+      "service_name": "국제협력RAG",
+      "family": "info_retrieval",
+      "keyword": "국제협력국",
+      "keyword_norm": "국제협력국",
+      "shared": false
+    }
+  ]
+}

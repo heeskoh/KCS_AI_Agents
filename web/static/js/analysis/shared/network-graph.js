@@ -2878,6 +2878,15 @@ function chartDataTableHtml(chartKind, companyId, raw){
           </table>
         </div>`;
     }
+  } else if(chartKind === "undervaluation"){
+    // 저가신고: 대상기업 월별 단가(최저·최고·평균) + 신고금액(KRW) + 건수 — 그래프의 대상기업 계열과 동일.
+    const d = _invDataCache.get(`price_trend:${companyId}`)?.data;
+    const cur = d?.currency || "USD";
+    cols = ["월", `최저단가(${cur})`, `최고단가(${cur})`, `평균단가(${cur})`, "대상기업 신고금액", "건수"];
+    rows = (d?.company || []).map(c => [
+      c.ym, c.lo, c.hi, c.avg,
+      (c.amount != null ? (fmtKrwShort(c.amount) || "-") : "-"), c.n,
+    ]);
   } else if(chartKind === "disguise"){
     // 품명 위장 대조: 성분분석 적발 내역(신고품명 → 실제 위해성분 → 정상HS·위반법령)
     const d = _invDataCache.get(`hs_check:${companyId}`)?.data;

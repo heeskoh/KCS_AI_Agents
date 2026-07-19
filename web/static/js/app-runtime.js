@@ -2444,8 +2444,9 @@ function giStreamSteps(aCase, stepsToRun){
         tone:  doneCnt === allSteps.length ? "done"  : "run",
       };
     } else if(data.status === "error"){
+      console.error(`[관세수사 실행] 단계 오류 — ${step.label || step.id}\n${data.error || "(상세 없음)"}`);
       aCase.stepStates[step.id]  = "error";
-      aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
+      aCase.stepResults[step.id] = `❗ 실행 오류 — ${step.label || step.id}\n\n${data.error || "실행 중 오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`;
     }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
@@ -2453,6 +2454,7 @@ function giStreamSteps(aCase, stepsToRun){
 
   giRunEventSource.addEventListener("workflow", e => {
     const data = JSON.parse(e.data);
+    if(data.status === "failed") console.error(`[관세수사 실행] 워크플로 실패` + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
     if(data.status === "completed" || data.status === "failed"){
       if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
       saveCanvasState();
@@ -2460,11 +2462,22 @@ function giStreamSteps(aCase, stepsToRun){
     }
   });
 
-  giRunEventSource.onerror = () => {
+  giRunEventSource.onerror = (ev) => {
+    const running = stepsToRun.some(s => aCase.stepStates[s.id] === "run");
     if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
-    stepsToRun.forEach(s => {
-      if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
-    });
+    if(running){
+      const connecting = ev?.target && ev.target.readyState === 0;
+      const reason = connecting
+        ? "서버에 연결하지 못했습니다 (서버 미실행·중단 또는 네트워크 오류)."
+        : "실행 중 서버와의 연결이 종료되었습니다 (서버 오류·타임아웃 가능).";
+      console.error(`[관세수사 실행] 서버 연결 오류 — ${reason} · 엔드포인트 /api/gi_run · 연결상태 ${ev?.target?.readyState}`, ev);
+      stepsToRun.forEach(s => {
+        if(aCase.stepStates[s.id] === "run"){
+          aCase.stepStates[s.id] = "error";
+          aCase.stepResults[s.id] = `❗ ${reason}\n\n엔드포인트: /api/gi_run\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`;
+        }
+      });
+    }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
   };
@@ -2533,8 +2546,9 @@ function drugStreamSteps(aCase, stepsToRun){
         tone: doneCnt === allSteps.length ? "done" : "run",
       };
     } else if(data.status === "error"){
+      console.error(`[특별수사 실행] 단계 오류 — ${step.label || step.id}\n${data.error || "(상세 없음)"}`);
       aCase.stepStates[step.id] = "error";
-      aCase.stepResults[step.id] = `[오류] ${data.error || "실행 중 오류가 발생했습니다."}`;
+      aCase.stepResults[step.id] = `❗ 실행 오류 — ${step.label || step.id}\n\n${data.error || "실행 중 오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`;
     }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
@@ -2542,6 +2556,7 @@ function drugStreamSteps(aCase, stepsToRun){
 
   drugRunEventSource.addEventListener("workflow", e => {
     const data = JSON.parse(e.data);
+    if(data.status === "failed") console.error(`[특별수사 실행] 워크플로 실패` + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
     if(data.status === "completed" || data.status === "failed"){
       if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
       saveCanvasState();
@@ -2549,11 +2564,22 @@ function drugStreamSteps(aCase, stepsToRun){
     }
   });
 
-  drugRunEventSource.onerror = () => {
+  drugRunEventSource.onerror = (ev) => {
+    const running = stepsToRun.some(s => aCase.stepStates[s.id] === "run");
     if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
-    stepsToRun.forEach(s => {
-      if(aCase.stepStates[s.id] === "run") aCase.stepStates[s.id] = "error";
-    });
+    if(running){
+      const connecting = ev?.target && ev.target.readyState === 0;
+      const reason = connecting
+        ? "서버에 연결하지 못했습니다 (서버 미실행·중단 또는 네트워크 오류)."
+        : "실행 중 서버와의 연결이 종료되었습니다 (서버 오류·타임아웃 가능).";
+      console.error(`[특별수사 실행] 서버 연결 오류 — ${reason} · 엔드포인트 /api/gi_run · 연결상태 ${ev?.target?.readyState}`, ev);
+      stepsToRun.forEach(s => {
+        if(aCase.stepStates[s.id] === "run"){
+          aCase.stepStates[s.id] = "error";
+          aCase.stepResults[s.id] = `❗ ${reason}\n\n엔드포인트: /api/gi_run\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`;
+        }
+      });
+    }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
   };
@@ -10772,6 +10798,7 @@ function runScenarioWorkflow(startIndex = 0){
 
   const priorCompleted = scenarioItems.slice(0, runStartIndex).filter(item => stepStatuses[item.id] === "완료").length;
   let completed = priorCompleted;
+  let sseTerminated = false;   // completed/failed/step-error 시 정상 종료 표시 — onerror에서 오탐 방지
   // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 하단 실행 버튼(scenarioRunButton)이 렌더되지 않으므로
   // null-safe 헬퍼로 활성/비활성만 반영한다(헤더 [전체 시나리오 수행]만으로도 실행 가능).
   const runButton = document.getElementById("scenarioRunButton");
@@ -10795,6 +10822,7 @@ function runScenarioWorkflow(startIndex = 0){
   scenarioEventSource.addEventListener("workflow", event => {
     const data = JSON.parse(event.data);
     if(data.status === "completed"){
+      sseTerminated = true;
       setScenarioStatus("완료");
       saveRunArchive(companyId);
       updateCanvasJobStatus(companyId, { label:"완료", done:scenarioItems.length - skippedItems.length, total:scenarioItems.length, pct:skippedItems.length ? Math.round(((scenarioItems.length - skippedItems.length) / scenarioItems.length) * 100) : 100, tone:"done" });
@@ -10802,6 +10830,8 @@ function runScenarioWorkflow(startIndex = 0){
       scenarioEventSource.close();
     }
     if(data.status === "failed"){
+      sseTerminated = true;
+      console.error(`[시나리오 실행] 워크플로 실패 — 대상 ${companyId}` + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
       setScenarioStatus("실패");
       updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
       setRunDisabled(false);
@@ -10847,8 +10877,11 @@ function runScenarioWorkflow(startIndex = 0){
       saveIntermediateResults(companyId);
     }
     if(data.status === "error"){
+      sseTerminated = true;
+      // 서버가 전달한 실제 에러 원문을 콘솔 로그 + 결과 패널에 모두 남긴다(진단용).
+      console.error(`[시나리오 실행] 단계 오류 — ${item.label}\n${data.error || "(상세 없음)"}`);
       stepStatuses[item.id] = "오류";
-      stepOutputs[item.id] = data.error || "오류가 발생했습니다.";
+      stepOutputs[item.id] = `❗ 실행 오류 — ${item.label}\n\n${data.error || "오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`;
       openedSteps.add(item.id);
       setScenarioStatus("오류");
       updateCanvasJobStatus(companyId, { label:"오류", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"review" });
@@ -10860,16 +10893,33 @@ function runScenarioWorkflow(startIndex = 0){
     renderScenarioSteps();
   });
 
-  scenarioEventSource.onerror = () => {
-    setScenarioStatus("연결 종료");
+  scenarioEventSource.onerror = (ev) => {
+    const es = scenarioEventSource;
+    // 정상 종료(완료/실패/단계오류)는 이미 close() 했으므로 onerror는 예기치 않은 연결 끊김이다.
+    if(sseTerminated){ setRunDisabled(false); if(es) es.close(); return; }
+    // 연결 단계(readyState 0=CONNECTING)에서 끊기면 서버 미도달, 그 외(2=CLOSED)는 실행 중 종료로 구분.
+    const connecting = es && es.readyState === 0;
+    const endpoint = String(url).split("?")[0];
+    const reason = connecting
+      ? "서버에 연결하지 못했습니다 (서버 미실행·중단 또는 네트워크 오류)."
+      : "실행 중 서버와의 연결이 종료되었습니다 (서버 오류·타임아웃 가능).";
+    const detail = `엔드포인트: ${endpoint} · 연결상태: ${es ? es.readyState : "?"}(${connecting ? "연결 안 됨" : "종료"})`;
+    console.error(`[시나리오 실행] 서버 연결 오류 — ${reason}\n${detail}`, ev);
+    setScenarioStatus(connecting ? "서버 연결 실패" : "연결 종료");
+    // 실행 중이던 단계는 오류로, 아직 시작 전이면 첫 실행대상 단계에 사유를 표시(서버 미실행 등).
+    const msg = `❗ ${reason}\n\n${detail}\n\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`;
+    let marked = false;
     Object.entries(stepStatuses).forEach(([id, status]) => {
-      if(status === "실행 중" || status === "실행중"){
-        stepStatuses[id] = "오류";
-        if(!stepOutputs[id]) stepOutputs[id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
-      }
+      if(status === "실행 중" || status === "실행중"){ stepStatuses[id] = "오류"; stepOutputs[id] = msg; marked = true; }
     });
+    if(!marked && runnableItems[0]){
+      stepStatuses[runnableItems[0].id] = "오류";
+      stepOutputs[runnableItems[0].id] = msg;
+      openedSteps.add(runnableItems[0].id);
+      selectedScenarioId = runnableItems[0].id;
+    }
     setRunDisabled(false);
-    if(scenarioEventSource) scenarioEventSource.close();
+    if(es) es.close();
     renderScenarioList();
     renderScenarioSteps();
   };
@@ -10930,8 +10980,9 @@ function runSingleScenarioItem(item){
       renderScenarioSteps();
     }
     if(data.status === "error"){
+      console.error(`[AI서비스 실행] 단계 오류 — ${item.label}\n${data.error || "(상세 없음)"}`);
       stepStatuses[item.id] = "오류";
-      stepOutputs[item.id] = data.error || "오류가 발생했습니다.";
+      stepOutputs[item.id] = `❗ 실행 오류 — ${item.label}\n\n${data.error || "오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`;
       openedSteps.add(item.id);
       saveIntermediateResults(companyId);
       renderScenarioList();
@@ -10979,9 +11030,17 @@ function runSingleScenarioItem(item){
       }
       try{ reader.cancel(); }catch(e){}
     }catch(err){
-      if(stepStatuses[item.id] === "실행 중"){
+      // 의도적 중단(abort: 새 실행/이탈)은 오류로 표시하지 않는다.
+      const aborted = err && (err.name === "AbortError" || /abort/i.test(String(err.message || "")));
+      if(!aborted && stepStatuses[item.id] === "실행 중"){
+        const msg = String((err && err.message) || err);
+        const connFail = /Failed to fetch|NetworkError|ERR_|load failed/i.test(msg);
+        const reason = connFail
+          ? "서버에 연결하지 못했습니다 (서버 미실행·중단 또는 네트워크 오류)."
+          : `서버 실행 중 오류가 발생했습니다 (${msg}).`;
+        console.error(`[AI서비스 실행] 연결/실행 오류 — ${item.label}\n${reason}\n원문: ${msg}`, err);
         stepStatuses[item.id] = "오류";
-        if(!stepOutputs[item.id]) stepOutputs[item.id] = "연결이 종료되어 실행 결과를 확인하지 못했습니다.";
+        stepOutputs[item.id] = `❗ ${reason}\n\n엔드포인트: /api/run\n원문: ${msg}\n\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`;
         renderScenarioList();
         renderScenarioSteps();
       }

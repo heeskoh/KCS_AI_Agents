@@ -16,6 +16,7 @@ JUSO_KEY           : 행안부 도로명주소 API 승인키 (파라미터명 co
 DATA_KEY           : 공공데이터포털 건축HUB 건축물대장 serviceKey (apis.data.go.kr/1613000)
 KAKAO_REST_API_KEY : 카카오 REST API 키 (developers.kakao.com)
 """
+import json
 import os
 import re
 from typing import Optional
@@ -26,6 +27,7 @@ except ModuleNotFoundError:
     httpx = None
 
 from src.agents.state import CustomsState
+from src.llm import llm   # LLM 시뮬레이션(실제 정부 API 미연동 시 도로명주소·건축물대장 응답을 모의)
 
 JUSO_KEY = os.getenv("JUSO_KEY", "").strip()
 DATA_KEY = os.getenv("DATA_KEY", "").strip()
@@ -148,6 +150,116 @@ def _judge_by_purpose(main_purps: str, etc: str = "") -> tuple[str, str]:
     return "확인", f"건축물대장 주용도 '{main_purps or '미상'}' — 개인/사업장 단정 곤란"
 
 
+# ── 룰 매핑(주용도코드명 → 주거/사업장/혼합/판단불가) — 서비스 표준 결과 라벨 ──
+def _judge_purpose_kind(main_purps: str, etc: str = "") -> tuple[str, str]:
+    """건축물대장 주용도코드명 → (주거/사업장/혼합/판단불가, 사유)."""
+    text = f"{main_purps} {etc}"
+    res = any(k in text for k in _PURPOSE_RESIDENTIAL)
+    biz = any(k in text for k in _PURPOSE_BUSINESS)
+    if res and biz:
+        return "혼합", f"건축물대장 주용도 '{main_purps}' — 주거·비주거가 한 건물에 혼재(상가주택 등)"
+    if res:
+        return "주거", f"건축물대장 주용도 '{main_purps}' — 주거시설"
+    if biz:
+        return "사업장", f"건축물대장 주용도 '{main_purps}' — 비주거(상업·업무·산업)시설"
+    return "판단불가", f"건축물대장 주용도 '{main_purps or '미상'}' — 주거/사업장 단정 곤란(교육·의료·종교 등 또는 미상)"
+
+
+# ── LLM 시뮬레이션: (1) 도로명주소 API → (2) 건축물대장 주용도 → (3) 룰 매핑 ──
+_LLM_SIM_PROMPT = """당신은 대한민국 행정안전부 '도로명주소 API'와 국토교통부 '건축HUB 건축물대장 API'를 시뮬레이션하는 엔진입니다.
+아래 [입력 주소]에 대해 두 API가 반환할 법한 값을 현실적으로 생성하세요(실제 조회가 아닌 합리적 추정·시뮬레이션).
+
+[생성 규칙]
+- admCd: 법정동코드 10자리(앞 5자리=시군구코드, 뒤 5자리=법정동코드). 입력 주소의 시/구/동에 부합하는 실제 코드에 가깝게.
+- lnbrMnnm(번)·lnbrSlno(지): 주소의 번지 숫자. 지가 없으면 0.
+- mtYn: 산 여부("1"=산, "0"=일반).
+- bdKdcd: 공동주택 구분("1"=아파트·연립·다세대 등 공동주택, "0"=그 외).
+- mainPurpsCdNm(주용도코드명): 건축물대장 표제부의 주용도. 주소·건물명에 가장 부합하게 아래 표준 용도 중 선택.
+  · 주거계열: 단독주택, 공동주택, 아파트, 연립주택, 다세대주택, 다가구주택, 기숙사
+  · 비주거계열: 제1종근린생활시설, 제2종근린생활시설, 업무시설, 판매시설, 공장, 창고시설, 숙박시설, 자동차관련시설, 교육연구시설, 의료시설, 문화및집회시설
+  · 혼합: 한 건물에 주거+비주거가 함께면 "제1종근린생활시설, 다세대주택"처럼 병기(상가주택).
+- 입력 주소에 상가주택·주상복합·복합용도·"1층 상가"·"하부 상가 상부 주택/오피스텔" 등 혼합 사용이 명시되면
+  mainPurpsCdNm에 반드시 주거계열+비주거계열을 병기하세요(예: "제1종근린생활시설, 다세대주택").
+- bldNm(건물명)·hhldCnt(세대수)도 추정해 채우되 모르면 빈 문자열/0.
+
+[출력 형식] 아래 JSON 객체 '하나만' 출력하세요(설명·코드블록·주석 없이):
+{{"roadAddr":"","jibunAddr":"","admCd":"","lnbrMnnm":0,"lnbrSlno":0,"mtYn":"0","bdKdcd":"0","bldNm":"","mainPurpsCdNm":"","etcPurps":"","hhldCnt":0}}
+
+[입력 주소]
+{address}
+[건물 참고설명] (있으면 주용도 판단에 반영, 없으면 무시)
+{context}
+"""
+
+
+def _parse_sim_json(raw: str) -> Optional[dict]:
+    """LLM 응답에서 JSON 객체를 추출·파싱(코드펜스/설명 혼입 방어)."""
+    text = str(raw or "").strip()
+    if "```" in text:   # ```json ... ``` 제거
+        text = re.sub(r"```(?:json)?", "", text).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        obj = json.loads(text[start:end + 1])
+        return obj if isinstance(obj, dict) else None
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _resolve_by_llm_simulation(address: str, context: str = "") -> Optional[tuple[str, list[str], list[str]]]:
+    """(판정, 근거, 상세) 또는 None. LLM으로 도로명주소·건축물대장 응답을 모의한 뒤 룰 매핑.
+    context: 입력 전문(건물 유형·상가주택 등 설명이 있으면 주용도 판단에 반영)."""
+    if not llm:
+        return None
+    # 정규식으로 떨어져 나간 건물 설명(상가주택·주상복합 등)을 맥락으로 함께 전달.
+    ctx = (context or "").strip()
+    ctx = ctx if ctx and ctx != address else "(추가 설명 없음)"
+    try:
+        raw = llm.invoke(_LLM_SIM_PROMPT.format(address=address, context=ctx[:500])).content
+    except Exception as exc:  # noqa: BLE001
+        print(f"[주소확인 LLM] 시뮬레이션 호출 실패: {exc}")
+        return None
+    data = _parse_sim_json(raw)
+    if not data:
+        print("[주소확인 LLM] 시뮬레이션 응답 파싱 실패")
+        return None
+    adm = str(data.get("admCd") or "")
+    mt = str(data.get("mtYn") or "0")
+    detail = [
+        "■ (1) 도로명주소 API(행안부) — LLM 시뮬레이션",
+        f"  도로명주소: {data.get('roadAddr') or '-'}",
+        f"  지번주소: {data.get('jibunAddr') or '-'}",
+        f"  법정동코드(admCd): {adm or '-'} · 번지(lnbrMnnm-lnbrSlno): "
+        f"{data.get('lnbrMnnm') or 0}-{data.get('lnbrSlno') or 0} · 산여부(mtYn): {mt}{' (산)' if mt == '1' else ''}",
+        "",
+    ]
+    main = str(data.get("mainPurpsCdNm") or "")
+    # 공동주택(bdKdcd=1) 조기 판정 — 단, 주용도에 비주거(근생·판매 등)가 병기되면
+    # 상가주택/주상복합이므로 조기 판정하지 않고 아래 룰 매핑(→ 혼합 등)으로 넘긴다.
+    if str(data.get("bdKdcd")) == "1" and not any(k in main for k in _PURPOSE_BUSINESS):
+        detail += [
+            "■ (2) 건축물대장 API(건축HUB) — LLM 시뮬레이션",
+            f"  건물명: {data.get('bldNm') or '-'} · 구분: 공동주택(bdKdcd=1)"
+            f"{(' · 주용도: ' + main) if main else ''}",
+            "",
+        ]
+        return "주거", ["도로명주소 API 공동주택 구분(bdKdcd=1) — 아파트·연립·다세대 → 주거"], detail
+    verdict, reason = _judge_purpose_kind(main, str(data.get("etcPurps") or ""))
+    detail += [
+        "■ (2) 건축물대장 API(건축HUB) 표제부 — LLM 시뮬레이션",
+        f"  건물명: {data.get('bldNm') or '-'}",
+        f"  주용도코드명(mainPurpsCdNm): {main or '-'}"
+        f"{(' · 기타용도: ' + str(data.get('etcPurps'))) if data.get('etcPurps') else ''}  ★판정 근거",
+        f"  세대수(hhldCnt): {data.get('hhldCnt') or '-'}",
+        "",
+        "■ (3) 룰 매핑(주용도코드명 → 주거/사업장/혼합/판단불가)",
+        f"  {reason}",
+        "",
+    ]
+    return verdict, [reason], detail
+
+
 def _resolve_by_building_register(address: str) -> Optional[tuple[str, list[str], list[str]]]:
     """(판정, 근거, 상세) 또는 None(방식 A 불가). 방식 A: JUSO + 건축물대장."""
     juso = _juso_lookup(address)
@@ -164,18 +276,20 @@ def _resolve_by_building_register(address: str) -> Optional[tuple[str, list[str]
         f"{' (산)' if str(juso.get('mtYn')) == '1' else ''}",
         "",
     ]
-    # 공동주택(bdKdcd=1) 조기 판정
-    if str(juso.get("bdKdcd")) == "1":
-        return "가정집", ["도로명주소 API 공동주택 구분(bdKdcd=1) — 아파트·연립·다세대 주거"], detail
     purpose = _building_purpose(juso)
+    # 공동주택(bdKdcd=1) 조기 판정 — 단, 건축물대장 주용도에 비주거가 병기되면
+    # 상가주택/주상복합이므로 조기 판정하지 않고 룰 매핑으로 넘긴다.
+    _main_pre = str((purpose or {}).get("주용도") or "")
+    if str(juso.get("bdKdcd")) == "1" and not any(k in _main_pre for k in _PURPOSE_BUSINESS):
+        return "주거", ["도로명주소 API 공동주택 구분(bdKdcd=1) — 아파트·연립·다세대 주거"], detail
     if purpose is None:
         # 건축HUB 미연동 — juso 결과만으로는 용도 확정 불가
         detail.append("(건축HUB DATA_KEY 미설정 — 건축물대장 주용도 미조회)")
-        return "확인", ["도로명주소는 확인되나 건축물대장 주용도를 조회하지 못함"], detail
+        return "판단불가", ["도로명주소는 확인되나 건축물대장 주용도를 조회하지 못함"], detail
     if purpose.get("대장없음"):
-        return "확인", ["건축물대장 미등재 — 무허가·미등록 건물 가능성(위험 신호)"], detail
+        return "판단불가", ["건축물대장 미등재 — 무허가·미등록 건물 가능성(위험 신호)"], detail
     main = purpose.get("주용도", "")
-    verdict, reason = _judge_by_purpose(main, purpose.get("기타용도", ""))
+    verdict, reason = _judge_purpose_kind(main, purpose.get("기타용도", ""))
     detail += [
         "■ 건축물대장(건축HUB) 표제부",
         f"  건물명: {purpose.get('건물명') or '-'}",
@@ -219,17 +333,45 @@ def _judge(building: str, places: list[dict], address: str, fulltext: str = "") 
         reasons.append(f"해당 위치 등록 사업장 {len(places)}건 — {names}")
     if residential and business:
         reasons.append("주거·사업장 신호가 함께 확인됨(주상복합 등) — 현장 확인 필요")
-        return "확인", reasons
+        return "혼합", reasons
     if residential:
-        return "가정집", reasons
+        return "주거", reasons
     if business:
         return "사업장", reasons
     reasons.append("주거·사업장 신호가 모두 확인되지 않음 — 추가 확인 필요")
-    return "확인", reasons
+    return "판단불가", reasons
+
+
+def _implication(verdict: str) -> str:
+    """판정(주거/사업장/혼합/판단불가)별 조사 시사점 한 줄."""
+    if verdict == "사업장":
+        return "  - 등록 상호와 신고 업체명 일치 여부, 실제 영업 여부(현장 확인) 대사 권고"
+    if verdict == "주거":
+        return "  - 사업장 주소로 신고되었는데 주거로 판정되면 위장 사업장·유령 주소 가능성 검토"
+    if verdict == "혼합":
+        return "  - 주거·비주거 혼재(상가주택 등) — 실제 사용 층·호 및 영업 여부 현장 확인 권고"
+    return "  - 주용도로 단정이 어려움 — 추가 자료(임대차·사업자등록·현장) 확보 후 재판정 권고"
+
+
+def _format_result(method: str, address: str, verdict: str,
+                   reasons: list[str], detail: list[str]) -> str:
+    lines = [
+        "[주소확인 결과]",
+        f"조회 방식: {method}",
+        f"입력 주소: {address}",
+        "",
+        f"■ 결과: {verdict}   (주거 / 사업장 / 혼합 / 판단불가)",
+        "",
+    ] + [f"  - {r}" for r in reasons] + [""] + detail + [
+        "■ 조사 시사점",
+        _implication(verdict),
+    ]
+    return "\n".join(lines)
 
 
 def agent_address_check(state: CustomsState) -> CustomsState:
-    """주소를 건축물대장(우선)·카카오지도·휴리스틱으로 개인주소/사업장 여부를 판별한다."""
+    """주소를 입력받아 도로명주소 API → 건축물대장 주용도 → 룰 매핑으로
+    주거/사업장/혼합/판단불가를 판별한다(실제 API 미연동 시 LLM 시뮬레이션)."""
     print("[Agent] 주소확인 시작")
     address = _extract_address(state)
     scenario = state.get("scenario") or {}
@@ -245,23 +387,22 @@ def agent_address_check(state: CustomsState) -> CustomsState:
             "확인 주소가 입력되지 않았습니다. '확인 주소' 입력값에 도로명 또는 지번 주소를 등록하세요.",
         ])}
 
-    # ── 방식 A: 건축물대장 주용도(가장 정확) ──
+    # ── 방식 A: 실제 도로명주소 API + 건축HUB 건축물대장(가장 정확, 키 설정 시) ──
     br = _resolve_by_building_register(address)
     if br is not None:
         verdict, reasons, detail = br
         method = ("건축물대장 조회 (도로명주소 API + 건축HUB)" if DATA_KEY
                   else "도로명주소 API (건축HUB 미연동 — 주용도 미조회)")
-        lines = [
-            "[주소확인 결과]", f"조회 방식: {method}", f"입력 주소: {address}", "",
-            f"■ 1차 판정: {verdict}", "",
-        ] + [f"  - {r}" for r in reasons] + [""] + detail + [
-            "■ 조사 시사점",
-            ("  - 사업장 주소로 신고되었으나 가정집으로 판정되면 위장 사업장·유령 주소 가능성 검토"
-             if verdict in ("가정집", "확인")
-             else "  - 등록 상호와 신고 업체명 일치 여부, 실제 영업 여부(현장 확인) 대사 권고"),
-        ]
-        print(f"[Agent] 주소확인 완료(건축물대장) — 판정: {verdict}")
-        return {**state, "address_check_result": "\n".join(lines)}
+        print(f"[Agent] 주소확인 완료(건축물대장) — 결과: {verdict}")
+        return {**state, "address_check_result": _format_result(method, address, verdict, reasons, detail)}
+
+    # ── 방식 A′: LLM 시뮬레이션 (실제 API 키 미설정 시 도로명주소·건축물대장 응답 모의) ──
+    sim = _resolve_by_llm_simulation(address, fulltext or str(state.get("prompt") or ""))
+    if sim is not None:
+        verdict, reasons, detail = sim
+        method = "LLM 시뮬레이션 (도로명주소 API → 건축물대장 주용도 → 룰 매핑)"
+        print(f"[Agent] 주소확인 완료(LLM 시뮬레이션) — 결과: {verdict}")
+        return {**state, "address_check_result": _format_result(method, address, verdict, reasons, detail)}
 
     # ── 방식 B/C: 카카오지도 + 휴리스틱 ──
     building = ""
@@ -273,12 +414,6 @@ def agent_address_check(state: CustomsState) -> CustomsState:
     method = ("카카오지도(카카오 로컬) Open API" if api_ok
               else "모의 판정 (카카오 API 호출 실패/무응답 — 주소 표기 휴리스틱)" if KAKAO_REST_API_KEY and httpx
               else "모의 판정 (API 키 미설정 — 주소 표기 휴리스틱)")
-    lines = [
-        "[주소확인 결과]",
-        f"조회 방식: {method}",
-        f"입력 주소: {address}",
-        "",
-    ]
     if addr_data and addr_data.get("documents"):
         doc = addr_data["documents"][0]
         road_doc = doc.get("road_address") or {}
@@ -312,15 +447,5 @@ def agent_address_check(state: CustomsState) -> CustomsState:
         detail.append("")
 
     verdict, reasons = _judge(building, places, address, fulltext)
-    lines += [f"■ 1차 판정: {verdict}", ""]
-    lines += [f"  - {r}" for r in reasons]
-    lines.append("")
-    lines += detail
-    lines += [
-        "■ 조사 시사점",
-        ("  - 사업장 주소로 신고되었으나 가정집으로 판정되면 위장 사업장·유령 주소 가능성 검토"
-         if verdict in ("가정집", "확인")
-         else "  - 등록 상호와 신고 업체명 일치 여부, 실제 영업 여부(현장 확인) 대사 권고"),
-    ]
-    print(f"[Agent] 주소확인 완료 — 판정: {verdict}")
-    return {**state, "address_check_result": "\n".join(lines)}
+    print(f"[Agent] 주소확인 완료 — 결과: {verdict}")
+    return {**state, "address_check_result": _format_result(method, address, verdict, reasons, detail)}

@@ -1,0 +1,75 @@
+{"id": "rag_risk_select#01", "service_code": "rag_risk_select", "service_name": "위험Case검색", "family": "ai_service", "text": "이 업체 위험선별 기준에 걸리는지 봐줘"}
+{"id": "rag_risk_select#02", "service_code": "rag_risk_select", "service_name": "위험Case검색", "family": "ai_service", "text": "예전에 비슷한 위험케이스 있었는지 찾아줘"}
+{"id": "rag_risk_select#03", "service_code": "rag_risk_select", "service_name": "위험Case검색", "family": "ai_service", "text": "이 여행자 우범 신호 있는지 확인해줘"}
+{"id": "origin_analysis#01", "service_code": "origin_analysis", "service_name": "원산지 검증", "family": "ai_service", "text": "이 물품 FTA 원산지 요건 충족하는지 검증해줘"}
+{"id": "origin_analysis#02", "service_code": "origin_analysis", "service_name": "원산지 검증", "family": "ai_service", "text": "원산지 증빙이랑 우회수입 가능성 봐줘"}
+{"id": "abnormal_trade#01", "service_code": "abnormal_trade", "service_name": "이상거래 검증", "family": "ai_service", "text": "이 거래 가격이나 신고패턴 이상한지 봐줘"}
+{"id": "abnormal_trade#02", "service_code": "abnormal_trade", "service_name": "이상거래 검증", "family": "ai_service", "text": "송금·연락·이동 패턴 이상징후 검증해줘"}
+{"id": "proceeds_tracking#01", "service_code": "proceeds_tracking", "service_name": "범죄수익 추적", "family": "ai_service", "text": "이 자금이 범죄수익 은닉인지 판단해줘"}
+{"id": "proceeds_tracking#02", "service_code": "proceeds_tracking", "service_name": "범죄수익 추적", "family": "ai_service", "text": "현금 반입 자금의 은닉 가능성 분석해줘"}
+{"id": "route_analysis#01", "service_code": "route_analysis", "service_name": "운송경로 분석", "family": "ai_service", "text": "운송경로 역추적해서 우회수입인지 봐줘"}
+{"id": "route_analysis#02", "service_code": "route_analysis", "service_name": "운송경로 분석", "family": "ai_service", "text": "여행 경유지·동행 이력으로 우회 반입 탐지해줘"}
+{"id": "declaration_verify#01", "service_code": "declaration_verify", "service_name": "수입신고검증", "family": "ai_service", "text": "첨부 인보이스랑 수입신고 내용 대조해줘"}
+{"id": "declaration_verify#02", "service_code": "declaration_verify", "service_name": "수입신고검증", "family": "ai_service", "text": "휴대품 신고랑 실제 반입물품 불일치 확인해줘"}
+{"id": "hs_verify#01", "service_code": "hs_verify", "service_name": "품목분류검증", "family": "ai_service", "text": "이 물품 HS코드 제대로 분류됐는지 검증해줘"}
+{"id": "hs_verify#02", "service_code": "hs_verify", "service_name": "품목분류검증", "family": "ai_service", "text": "전략물자·수출허가 대상인지 확인해줘"}
+{"id": "customs_value#01", "service_code": "customs_value", "service_name": "과세가격평가", "family": "ai_service", "text": "이 신고가격 저가신고 아닌지 봐줘"}
+{"id": "customs_value#02", "service_code": "customs_value", "service_name": "과세가격평가", "family": "ai_service", "text": "과세가격 산정 근거 검토해줘"}
+{"id": "ml#01", "service_code": "ml", "service_name": "ML 모델 실행", "family": "ai_service", "text": "위험모델 전부 돌려서 점수 비교해줘"}
+{"id": "ml#02", "service_code": "ml", "service_name": "ML 모델 실행", "family": "ai_service", "text": "이 대상 ML 위험스코어 뽑아줘"}
+{"id": "network#01", "service_code": "network", "service_name": "관계망 분석", "family": "ai_service", "text": "이 업체들 관계망 그려서 특수관계 찾아줘"}
+{"id": "network#02", "service_code": "network", "service_name": "관계망 분석", "family": "ai_service", "text": "동행자·연락처 관계망으로 공범 가능성 봐줘"}
+{"id": "fund_trace#01", "service_code": "fund_trace", "service_name": "자금흐름 관계분석", "family": "ai_service", "text": "이체내역 파일로 자금흐름 관계망 만들어줘"}
+{"id": "fund_trace#02", "service_code": "fund_trace", "service_name": "자금흐름 관계분석", "family": "ai_service", "text": "소유주 중심으로 자금 시계열 추적해줘"}
+{"id": "comms_analysis#01", "service_code": "comms_analysis", "service_name": "통신내역 관계분석", "family": "ai_service", "text": "통화·메신저 내역으로 관계망 분석해줘"}
+{"id": "comms_analysis#02", "service_code": "comms_analysis", "service_name": "통신내역 관계분석", "family": "ai_service", "text": "누가 핵심 연결자인지 통신내역으로 봐줘"}
+{"id": "ocr#01", "service_code": "ocr", "service_name": "OCR/문서인식", "family": "ai_service", "text": "이 PDF에서 주요 항목 추출해서 구조화해줘"}
+{"id": "ocr#02", "service_code": "ocr", "service_name": "OCR/문서인식", "family": "ai_service", "text": "첨부 문서 OCR 돌려줘"}
+{"id": "rag_create#01", "service_code": "rag_create", "service_name": "RAG 생성", "family": "ai_service", "text": "이 자료들 RAG 지식으로 만들어줘"}
+{"id": "rag_create#02", "service_code": "rag_create", "service_name": "RAG 생성", "family": "ai_service", "text": "사건 자료 지식베이스에 넣어줘"}
+{"id": "ontology#01", "service_code": "ontology", "service_name": "관세온톨로지", "family": "ai_service", "text": "이 거래·품목으로 관세 온톨로지 구성해줘"}
+{"id": "ontology#02", "service_code": "ontology", "service_name": "관세온톨로지", "family": "ai_service", "text": "우범여행자 지식그래프 만들어줘"}
+{"id": "translate#01", "service_code": "translate", "service_name": "문서 번역", "family": "ai_service", "text": "이 외국어 인보이스 번역해줘"}
+{"id": "web_search#01", "service_code": "web_search", "service_name": "웹검색", "family": "ai_service", "text": "이 업체 공급망 관련 기사 검색해줘"}
+{"id": "web_search#02", "service_code": "web_search", "service_name": "웹검색", "family": "ai_service", "text": "이 URL에서 지정 정보 확인해줘"}
+{"id": "patent#01", "service_code": "patent", "service_name": "특허정보 조회", "family": "ai_service", "text": "이 물품 상표권 침해 소지 있는지 봐줘"}
+{"id": "patent#02", "service_code": "patent", "service_name": "특허정보 조회", "family": "ai_service", "text": "로열티가 과세가격 반영 대상인지 확인해줘"}
+{"id": "law#01", "service_code": "law", "service_name": "법령 검토", "family": "ai_service", "text": "이 사안 관련 법령·판례 찾아줘"}
+{"id": "law#02", "service_code": "law", "service_name": "법령 검토", "family": "ai_service", "text": "처분 근거 조문 검토해줘"}
+{"id": "mail_share#01", "service_code": "mail_share", "service_name": "내부메일 공유", "family": "ai_service", "text": "이 보고서 요약해서 담당자에게 메일로 보내줘"}
+{"id": "address#01", "service_code": "address", "service_name": "주소확인", "family": "ai_service", "text": "이 주소가 주거지인지 사업장인지 확인해줘"}
+{"id": "report_generate#01", "service_code": "report_generate", "service_name": "보고서 생성", "family": "ai_service", "text": "분석 결과 모아서 조사보고서 초안 만들어줘"}
+{"id": "report_validate#01", "service_code": "report_validate", "service_name": "보고서 검증", "family": "ai_service", "text": "이 보고서 근거랑 출처 제대로 됐는지 검증해줘"}
+{"id": "result_synthesis#01", "service_code": "result_synthesis", "service_name": "결과통합", "family": "ai_service", "text": "앞 단계 결과들을 이 양식으로 종합해줘"}
+{"id": "summary#01", "service_code": "summary", "service_name": "보고서 요약", "family": "ai_service", "text": "이 내용 조사관용 핵심 요약으로 정리해줘"}
+{"id": "rag_trade#01", "service_code": "rag_trade", "service_name": "통관보고서 생성", "family": "ai_service", "text": "통관·무역 정보로 이상징후 뽑아 통관보고서 만들어줘"}
+{"id": "report#01", "service_code": "report", "service_name": "표준보고서 생성", "family": "ai_service", "text": "이 자료를 유사사례 표준보고서 형식으로 재구성해줘"}
+{"id": "db_cdw#01", "service_code": "db_cdw", "service_name": "CDW 자연어분석", "family": "info_retrieval", "text": "작년 미신고 반입 상위 품목 CDW에서 뽑아줘"}
+{"id": "db_cdw#02", "service_code": "db_cdw", "service_name": "CDW 자연어분석", "family": "info_retrieval", "text": "이 기업 최근 3년 수입 건수 자연어로 물어보면 조회되게 해줘"}
+{"id": "db_cdw#03", "service_code": "db_cdw", "service_name": "CDW 자연어분석", "family": "info_retrieval", "text": "지역별 신고금액 합계 SQL로 집계해줘"}
+{"id": "profile_summary#01", "service_code": "profile_summary", "service_name": "기업프로파일조회", "family": "info_retrieval", "text": "이 업체 기본 프로파일 조회해줘"}
+{"id": "profile_summary#02", "service_code": "profile_summary", "service_name": "기업프로파일조회", "family": "info_retrieval", "text": "사업자번호로 기업 현황 가져와줘"}
+{"id": "risk_focus#01", "service_code": "risk_focus", "service_name": "통합위험정보조회", "family": "info_retrieval", "text": "이 대상 통합위험정보 조회해줘"}
+{"id": "risk_focus#02", "service_code": "risk_focus", "service_name": "통합위험정보조회", "family": "info_retrieval", "text": "등록돼 있는 위험정보 다 가져와줘"}
+{"id": "audit_history#01", "service_code": "audit_history", "service_name": "조사및소송 이력조회", "family": "info_retrieval", "text": "이 업체 조사·소송 이력 조회해줘"}
+{"id": "audit_history#02", "service_code": "audit_history", "service_name": "조사및소송 이력조회", "family": "info_retrieval", "text": "과거 소송 걸린 적 있는지 이력 뽑아줘"}
+{"id": "declaration_focus#01", "service_code": "declaration_focus", "service_name": "수출입신고내역조회", "family": "info_retrieval", "text": "이 업체 수출입 신고내역 조회해줘"}
+{"id": "declaration_focus#02", "service_code": "declaration_focus", "service_name": "수출입신고내역조회", "family": "info_retrieval", "text": "최근 수입 신고건 내역 가져와줘"}
+{"id": "bigdata_model_results#01", "service_code": "bigdata_model_results", "service_name": "빅데이터모델 결과 수집", "family": "info_retrieval", "text": "이 기업 빅데이터 분석 결과 가져와줘"}
+{"id": "bigdata_model_results#02", "service_code": "bigdata_model_results", "service_name": "빅데이터모델 결과 수집", "family": "info_retrieval", "text": "수출입 공급망 분석 결과 수집해줘"}
+{"id": "bigdata_model_results#03", "service_code": "bigdata_model_results", "service_name": "빅데이터모델 결과 수집", "family": "info_retrieval", "text": "해외기업 특이정보 있는지 조회해줘"}
+{"id": "db_external#01", "service_code": "db_external", "service_name": "전자통관외부정보조회", "family": "info_retrieval", "text": "이 대상 국세청 세적자료 조회해줘"}
+{"id": "db_external#02", "service_code": "db_external", "service_name": "전자통관외부정보조회", "family": "info_retrieval", "text": "해외신용카드 사용내역 가져와줘"}
+{"id": "db_external#03", "service_code": "db_external", "service_name": "전자통관외부정보조회", "family": "info_retrieval", "text": "무역 동향 자료 조회해줘"}
+{"id": "external_agency#01", "service_code": "external_agency", "service_name": "외부기관정보수집", "family": "info_retrieval", "text": "DART에서 이 기업 공시자료 수집해줘"}
+{"id": "external_agency#02", "service_code": "external_agency", "service_name": "외부기관정보수집", "family": "info_retrieval", "text": "CRETOP·BizLINE로 신용정보 가져와줘"}
+{"id": "external_agency#03", "service_code": "external_agency", "service_name": "외부기관정보수집", "family": "info_retrieval", "text": "트레이드맵·ImportGenius에서 무역통계 조회해줘"}
+{"id": "external_agency#04", "service_code": "external_agency", "service_name": "외부기관정보수집", "family": "info_retrieval", "text": "KIPRIS에서 특허정보 조회해줘"}
+{"id": "rag_customs#01", "service_code": "rag_customs", "service_name": "관세정보RAG", "family": "info_retrieval", "text": "이 사안 관련 업무규정이랑 유사사례 검색해줘"}
+{"id": "rag_customs#02", "service_code": "rag_customs", "service_name": "관세정보RAG", "family": "info_retrieval", "text": "관세법령 사례집에서 비슷한 케이스 찾아줘"}
+{"id": "rag_audit#01", "service_code": "rag_audit", "service_name": "심사정보RAG", "family": "info_retrieval", "text": "심사결과보고서에서 이 건이랑 유사한 사례 찾아줘"}
+{"id": "rag_audit#02", "service_code": "rag_audit", "service_name": "심사정보RAG", "family": "info_retrieval", "text": "비슷한 심사 케이스 검색해줘"}
+{"id": "rag_investigation#01", "service_code": "rag_investigation", "service_name": "조사정보RAG", "family": "info_retrieval", "text": "조사보고서에서 이 건이랑 유사한 사례 검색해줘"}
+{"id": "rag_investigation#02", "service_code": "rag_investigation", "service_name": "조사정보RAG", "family": "info_retrieval", "text": "비슷한 수사 케이스 찾아줘"}
+{"id": "rag_global#01", "service_code": "rag_global", "service_name": "국제협력RAG", "family": "info_retrieval", "text": "WCO 회의록에서 이 주제 관련 내용 검색해줘"}
+{"id": "rag_global#02", "service_code": "rag_global", "service_name": "국제협력RAG", "family": "info_retrieval", "text": "국제협력 관련 자료 찾아줘"}
