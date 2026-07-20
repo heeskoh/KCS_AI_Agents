@@ -1,4 +1,4 @@
-/* "수사정보 분석" 탭 — 3단 구조. 중앙은 관세조사 수사정보 분석과 동일한
+/* "정보분석 워크벤치" 탭 — 3단 구조. 중앙은 관세조사 수사정보 분석과 동일한
    AI정보분석 워크벤치(분석 관점 A~E 시각화)를 공유한다 — 관계망은 프로파일 탭 담당.
    좌: Chat UI(실시간 LLM, 사건·수집정보 컨텍스트 주입)
    중: AI정보분석 시각화(관점 탭 A~E, customs/insight-viz.js 공용) + 단서 타임라인 뷰
@@ -151,7 +151,7 @@ export function renderInsightPanel(deps){
     <div class="gi-insight-page">
       <div class="gi-insight-head">
         <div>
-          <strong>수사정보 분석</strong>
+          <strong>정보분석 워크벤치</strong>
           <p class="muted">사건 정보·수집 자료를 근거로 AI와 대화하며 분석합니다. 우측 카드를 클릭하면 대화에 인용됩니다.</p>
         </div>
         <div class="gi-insight-target">
@@ -226,7 +226,7 @@ ${userText}`;
 
 export const insightSubtab = {
   id: "insight",
-  label: "수사정보 분석",
+  label: "정보분석 워크벤치",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["network", "db_cdw"],

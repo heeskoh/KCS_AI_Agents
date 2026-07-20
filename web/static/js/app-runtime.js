@@ -2404,6 +2404,16 @@ function giStreamSteps(aCase, stepsToRun){
   saveCanvasState();
   refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
 
+  /* 헤더 [전체 시나리오 수행] 진행 표시.
+     매 갱신마다 버튼이 다시 그려지므로 렌더 직후 상태를 재적용한다. */
+  let giRunAllActive = true;
+  const giSyncRunAll = () => {
+    const control = runAllProgressControl();
+    if(giRunAllActive) control.setProgress(stepsToRun.filter(s => aCase.stepStates[s.id] === "done").length, stepsToRun.length);
+    else control.reset();
+  };
+  giSyncRunAll();
+
   /* URL 파라미터 구성 */
   const stepsPayload = stepsToRun.map(s => ({
     id: s.id,
@@ -2466,6 +2476,7 @@ function giStreamSteps(aCase, stepsToRun){
     }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+    giSyncRunAll();
   });
 
   giRunEventSource.addEventListener("workflow", e => {
@@ -2473,8 +2484,10 @@ function giStreamSteps(aCase, stepsToRun){
     if(data.status === "failed") console.error(`[관세수사 실행] 워크플로 실패` + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
     if(data.status === "completed" || data.status === "failed"){
       if(giRunEventSource){ giRunEventSource.close(); giRunEventSource = null; }
+      giRunAllActive = false;
       saveCanvasState();
       refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+      giSyncRunAll();
     }
   });
 
@@ -2494,8 +2507,10 @@ function giStreamSteps(aCase, stepsToRun){
         }
       });
     }
+    giRunAllActive = false;
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+    giSyncRunAll();
   };
 }
 
@@ -2510,6 +2525,15 @@ function drugStreamSteps(aCase, stepsToRun){
   });
   saveCanvasState();
   refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
+
+  /* 헤더 [전체 시나리오 수행] 진행 표시 — 렌더 직후 재적용(giStreamSteps와 동일 방식) */
+  let drugRunAllActive = true;
+  const drugSyncRunAll = () => {
+    const control = runAllProgressControl();
+    if(drugRunAllActive) control.setProgress(stepsToRun.filter(s => aCase.stepStates[s.id] === "done").length, stepsToRun.length);
+    else control.reset();
+  };
+  drugSyncRunAll();
 
   const targetType = aCase.targetType || "person";
   const stepsPayload = stepsToRun.map(s => ({
@@ -2568,6 +2592,7 @@ function drugStreamSteps(aCase, stepsToRun){
     }
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
+    drugSyncRunAll();
   });
 
   drugRunEventSource.addEventListener("workflow", e => {
@@ -2575,8 +2600,10 @@ function drugStreamSteps(aCase, stepsToRun){
     if(data.status === "failed") console.error(`[특별수사 실행] 워크플로 실패` + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
     if(data.status === "completed" || data.status === "failed"){
       if(drugRunEventSource){ drugRunEventSource.close(); drugRunEventSource = null; }
+      drugRunAllActive = false;
       saveCanvasState();
       refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
+      drugSyncRunAll();
     }
   });
 
@@ -2596,8 +2623,10 @@ function drugStreamSteps(aCase, stepsToRun){
         }
       });
     }
+    drugRunAllActive = false;
     saveCanvasState();
     refreshScenarioWorkbenchFromCase(aCase, renderSpecialInvestigation);
+    drugSyncRunAll();
   };
 }
 
@@ -10597,7 +10626,9 @@ function initGiScenarioWorkbench(){
     setScenarioStatus("템플릿 저장됨");
   });
 
-  document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+  /* 전체 시나리오 실행 — 하단 [실행] 버튼과 헤더 [전체 시나리오 수행]이 공유한다.
+     하단 버튼은 레이아웃에 따라 렌더되지 않으므로 헤더는 이 함수를 직접 호출해야 한다. */
+  const runGiScenarioAll = () => {
     if(!addPendingScenarioWebTarget()) return;
     const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
     if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
@@ -10606,9 +10637,9 @@ function initGiScenarioWorkbench(){
     if(!ensureMailShareRecipients(toRun)) return;
     if(!ensureDirectUrlTargets(toRun)) return;
     giStreamSteps(aCase, aCase.giSteps.filter(s => toRun.some(r => r.id === s.id)));
-  });
-  document.getElementById("scenarioRunAllButton")?.addEventListener("click",
-    () => document.getElementById("scenarioRunButton")?.click());
+  };
+  document.getElementById("scenarioRunButton")?.addEventListener("click", runGiScenarioAll);
+  document.getElementById("scenarioRunAllButton")?.addEventListener("click", runGiScenarioAll);
 
   // 리뷰 모드(관세조사와 동일 구조): 선택 서비스 단독 실시간 실행
   document.getElementById("scenarioReviewRunButton")?.addEventListener("click", runSelectedScenarioService);
@@ -10734,7 +10765,8 @@ function initDrugScenarioWorkbench(){
     setScenarioStatus("템플릿 저장됨");
   });
 
-  document.getElementById("scenarioRunButton")?.addEventListener("click", () => {
+  /* 전체 시나리오 실행 — 헤더 [전체 시나리오 수행]은 하단 [실행] 버튼 렌더 여부와 무관하게 동작해야 한다. */
+  const runDrugScenarioAll = () => {
     if(!addPendingScenarioWebTarget()) return;
     const pendingShareEmail = document.getElementById("scenarioShareEmailInput")?.value || "";
     if(pendingShareEmail.trim() && !addShareEmailsToScope("scenario", pendingShareEmail)) return;
@@ -10744,9 +10776,9 @@ function initDrugScenarioWorkbench(){
     if(!ensureMailShareRecipients(scenarioRunItems)) return;
     if(!ensureDirectUrlTargets(scenarioRunItems)) return;
     if(toRun.length) drugStreamSteps(aCase, toRun);
-  });
-  document.getElementById("scenarioRunAllButton")?.addEventListener("click",
-    () => document.getElementById("scenarioRunButton")?.click());
+  };
+  document.getElementById("scenarioRunButton")?.addEventListener("click", runDrugScenarioAll);
+  document.getElementById("scenarioRunAllButton")?.addEventListener("click", runDrugScenarioAll);
 
   document.getElementById("scenarioClearButton")?.addEventListener("click", () => {
     aCase.stepStates  = {};
@@ -10778,6 +10810,29 @@ function initDrugScenarioWorkbench(){
   syncScenarioEditor();
   renderScenarioList();
   renderScenarioSteps();
+}
+
+/* 헤더 [전체 시나리오 수행] 버튼의 진행 상태 표시 — 관세조사·관세수사·마약수사 워크벤치 공용.
+   실행 중에는 버튼 자체가 스피너 + "수행 중… N/M"이 되고, 종료 시 원래 라벨로 복원한다.
+   버튼이 없는 레이아웃(리뷰 모드 등)에서도 안전하도록 null-safe. */
+function runAllProgressControl(){
+  const button = document.getElementById("scenarioRunAllButton");
+  const idleLabel = button ? (button.dataset.idleLabel || button.innerHTML) : "";
+  if(button) button.dataset.idleLabel = idleLabel;
+  return {
+    setProgress(done, total){
+      if(!button) return;
+      button.disabled = true;
+      button.classList.add("running");
+      button.innerHTML = `<span class="home-running-dot"></span> 수행 중… ${done}/${total}`;
+    },
+    reset(){
+      if(!button) return;
+      button.classList.remove("running");
+      button.disabled = false;
+      button.innerHTML = idleLabel;
+    },
+  };
 }
 
 function runScenarioWorkflow(startIndex = 0){
@@ -10841,30 +10896,11 @@ function runScenarioWorkflow(startIndex = 0){
   // null-safe 헬퍼로 활성/비활성만 반영한다(헤더 [전체 시나리오 수행]만으로도 실행 가능).
   const runButton = document.getElementById("scenarioRunButton");
   // 헤더 [전체 시나리오 수행] — 실행 중에는 버튼 자체에 진행 상태(스피너·N/M)를 표시한다.
-  const runAllButton = document.getElementById("scenarioRunAllButton");
-  const runAllLabel = runAllButton ? (runAllButton.dataset.idleLabel || runAllButton.innerHTML) : "";
-  if(runAllButton) runAllButton.dataset.idleLabel = runAllLabel;
-  const setRunAllProgress = (done, total) => {
-    if(!runAllButton) return;
-    runAllButton.innerHTML =
-      `<span class="home-running-dot"></span> 수행 중… ${done}/${total}`;
-  };
-  const resetRunAll = () => {
-    if(!runAllButton) return;
-    runAllButton.classList.remove("running");
-    runAllButton.disabled = false;
-    runAllButton.innerHTML = runAllLabel;
-  };
+  const { setProgress: setRunAllProgress, reset: resetRunAll } = runAllProgressControl();
   const setRunDisabled = value => {
     if(runButton) runButton.disabled = value;
-    if(!runAllButton) return;
-    if(value){
-      runAllButton.disabled = true;
-      runAllButton.classList.add("running");
-      setRunAllProgress(completed, scenarioItems.length);
-    } else {
-      resetRunAll();
-    }
+    if(value) setRunAllProgress(completed, scenarioItems.length);
+    else resetRunAll();
   };
   setRunDisabled(true);
   setScenarioStatus("실행 중");
