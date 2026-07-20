@@ -1691,11 +1691,16 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .ci-card-id{font-size:11px}
 .ci-card-industry{font-style:normal;font-size:11px;color:var(--muted)}
 .ci-card-select-btn{flex:none;height:28px;padding:0 12px;font-size:12px;font-weight:800;white-space:nowrap;border-radius:8px;color:#fff!important}
-/* risk_score 밴드: urgent(90+) 빨강 · caution(70~90) 주황 · check(50~70) 초록 · low(<50) 파랑 */
-.ci-card-select-btn.urgent{background:var(--red)!important;border-color:var(--red)!important}
-.ci-card-select-btn.urgent:hover{background:#c0373b!important;border-color:#c0373b!important}
-.ci-card-select-btn.caution{background:#ea580c!important;border-color:#ea580c!important}
-.ci-card-select-btn.caution:hover{background:#c2410c!important;border-color:#c2410c!important}
+/* risk_score 밴드: urgent(90+) 빨강 · caution(70~90) 짙은 노랑 · check(50~70) 초록 · low(<50) 파랑
+   빨강(#b91c1c)과 주황(#ea580c)은 색상이 인접해 구분이 어려웠다. 빨강은 더 진하게,
+   주의 단계는 짙은 노랑(#a16207)으로 바꿔 두 단계를 확실히 분리한다.
+   두 색 모두 흰 글씨 대비 4.5:1 이상(각 6.5:1 / 5.0:1) — 이전 주황은 3.6:1로 미달이었다. */
+:root{ --band-urgent:#b91c1c; --band-urgent-dark:#991b1b;
+       --band-caution:#a16207; --band-caution-dark:#854d0e; }
+.ci-card-select-btn.urgent{background:var(--band-urgent)!important;border-color:var(--band-urgent)!important}
+.ci-card-select-btn.urgent:hover{background:var(--band-urgent-dark)!important;border-color:var(--band-urgent-dark)!important}
+.ci-card-select-btn.caution{background:var(--band-caution)!important;border-color:var(--band-caution)!important}
+.ci-card-select-btn.caution:hover{background:var(--band-caution-dark)!important;border-color:var(--band-caution-dark)!important}
 .ci-card-select-btn.check{background:#15803d!important;border-color:#15803d!important}
 .ci-card-select-btn.check:hover{background:#166534!important;border-color:#166534!important}
 .ci-card-select-btn.low{background:#1d4ed8!important;border-color:#1d4ed8!important}
@@ -2261,12 +2266,12 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .risk-filter-select{border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;background:#f8fbff;color:var(--muted);cursor:pointer}
 .risk-company-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .risk-company-card{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:14px;padding:10px 12px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
-.risk-company-card.urgent{border-left-color:var(--red)}
-.risk-company-card.caution{border-left-color:#ea580c}
+.risk-company-card.urgent{border-left-color:var(--band-urgent)}
+.risk-company-card.caution{border-left-color:var(--band-caution)}
 .risk-company-card.check{border-left-color:#16a34a}
 .risk-company-card.low{border-left-color:var(--blue)}
-.risk-card-scores strong.urgent{color:var(--red)}
-.risk-card-scores strong.caution{color:#ea580c}
+.risk-card-scores strong.urgent{color:var(--band-urgent)}
+.risk-card-scores strong.caution{color:var(--band-caution)}
 .risk-card-scores strong.check{color:#15803d}
 .risk-card-scores strong.low{color:var(--blue)}
 .risk-card-head{display:flex;align-items:center;justify-content:space-between}
