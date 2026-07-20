@@ -3,6 +3,47 @@ import { giInvTypeForCrimes, crimeAnalysisPlan } from "./crime-taxonomy.js";
 import { leadTypeById, leadDocLabel, buildLeadDraftPrompt } from "./leads.js";
 import { streamLlmText } from "../shared/llm-stream.js";
 
+/* ── 단서 문서 초안 백그라운드 자동 생성 ──────────────────────────────────
+   AI 초안 유형(정·첩보 정보입수보고서, 정보분석, 조사의뢰서)은 단서 등록 즉시
+   백그라운드에서 초안을 만든다. 사용자는 버튼을 누르지 않아도 되고, 생성된 초안은
+   '분석 보고서 및 검증' 탭의 단계별 수사보고서 목록에 자동으로 나타난다.
+   - 화면 전환·다른 작업을 막지 않도록 await 하지 않고 백그라운드로 던진다.
+   - 수동 [AI 초안] 스트리밍과 겹치지 않게 lead 단위 진행 플래그로 보호한다. */
+const _autoDraftingLeads = new Set();
+
+function autoDraftLead(ctx, aCase, lead){
+  if(!lead || lead.draft || _autoDraftingLeads.has(lead.id)) return;
+  _autoDraftingLeads.add(lead.id);
+  lead.autoDrafting = true;                 // 목록·편집기에 '초안 생성 중' 표시
+  ctx.render("generalinv");
+  (async () => {
+    try {
+      // mode "int": 내부 LLM 단독(웹검색 생략 — 문서 초안에는 불필요·지연 방지)
+      const result = await streamLlmText(buildLeadDraftPrompt(aCase, lead), {
+        mode: "int",
+        onToken: acc => {
+          // 현재 이 단서를 보고 있을 때만 스트림 영역을 갱신(전체 재렌더 금지)
+          const el = document.getElementById("giLeadDraftStream");
+          if(el && generalInvestigationState.activeLeadId === lead.id){
+            el.hidden = false; el.textContent = acc; el.scrollTop = el.scrollHeight;
+          }
+        },
+      });
+      if(result){
+        lead.aiDraft = result;
+        lead.draft = result;
+      }
+    } catch (e) {
+      console.warn("[lead] 초안 자동 생성 실패", e);
+    } finally {
+      lead.autoDrafting = false;
+      _autoDraftingLeads.delete(lead.id);
+      ctx.saveCanvasState();
+      ctx.render("generalinv");             // 초안 반영 → 보고서 탭 목록에도 표시
+    }
+  })();
+}
+
 /* 혐의 확정 → 죄명별 분석 관점 매트릭스(정합성·경로·자금·관계·패턴) 기반으로
    분석서비스 시나리오를 자동 구성한다. */
 function giApplyCrimePlan(ctx, aCase, plan){
@@ -239,6 +280,9 @@ export function registerGeneralInvestigationEvents(ctx){
       generalInvestigationState.activeLeadId = lead.id;   // 등록 직후 문서 작성으로 이동
       ctx.saveCanvasState();
       ctx.render("generalinv");
+      // AI 초안 유형(정·첩보 정보입수보고서 등)은 등록 즉시 백그라운드로 초안을 생성한다.
+      // 생성된 초안은 '분석 보고서 및 검증' 탭의 단계별 수사보고서 목록에 자동 반영된다.
+      if(typeDef.aiDraft && content) autoDraftLead(ctx, aCase, lead);
       return;
     }
 

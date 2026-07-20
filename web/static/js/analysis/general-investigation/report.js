@@ -18,8 +18,9 @@ function fmtDate(value){
 
 /* 좌측 목록: 작성된 수사단서 문서(등록순) + 최종 수사보고서 */
 function reportDocs(aCase){
+  // 초안 생성 중(autoDrafting)인 단서도 목록에 표시 — 백그라운드 생성 진행을 이 탭에서 확인
   const docs = (aCase.leads || [])
-    .filter(lead => lead.draft || lead.content)
+    .filter(lead => lead.draft || lead.content || lead.autoDrafting)
     .map(lead => ({
       id: `lead:${lead.id}`,
       kind: "lead",
@@ -27,7 +28,7 @@ function reportDocs(aCase){
       icon: leadTypeById(lead.type).icon || "📄",
       title: lead.title || leadDocLabel(lead),
       docLabel: leadDocLabel(lead),
-      status: lead.confirmed ? "확정" : "작성중",
+      status: lead.confirmed ? "확정" : lead.autoDrafting ? "초안 생성 중" : "작성중",
       date: lead.confirmedAt || lead.createdAt || "",
     }));
   docs.push({ id: "final", kind: "final", icon: "📑", title: "수사 보고서 (AI 종합)", docLabel: "최종 수사보고서" });
@@ -116,8 +117,13 @@ export function renderReportPanel(deps){
       ["작성자", escapeHtml(lead.author || "-")],
       ["작성일", escapeHtml(fmtDate(lead.createdAt))],
       ["등급", lead.grade ? `${escapeHtml(lead.grade)}급` : ""],
-      ["상태", lead.confirmed ? `확정 (${escapeHtml(fmtDate(lead.confirmedAt))})` : "작성중"],
-    ], markdownToHtml(text || "_본문이 없습니다. '진행중인 수사' 탭에서 문서를 작성하세요._"));
+      ["상태", lead.confirmed ? `확정 (${escapeHtml(fmtDate(lead.confirmedAt))})`
+              : lead.autoDrafting ? "AI 초안 생성 중" : "작성중"],
+    ], lead.autoDrafting && !text
+        ? `<div class="gi-report3-empty"><span class="home-running-dot"></span>
+             <p><b>AI가 ${escapeHtml(doc.docLabel)} 초안을 생성하고 있습니다.</b></p>
+             <p>등록한 단서 내용을 근거로 초안을 작성 중입니다 — 완료되면 이 화면에 자동 표시됩니다.</p></div>`
+        : markdownToHtml(text || "_본문이 없습니다. '진행중인 수사' 탭에서 문서를 작성하세요._"));
   }
 
   /* ── 우: 보고서 검증 ── */

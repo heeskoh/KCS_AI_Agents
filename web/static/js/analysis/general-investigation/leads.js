@@ -50,9 +50,11 @@ export function leadTimelineHtml(aCase, activeLeadId){
         const type = leadTypeById(lead.type);
         const docState = lead.confirmed
           ? `<span class="gi-lead-state done">문서 확정</span>`
-          : (lead.draft || lead.aiDraft)
-            ? `<span class="gi-lead-state draft">초안 작성중</span>`
-            : `<span class="gi-lead-state wait">문서 미작성</span>`;
+          : lead.autoDrafting
+            ? `<span class="gi-lead-state draft"><span class="home-running-dot"></span> AI 초안 생성 중</span>`
+            : (lead.draft || lead.aiDraft)
+              ? `<span class="gi-lead-state draft">초안 작성중</span>`
+              : `<span class="gi-lead-state wait">문서 미작성</span>`;
         return `
         <div class="gi-lead-node${lead.id === activeLeadId ? " active" : ""}" data-gi-lead-select="${escapeHtml(lead.id)}" role="button" tabindex="0">
           <div class="gi-lead-node-dot">${type.icon}</div>
