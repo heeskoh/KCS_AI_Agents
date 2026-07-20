@@ -1481,6 +1481,10 @@ const defaultUserPermissions = Object.fromEntries(
   Object.keys(AI_SERVICE_REGISTRY).map(key => [key, "granted"])
 );
 
+/* 업무지식베이스(dataSources) 중 그룹 권한과 무관하게 전체 사용자에게 허용하는 소스.
+   국제협력RAG는 국제공조·해외거래 실무정보로 업무 영역을 가리지 않아 공통 허용한다. */
+const DEFAULT_GRANTED_DATASOURCES = new Set(["rag_global"]);
+
 function scenarioSourceEntries(){
   return Object.entries(AI_SERVICE_REGISTRY)
     .filter(([, source]) => source.selectable !== false)
@@ -6385,7 +6389,7 @@ function buildGroupPermissions(group){
   const perms = {};
   Object.keys(defaultUserPermissions).forEach(key => {
     perms[key] = AI_SERVICE_REGISTRY[key]?.permissionGroup === "dataSources"
-      ? (group.rag.includes(key) ? "granted" : "locked")
+      ? ((group.rag.includes(key) || DEFAULT_GRANTED_DATASOURCES.has(key)) ? "granted" : "locked")
       : "granted";
   });
   return perms;
