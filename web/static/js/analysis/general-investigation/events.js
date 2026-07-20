@@ -277,7 +277,8 @@ export function registerGeneralInvestigationEvents(ctx){
       lead.docType = leadDocLabel(lead);
       if(!aCase.leads) aCase.leads = [];
       aCase.leads.push(lead);
-      generalInvestigationState.activeLeadId = lead.id;   // 등록 직후 문서 작성으로 이동
+      generalInvestigationState.activeLeadId = lead.id;      // 이력에서 방금 등록분 강조
+      generalInvestigationState.giReportDocId = `lead:${lead.id}`;   // 보고서 탭 기본 선택
       ctx.saveCanvasState();
       ctx.render("generalinv");
       // AI 초안 유형(정·첩보 정보입수보고서 등)은 등록 즉시 백그라운드로 초안을 생성한다.
@@ -301,7 +302,14 @@ export function registerGeneralInvestigationEvents(ctx){
 
     const giLeadSelect = event.target.closest("[data-gi-lead-select]");
     if(giLeadSelect){
-      generalInvestigationState.activeLeadId = giLeadSelect.dataset.giLeadSelect || null;
+      const leadId = giLeadSelect.dataset.giLeadSelect || null;
+      generalInvestigationState.activeLeadId = leadId;
+      // 단서 문서 작성·확정은 '분석 보고서 및 검증' 탭이 담당 —
+      // 이력에서 단서를 고르면 해당 탭의 그 문서로 바로 이동한다.
+      if(leadId && generalInvestigationState.generalInvTab === "cases"){
+        generalInvestigationState.giReportDocId = `lead:${leadId}`;
+        generalInvestigationState.generalInvTab = "report";
+      }
       ctx.render("generalinv");
       return;
     }

@@ -1,7 +1,7 @@
 import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
 import { CRIME_TAXONOMY, crimeCategoryById, crimeSummary, crimeAnalysisPlan } from "./crime-taxonomy.js";
-import { leadTimelineHtml, leadRegisterFormHtml, leadDraftEditorHtml } from "./leads.js";
+import { leadTimelineHtml, leadRegisterFormHtml } from "./leads.js";
 
 export function renderCasesPanel(deps){
   // 캔버스와 동일하게 로그인 사용자가 소유/담당한 수사만 표시 (관세조사와 동작 일치)
@@ -126,13 +126,14 @@ function genInvCaseCard(deps, c){
   `;
 }
 
-/* ── 사건 상세 — 혐의 범죄 선택 + 수사단서 이력·문서 작성 ─────────────────
-   수사는 Case별 상세가 중요: 대상 선택 후 단서 경로(6종)별 자료를 축적하고
-   경로별 보고서를 단계적으로 생성한다. 혐의 확정 시 분석 시나리오가 매핑된다. */
+/* ── 사건 상세 — 혐의 범죄 선택 + 수사단서 이력·등록 ─────────────────────
+   수사는 Case별 상세가 중요: 대상 선택 후 단서 경로(6종)별 자료를 축적한다.
+   혐의 등록 시 분석 시나리오가 매핑된다.
+   문서(정보입수보고서 등) 본문 작성·확정은 '분석 보고서 및 검증' 탭이 담당한다 —
+   여기서는 단서 등록과 이력 확인만 수행한다. */
 function giCaseDetailHtml(deps, aCase){
   const state = generalInvestigationState;
   const type = deps.genInvTypeById(aCase.invTypeId);
-  const activeLead = (aCase.leads || []).find(lead => lead.id === state.activeLeadId) || null;
   return `
     <div class="gi-case-detail">
       <div class="gi-case-detail-head">
@@ -157,10 +158,8 @@ function giCaseDetailHtml(deps, aCase){
         </div>
         <div class="resize-gutter x" data-resize-min="260" title="드래그하여 좌·우 영역 크기 조절"></div>
         <div class="gi-lead-col gi-lead-col-editor">
-          <h4>${activeLead ? "단서 문서 작성" : "수사단서 등록"}</h4>
-          ${activeLead
-            ? leadDraftEditorHtml(activeLead, state.leadDraftStreaming)
-            : leadRegisterFormHtml(aCase, state)}
+          <h4>수사단서 등록</h4>
+          ${leadRegisterFormHtml(aCase, state)}
         </div>
       </div>
     </div>
@@ -177,8 +176,8 @@ function crimeSelectorHtml(aCase, state){
         <strong>혐의 범죄</strong>
         ${confirmed
           ? `<span class="gi-crime-chip">${escapeHtml(crimeSummary(confirmed))}</span>`
-          : `<span class="gi-crime-chip empty">미지정 — 대분류와 죄명을 선택 후 확정하세요</span>`}
-        <span class="muted">혐의 확정 시 관련 분석 시나리오(정보분석 워크스페이스)가 자동 구성됩니다.</span>
+          : `<span class="gi-crime-chip empty">미지정 — 대분류와 죄명을 선택 후 등록하세요</span>`}
+        <span class="muted">혐의 등록 시 관련 분석 시나리오(정보분석 워크스페이스)가 자동 구성됩니다.</span>
       </div>
       <div class="gi-crime-cats">
         ${CRIME_TAXONOMY.map(cat => `
@@ -192,7 +191,7 @@ function crimeSelectorHtml(aCase, state){
             <button type="button" class="gi-crime-offense-btn${(draft.offenseIds || []).includes(offense.id) ? " on" : ""}"
               data-gi-crime-offense="${escapeHtml(offense.id)}">${escapeHtml(offense.label)}</button>
           `).join("")}
-          <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 확정</button>
+          <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 등록</button>
         </div>
         ${(() => {
           // 선택 중인 죄명 기준 분석서비스 자동 구성 미리보기 (관점 매트릭스 기반)

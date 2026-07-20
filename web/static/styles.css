@@ -1135,6 +1135,8 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .gi-lead-state.wait{background:#f1f5f9;color:#94a3b8}
 /* 단서 등록 폼 / 문서 에디터 */
 .gi-lead-form,.gi-lead-editor{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:12px;display:flex;flex-direction:column;gap:10px}
+/* 보고서 탭 내장 편집기 — 문서 헤더 표 아래에 이어 붙으므로 테두리·배경 없이 */
+.gi-lead-editor.compact{border:none;background:transparent;padding:10px 0 0}
 .gi-lead-form-types{display:flex;gap:5px;flex-wrap:wrap}
 .gi-lead-type-btn{border:1px solid #d8e0ec;background:#fff;color:#41506a;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
 .gi-lead-type-btn.active{background:#1e40af;border-color:#1e40af;color:#fff}

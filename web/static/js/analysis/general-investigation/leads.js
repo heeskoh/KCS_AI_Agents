@@ -130,13 +130,16 @@ export function leadRegisterFormHtml(aCase, state){
 }
 
 /* ── 선택 단서 문서 에디터 (AI 초안 생성 + 편집·확정) ───────────────── */
-export function leadDraftEditorHtml(lead, streaming){
+/* opts.compact — '분석 보고서 및 검증' 탭에 내장할 때: 문서 헤더 표가 이미 위에 있으므로
+   자체 헤더(문서명·상태·새 단서 버튼)는 생략한다. */
+export function leadDraftEditorHtml(lead, streaming, opts = {}){
   const type = leadTypeById(lead.type);
   const docLabel = leadDocLabel(lead);
   const canDraft = leadSupportsAiDraft(lead);
   const draftValue = lead.draft || "";
   return `
-    <div class="gi-lead-editor">
+    <div class="gi-lead-editor${opts.compact ? " compact" : ""}">
+      ${opts.compact ? "" : `
       <div class="gi-lead-editor-head">
         <strong>${type.icon} ${escapeHtml(docLabel)}</strong>
         ${lead.grade ? `<span class="gi-lead-grade ${GRADE_TONES[lead.grade] || ""}">${escapeHtml(lead.grade)}급</span>` : ""}
@@ -144,7 +147,7 @@ export function leadDraftEditorHtml(lead, streaming){
           ? `<span class="gi-lead-state done">확정 ${escapeHtml(lead.confirmedAt || "")}</span>`
           : `<span class="gi-lead-state draft">작성중</span>`}
         <button type="button" class="btn secondary gi-lead-new-btn" data-gi-lead-select="">+ 새 단서 등록</button>
-      </div>
+      </div>`}
       <div class="gi-lead-editor-src">
         <span>등록 내용</span>
         <p>${escapeHtml(lead.content || "(등록 내용 없음)")}</p>

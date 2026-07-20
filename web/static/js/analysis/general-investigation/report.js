@@ -5,7 +5,7 @@
    탭 자체 헤더 행은 페이지 헤더와 중복이므로 두지 않는다. */
 import { escapeHtml, markdownToHtml, renderValidationDashboard } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
-import { leadTypeById, leadDocLabel } from "./leads.js";
+import { leadTypeById, leadDocLabel, leadDraftEditorHtml } from "./leads.js";
 
 /* 날짜 표기 — epoch(ms)·ISO 문자열 모두 "YYYY. M. D." 형태로 */
 function fmtDate(value){
@@ -107,10 +107,12 @@ export function renderReportPanel(deps){
       ["검증", apprDone ? "AI 검증 완료" : "미검증"],
     ], bodyHtml);
   } else {
+    // 단서 문서: 확정 전에는 이 탭에서 본문 편집·AI 초안 재생성·확정까지 수행한다
+    // ('진행중인 수사' 탭은 단서 등록·이력만 담당).
     const lead = doc.lead;
     docTitle = doc.docLabel;
     const text = lead.draft || lead.content || "";
-    docBody = standardDocHtml(aCase, [
+    const headRows = [
       ["문서", escapeHtml(doc.docLabel)],
       ["제목", escapeHtml(lead.title || "-")],
       ["수사 대상", `${escapeHtml(aCase.targetName)} (${escapeHtml(aCase.companyId || aCase.personId || "-")})`],
@@ -119,11 +121,16 @@ export function renderReportPanel(deps){
       ["등급", lead.grade ? `${escapeHtml(lead.grade)}급` : ""],
       ["상태", lead.confirmed ? `확정 (${escapeHtml(fmtDate(lead.confirmedAt))})`
               : lead.autoDrafting ? "AI 초안 생성 중" : "작성중"],
-    ], lead.autoDrafting && !text
-        ? `<div class="gi-report3-empty"><span class="home-running-dot"></span>
-             <p><b>AI가 ${escapeHtml(doc.docLabel)} 초안을 생성하고 있습니다.</b></p>
-             <p>등록한 단서 내용을 근거로 초안을 작성 중입니다 — 완료되면 이 화면에 자동 표시됩니다.</p></div>`
-        : markdownToHtml(text || "_본문이 없습니다. '진행중인 수사' 탭에서 문서를 작성하세요._"));
+    ];
+    docBody = lead.confirmed
+      ? standardDocHtml(aCase, headRows, markdownToHtml(text))
+      : standardDocHtml(aCase, headRows,
+          (lead.autoDrafting && !text
+            ? `<div class="gi-report3-empty"><span class="home-running-dot"></span>
+                 <p><b>AI가 ${escapeHtml(doc.docLabel)} 초안을 생성하고 있습니다.</b></p>
+                 <p>등록한 단서 내용을 근거로 초안을 작성 중입니다 — 완료되면 이 화면에 자동 표시됩니다.</p></div>`
+            : "")
+          + leadDraftEditorHtml(lead, generalInvestigationState.leadDraftStreaming, { compact: true }));
   }
 
   /* ── 우: 보고서 검증 ── */
