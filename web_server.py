@@ -63,12 +63,20 @@ def list_companies() -> list[dict[str, object]]:
                 c.annual_revenue,
                 c.annual_import_amount,
                 c.declared_duty_amount,
+                c.crime_types,
                 r.undervaluation_suspicion_rate,
                 r.related_party_anomaly_rate,
                 r.fta_origin_misuse_suspicion_rate,
                 r.customs_refund_anomaly_rate,
                 r.hs_classification_error_rate,
-                r.offshore_fund_concealment_suspicion_rate
+                r.offshore_fund_concealment_suspicion_rate,
+                -- 밀수 수사 지표(밀수 대상의 대시보드 태그·리뷰 문구에 사용)
+                r.disguise_declaration_rate,
+                r.inspection_evasion_rate,
+                r.contraband_detection_rate,
+                r.route_supplier_risk_rate,
+                r.accomplice_network_rate,
+                r.proceeds_concealment_rate
             FROM company_profiles c
             LEFT JOIN (
                 SELECT *

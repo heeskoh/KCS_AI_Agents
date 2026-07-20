@@ -9220,8 +9220,19 @@ function sharedRiskCard(c){
     </div>`;
 }
 
+/* 위험 태그 — 대상의 지표 세트(심사/밀수)에 해당하는 지표만 표시한다.
+   밀수 수사 대상에 저가신고·FTA 등 심사 태그가 섞이지 않도록 세트별로 분기. */
 function companyRiskTags(c){
   const tags = [];
+  if(indicatorSetForCompany(c) === "smuggling"){
+    if((c.disguise_declaration_rate||0) >= 50)   tags.push("#품명위장신고");
+    if((c.contraband_detection_rate||0) >= 50)   tags.push("#위해물품적발");
+    if((c.inspection_evasion_rate||0) >= 50)     tags.push("#검사회피");
+    if((c.proceeds_concealment_rate||0) >= 50)   tags.push("#범죄수익은닉");
+    if((c.accomplice_network_rate||0) >= 50)     tags.push("#공범차명");
+    if((c.route_supplier_risk_rate||0) >= 50)    tags.push("#우범경로");
+    return tags;
+  }
   if((c.undervaluation_suspicion_rate||0) >= 50)              tags.push("#단기저가신고");
   if((c.offshore_fund_concealment_suspicion_rate||0) >= 50)   tags.push("#외환거래불일치");
   if((c.related_party_anomaly_rate||0) >= 50)                 tags.push("#특수관계거래");
@@ -9232,6 +9243,17 @@ function companyRiskTags(c){
 }
 
 function companyReviewText(c){
+  if(indicatorSetForCompany(c) === "smuggling"){
+    const dg = c.disguise_declaration_rate || 0;
+    const cb = c.contraband_detection_rate || 0;
+    const ev = c.inspection_evasion_rate || 0;
+    const pc = c.proceeds_concealment_rate || 0;
+    if(cb >= 60) return `통관검사에서 금지·위해물품이 적발되어 반입 경로 전반의 확인이 필요합니다.`;
+    if(dg >= 60) return `신고품명과 실제 물품(성분)이 불일치하는 위장 신고가 확인됩니다.`;
+    if(ev >= 60) return `저검사 채널에 신고가 집중되어 통관검사 회피 설계가 의심됩니다.`;
+    if(pc >= 60) return `수입대금이 차명·해외 수취처를 경유해 범죄수익 은닉이 의심됩니다.`;
+    return `반입채널·검사 이력 검토 결과 경미한 이상 징후가 있어 모니터링이 권장됩니다.`;
+  }
   const u = c.undervaluation_suspicion_rate || 0;
   const r = c.related_party_anomaly_rate   || 0;
   const h = c.hs_classification_error_rate  || 0;
