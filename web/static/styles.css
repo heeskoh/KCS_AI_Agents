@@ -2565,6 +2565,15 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .profile-net-table tr.hs-mm-row td{color:#7f1d1d}
 .hs-mm-badge{display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:800;white-space:nowrap}
 .hs-ok-badge{display:inline-block;background:#ecfdf5;color:#047857;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap}
+/* 밀수 지표 차트: 검사회피 매트릭스 · 위해적발 추이 */
+.ie-lg-skip{width:12px;height:10px;background:rgba(220,38,38,.75);border-radius:2px}
+.ie-lg-insp{width:12px;height:10px;background:rgba(37,99,235,.75);border-radius:2px}
+.cbd-bar-decl{fill:#dbe7f6}
+.cbd-bar-insp{fill:#60a5fa}
+.cbd-bar-caught{fill:#dc2626}
+.cbd-lg-decl{width:12px;height:10px;background:#dbe7f6;border-radius:2px}
+.cbd-lg-insp{width:12px;height:10px;background:#60a5fa;border-radius:2px}
+.cbd-lg-caught{width:12px;height:10px;background:#dc2626;border-radius:2px}
 /* 6) HS 혼동행렬 */
 .cfm-n{font-size:12px;fill:#fff;font-weight:800}
 .cfm-n.bad{fill:#fff}

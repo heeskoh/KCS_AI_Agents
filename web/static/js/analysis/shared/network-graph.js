@@ -1958,6 +1958,229 @@ function disguiseHtml(d){
     </div>`;
 }
 
+/* ══ 밀수 수사 지표 검증 차트 ═══════════════════════════════════════════
+   품명위장=성분분석 대조(disguiseHtml 재사용) · 검사회피=반입채널×검사구분 매트릭스
+   위해적발=월별 신고·검사·적발 추이 · 경로공급망=공급책 Flow · 수익은닉=자금흐름 Sankey
+   공범망은 '관계' 자체가 근거이므로 관계망 그래프를 그대로 사용한다. */
+
+/* 신고 원장에서 밀수 분석용 레코드 추출 — 채널(운송수단)·검사구분·적발 여부 */
+function smugglingRecords(graph){
+  return [...declRecords(graph).values()].map(r => {
+    const p = r.decl.properties || {};
+    const insp = String(p.inspection_type || "미검사");
+    return {
+      ref: r.decl.name,
+      ym: String(p.trade_date || "").slice(0, 7),
+      date: String(p.trade_date || "").slice(0, 10),
+      channel: String(p.transport_type || "기타"),
+      inspection: insp,
+      caught: insp === "물품검사",          // 물품검사 = 실제 개장검사(적발 경로)
+      item: String(p.item_name || ""),
+      hs: String(p.hs_code || ""),
+      value: Number(p.value) || 0,
+    };
+  }).filter(r => r.ym);
+}
+
+/* 1) 통관검사 회피 — 반입채널 × 검사구분 매트릭스(건수·검사율) */
+function inspectionEvasionHtml(graph){
+  const recs = smugglingRecords(graph);
+  if(!recs.length) return `<div class="profile-net-empty">통관검사 데이터가 없습니다.</div>`;
+  const INSP = ["미검사", "서류검사", "물품검사"];
+  const channels = [...new Set(recs.map(r => r.channel))];
+  const cell = (ch, ins) => recs.filter(r => r.channel === ch && r.inspection === ins).length;
+  const vMax = Math.max(...channels.flatMap(ch => INSP.map(i => cell(ch, i)))) || 1;
+  const labelW = 150, cw = 150, ch = 46, T = 56;
+  const W = Math.max(640, labelW + INSP.length * cw + 120), H = T + channels.length * ch + 16;
+  const grid = channels.map((c, ri) => {
+    const rowN = INSP.reduce((s, i) => s + cell(c, i), 0);
+    const inspected = cell(c, "서류검사") + cell(c, "물품검사");
+    const rate = rowN ? Math.round(inspected / rowN * 100) : 0;
+    const cells = INSP.map((ins, ci) => {
+      const v = cell(c, ins);
+      const a = v ? 0.15 + (v / vMax) * 0.85 : 0.05;
+      const fill = ins === "미검사" ? `rgba(220,38,38,${a.toFixed(2)})` : `rgba(37,99,235,${a.toFixed(2)})`;
+      return `<rect x="${labelW + ci * cw}" y="${T + ri * ch}" width="${cw - 3}" height="${ch - 3}" rx="4" style="fill:${fill}">
+          <title>${escapeHtml(c)} · ${ins} ${v}건</title></rect>
+        ${v ? `<text x="${labelW + ci * cw + (cw - 3) / 2}" y="${T + ri * ch + ch / 2 + 4}" text-anchor="middle" class="cfm-n">${v}</text>` : ""}`;
+    }).join("");
+    return `${cells}
+      <text x="8" y="${T + ri * ch + ch / 2 + 4}" class="hm-row-t">${escapeHtml(c)} (${rowN}건)</text>
+      <text x="${labelW + INSP.length * cw + 10}" y="${T + ri * ch + ch / 2 + 4}" class="hm-share-t${rate < 15 ? " hot" : ""}">검사율 ${rate}%</text>`;
+  }).join("");
+  const colT = INSP.map((i, ci) => `<text x="${labelW + ci * cw + (cw - 3) / 2}" y="${T - 12}" text-anchor="middle" class="rfc-axis-t">${i}</text>`).join("");
+  const total = recs.length, inspected = recs.filter(r => r.inspection !== "미검사").length;
+  const caught = recs.filter(r => r.caught).length;
+  const caption = `반입채널 × 통관검사 — 신고 ${total}건 중 검사 ${inspected}건(검사율 <b class="rfc-neg">${Math.round(inspected / total * 100)}%</b>)`
+    + ` · 물품검사 ${caught}건에서 <b class="rfc-neg">${caught}건 적발</b>`;
+  return `
+    <div class="net-rf-chart" data-net-chart="inspection_evasion">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="ie-lg-skip"></i>미검사(회피) <i class="ie-lg-insp"></i>검사 수행</span></div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="반입채널별 통관검사 구분 매트릭스">${colT}${grid}</svg>
+      <p class="rfc-note muted">특송 등 저검사 채널에 신고가 집중되면 검사 회피 설계 가능성 — 물품검사 시 적발률이 높을수록 미검사 건의 위험도 함께 상승.</p>
+    </div>`;
+}
+
+/* 2) 금지·위해물품 적발 — 월별 신고건수 대비 검사·적발 추이 */
+function contrabandTrendHtml(graph){
+  const recs = smugglingRecords(graph);
+  if(!recs.length) return `<div class="profile-net-empty">신고·검사 데이터가 없습니다.</div>`;
+  const months = [...new Set(recs.map(r => r.ym))].sort();
+  const declMap = new Map(months.map(m => [m, recs.filter(r => r.ym === m).length]));
+  const inspMap = new Map(months.map(m => [m, recs.filter(r => r.ym === m && r.inspection !== "미검사").length]));
+  const caughtMap = new Map(months.map(m => [m, recs.filter(r => r.ym === m && r.caught).length]));
+  const caughtRows = recs.filter(r => r.caught).map(r => `
+    <div class="hsc-mm-row"><b>${escapeHtml(r.ref)}</b>
+      <span>${escapeHtml(r.date)} · ${escapeHtml(r.channel)} · <b class="rfc-neg">물품검사 적발</b></span>
+      <span class="muted">${escapeHtml(r.item)} · HS ${escapeHtml(r.hs)} · ${fmtKrwShort(r.value) || "-"}</span></div>`);
+  const total = recs.length, caught = recs.filter(r => r.caught).length;
+  const caption = `월별 신고·검사·적발 — 신고 ${total}건 중 물품검사 적발 <b class="rfc-neg">${caught}건</b>`
+    + ` (적발 건은 성분분석으로 위해물질 확인)`;
+  return stackedBarChartHtml({
+    chartId: "contraband_detection", caption,
+    legend: [{ name: "신고건수", cls: "cbd-lg-decl" }, { name: "검사 수행", cls: "cbd-lg-insp" }, { name: "적발", cls: "cbd-lg-caught" }],
+    periods: months,
+    series: [{ name: "신고", cls: "cbd-bar-decl", get: p => declMap.get(p) },
+             { name: "검사", cls: "cbd-bar-insp", get: p => inspMap.get(p) },
+             { name: "적발", cls: "cbd-bar-caught", get: p => caughtMap.get(p) }],
+    listHead: "위해물품 적발 내역",
+    listRows: caughtRows,
+    unitFmt: v => `${Math.round(v)}건`,
+  });
+}
+
+/* 3) 우범 경로·공급망 — 해외 공급책 → 반입채널 → 적발 흐름(Sankey 형식) */
+function routeSupplierHtml(graph){
+  const recs = smugglingRecords(graph);
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const offshore = (graph.edges || []).filter(e => e.type === "RELATED_PARTY").map(e => {
+    const other = byId.get(e.source === graph.center ? e.target : e.source);
+    return other && (other.properties || {}).is_offshore ? other : null;
+  }).filter(Boolean);
+  if(!recs.length) return `<div class="profile-net-empty">경로·공급망 데이터가 없습니다.</div>`;
+  const channels = [...new Set(recs.map(r => r.channel))];
+  const W = 980, H = 320, colX = [70, 450, 840], NW = 14;
+  const total = recs.length;
+  const sc = n => Math.max(6, (n / total) * 210);
+  // 좌: 해외 공급책(균등 배분 — 신고에 공급자 엣지가 없으므로 관계인 기준) / 중: 반입채널 / 우: 검사결과
+  const supplies = offshore.length
+    ? offshore.map((o, i) => ({ name: o.name, n: Math.round(total / offshore.length) + (i === 0 ? total % offshore.length : 0),
+        country: (o.properties || {}).country || "" }))
+    : [{ name: "해외 공급책(미상)", n: total, country: "" }];
+  const chan = channels.map(c => ({ name: c, n: recs.filter(r => r.channel === c).length }));
+  const outs = [
+    { name: "미검사 통과", n: recs.filter(r => r.inspection === "미검사").length, cls: "risk" },
+    { name: "서류검사", n: recs.filter(r => r.inspection === "서류검사").length, cls: "ok" },
+    { name: "물품검사 적발", n: recs.filter(r => r.caught).length, cls: "hot" },
+  ].filter(o => o.n);
+  const layout = arr => { let acc = 40; return arr.map(o => { const h = sc(o.n); const r = { ...o, y: acc, h }; acc += h + 22; return r; }); };
+  const L = layout(supplies), M = layout(chan), R = layout(outs);
+  const ribbon = (x1, y1, h1, x2, y2, h2, cls, tip) =>
+    `<path d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2} L${x2} ${y2 + h2} C ${(x1 + x2) / 2} ${y2 + h2}, ${(x1 + x2) / 2} ${y1 + h1}, ${x1} ${y1 + h1} Z" class="snk-flow ${cls}"><title>${escapeHtml(tip)}</title></path>`;
+  let flows = "";
+  let accM = M.map(m => m.y);
+  L.forEach(s => {
+    M.forEach((m, mi) => {
+      const share = m.n / total;
+      const h = sc(s.n * share);
+      flows += ribbon(colX[0] + NW, s.y, h, colX[1], accM[mi], h, "risk", `${s.name} → ${m.name} 약 ${Math.round(s.n * share)}건`);
+      accM[mi] += h;
+    });
+  });
+  let accR = R.map(r => r.y);
+  M.forEach(m => {
+    R.forEach((o, oi) => {
+      const share = o.n / total;
+      const h = sc(m.n * share);
+      flows += ribbon(colX[1] + NW, m.y, h, colX[2], accR[oi], h, o.cls, `${m.name} → ${o.name} 약 ${Math.round(m.n * share)}건`);
+      accR[oi] += h;
+    });
+  });
+  const node = (x, o, cls) => `<rect x="${x}" y="${o.y}" width="${NW}" height="${o.h.toFixed(1)}" class="snk-node ${cls || ""}"/>
+    <text x="${x + NW + 6}" y="${(o.y + o.h / 2 + 4).toFixed(1)}" class="snk-t">${escapeHtml(o.name)}${o.country ? ` (${escapeHtml(o.country)})` : ""} <tspan class="snk-v">${o.n}건</tspan></text>`;
+  const caught = recs.filter(r => r.caught).length;
+  const caption = `공급망 경로 — 해외 공급책 ${supplies.length}곳 · 반입채널 ${chan.map(c => `${c.name} ${c.n}건`).join(" / ")}`
+    + ` · 물품검사 적발 <b class="rfc-neg">${caught}건</b>`;
+  return `
+    <div class="net-rf-chart" data-net-chart="route_supplier">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="snk-lg-risk"></i>우범 경로 <i class="snk-lg-ok"></i>검사 수행 <i class="snk-lg-hot"></i>적발</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="해외 공급책에서 반입채널, 검사결과로 이어지는 공급망 경로">
+        ${flows}
+        ${L.map(o => node(colX[0], o, "risk")).join("")}
+        ${M.map(o => node(colX[1], o)).join("")}
+        ${R.map(o => node(colX[2], o, o.cls)).join("")}
+        <text x="${colX[0]}" y="24" class="snk-col">해외 공급책</text>
+        <text x="${colX[1]}" y="24" class="snk-col">반입채널</text>
+        <text x="${colX[2]}" y="24" class="snk-col">통관검사 결과</text>
+      </svg>
+      <p class="rfc-note muted">동일 공급책이 저검사 채널에 집중되면 반입 경로 설계 의심 — 공급자별 신고 분해는 관계망 뷰에서 확인.</p>
+    </div>`;
+}
+
+/* 4) 범죄수익·자금 은닉 — 기업 → 국내 공범(대표·차명) → 해외 공급책 자금흐름 */
+function proceedsFlowHtml(graph){
+  const recs = smugglingRecords(graph);
+  const byId = new Map((graph.nodes || []).map(n => [n.id, n]));
+  const parties = (graph.edges || []).filter(e => e.type === "RELATED_PARTY").map(e => {
+    const other = byId.get(e.source === graph.center ? e.target : e.source);
+    return other ? { node: other, props: other.properties || {} } : null;
+  }).filter(Boolean);
+  const domestic = parties.filter(p => !p.props.is_offshore);
+  const offshore = parties.filter(p => p.props.is_offshore);
+  const totalV = recs.reduce((s, r) => s + r.value, 0);
+  if(!totalV) return `<div class="profile-net-empty">자금흐름 데이터가 없습니다.</div>`;
+  const W = 980, H = 320, colX = [70, 450, 840], NW = 14;
+  const sc = v => Math.max(8, (v / totalV) * 210);
+  const center = (graph.nodes || []).find(n => n.id === graph.center);
+  const midNodes = (domestic.length ? domestic : [{ node: { name: "국내 자금관리(미상)" }, props: {} }])
+    .map((p, i, arr) => ({ name: p.node.name, v: Math.round(totalV / arr.length), cls: "risk" }));
+  const rightNodes = (offshore.length ? offshore : [{ node: { name: "해외 수취처(미상)" }, props: {} }])
+    .map((p, i, arr) => ({ name: p.node.name + (p.props.country ? ` (${p.props.country})` : ""), v: Math.round(totalV / arr.length), cls: "hot" }));
+  const layout = arr => { let acc = 40; return arr.map(o => { const h = sc(o.v); const r = { ...o, y: acc, h }; acc += h + 24; return r; }); };
+  const M = layout(midNodes), R = layout(rightNodes);
+  const leftH = sc(totalV), leftY = 90;
+  const ribbon = (x1, y1, h1, x2, y2, h2, cls, tip) =>
+    `<path d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2} L${x2} ${y2 + h2} C ${(x1 + x2) / 2} ${y2 + h2}, ${(x1 + x2) / 2} ${y1 + h1}, ${x1} ${y1 + h1} Z" class="snk-flow ${cls}"><title>${escapeHtml(tip)}</title></path>`;
+  let flows = "", accL = leftY;
+  M.forEach(m => {
+    const h = sc(m.v);
+    flows += ribbon(colX[0] + NW, accL, h, colX[1], m.y, m.h, "risk", `${m.name} · ${fmtKrwShort(m.v)}`);
+    accL += h;
+  });
+  let accM = M.map(m => m.y);
+  M.forEach((m, mi) => {
+    R.forEach(r => {
+      const h = sc(m.v * (r.v / totalV) * (R.length ? 1 : 1)) / Math.max(1, R.length) * R.length;
+      const hh = sc(m.v / R.length);
+      flows += ribbon(colX[1] + NW, accM[mi], hh, colX[2], r.y, hh, "hot", `${m.name} → ${r.name} · ${fmtKrwShort(m.v / R.length)}`);
+      accM[mi] += hh;
+      void h;
+    });
+  });
+  const node = (x, o, cls) => `<rect x="${x}" y="${o.y}" width="${NW}" height="${o.h.toFixed(1)}" class="snk-node ${cls || ""}"/>
+    <text x="${x + NW + 6}" y="${(o.y + o.h / 2 + 4).toFixed(1)}" class="snk-t">${escapeHtml(o.name)} <tspan class="snk-v">${fmtKrwShort(o.v)}</tspan></text>`;
+  const caption = `자금흐름 — 수입대금 ${fmtKrwShort(totalV)}가 국내 공범(${midNodes.length}인) 경유 해외 공급책(${rightNodes.length}곳)으로 지급`
+    + ` · 차명 계좌·분할 송금 여부 <b class="rfc-neg">확인 필요</b>`;
+  return `
+    <div class="net-rf-chart" data-net-chart="proceeds_flow">
+      <div class="rfc-head"><span class="rfc-caption">${caption}</span>
+        <span class="rfc-legend"><i class="snk-lg-risk"></i>국내 공범 경유 <i class="snk-lg-hot"></i>해외 지급(은닉 의심)</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="기업에서 국내 공범을 거쳐 해외 공급책으로 이어지는 자금흐름">
+        ${flows}
+        <rect x="${colX[0]}" y="${leftY}" width="${NW}" height="${leftH.toFixed(1)}" class="snk-node base"/>
+        <text x="${colX[0]}" y="${leftY - 8}" class="snk-t">${escapeHtml(center?.name || "대상기업")} <tspan class="snk-v">${fmtKrwShort(totalV)}</tspan></text>
+        ${M.map(o => node(colX[1], o, o.cls)).join("")}
+        ${R.map(o => node(colX[2], o, o.cls)).join("")}
+        <text x="${colX[0]}" y="24" class="snk-col">대상기업(수입대금)</text>
+        <text x="${colX[1]}" y="24" class="snk-col">국내 공범·차명</text>
+        <text x="${colX[2]}" y="24" class="snk-col">해외 수취처</text>
+      </svg>
+      <p class="rfc-note muted">계좌 단위 자금흐름(분할송금·차명계좌)은 FIU STR·외국환은행 자료 확보 후 검증 — 외부 데이터 수집 대상.</p>
+    </div>`;
+}
+
 /* ── 검증 차트 공용: 기간별 스택 막대(2~3계열) + 하단 내역 목록 ──
    FTA(월별 감면액: 정상/직접운송 검토)·관세환급(분기별 신청액: 지급/심사중/보류)이 공유한다. */
 function stackedBarChartHtml(opts){
@@ -2887,7 +3110,8 @@ function chartDataTableHtml(chartKind, companyId, raw){
       c.ym, c.lo, c.hi, c.avg,
       (c.amount != null ? (fmtKrwShort(c.amount) || "-") : "-"), c.n,
     ]);
-  } else if(chartKind === "disguise"){
+  } else if(chartKind === "disguise" || chartKind === "disguise_declaration"){
+    // 뷰 모드(disguise)·위험요인(disguise_declaration) 어느 경로로 와도 동일 대조 내역을 보여준다.
     // 품명 위장 대조: 성분분석 적발 내역(신고품명 → 실제 위해성분 → 정상HS·위반법령)
     const d = _invDataCache.get(`hs_check:${companyId}`)?.data;
     cols = ["신고번호", "신고품명(위장)", "신고 HS", "실제 위해성분", "정상분류 HS", "위반법령"];
@@ -2895,6 +3119,30 @@ function chartDataTableHtml(chartKind, companyId, raw){
       const p = parseDisguiseNote(m.note);
       return [m.ref || "", p.item || "", m.declared_hs || "", p.substance || "", m.ai_hs || "", p.law || ""];
     });
+  } else if(["inspection_evasion", "contraband_detection", "route_supplier_risk", "proceeds_concealment"].includes(chartKind)){
+    // 밀수 지표 공통: 신고 원장 기반 구성 데이터(신고일·채널·검사구분·적발·품명·금액)
+    const recs = smugglingRecords(raw)
+      .sort((a, b) => (b.caught ? 1 : 0) - (a.caught ? 1 : 0) || b.date.localeCompare(a.date))
+      .slice(0, 60);
+    if(recs.length){
+      const head = ["신고번호", "신고일", "반입채널", "통관검사", "신고품명", "신고 HS", "신고금액", "판정"];
+      const body = recs.map(r => `
+        <tr class="${r.caught ? "hs-mm-row" : ""}">
+          <td>${escapeHtml(r.ref)}</td><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.channel)}</td>
+          <td>${escapeHtml(r.inspection)}</td><td>${escapeHtml(r.item)}</td><td>${escapeHtml(r.hs)}</td>
+          <td>${escapeHtml(fmtKrwShort(r.value) || "-")}</td>
+          <td>${r.caught ? `<span class="hs-mm-badge">⚠ 적발</span>`
+                : r.inspection === "미검사" ? `<span class="hs-ok-badge" style="background:#fff7ed;color:#c2410c">미검사</span>`
+                : `<span class="hs-ok-badge">검사 통과</span>`}</td>
+        </tr>`).join("");
+      return `
+        <div class="profile-net-table-wrap">
+          <table class="profile-net-table">
+            <thead><tr>${head.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>`;
+    }
   } else {
     const api = { undervaluation: "price_trend",
       fta_origin_misuse: "fta_check", customs_refund: "refund_check" }[chartKind];
@@ -3511,12 +3759,19 @@ function renderPanelContent(targetType, targetId){
   const rfSel = (baseType(targetType) === "company" && viewModeOf(state).id === "riskcause")
     ? (selectedRiskFactor(riskFactorList(raw), state) || {}) : {};
   const chartBuilders = {
+    // 심사(관세조사) 지표
     undervaluation: () => buildPriceTrendArea(key, targetId),
     offshore_fund: () => offshoreTrendData(raw) ? offshoreSankeyHtml(raw) : "",
     related_party: () => tradeHeatmapHtml(raw),
     hs_classification: () => buildHsCheckArea(key, targetId),
     fta_origin_misuse: () => buildFtaCheckArea(key, targetId),
     customs_refund: () => buildRefundCheckArea(key, targetId),
+    // 밀수 수사 지표 — 공범·차명 관계망(accomplice_network)은 '관계'가 근거이므로 관계망 그래프 유지
+    disguise_declaration: () => buildDisguiseArea(key, targetId),
+    inspection_evasion: () => inspectionEvasionHtml(raw),
+    contraband_detection: () => contrabandTrendHtml(raw),
+    route_supplier_risk: () => routeSupplierHtml(raw),
+    proceeds_concealment: () => proceedsFlowHtml(raw),
   };
   // 품명 위장 대조(disguise)는 최상위 뷰이면서 성분분석 비교 패널로 렌더(그래프 대신).
   const isDisguiseView = baseType(targetType) === "company" && viewModeOf(state).id === "disguise";
