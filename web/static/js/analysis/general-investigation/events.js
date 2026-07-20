@@ -432,6 +432,18 @@ export function registerGeneralInvestigationEvents(ctx){
     }
 
     /* ── 수사정보 분석 탭 (3단: Chat/시각화/정보카드) ─────────────── */
+    // 좌(수사 대화)·우(수집된 정보) 열 접기/펼치기
+    const giInsightCollapse = event.target.closest("[data-gi-insight-collapse]");
+    const giInsightExpand   = event.target.closest("[data-gi-insight-expand]");
+    if(giInsightCollapse || giInsightExpand){
+      const which = (giInsightCollapse || giInsightExpand).dataset.giInsightCollapse
+                 || giInsightExpand.dataset.giInsightExpand;
+      const key = which === "chat" ? "insightChatCollapsed" : "insightCardsCollapsed";
+      generalInvestigationState[key] = !!giInsightCollapse;
+      ctx.render("generalinv");
+      return;
+    }
+
     const giInsightCenter = event.target.closest("[data-gi-insight-center]");
     if(giInsightCenter){
       generalInvestigationState.insightCenterTab = giInsightCenter.dataset.giInsightCenter;

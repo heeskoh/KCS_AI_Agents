@@ -1210,6 +1210,12 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 /* 관계망 분석 — 메인 화면과 동일한 폐쇄망 플랫폼을 iframe으로 임베드 */
 .gi-insight-net-body{overflow:hidden;display:flex}
 .gi-insight-net-frame{flex:1;width:100%;border:0;display:block}
+/* 전체화면 — Fullscreen API 사용, 미지원 시 .is-maximized 폴백 */
+.gi-insight-net-body:fullscreen{background:#fff}
+.gi-insight-net-body.is-maximized{position:fixed;inset:0;z-index:9999;background:#fff}
+.gi-insight-maximize-btn{margin-left:auto;flex:none;border:1px solid #d8e0ec;background:#fff;color:#5a6577;
+  cursor:pointer;font-size:13px;line-height:1;padding:5px 9px;border-radius:6px}
+.gi-insight-maximize-btn:hover{background:#eef4ff;border-color:#2f6fed;color:#123c85}
 /* 우측: 정보 그룹 카드 */
 .gi-insight-groups{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 /* flex 축소 금지 — 그룹이 눌려 카드가 잘리지 않게 하고, 넘침은 컬럼/그룹 스크롤이 담당 */
