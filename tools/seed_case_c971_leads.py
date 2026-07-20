@@ -121,6 +121,18 @@ def build_leads(existing: list) -> list:
     return leads
 
 
+TARGET_COMPANY_ID = "C-971"
+TARGET_NAME_HINT = "메디피아"
+
+
+def _is_target_case(case: dict) -> bool:
+    """대상 사건 판별 — 사건번호 우선, 없으면 대상 회사(C-971/메디피아)로 매칭."""
+    if case.get("caseId") == CASE_ID:
+        return True
+    return (str(case.get("companyId") or "") == TARGET_COMPANY_ID
+            or TARGET_NAME_HINT in str(case.get("targetName") or ""))
+
+
 def patch_file(path: Path) -> int:
     if not path.exists():
         return 0
@@ -130,7 +142,8 @@ def patch_file(path: Path) -> int:
     def patch_cases(cases):
         nonlocal touched
         for c in cases or []:
-            if c.get("caseId") != CASE_ID:
+            # 사건번호는 등록 순서에 따라 달라지므로(GI-2026-005/006 …) 대상 회사로도 매칭한다.
+            if not _is_target_case(c):
                 continue
             c["leads"] = build_leads(c.get("leads") or [])
             touched += 1
@@ -156,7 +169,7 @@ def main() -> None:
             print(f"  {path.name}: 사건 {n}건 갱신")
             total += n
     if not total:
-        print("[seed] 대상 사건을 찾지 못했습니다 — 관세수사에서 C-971 사건을 먼저 등록하세요.")
+        print("[seed] 대상 사건을 찾지 못했습니다 — 관세수사에서 (주)메디피아글로벌(C-971) 수사를 먼저 등록하세요.")
         return
     print(f"[seed] C-971 수사단서 시드 완료 (사건 {total}곳)")
     print(f"  1) 밀수신고(B급) — {REPORT_TITLE[:40]}…")
