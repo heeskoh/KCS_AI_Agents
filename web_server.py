@@ -48,9 +48,33 @@ def _json_safe(value: object) -> object:
     return value
 
 
+def _risk_evidence_counts(conn) -> dict[str, dict[str, int]]:
+    """기업×지표별 근거 건수 — company_risk_indicator.related_refs 안의 참조 레코드 수.
+
+    related_refs는 {"drawback": [1,2,3], "worst_gap_pct": 47.6} 형태로, 리스트 값만
+    실제 근거 레코드다(worst_gap_pct 같은 스칼라는 산출 지표이므로 세지 않는다).
+    반환: {company_id: {indicator_code: 근거건수}}
+    """
+    counts: dict[str, dict[str, int]] = {}
+    rows = conn.execute(
+        "SELECT company_id, indicator_code, related_refs FROM company_risk_indicator"
+    ).fetchall()
+    for company_id, code, refs in rows:
+        try:
+            parsed = json.loads(refs) if refs else {}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            parsed = {}
+        if not isinstance(parsed, dict):
+            continue
+        total = sum(len(v) for v in parsed.values() if isinstance(v, list))
+        counts.setdefault(str(company_id), {})[str(code)] = total
+    return counts
+
+
 def list_companies() -> list[dict[str, object]]:
     with duckdb.connect(str(DB_PATH), read_only=True) as conn:
-        return conn.execute(
+        evidence = _risk_evidence_counts(conn)
+        records = conn.execute(
             """
             SELECT
                 c.company_id,
@@ -86,6 +110,10 @@ def list_companies() -> list[dict[str, object]]:
             ORDER BY c.risk_score DESC NULLS LAST
             """
         ).df().to_dict("records")
+        # 지표별 근거 건수 부착 — 대시보드가 "N개사 · 근거 M건"으로 병기한다
+        for row in records:
+            row["risk_evidence"] = evidence.get(str(row.get("company_id")), {})
+        return records
 
 
 def price_trend(company_id: str, hs: str | None = None) -> dict[str, object] | None:

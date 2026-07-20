@@ -2243,6 +2243,9 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .risk-alert-item span{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.4}
 .risk-alert-item strong{font-size:28px;font-weight:900}
 .risk-alert-item strong small{font-size:14px;font-weight:600;margin-left:3px}
+/* 근거 건수 — 주 수치(개사) 아래 보조 표기 */
+.risk-alert-evidence{display:block;margin-top:4px;font-size:11px;font-style:normal;color:var(--muted)}
+.risk-alert-item.active .risk-alert-evidence{color:#1d4ed8}
 /* 상단 KPI·경보 카드는 클릭 시 해당 기업만 필터링 — 버튼이지만 기존 카드 모양을 유지한다 */
 .risk-kpi-item,.risk-alert-item{font:inherit;color:inherit;cursor:pointer;transition:.13s}
 .risk-kpi-item{background:transparent;border:0;border-right:1px solid var(--line)}

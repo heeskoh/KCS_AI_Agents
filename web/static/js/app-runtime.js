@@ -2895,23 +2895,39 @@ let riskDashboardFilter = { query: "", minScore: 0, focus: "all" };
 const RISK_INDICATOR_THRESHOLD = 50;
 const riskRateAtLeast = field => c => (c[field] || 0) >= RISK_INDICATOR_THRESHOLD;
 
+/* code — DB company_risk_indicator.indicator_code. 해당 기업들의 근거 레코드 수를 합산해
+   "N개사 · 근거 M건"으로 병기한다(근거 건수는 API의 risk_evidence로 내려온다). */
 const RISK_DASH_FOCUS = {
   all:      { label: "전체 관리대상 업체",   match: () => true },
   // 심사필요 — 위험도가 높아 심사 조건을 갖춘 기업
   review:   { label: "심사필요",             match: c => c.risk_level === "HIGH" },
   // 조사 임박 — 위험도·사건혐의가 의심되는 대상
   audit:    { label: "조사 임박",            match: c => (c.risk_score || 0) >= 75 },
-  underval: { label: "신고가격오류 의심",    match: riskRateAtLeast("undervaluation_suspicion_rate") },
-  hs:       { label: "품목분류 위장 의심",   match: riskRateAtLeast("hs_classification_error_rate") },
-  royalty:  { label: "권리사용료 미신고",    match: riskRateAtLeast("related_party_anomaly_rate") },
-  forex:    { label: "외환 송금액 불일치",   match: riskRateAtLeast("offshore_fund_concealment_suspicion_rate") },
-  refund:   { label: "환급금액 오신청 의심", match: riskRateAtLeast("customs_refund_anomaly_rate") },
+  underval: { label: "신고가격오류 의심",    code: "undervaluation",
+              match: riskRateAtLeast("undervaluation_suspicion_rate") },
+  hs:       { label: "품목분류 위장 의심",   code: "hs_classification",
+              match: riskRateAtLeast("hs_classification_error_rate") },
+  royalty:  { label: "권리사용료 미신고",    code: "related_party",
+              match: riskRateAtLeast("related_party_anomaly_rate") },
+  forex:    { label: "외환 송금액 불일치",   code: "offshore_fund",
+              match: riskRateAtLeast("offshore_fund_concealment_suspicion_rate") },
+  refund:   { label: "환급금액 오신청 의심", code: "customs_refund",
+              match: riskRateAtLeast("customs_refund_anomaly_rate") },
 };
 
-/* 지표에 해당하는 기업 수 — 카드 표시값과 클릭 후 목록이 같은 조건에서 나온다 */
-function riskFocusCount(focus){
+/* 지표 해당 기업 수와 근거 건수 — 카드 표시값과 클릭 후 목록이 같은 조건에서 나온다 */
+function riskFocusStats(focus){
   const def = RISK_DASH_FOCUS[focus];
-  return def ? scenarioCompanies.filter(def.match).length : 0;
+  if(!def) return { companies: 0, evidence: 0 };
+  const matched = scenarioCompanies.filter(def.match);
+  const evidence = def.code
+    ? matched.reduce((sum, c) => sum + Number((c.risk_evidence || {})[def.code] || 0), 0)
+    : 0;
+  return { companies: matched.length, evidence };
+}
+
+function riskFocusCount(focus){
+  return riskFocusStats(focus).companies;
 }
 
 function riskFocusMatch(company){
@@ -9171,14 +9187,14 @@ function riskDashboardContent(){
   const needReview = riskFocusCount("review");
   const nearAudit  = riskFocusCount("audit");
 
-  // 경보 카드 수치 — DB 위험지표(company_risk_indicator.score와 동일한 지표율) 기준 해당 기업 수.
+  // 경보 카드 수치 — DB 위험지표(company_risk_indicator) 기준 해당 기업 수 + 근거 레코드 건수.
   // 예전에는 구간별 건수에 가중치를 곱한 합계라 클릭 후 목록 수와 맞지 않았다.
-  const alertCounts = {
-    underval : riskFocusCount("underval"),
-    hs       : riskFocusCount("hs"),
-    royalty  : riskFocusCount("royalty"),
-    forex    : riskFocusCount("forex"),
-    refund   : riskFocusCount("refund"),
+  const alertStats = {
+    underval : riskFocusStats("underval"),
+    hs       : riskFocusStats("hs"),
+    royalty  : riskFocusStats("royalty"),
+    forex    : riskFocusStats("forex"),
+    refund   : riskFocusStats("refund"),
   };
 
   const minS = riskDashboardFilter.minScore;
@@ -9207,17 +9223,20 @@ function riskDashboardContent(){
       <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
 
       <div class="risk-alert-strip">
-        ${riskAlertCard("underval", "신고가격오류 의심",   alertCounts.underval, focusKey)}
-        ${riskAlertCard("hs",       "품목분류 위장 의심",  alertCounts.hs,       focusKey)}
-        ${riskAlertCard("royalty",  "권리사용료 미신고",   alertCounts.royalty,  focusKey)}
-        ${riskAlertCard("forex",    "외환 송금액 불일치",  alertCounts.forex,    focusKey)}
-        ${riskAlertCard("refund",   "환급금액 오신청 의심", alertCounts.refund,   focusKey)}
+        ${riskAlertCard("underval", "신고가격오류 의심",   alertStats.underval, focusKey)}
+        ${riskAlertCard("hs",       "품목분류 위장 의심",  alertStats.hs,       focusKey)}
+        ${riskAlertCard("royalty",  "권리사용료 미신고",   alertStats.royalty,  focusKey)}
+        ${riskAlertCard("forex",    "외환 송금액 불일치",  alertStats.forex,    focusKey)}
+        ${riskAlertCard("refund",   "환급금액 오신청 의심", alertStats.refund,   focusKey)}
       </div>
 
       ${focusKey === "all" ? "" : `
         <div class="risk-focus-bar">
           <span class="risk-focus-tag">${escapeHtml(RISK_DASH_FOCUS[focusKey].label)}</span>
-          <span class="muted">해당 기업 ${filtered.length}개사만 표시 중</span>
+          <span class="muted">해당 기업 ${filtered.length}개사만 표시 중${
+            RISK_DASH_FOCUS[focusKey].code
+              ? ` · 근거 ${riskFocusStats(focusKey).evidence.toLocaleString()}건`
+              : ""}</span>
           <button type="button" class="btn secondary risk-focus-clear" data-risk-focus="all">✕ 전체 보기</button>
         </div>`}
 
@@ -9256,13 +9275,15 @@ function riskKpiItem(focus, label, valueText, activeFocus){
     </button>`;
 }
 
-function riskAlertCard(focus, label, count, activeFocus){
+/* 경보 카드 — 해당 기업 수를 주 수치로, DB 위험지표의 근거 레코드 건수를 함께 표기 */
+function riskAlertCard(focus, label, stats, activeFocus){
   const active = focus === activeFocus;
   return `
     <button type="button" class="risk-alert-item${active ? " active" : ""}"
       data-risk-focus="${focus}" title="${escapeHtml(label)} 대상 기업만 보기">
       <span>${escapeHtml(label)}</span>
-      <strong>${count} <small>개사</small></strong>
+      <strong>${stats.companies} <small>개사</small></strong>
+      <em class="risk-alert-evidence">근거 ${stats.evidence.toLocaleString()}건</em>
     </button>`;
 }
 
