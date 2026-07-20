@@ -249,31 +249,64 @@ def execute_neo4j_cypher(cypher: str) -> list[dict[str, Any]]:
         raise RuntimeError(f"Neo4j 쿼리 실행 오류: {exc}") from exc
 
 
+def _is_year_field(field: str) -> bool:
+    """연도 컬럼 — 천단위 구분기호를 넣으면 안 된다(2019 → 2,019)."""
+    name = (field or "").lower()
+    return name.endswith("_year") or name in {"year", "연도", "년도"}
+
+
+def _format_cell(value, field: str = "") -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "Y" if value else "N"
+    if isinstance(value, float):
+        return f"{value:,.2f}"
+    if isinstance(value, int):
+        return str(value) if _is_year_field(field) else f"{value:,}"
+    return str(value)[:80]
+
+
+# 전치(행↔열) 기준 — 필드가 많고 건수가 적으면 가로로 길어져 열 머리글이 한 글자씩 잘린다.
+# 이때는 필드를 행으로 세워 "항목 | 값" 형태로 읽히게 한다.
+_TRANSPOSE_MIN_FIELDS = 8
+_TRANSPOSE_MAX_ROWS = 5
+
+
 def _format_rows_as_markdown(rows: list[dict], max_rows: int = 30) -> str:
-    """결과 rows → Markdown 테이블."""
+    """결과 rows → Markdown 테이블.
+
+    필드 수가 많고(8개 이상) 건수가 적으면(5건 이하) 행과 열을 바꿔 세로로 표시한다.
+    """
     if not rows:
         return "_조회 결과가 없습니다._"
 
     display = rows[:max_rows]
     headers = list(display[0].keys())
-    header_line = " | ".join(f"**{h}**" for h in headers)
-    sep_line = " | ".join("---" for _ in headers)
-    data_lines = []
-    for row in display:
-        cells = []
-        for h in headers:
-            v = row.get(h)
-            if v is None:
-                cells.append("—")
-            elif isinstance(v, float):
-                cells.append(f"{v:,.2f}")
-            elif isinstance(v, int):
-                cells.append(f"{v:,}")
-            else:
-                cells.append(str(v)[:80])
-        data_lines.append(" | ".join(cells))
 
-    table = "\n".join([header_line, sep_line] + data_lines)
+    if len(headers) >= _TRANSPOSE_MIN_FIELDS and len(display) <= _TRANSPOSE_MAX_ROWS:
+        # 전치: 첫 열은 필드명, 이후 열은 각 건(1건이면 '값' 한 열)
+        if len(display) == 1:
+            value_headers = ["**값**"]
+        else:
+            value_headers = [f"**{i}**" for i in range(1, len(display) + 1)]
+        lines = [
+            " | ".join(["**항목**", *value_headers]),
+            " | ".join("---" for _ in range(len(display) + 1)),
+        ]
+        for header in headers:
+            cells = [_format_cell(row.get(header), header) for row in display]
+            lines.append(" | ".join([f"**{header}**", *cells]))
+        table = "\n".join(lines)
+    else:
+        header_line = " | ".join(f"**{h}**" for h in headers)
+        sep_line = " | ".join("---" for _ in headers)
+        data_lines = [
+            " | ".join(_format_cell(row.get(h), h) for h in headers)
+            for row in display
+        ]
+        table = "\n".join([header_line, sep_line] + data_lines)
+
     if len(rows) > max_rows:
         table += f"\n\n_※ 전체 {len(rows)}건 중 {max_rows}건 표시_"
     return table
