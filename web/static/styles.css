@@ -1919,6 +1919,10 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .scenario-service-controls{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .scenario-service-controls .scenario-template-select{flex:1;min-width:180px}
 .scenario-runall-btn{white-space:nowrap;font-weight:800}
+/* 실행 중: 버튼 자체에 진행 상태(스피너 + 완료/전체) 표시 — 파란 배경 위 흰 점 */
+.scenario-runall-btn.running{display:inline-flex;align-items:center;gap:7px;opacity:1;cursor:progress}
+.scenario-runall-btn.running:disabled{opacity:.92}
+.scenario-runall-btn.running .home-running-dot{background:#fff}
 /* 존 토글 버튼(AI 서비스·분석 템플릿 공용) — 컴팩트 필 스타일 */
 .scenario-zone-toggle{white-space:nowrap;font-size:12px;font-weight:700;padding:4px 10px;border-radius:14px;line-height:1.2}
 /* Template zone — colored background block */

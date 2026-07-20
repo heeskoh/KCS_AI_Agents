@@ -10814,7 +10814,32 @@ function runScenarioWorkflow(startIndex = 0){
   // 리뷰 모드(분석 시나리오 확인 및 설정)에서는 하단 실행 버튼(scenarioRunButton)이 렌더되지 않으므로
   // null-safe 헬퍼로 활성/비활성만 반영한다(헤더 [전체 시나리오 수행]만으로도 실행 가능).
   const runButton = document.getElementById("scenarioRunButton");
-  const setRunDisabled = value => { if(runButton) runButton.disabled = value; };
+  // 헤더 [전체 시나리오 수행] — 실행 중에는 버튼 자체에 진행 상태(스피너·N/M)를 표시한다.
+  const runAllButton = document.getElementById("scenarioRunAllButton");
+  const runAllLabel = runAllButton ? (runAllButton.dataset.idleLabel || runAllButton.innerHTML) : "";
+  if(runAllButton) runAllButton.dataset.idleLabel = runAllLabel;
+  const setRunAllProgress = (done, total) => {
+    if(!runAllButton) return;
+    runAllButton.innerHTML =
+      `<span class="home-running-dot"></span> 수행 중… ${done}/${total}`;
+  };
+  const resetRunAll = () => {
+    if(!runAllButton) return;
+    runAllButton.classList.remove("running");
+    runAllButton.disabled = false;
+    runAllButton.innerHTML = runAllLabel;
+  };
+  const setRunDisabled = value => {
+    if(runButton) runButton.disabled = value;
+    if(!runAllButton) return;
+    if(value){
+      runAllButton.disabled = true;
+      runAllButton.classList.add("running");
+      setRunAllProgress(completed, scenarioItems.length);
+    } else {
+      resetRunAll();
+    }
+  };
   setRunDisabled(true);
   setScenarioStatus("실행 중");
   updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
@@ -10873,6 +10898,7 @@ function runScenarioWorkflow(startIndex = 0){
       // 완료 단계의 결과가 즉시 보이도록 선택을 해당 단계로 유지(다음 단계 실행 시 자동 이동).
       selectedScenarioId = item.id;
       updateScenarioProgress(completed);
+      setRunAllProgress(completed, scenarioItems.length);   // 버튼 진행 표시 갱신
       updateCanvasJobStatus(companyId, { label:"실행 중", done:completed, total:scenarioItems.length, pct:scenarioItems.length ? Math.round((completed / scenarioItems.length) * 100) : 0, tone:"running" });
       renderScenarioList();
       if(data.result_key === "final_report"){
