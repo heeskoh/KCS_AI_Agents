@@ -2887,20 +2887,32 @@ function copilotAdjustComposer(){
 let riskDashboardFilter = { query: "", minScore: 0, focus: "all" };
 
 /* 위험도 대시보드 상단 지표(KPI·경보 카드) → 해당 기업만 보기 필터.
-   match는 그 지표에 실제로 해당하는 기업을 고르는 조건이며, 카드에 표시되는 "건" 수치는
-   위험도 가중 합계라 기업 수와 일치하지 않는다(포커스 배너에 기업 수를 별도 표기). */
+   각 항목의 match가 카드에 표시되는 개수와 클릭 시 목록을 함께 결정한다(항상 일치).
+
+   경보 5종의 판정값은 company_profiles가 아니라 import_risk_scores의 지표율이며,
+   이 값은 DB의 company_risk_indicator.score(근거데이터에서 산출한 위험지표)와 동일하다.
+   50점 이상을 '의심 수준'으로 보고 6종 지표에 같은 기준을 적용한다. */
+const RISK_INDICATOR_THRESHOLD = 50;
+const riskRateAtLeast = field => c => (c[field] || 0) >= RISK_INDICATOR_THRESHOLD;
+
 const RISK_DASH_FOCUS = {
   all:      { label: "전체 관리대상 업체",   match: () => true },
   // 심사필요 — 위험도가 높아 심사 조건을 갖춘 기업
   review:   { label: "심사필요",             match: c => c.risk_level === "HIGH" },
   // 조사 임박 — 위험도·사건혐의가 의심되는 대상
   audit:    { label: "조사 임박",            match: c => (c.risk_score || 0) >= 75 },
-  underval: { label: "신고가격오류 의심",    match: c => (c.undervaluation_suspicion_rate || 0) > 30 },
-  hs:       { label: "품목분류 위장 의심",   match: c => (c.hs_classification_error_rate || 0) > 20 },
-  royalty:  { label: "권리사용료 미신고",    match: c => (c.related_party_anomaly_rate || 0) > 30 },
-  forex:    { label: "외환 송금액 불일치",   match: c => (c.offshore_fund_concealment_suspicion_rate || 0) > 50 },
-  refund:   { label: "환급금액 오신청 의심", match: c => (c.customs_refund_anomaly_rate || 0) > 20 },
+  underval: { label: "신고가격오류 의심",    match: riskRateAtLeast("undervaluation_suspicion_rate") },
+  hs:       { label: "품목분류 위장 의심",   match: riskRateAtLeast("hs_classification_error_rate") },
+  royalty:  { label: "권리사용료 미신고",    match: riskRateAtLeast("related_party_anomaly_rate") },
+  forex:    { label: "외환 송금액 불일치",   match: riskRateAtLeast("offshore_fund_concealment_suspicion_rate") },
+  refund:   { label: "환급금액 오신청 의심", match: riskRateAtLeast("customs_refund_anomaly_rate") },
 };
+
+/* 지표에 해당하는 기업 수 — 카드 표시값과 클릭 후 목록이 같은 조건에서 나온다 */
+function riskFocusCount(focus){
+  const def = RISK_DASH_FOCUS[focus];
+  return def ? scenarioCompanies.filter(def.match).length : 0;
+}
 
 function riskFocusMatch(company){
   return (RISK_DASH_FOCUS[riskDashboardFilter.focus] || RISK_DASH_FOCUS.all).match(company);
@@ -9156,16 +9168,17 @@ function riskDashboardContent(){
 
   const companies = scenarioCompanies;
   const total = companies.length;
-  const needReview = companies.filter(c => c.risk_level === "HIGH").length;
-  const nearAudit  = companies.filter(c => (c.risk_score||0) >= 75).length;
+  const needReview = riskFocusCount("review");
+  const nearAudit  = riskFocusCount("audit");
 
-  const cnt = (field, thr) => companies.filter(c => (c[field]||0) > thr).length;
+  // 경보 카드 수치 — DB 위험지표(company_risk_indicator.score와 동일한 지표율) 기준 해당 기업 수.
+  // 예전에는 구간별 건수에 가중치를 곱한 합계라 클릭 후 목록 수와 맞지 않았다.
   const alertCounts = {
-    underval : cnt("undervaluation_suspicion_rate", 50) * 3 + cnt("undervaluation_suspicion_rate", 30),
-    hs       : cnt("hs_classification_error_rate", 40) * 5 + cnt("hs_classification_error_rate", 20) * 2,
-    royalty  : cnt("related_party_anomaly_rate", 50) * 3 + cnt("related_party_anomaly_rate", 30),
-    forex    : cnt("offshore_fund_concealment_suspicion_rate", 50) * 2,
-    refund   : cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20),
+    underval : riskFocusCount("underval"),
+    hs       : riskFocusCount("hs"),
+    royalty  : riskFocusCount("royalty"),
+    forex    : riskFocusCount("forex"),
+    refund   : riskFocusCount("refund"),
   };
 
   const minS = riskDashboardFilter.minScore;
@@ -9249,7 +9262,7 @@ function riskAlertCard(focus, label, count, activeFocus){
     <button type="button" class="risk-alert-item${active ? " active" : ""}"
       data-risk-focus="${focus}" title="${escapeHtml(label)} 대상 기업만 보기">
       <span>${escapeHtml(label)}</span>
-      <strong>${count} <small>건</small></strong>
+      <strong>${count} <small>개사</small></strong>
     </button>`;
 }
 
