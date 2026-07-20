@@ -2884,7 +2884,39 @@ function copilotAdjustComposer(){
     if(ta.classList.contains("is-initial")) ta.value = txt;
   }
 }
-let riskDashboardFilter = { query: "", minScore: 0 };
+let riskDashboardFilter = { query: "", minScore: 0, focus: "all" };
+
+/* 위험도 대시보드 상단 지표(KPI·경보 카드) → 해당 기업만 보기 필터.
+   match는 그 지표에 실제로 해당하는 기업을 고르는 조건이며, 카드에 표시되는 "건" 수치는
+   위험도 가중 합계라 기업 수와 일치하지 않는다(포커스 배너에 기업 수를 별도 표기). */
+const RISK_DASH_FOCUS = {
+  all:      { label: "전체 관리대상 업체",   match: () => true },
+  // 심사필요 — 위험도가 높아 심사 조건을 갖춘 기업
+  review:   { label: "심사필요",             match: c => c.risk_level === "HIGH" },
+  // 조사 임박 — 위험도·사건혐의가 의심되는 대상
+  audit:    { label: "조사 임박",            match: c => (c.risk_score || 0) >= 75 },
+  underval: { label: "신고가격오류 의심",    match: c => (c.undervaluation_suspicion_rate || 0) > 30 },
+  hs:       { label: "품목분류 위장 의심",   match: c => (c.hs_classification_error_rate || 0) > 20 },
+  royalty:  { label: "권리사용료 미신고",    match: c => (c.related_party_anomaly_rate || 0) > 30 },
+  forex:    { label: "외환 송금액 불일치",   match: c => (c.offshore_fund_concealment_suspicion_rate || 0) > 50 },
+  refund:   { label: "환급금액 오신청 의심", match: c => (c.customs_refund_anomaly_rate || 0) > 20 },
+};
+
+function riskFocusMatch(company){
+  return (RISK_DASH_FOCUS[riskDashboardFilter.focus] || RISK_DASH_FOCUS.all).match(company);
+}
+
+/* 검색어·스코어·포커스를 모두 적용한 목록 — 위험도 내림차순(동점이면 업체명순) */
+function riskDashboardFiltered(){
+  const q = riskDashboardFilter.query.toLowerCase();
+  const minS = riskDashboardFilter.minScore;
+  return scenarioCompanies.filter(c => {
+    if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
+    if(minS && (c.risk_score||0) < minS) return false;
+    return riskFocusMatch(c);
+  }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
+    || String(a.company_name||"").localeCompare(String(b.company_name||""), "ko"));
+}
 
 /* ── 실시간 프롬프트 코치 상태 ── */
 let coachSuggestions = [];
@@ -9136,15 +9168,9 @@ function riskDashboardContent(){
     refund   : cnt("customs_refund_anomaly_rate", 40) * 3 + cnt("customs_refund_anomaly_rate", 20),
   };
 
-  const q = riskDashboardFilter.query.toLowerCase();
   const minS = riskDashboardFilter.minScore;
-  // 위험도점수 내림차순 정렬(동점이면 업체명순) — filter가 새 배열을 반환하므로 원본 불변
-  const filtered = companies.filter(c => {
-    if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
-    if(minS && (c.risk_score||0) < minS) return false;
-    return true;
-  }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
-    || String(a.company_name||"").localeCompare(String(b.company_name||""), "ko"));
+  const filtered = riskDashboardFiltered();
+  const focusKey = riskDashboardFilter.focus;
 
   return `
     <div class="risk-dashboard">
@@ -9154,18 +9180,9 @@ function riskDashboardContent(){
           <p class="muted">담당자가 관리하는 전체 기업의 위험도 현황을 실시간으로 모니터링합니다.</p>
         </div>
         <div class="risk-kpi-strip">
-          <div class="risk-kpi-item">
-            <span>총 관리대상 업체</span>
-            <strong>${total.toLocaleString()} 개사</strong>
-          </div>
-          <div class="risk-kpi-item">
-            <span>심사필요</span>
-            <strong>${needReview} 개사</strong>
-          </div>
-          <div class="risk-kpi-item">
-            <span>조사 임박</span>
-            <strong>${nearAudit} 개사</strong>
-          </div>
+          ${riskKpiItem("all",    "총 관리대상 업체", `${total.toLocaleString()} 개사`, focusKey)}
+          ${riskKpiItem("review", "심사필요",        `${needReview} 개사`, focusKey)}
+          ${riskKpiItem("audit",  "조사 임박",       `${nearAudit} 개사`, focusKey)}
         </div>
       </div>
 
@@ -9177,12 +9194,19 @@ function riskDashboardContent(){
       <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
 
       <div class="risk-alert-strip">
-        ${riskAlertCard("신고가격오류 의심", alertCounts.underval)}
-        ${riskAlertCard("품목분류 위장 의심", alertCounts.hs)}
-        ${riskAlertCard("권리사용료 미신고", alertCounts.royalty)}
-        ${riskAlertCard("외환 송금액 불일치", alertCounts.forex)}
-        ${riskAlertCard("환급금액 오신청 의심", alertCounts.refund)}
+        ${riskAlertCard("underval", "신고가격오류 의심",   alertCounts.underval, focusKey)}
+        ${riskAlertCard("hs",       "품목분류 위장 의심",  alertCounts.hs,       focusKey)}
+        ${riskAlertCard("royalty",  "권리사용료 미신고",   alertCounts.royalty,  focusKey)}
+        ${riskAlertCard("forex",    "외환 송금액 불일치",  alertCounts.forex,    focusKey)}
+        ${riskAlertCard("refund",   "환급금액 오신청 의심", alertCounts.refund,   focusKey)}
       </div>
+
+      ${focusKey === "all" ? "" : `
+        <div class="risk-focus-bar">
+          <span class="risk-focus-tag">${escapeHtml(RISK_DASH_FOCUS[focusKey].label)}</span>
+          <span class="muted">해당 기업 ${filtered.length}개사만 표시 중</span>
+          <button type="button" class="btn secondary risk-focus-clear" data-risk-focus="all">✕ 전체 보기</button>
+        </div>`}
 
       <div class="risk-dash-filter">
         <h3>검색조건</h3>
@@ -9208,12 +9232,25 @@ function riskDashboard(){
   return `<section class="card" style="padding:0;overflow:visible">${riskDashboardContent()}</section>`;
 }
 
-function riskAlertCard(label, count){
+/* 상단 KPI — 클릭하면 그 조건의 기업만 보여준다(같은 항목 재클릭 시 전체로 복귀) */
+function riskKpiItem(focus, label, valueText, activeFocus){
+  const active = focus === activeFocus;
   return `
-    <div class="risk-alert-item">
-      <span>${label}</span>
+    <button type="button" class="risk-kpi-item${active ? " active" : ""}"
+      data-risk-focus="${focus}" title="${escapeHtml(label)} 대상 기업만 보기">
+      <span>${escapeHtml(label)}</span>
+      <strong>${valueText}</strong>
+    </button>`;
+}
+
+function riskAlertCard(focus, label, count, activeFocus){
+  const active = focus === activeFocus;
+  return `
+    <button type="button" class="risk-alert-item${active ? " active" : ""}"
+      data-risk-focus="${focus}" title="${escapeHtml(label)} 대상 기업만 보기">
+      <span>${escapeHtml(label)}</span>
       <strong>${count} <small>건</small></strong>
-    </div>`;
+    </button>`;
 }
 
 /* 공통 위험도 카드 — investigation 대시보드 / profile 페이지 동일 사용 */
@@ -9357,28 +9394,34 @@ function genInvCaseCard(c){
 function initRiskDashboard(){
   const queryInput = document.getElementById("riskFilterQuery");
   const scoreSelect = document.getElementById("riskFilterScore");
+  const rerender = () => {
+    if(currentPage === "investigation") render("investigation");
+    else render("profile");
+  };
+
+  // 상단 KPI·경보 카드 클릭 → 해당 조건의 기업만 표시(같은 항목 재클릭은 전체 해제)
+  document.querySelectorAll("[data-risk-focus]").forEach(el => {
+    el.addEventListener("click", () => {
+      const next = el.dataset.riskFocus;
+      riskDashboardFilter.focus = (next === riskDashboardFilter.focus) ? "all" : next;
+      rerender();
+    });
+  });
+
   if(!queryInput) return;
 
   queryInput.addEventListener("input", () => {
     riskDashboardFilter.query = queryInput.value;
-    const q = riskDashboardFilter.query.toLowerCase();
-    const minS = riskDashboardFilter.minScore;
-    const filtered = scenarioCompanies.filter(c => {
-      if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
-      if(minS && (c.risk_score||0) < minS) return false;
-      return true;
-    }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
-      || String(a.company_name||"").localeCompare(String(b.company_name||""), "ko"));
     const grid = document.getElementById("riskCompanyGrid");
     if(grid){
-      grid.innerHTML = filtered.map(riskCompanyCard).join("") || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
+      grid.innerHTML = riskDashboardFiltered().map(riskCompanyCard).join("")
+        || '<div class="empty-state">검색 조건에 맞는 기업이 없습니다.</div>';
     }
   });
 
   scoreSelect.addEventListener("change", () => {
     riskDashboardFilter.minScore = parseInt(scoreSelect.value, 10);
-    if(currentPage === "investigation") render("investigation");
-    else render("profile");
+    rerender();
   });
 }
 
