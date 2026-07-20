@@ -432,6 +432,13 @@ export function registerGeneralInvestigationEvents(ctx){
     }
 
     /* ── 수사정보 분석 탭 (3단: Chat/시각화/정보카드) ─────────────── */
+    const giInsightCenter = event.target.closest("[data-gi-insight-center]");
+    if(giInsightCenter){
+      generalInvestigationState.insightCenterTab = giInsightCenter.dataset.giInsightCenter;
+      ctx.render("generalinv");
+      return;
+    }
+
     const giInsightView = event.target.closest("[data-gi-insight-view]");
     if(giInsightView){
       generalInvestigationState.insightView = giInsightView.dataset.giInsightView;

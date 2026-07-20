@@ -17,5 +17,7 @@ export const generalInvestigationState = {
   crimeDraft: null,
   // 수사정보 분석 탭 UI 상태 — 분석 관점 A~E(관세조사 공용 워크벤치) 또는 "leads"
   insightView: "A",
+  // 수사분석 워크벤치 중앙 상위 탭 — "viz"(AI정보분석 시각화) | "network"(관계망 분석)
+  insightCenterTab: "viz",
   insightGroupsOpen: {},
 };
