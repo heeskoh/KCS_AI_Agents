@@ -1,7 +1,7 @@
-/* "정보분석 워크벤치" 탭 — 3단 구조. 중앙은 관세조사 수사정보 분석과 동일한
-   AI정보분석 워크벤치(분석 관점 A~E 시각화)를 공유한다 — 관계망은 프로파일 탭 담당.
+/* "수사분석 워크벤치" 탭 — 3단 구조. 중앙은 관세조사 정보분석 워크벤치와 동일한
+   AI정보분석 워크벤치(분석 관점 A~E 시각화)를 공유한다.
    좌: Chat UI(실시간 LLM, 사건·수집정보 컨텍스트 주입)
-   중: AI정보분석 시각화(관점 탭 A~E, customs/insight-viz.js 공용) + 단서 타임라인 뷰
+   중: AI정보분석 시각화(관점 탭 A~E, customs/insight-viz.js 공용) + 관계망분석 + 단서 타임라인 뷰
    우: 수집된 정보 그룹핑 카드(수사단서 문서·기초자료·AI 분석결과·프로파일 요약)
    카드 클릭 시 좌측 채팅 입력에 인용 삽입. 대화는 aCase.insightChat에 영속(50개 캡). */
 import { escapeHtml } from "../../core/dom.js";
@@ -11,6 +11,7 @@ import { crimeSummary } from "./crime-taxonomy.js";
 import { leadTypeById, leadDocLabel, leadTimelineHtml } from "./leads.js";
 import { insightVizHtml } from "../customs/insight-viz.js";
 import { PERSPECTIVES, downloadCurrentViz } from "../customs/insight.js";
+import { networkGraphPanelHtml, graphDomainForPage } from "../shared/network-graph.js";
 
 const CHAT_MOUNT_ID = "giInsightChat";
 
@@ -140,18 +141,31 @@ export function renderInsightPanel(deps){
   const aCase = deps.activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">진행중인 수사에서 사건을 먼저 선택하세요.</div>`;
   if(!Array.isArray(aCase.insightChat)) aCase.insightChat = [];
-  // 뷰: 분석 관점 A~E(관세조사와 공용 워크벤치) + 단서 타임라인. 구버전 "network"는 A로 폴백.
+  // 뷰: 분석 관점 A~E(관세조사와 공용 워크벤치) + 관계망분석 + 단서 타임라인.
   const stored = generalInvestigationState.insightView;
-  const view = (stored === "leads" || PERSPECTIVES.some(p => p.id === stored)) ? stored : "A";
+  const view = (stored === "leads" || stored === "network" || PERSPECTIVES.some(p => p.id === stored))
+    ? stored : "A";
   const persp = PERSPECTIVES.find(p => p.id === view);
-  const centerHtml = view === "leads"
-    ? `<div class="gi-insight-leads-view">${leadTimelineHtml(aCase, generalInvestigationState.activeLeadId)}</div>`
-    : insightVizHtml(view, vizTargetOf(deps, aCase));
+  let centerHtml;
+  if(view === "leads"){
+    centerHtml = `<div class="gi-insight-leads-view">${leadTimelineHtml(aCase, generalInvestigationState.activeLeadId)}</div>`;
+  } else if(view === "network"){
+    // 관계망분석 — 수사 대상(기업/개인) 기준 관계망 그래프. 워크벤치 모드로 경로탐색·필터 제공.
+    const targetType = aCase.targetType === "person" ? "person" : "company";
+    const targetId = aCase.targetType === "person" ? aCase.personId : aCase.companyId;
+    centerHtml = targetId
+      ? `<div class="gi-insight-network-view">${
+          networkGraphPanelHtml(targetType, targetId, "관계망 분석",
+            { workbench: true, domain: graphDomainForPage("generalinv") })}</div>`
+      : `<div class="empty-state">수사 대상이 지정되지 않아 관계망을 구성할 수 없습니다.</div>`;
+  } else {
+    centerHtml = insightVizHtml(view, vizTargetOf(deps, aCase));
+  }
   return `
     <div class="gi-insight-page">
       <div class="gi-insight-head">
         <div>
-          <strong>정보분석 워크벤치</strong>
+          <strong>수사분석 워크벤치</strong>
           <p class="muted">사건 정보·수집 자료를 근거로 AI와 대화하며 분석합니다. 우측 카드를 클릭하면 대화에 인용됩니다.</p>
         </div>
         <div class="gi-insight-target">
@@ -182,6 +196,8 @@ export function renderInsightPanel(deps){
               <button type="button" class="gi-insight-view-tab${p.id === view ? " active" : ""}"
                 data-gi-insight-view="${p.id}" title="${escapeHtml(p.desc)}">${escapeHtml(p.label)}</button>
             `).join("")}
+            <button type="button" class="gi-insight-view-tab${view === "network" ? " active" : ""}"
+              data-gi-insight-view="network" title="수사 대상 기준 관계망 — 특수관계·거래처·자금흐름 연결 구조">관계망분석</button>
             <button type="button" class="gi-insight-view-tab${view === "leads" ? " active" : ""}" data-gi-insight-view="leads">단서 타임라인</button>
           </div>
           <div class="gi-insight-center-body">${centerHtml}</div>
@@ -226,7 +242,7 @@ ${userText}`;
 
 export const insightSubtab = {
   id: "insight",
-  label: "정보분석 워크벤치",
+  label: "수사분석 워크벤치",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["network", "db_cdw"],

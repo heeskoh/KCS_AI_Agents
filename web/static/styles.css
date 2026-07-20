@@ -1198,6 +1198,7 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .gi-insight-center-body{flex:1;min-height:0;overflow:auto;position:relative}
 .gi-insight-center-body .profile-net-frame{height:100%;border:0;border-radius:0}
 .gi-insight-leads-view{padding:12px;overflow-y:auto;height:100%}
+.gi-insight-network-view{height:100%;min-height:0}
 .gi-insight-view-tabs{display:flex;gap:5px}
 .gi-insight-view-tab{border:1px solid #d8e0ec;background:#fff;color:#5a6577;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:800;cursor:pointer}
 .gi-insight-view-tab.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
