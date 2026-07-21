@@ -2756,6 +2756,21 @@ function coachAttachedFileSummaries(){
   }));
 }
 
+/* 업로드 세션이 없을 때만 쓰는 폴백 — GET 요청라인 한도(약 64KB)를 넘지 않도록
+   합계 24KB 이내의 첨부 본문만 싣는다. 초과분은 메타데이터만 전달된다. */
+const HOME_INLINE_ATTACHMENT_LIMIT = 24 * 1024;
+function homeSmallAttachments(){
+  const out = [];
+  let used = 0;
+  for(const f of coachAttachedFiles){
+    const len = String(f.content || "").length;
+    if(used + len > HOME_INLINE_ATTACHMENT_LIMIT) continue;
+    used += len;
+    out.push(f);
+  }
+  return out.length ? out : undefined;
+}
+
 function coachFileLinkSummaries(){
   return coachFileLinks.map(link => ({
     name: link.name,
@@ -4560,7 +4575,12 @@ function homeStreamAgents(prompt, companyId, runAgents, btn, displayCompanyId = 
     myai_mode: true,   // MyAI 분석: CDW 자연어조회를 자연어→SQL로 직접 수행(정형 위험요약 대체 안 함)
     user_prompt: prompt,
     upload_session_id: coachUploadSessionId || undefined,
-    uploaded_files: coachAttachedFiles,
+    // 파일 본문은 URL에 싣지 않는다 — 이 payload는 GET 쿼리로 나가는데
+    // 요청라인 한도(약 64KB)를 넘으면 414가 나서 OCR 등 파일 서비스가 실패한다.
+    // 첨부는 이미 /api/upload 세션으로 서버에 있고(upload_session_id), 서버가
+    // scenario.uploaded_files 로 주입하므로 여기서 다시 보낼 필요가 없다.
+    // 세션이 없을 때(업로드 실패)만 소용량 본문을 폴백으로 함께 보낸다.
+    uploaded_files: coachUploadSessionId ? undefined : homeSmallAttachments(),
     file_links: coachFileLinkSummaries(),
     attached_files_summary: coachAttachedFileSummaries(),
     share_recipients: homeShareEmailIds,
