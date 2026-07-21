@@ -1519,12 +1519,6 @@ function normalizeTargetType(value){
   return String(value || "").toLowerCase() === "person" ? "person" : "company";
 }
 
-function sourceSupportsTarget(key, targetType = "company"){
-  const source = scenarioSourceByKey(key);
-  const normalized = normalizeTargetType(targetType);
-  return source?.supports?.[normalized] !== false;
-}
-
 function sourceDefaultInstruction(key, targetType = "company"){
   const source = scenarioSourceByKey(key);
   const normalized = normalizeTargetType(targetType);
@@ -4165,19 +4159,6 @@ function homeMountClarify(targetEl, svcLabel, def, onSubmit){
   input?.focus();
 }
 
-// 프레임 textarea를 현재 동작 조합 템플릿으로 (편집 전이면) 프리필한다.
-async function homeFillTemplatePrompt(key){
-  const st = homePromptTemplateState[key];
-  if(!st) return;
-  const composed = await composePrompt(key, st.behaviors, "company");
-  const current = homePromptTemplateState[key];
-  if(current && !current.edited){
-    current.text = composed || "";
-    const ta = document.querySelector(`[data-home-tpl-text="${cssString(key)}"]`);
-    if(ta) ta.value = current.text;
-  }
-}
-
 
 // 카드 우측 '프롬프트 및 수행 결과' 패널 — 자동등록·수정 가능 프롬프트 + 결과 + 단일 수행.
 function homeCardWorkPanel(key, kind, gi = 0){
@@ -5051,14 +5032,6 @@ const HOME_PICKER_GROUPS = {
   ],
 };
 
-function homePickerRegistryKeys(kind){
-  const groups = HOME_PICKER_GROUPS[kind] || [];
-  const targetGroups = new Set(groups.map(g => g.groupKey));
-  return Object.entries(AI_SERVICE_REGISTRY)
-    .filter(([, v]) => targetGroups.has(v.group) && v.selectable !== false && v.adminVisible !== false)
-    .map(([k]) => k);
-}
-
 function homePickerSelectedKeys(kind){
   return kind === "rag" ? homeSelectedRagKeys : homeSelectedAgentKeys;
 }
@@ -5372,85 +5345,6 @@ function homeResetPromptInput(){
 // 결과 영역 상단에 실행한 프롬프트 본문을 표시하는 블록.
 function homePromptEchoHtml(prompt){
   return `<div class="home-running-prompt">${escapeHtml(prompt || "")}</div>`;
-}
-
-// ── DB조회: NL→SQL 실행 후 결과 표시 ─────────────────────────────────────────
-async function homeRunDbQuery(prompt, services, btn, resultBox, isOnly){
-  const SERVICE_META = {
-    db_cdw:          { label: "CDW 자연어조회",        useNeo4j: false },
-    company_profile: { label: "기업 프로파일 조회", useNeo4j: false },
-  };
-
-  for(const svc of services){
-    const meta = SERVICE_META[svc] || { label: svc, useNeo4j: false };
-
-    // 로딩 표시 업데이트
-    if(resultBox){
-      const existing = resultBox.querySelector(".home-db-results") || (() => {
-        const el = document.createElement("div");
-        el.className = "home-db-results";
-        resultBox.appendChild(el);
-        return el;
-      })();
-      existing.insertAdjacentHTML("beforeend", `
-        <div class="home-db-section" id="dbSection_${svc}">
-          <div class="home-db-section-hdr">
-            <span class="home-db-icon">🗄</span>
-            <strong>${escapeHtml(meta.label)}</strong>
-            <span class="home-db-status running">조회 중…</span>
-          </div>
-          <div class="home-db-body" id="dbBody_${svc}">
-            <span class="home-running-dot"></span> SQL 생성 후 실행 중...
-          </div>
-        </div>
-      `);
-    }
-
-    try {
-      const r = await fetch("/api/db_query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, service: svc, use_neo4j: meta.useNeo4j }),
-      });
-      const d = await r.json();
-      const bodyEl = document.getElementById(`dbBody_${svc}`);
-      const statusEl = document.querySelector(`#dbSection_${svc} .home-db-status`);
-
-      if(d.error){
-        if(bodyEl) bodyEl.innerHTML = `<p class="high">오류: ${escapeHtml(d.error)}</p>`;
-        if(statusEl){ statusEl.textContent = "오류"; statusEl.className = "home-db-status error"; }
-      } else {
-        const queryInfo = d.query
-          ? `<details class="home-db-query-detail">
-               <summary>생성된 SQL 보기</summary>
-               <pre><code>${escapeHtml(d.query)}</code></pre>
-               ${d.explanation ? `<p class="muted">${escapeHtml(d.explanation)}</p>` : ""}
-             </details>`
-          : "";
-        const summaryHtml = d.summary
-          ? `<div class="home-db-summary markdown-output">${markdownToHtml(d.summary)}</div>`
-          : "";
-        const tableHtml = d.table_md
-          ? `<div class="home-db-table markdown-output">${markdownToHtml(d.table_md)}</div>`
-          : `<p class="muted">조회 결과가 없습니다.</p>`;
-
-        if(bodyEl) bodyEl.innerHTML = summaryHtml + tableHtml + queryInfo;
-        if(statusEl){
-          const cnt = (d.rows || []).length;
-          statusEl.textContent = `${cnt}건`;
-          statusEl.className = "home-db-status done";
-        }
-      }
-    } catch(e) {
-      const bodyEl = document.getElementById(`dbBody_${svc}`);
-      if(bodyEl) bodyEl.innerHTML = `<p class="high">서버 연결 실패</p>`;
-    }
-  }
-
-  if(isOnly){
-    setHomeActionLabel(btn, "AI실행");
-    btn.disabled = false;
-  }
 }
 
 /* resultBox.innerHTML 재작성 시 이미 렌더된 DB 조회 결과(.home-db-results)를 보존한다.
@@ -6367,20 +6261,6 @@ function analysisTemplateForPage(page){
   return analysisScenarioForPage(page)?.template || "";
 }
 
-function currentAnalysisSubtabAgentDefaults(page = currentPage){
-  const template = analysisTemplateForPage(page);
-  if(page === "investigation" || template === "customs"){
-    return customsInvestigation.currentTabAgentDefaultOptions(page);
-  }
-  if(page === "generalinv" || template === "general-investigation"){
-    return generalInvestigation.currentTabAgentDefaultOptions(page);
-  }
-  if(isSpecialInvestigationPage(page)){
-    return specialInvestigation.currentTabAgentDefaultOptions(page);
-  }
-  return [];
-}
-
 function scenarioBuilderDraftFromDom(){
   const next = {
     ...scenarioBuilderConfig,
@@ -7177,15 +7057,6 @@ function customsOntologyPage(){
   `;
 }
 
-function canvasTabContent(){
-  if(canvasTab === "profile") return canvasProfilePanel();
-  if(canvasTab === "data") return canvasDataPanel();
-  if(canvasTab === "scenario") return scenarioWorkbenchV2();
-  if(canvasTab === "templates") return scenarioTemplatePanel();
-  if(canvasTab === "report") return canvasReportPanel();
-  return canvasOverviewPanel();
-}
-
 function scenarioSignature(items = scenarioItems){
   return JSON.stringify(items.map(item => ({
     key: item.key,
@@ -7854,43 +7725,6 @@ function canvasOverviewPanel(){
           }).join("") || `<div class="empty-state">아카이브된 분석 결과가 없습니다.</div>`}
         </div>
       ` : ""}
-    </div>
-  `;
-}
-
-function canvasArchivePanel(){
-  const jobs = archivedCanvasJobs();
-  return `
-    <div class="canvas-overview-toolbar">
-      <div>
-        <strong>분석 결과 아카이브</strong>
-        <p class="muted">완료된 분석 작업과 저장된 실행 로그를 다시 열람하거나 진행 작업으로 복원합니다.</p>
-      </div>
-      <button class="btn secondary" data-canvas-tab="overview">진행 작업 보기</button>
-    </div>
-    <div class="job-board archive-board">
-      ${jobs.map(job => {
-        const archive = currentRunArchive(job.companyId);
-        return `
-          <article class="job-card archive-card ${job.companyId === activeCanvasCompanyId ? "active" : ""}" data-canvas-company="${job.companyId}" data-open-company-profile="true" tabindex="0" role="button">
-            <div class="job-card-head">
-              <div>
-                <h3>${job.title}</h3>
-                <p class="muted">${job.company} · ${archive?.savedAt || job.archivedAt || job.updated}</p>
-              </div>
-              <span class="job-status done">아카이브</span>
-            </div>
-            <div class="archive-summary">
-              <span>저장 로그 ${archive ? Object.keys(archive.stepOutputs || {}).length : 0}건</span>
-              <strong>${job.status?.pct || 100}%</strong>
-            </div>
-            <div class="archive-actions">
-              <button class="btn secondary" data-canvas-company="${job.companyId}" data-canvas-tab="report">결과 열기</button>
-              <button class="btn secondary" data-restore-job="${job.companyId}">진행 작업으로 복원</button>
-            </div>
-          </article>
-        `;
-      }).join("") || `<div class="empty-state">아카이브된 분석 결과가 없습니다.</div>`}
     </div>
   `;
 }
@@ -10087,15 +9921,6 @@ function applySelectedScenarioTemplate(){
   syncScenarioEditor();
   updateScenarioProgress(0);
   setScenarioStatus("템플릿 적용됨");
-}
-
-function updateSelectedScenarioInstruction(value){
-  if(isCompanyArchived()) return;
-  const item = selectedScenarioItem();
-  if(!item) return;
-  item.instruction = value;
-  saveCompanyScenario();
-  renderScenarioList();
 }
 
 function applySelectedScenarioPrompt(){
