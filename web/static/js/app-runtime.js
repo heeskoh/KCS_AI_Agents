@@ -4530,7 +4530,10 @@ function homeKeepScroll(render){
 function homeRenderDetail(){
   const detailInResult = document.getElementById("homeResultDetail");
   if(detailInResult){
-    homeKeepScroll(() => { detailInResult.outerHTML = homeDetailMarkup(); });
+    homeKeepScroll(() => {
+      detailInResult.outerHTML = homeDetailMarkup();
+      applyHomeSummaryCollapsed();   // 재렌더 후에도 접힘 상태 유지
+    });
     return;
   }
   const legacyDetail = document.getElementById("homeAnalysisDetail");
@@ -4721,7 +4724,7 @@ function homePromptEchoHtml(prompt){
    CDW 자연어조회 + 다른 AI서비스 동시 선택 시 agents 모드 렌더가 DB 결과를 지우는 문제 방지 */
 function homePreserveDbResults(resultBox, render){
   const dbResults = resultBox?.querySelector(".home-db-results");
-  homeKeepScroll(render);
+  homeKeepScroll(() => { render(); applyHomeSummaryCollapsed(); });
   if(dbResults && resultBox){
     const detailEl = resultBox.querySelector(".home-result-detail");
     if(detailEl) resultBox.insertBefore(dbResults, detailEl);
@@ -5056,8 +5059,8 @@ function homeSummaryHeadHtml(){
     <div class="home-summary-head">
       <h3>AI통합분석결과</h3>
       <button type="button" class="home-summary-toggle" data-home-summary-toggle
-        title="${homeSummaryCollapsed ? "요약 펼치기" : "요약 접기 — 서비스 결과 영역을 넓게 사용"}">
-        ${homeSummaryCollapsed ? "▼ 요약 펼치기" : "▲ 요약 접기"}
+        title="${homeSummaryCollapsed ? "AI통합분석결과 펼치기" : "AI통합분석결과 전체 접기 — 서비스 수행 결과를 넓게 사용"}">
+        ${homeSummaryCollapsed ? "▼ 결과 펼치기" : "▲ 결과 접기"}
       </button>
     </div>`;
 }
@@ -10746,13 +10749,24 @@ document.addEventListener("click", (event) => {
   const toggle = event.target?.closest?.("[data-home-summary-toggle]");
   if(!toggle) return;
   homeSummaryCollapsed = !homeSummaryCollapsed;
-  const box = document.getElementById("homeResultBox");
-  box?.querySelectorAll(".home-summary-block").forEach(el => { el.hidden = homeSummaryCollapsed; });
-  box?.classList.toggle("summary-collapsed", homeSummaryCollapsed);
-  toggle.textContent = homeSummaryCollapsed ? "▼ 요약 펼치기" : "▲ 요약 접기";
+  applyHomeSummaryCollapsed();
+  toggle.textContent = homeSummaryCollapsed ? "▼ 결과 펼치기" : "▲ 결과 접기";
   toggle.title = homeSummaryCollapsed
-    ? "요약 펼치기" : "요약 접기 — 서비스 결과 영역을 넓게 사용";
+    ? "AI통합분석결과 펼치기" : "AI통합분석결과 전체 접기 — 서비스 수행 결과를 넓게 사용";
 });
+
+/* 접힘 상태를 DOM에 반영 — 요약·KPI뿐 아니라 상세 결과 목록까지 함께 접어
+   AI통합분석결과 영역을 머리글만 남기고, 그 공간을 상단 서비스 결과가 쓰게 한다. */
+function applyHomeSummaryCollapsed(){
+  const box = document.getElementById("homeResultBox");
+  if(!box) return;
+  box.querySelectorAll(".home-summary-block").forEach(el => { el.hidden = homeSummaryCollapsed; });
+  const detail = box.querySelector("#homeResultDetail");
+  if(detail) detail.hidden = homeSummaryCollapsed;
+  box.classList.toggle("summary-collapsed", homeSummaryCollapsed);
+  document.querySelector(".home-result-area")?.classList.toggle("is-collapsed", homeSummaryCollapsed);
+  document.querySelector(".home-analysis-card")?.classList.toggle("result-collapsed", homeSummaryCollapsed);
+}
 
 // 카드별 AI코칭 실행 / 재구성안 적용
 document.addEventListener("click", (event) => {
