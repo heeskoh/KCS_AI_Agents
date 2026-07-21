@@ -2213,10 +2213,10 @@ const riskRateAtLeast = field => c => (c[field] || 0) >= RISK_INDICATOR_THRESHOL
    "N개사 · 근거 M건"으로 병기한다(근거 건수는 API의 risk_evidence로 내려온다). */
 const RISK_DASH_FOCUS = {
   all:      { label: "관세조사 대상 업체",   match: () => true },
-  // 심사필요 — 위험도가 높아 심사 조건을 갖춘 기업
-  review:   { label: "심사필요",             match: c => c.risk_level === "HIGH" },
-  // 조사 임박 — 위험도·사건혐의가 의심되는 대상
-  audit:    { label: "조사 임박",            match: c => (c.risk_score || 0) >= 75 },
+  // 조사필요 — 전체 위험도 90점 이상(카드 밴드 urgent와 동일 경계)
+  audit:    { label: "조사필요",             match: c => (c.risk_score || 0) >= 90 },
+  // 심사필요 — 70~90점(카드 밴드 caution). 조사필요와 겹치지 않게 상한을 둔다
+  review:   { label: "심사필요",             match: c => (c.risk_score || 0) >= 70 && (c.risk_score || 0) < 90 },
   underval: { label: "신고가격오류 의심",    code: "undervaluation",
               match: riskRateAtLeast("undervaluation_suspicion_rate") },
   hs:       { label: "품목분류 위장 의심",   code: "hs_classification",
@@ -8353,8 +8353,8 @@ function riskDashboardContent(){
 
   const companies = riskDashboardCompanies();
   const total = companies.length;
-  const needReview = riskFocusCount("review");
-  const nearAudit  = riskFocusCount("audit");
+  const needAudit  = riskFocusCount("audit");    // 조사필요 — 위험도 90점 이상
+  const needReview = riskFocusCount("review");   // 심사필요 — 70~90점
 
   // 경보 카드 수치 — DB 위험지표(company_risk_indicator) 기준 해당 기업 수 + 근거 레코드 건수.
   // 예전에는 구간별 건수에 가중치를 곱한 합계라 클릭 후 목록 수와 맞지 않았다.
@@ -8379,8 +8379,8 @@ function riskDashboardContent(){
         </div>
         <div class="risk-kpi-strip">
           ${riskKpiItem("all",    "관세조사 대상 업체", `${total.toLocaleString()} 개사`, focusKey)}
+          ${riskKpiItem("audit",  "조사필요",        `${needAudit} 개사`, focusKey)}
           ${riskKpiItem("review", "심사필요",        `${needReview} 개사`, focusKey)}
-          ${riskKpiItem("audit",  "조사 임박",       `${nearAudit} 개사`, focusKey)}
         </div>
       </div>
 
