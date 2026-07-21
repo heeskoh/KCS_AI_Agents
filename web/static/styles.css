@@ -630,6 +630,15 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 /* 카드 2단 레이아웃: 좌(정보·입력) | 우(프롬프트 및 수행결과) = 3:7 */
 .home-card-row{display:flex;gap:12px;align-items:stretch}
 .home-card-info{flex:0 0 30%;min-width:0;display:grid;gap:8px;align-content:start}
+/* 좌측 서비스 설명 프레임 접기 — 제목 줄만 세로로 남기고 폭을 우측에 넘긴다 */
+.home-info-collapse{flex:none;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;
+  font-size:11px;font-weight:800;line-height:1;padding:4px 7px;cursor:pointer}
+.home-info-collapse:hover{background:#eef4ff;border-color:#2f6fed;color:#123c85}
+.home-svc-panel.info-collapsed .home-card-info{flex:0 0 34px}
+.home-svc-panel.info-collapsed .home-card-info > *:not(.home-frame-head){display:none}
+.home-svc-panel.info-collapsed .home-frame-head{flex-direction:column;align-items:center;gap:6px;height:100%}
+.home-svc-panel.info-collapsed .home-frame-title,
+.home-svc-panel.info-collapsed .home-frame-move{display:none}
 .home-card-work{flex:1 1 70%;min-width:0;display:flex;flex-direction:column;gap:6px;border-left:1px solid #e5edf7;padding-left:12px}
 /* '프롬프트 및 수행 결과' 헤더 라인: 좌측 라벨 + 우측 끝 작은 액션 버튼 */
 .home-card-work-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid #cfe0f5;padding-bottom:4px}

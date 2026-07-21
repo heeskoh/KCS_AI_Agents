@@ -2846,6 +2846,18 @@ let homeCardPromptState = {};
 let homeCardCollapsed = {};
 
 // 카드 접기/펴기 토글 버튼 HTML (단일 수행 버튼 옆 액션 영역에 배치).
+/* 좌측 서비스 설명 프레임 접기 — 카드 전체 접기(homeCardCollapsed)와 별개로,
+   설명·동작칩·입력값만 접어 우측 '프롬프트 및 수행 결과'가 폭을 넓게 쓰게 한다. */
+let homeCardInfoCollapsed = {};
+
+function homeCardInfoToggleHtml(key){
+  const collapsed = !!homeCardInfoCollapsed[key];
+  return `<button type="button" class="home-info-collapse" data-home-card-info-collapse="${escapeHtml(key)}"
+      aria-expanded="${collapsed ? "false" : "true"}"
+      aria-label="${collapsed ? "서비스 설명 펼치기" : "서비스 설명 접기"}"
+      title="${collapsed ? "서비스 설명 펼치기" : "서비스 설명 접기 — 결과 영역을 넓게 사용"}">${collapsed ? "▶" : "◀"}</button>`;
+}
+
 function homeCardCollapseToggleHtml(key){
   const collapsed = !!homeCardCollapsed[key];
   return `<button type="button" class="home-mini-btn home-card-collapse" data-home-card-collapse="${escapeHtml(key)}"
@@ -3787,10 +3799,13 @@ function homePipelineFrameHtml(key, idx, total, srcCount, runtimeSteps){
        ${chips ? `<div class="home-tpl-chips">${chips}</div>` : ""}
        ${homeInputChipsHtml(key)}`
     : "";
+  const infoCollapsed = !!homeCardInfoCollapsed[key];
+  // 설명 프레임 접기 버튼은 카드 헤더(제목 줄) 오른쪽 끝에 둔다.
+  const rowHead = head.replace("</div>", `  ${homeCardInfoToggleHtml(key)}\n        </div>`);
   return `
-    <div class="home-svc-panel home-pipeline-frame home-card-row${collapsed ? " is-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
+    <div class="home-svc-panel home-pipeline-frame home-card-row${collapsed ? " is-collapsed" : ""}${infoCollapsed ? " info-collapsed" : ""}" data-home-pipeline-frame="${escapeHtml(key)}">
       <div class="home-card-info">
-        ${head}
+        ${rowHead}
         ${body}
       </div>
       ${homeCardWorkPanel(key, "agent", gi)}
@@ -3806,6 +3821,7 @@ function homeRenderPromptTemplatePanels(){
   // 선택 해제된 AI 서비스·업무지식베이스는 상태에서 제거
   Object.keys(homePromptTemplateState).forEach(key => { if(!aiOrder.includes(key) && !sources.includes(key)) delete homePromptTemplateState[key]; });
   Object.keys(homeCardCollapsed).forEach(key => { if(key !== "__integrated__" && !sources.includes(key) && !aiOrder.includes(key)) delete homeCardCollapsed[key]; });
+  Object.keys(homeCardInfoCollapsed).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardInfoCollapsed[key]; });
   Object.keys(homeCardResultState).forEach(key => { if(!sources.includes(key) && !aiOrder.includes(key)) delete homeCardResultState[key]; });
   // 신규 AI 서비스 동작칩 상태 초기화
   aiOrder.forEach(key => {
@@ -11768,6 +11784,22 @@ document.addEventListener("click", (event)=>{
     cardCollapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
     cardCollapse.setAttribute("aria-label", collapsed ? "카드 펼치기" : "카드 접기");
     cardCollapse.title = collapsed ? "펼치기" : "접기";
+    return;
+  }
+
+  /* 좌측 서비스 설명 프레임 접기/펴기 — DOM 클래스만 토글해 재렌더 없이 즉시 반영.
+     접으면 우측 '프롬프트 및 수행 결과'가 그만큼 넓어진다. */
+  const infoCollapse = event.target.closest("[data-home-card-info-collapse]");
+  if(infoCollapse){
+    const key = infoCollapse.dataset.homeCardInfoCollapse;
+    const collapsed = !homeCardInfoCollapsed[key];
+    homeCardInfoCollapsed[key] = collapsed;
+    infoCollapse.closest(".home-svc-panel")?.classList.toggle("info-collapsed", collapsed);
+    infoCollapse.textContent = collapsed ? "▶" : "◀";
+    infoCollapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    infoCollapse.setAttribute("aria-label", collapsed ? "서비스 설명 펼치기" : "서비스 설명 접기");
+    infoCollapse.title = collapsed
+      ? "서비스 설명 펼치기" : "서비스 설명 접기 — 결과 영역을 넓게 사용";
     return;
   }
 
