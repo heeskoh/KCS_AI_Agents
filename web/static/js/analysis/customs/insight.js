@@ -7,6 +7,7 @@
    대화는 canvasJobOverrides[companyId].insightChat에 영속(50개 캡, deps 경유). */
 import { escapeHtml } from "../../core/dom.js";
 import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
+import { runChatIntent } from "../shared/chat-agent-run.js";
 import { insightVizHtml } from "./insight-viz.js";
 import { networkGraphPanelHtml } from "../shared/network-graph.js";
 
@@ -257,6 +258,11 @@ export function bindCiInsightChat(deps){
     mountId: CHAT_MOUNT_ID,
     getMessages: () => deps.getCustomsInsightChat?.(companyId) || [],
     mode: "int",
+    // 관세행정 Copilot과 동일하게 — 질문을 의도분석해 대상 기업 대상으로 AI 서비스 실행,
+    // 내부 서비스가 없으면 아래 buildPrompt 기반 사건 컨텍스트 LLM 답변으로 폴백
+    runIntent: (userText, hooks) => runChatIntent(userText, {
+      companyId, targetType: "company", llmMode: "int", ...hooks,
+    }),
     buildPrompt: (messages, userText) => {
       const history = messages
         .slice(-9, -1)   // 마지막(방금 질문) 제외 최근 대화 4왕복
