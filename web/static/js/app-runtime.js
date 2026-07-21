@@ -2818,6 +2818,8 @@ const HOME_DEFAULT_AGENTS = [
 let homeEventSource = null;
 let homeRunResults = {};   // { result_key: text }
 let homeStepStatus = {};   // { label: "running"|"done"|"error" }
+// AI통합분석결과(요약·KPI) 접기 상태 — 접으면 그만큼 서비스 결과 영역이 넓어진다.
+let homeSummaryCollapsed = false;
 // 카드별 수행 결과 표시 상태 { [serviceKey]: { status, output } } — 재렌더(서비스 추가 등) 시 결과 보존용
 let homeCardResultState = {};
 let homeSelectedRagKeys = [];
@@ -4516,10 +4518,19 @@ function homeDetailMarkup(){
   `;
 }
 
+/* 결과 영역 재렌더 중 스크롤 위치를 유지한다.
+   실행 중에는 단계마다 상세 영역을 다시 그리는데, 그때마다 맨 위로 튀면 결과를 읽을 수 없다. */
+function homeKeepScroll(render){
+  const pane = document.querySelector(".home-result-area") || document.scrollingElement;
+  const top = pane ? pane.scrollTop : 0;
+  render();
+  if(pane && top) pane.scrollTop = top;
+}
+
 function homeRenderDetail(){
   const detailInResult = document.getElementById("homeResultDetail");
   if(detailInResult){
-    detailInResult.outerHTML = homeDetailMarkup();
+    homeKeepScroll(() => { detailInResult.outerHTML = homeDetailMarkup(); });
     return;
   }
   const legacyDetail = document.getElementById("homeAnalysisDetail");
@@ -4710,7 +4721,7 @@ function homePromptEchoHtml(prompt){
    CDW 자연어조회 + 다른 AI서비스 동시 선택 시 agents 모드 렌더가 DB 결과를 지우는 문제 방지 */
 function homePreserveDbResults(resultBox, render){
   const dbResults = resultBox?.querySelector(".home-db-results");
-  render();
+  homeKeepScroll(render);
   if(dbResults && resultBox){
     const detailEl = resultBox.querySelector(".home-result-detail");
     if(detailEl) resultBox.insertBefore(dbResults, detailEl);
@@ -4968,8 +4979,11 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
     const targetSummary = displayCompanyId ? `대상 기업 <b>${escapeHtml(displayCompanyId)}</b> · ` : "";
     homePreserveDbResults(resultBox, () => {
       resultBox.innerHTML = `
-        ${homePromptEchoHtml(prompt)}
-        <p class="muted" style="font-size:12px">${targetSummary}${agentCount}개 AI 서비스 실행 결과</p>
+        ${homeSummaryHeadHtml()}
+        <div class="home-summary-block"${homeSummaryCollapsed ? ` hidden` : ""}>
+          ${homePromptEchoHtml(prompt)}
+          <p class="muted" style="font-size:12px">${targetSummary}${agentCount}개 AI 서비스 실행 결과</p>
+        </div>
         ${homeDetailMarkup()}
       `;
     });
@@ -5017,21 +5031,35 @@ function homeRenderSummary(prompt, companyId, mode, displayCompanyId = ""){
 
   homePreserveDbResults(resultBox, () => {
     resultBox.innerHTML = `
-      <h3>AI통합분석결과</h3>
-      ${homePromptEchoHtml(prompt)}
-      <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
-      ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
-      <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
-      ${hasReport || hasRiskAssessment ? `
-      <div class="kpi">
-        <div>위험 가능성 <b class="${riskClass}">${riskWord}</b></div>
-        <div>위험도 점수 <b class="${riskClass}">${score}/100</b></div>
-        <div>조사 우선순위 <b>${priority}</b></div>
-        <div>권고 조치 <b style="font-size:14px">${recommend}</b></div>
-      </div>` : ""}
+      ${homeSummaryHeadHtml()}
+      <div class="home-summary-block"${homeSummaryCollapsed ? ` hidden` : ""}>
+        ${homePromptEchoHtml(prompt)}
+        <p>${targetSummary}${agentCount}개 AI 서비스 분석 완료${coachAttachedFiles.length ? ` · 첨부 파일 ${coachAttachedFiles.length}건 활용` : ""}</p>
+        ${hasShare ? `<p class="good" style="margin-top:4px">분석결과 보고서가 등록된 이메일 수신자에게 공유 준비되었습니다.</p>` : ""}
+        <div class="markdown-output" style="margin-top:8px">${markdownToHtml(summary)}</div>
+        ${hasReport || hasRiskAssessment ? `
+        <div class="kpi">
+          <div>위험 가능성 <b class="${riskClass}">${riskWord}</b></div>
+          <div>위험도 점수 <b class="${riskClass}">${score}/100</b></div>
+          <div>조사 우선순위 <b>${priority}</b></div>
+          <div>권고 조치 <b style="font-size:14px">${recommend}</b></div>
+        </div>` : ""}
+      </div>
       ${homeDetailMarkup()}
     `;
   });
+}
+
+/* AI통합분석결과 머리글 — 접기 토글 포함. 접으면 아래 서비스 결과가 그만큼 넓어진다. */
+function homeSummaryHeadHtml(){
+  return `
+    <div class="home-summary-head">
+      <h3>AI통합분석결과</h3>
+      <button type="button" class="home-summary-toggle" data-home-summary-toggle
+        title="${homeSummaryCollapsed ? "요약 펼치기" : "요약 접기 — 서비스 결과 영역을 넓게 사용"}">
+        ${homeSummaryCollapsed ? "▼ 요약 펼치기" : "▲ 요약 접기"}
+      </button>
+    </div>`;
 }
 
 /* 진행작업 상태 저장소: 서버 파일(data/workspace_state.json).
@@ -10710,6 +10738,20 @@ document.addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
   const chip = event.target?.closest?.("[data-home-insert-token]");
   if(chip){ homeInsertTokenIntoPrompt(chip.dataset.homeInsertToken, chip.dataset.label); }
+});
+
+/* AI통합분석결과 요약 접기/펼치기 — DOM만 토글해 스크롤 위치를 그대로 둔다
+   (전체 재렌더하면 결과 영역이 맨 위로 튄다). */
+document.addEventListener("click", (event) => {
+  const toggle = event.target?.closest?.("[data-home-summary-toggle]");
+  if(!toggle) return;
+  homeSummaryCollapsed = !homeSummaryCollapsed;
+  const box = document.getElementById("homeResultBox");
+  box?.querySelectorAll(".home-summary-block").forEach(el => { el.hidden = homeSummaryCollapsed; });
+  box?.classList.toggle("summary-collapsed", homeSummaryCollapsed);
+  toggle.textContent = homeSummaryCollapsed ? "▼ 요약 펼치기" : "▲ 요약 접기";
+  toggle.title = homeSummaryCollapsed
+    ? "요약 펼치기" : "요약 접기 — 서비스 결과 영역을 넓게 사용";
 });
 
 // 카드별 AI코칭 실행 / 재구성안 적용

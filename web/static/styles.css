@@ -1012,6 +1012,16 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 
 /* ── 홈 분석 상세 결과 (모든 에이전트 출력) ── */
 .home-analysis-detail{display:none !important}
+/* AI통합분석결과 머리글 — 제목과 접기 토글을 한 줄에 */
+.home-summary-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.home-summary-head h3{margin:0 !important;flex:1}
+.home-summary-toggle{flex:none;border:1px solid var(--line);background:#fff;color:#5a6577;
+  font-size:12px;font-weight:800;padding:4px 10px;border-radius:7px;cursor:pointer}
+.home-summary-toggle:hover{background:#eef4ff;border-color:#2f6fed;color:#123c85}
+/* 요약을 접으면 서비스 결과가 남은 공간을 모두 쓴다 */
+#homeResultBox.summary-collapsed .home-result-detail{margin-top:4px;padding-top:6px;border-top:0}
+#homeResultBox.summary-collapsed .home-result-detail > h3{display:none}
+
 .home-result-detail{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
 .home-result-detail h3{margin:0 0 6px !important;font-size:15px}
 .home-detail-item{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
