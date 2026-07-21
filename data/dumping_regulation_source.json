@@ -1,0 +1,860 @@
+[
+ {
+  "country": "대만",
+  "item": "냉연·열연 비방향성 전기강판(Cold-rolled, Flat-rolled Non-Oriented Electrical Steel Products)",
+  "name_ko": "냉연·열연 비방향성 전기강판",
+  "name_en": "Cold-rolled, Flat-rolled Non-Oriented Electrical Steel Products"
+ },
+ {
+  "country": "EU",
+  "item": "테레프탈산(Terephthalic acid)",
+  "name_ko": "테레프탈산",
+  "name_en": "Terephthalic acid"
+ },
+ {
+  "country": "캐나다",
+  "item": "유정용강관 5(OCTG5 : Oil Country Tubular Goods)",
+  "name_ko": "유정용강관 5",
+  "name_en": "OCTG5 : Oil Country Tubular Goods"
+ },
+ {
+  "country": "미국",
+  "item": "단량체 및 올리고머(Certain Monomers and Oligomers)",
+  "name_ko": "단량체 및 올리고머",
+  "name_en": "Certain Monomers and Oligomers"
+ },
+ {
+  "country": "튀르키예",
+  "item": "냉연강판, 도금강판, 컬러강판(Cold-Rolled Flat Steel, Galvanized Flat Steel and Pre- Painted Galvanized Flat Steel)",
+  "name_ko": "냉연강판, 도금강판, 컬러강판",
+  "name_en": "Cold-Rolled Flat Steel, Galvanized Flat Steel and Pre- Painted Galvanized Flat Steel"
+ },
+ {
+  "country": "EU",
+  "item": "아크릴로니트릴부타디엔 스타이렌(ABS) 수지(Acrylonitrile-Butadiene-Styrene Resins)",
+  "name_ko": "아크릴로니트릴부타디엔 스타이렌",
+  "name_en": "ABS) 수지(Acrylonitrile-Butadiene-Styrene Resins"
+ },
+ {
+  "country": "말레이시아",
+  "item": "주석도금강판(Electrolytic Tinplate or Tinplate)",
+  "name_ko": "주석도금강판",
+  "name_en": "Electrolytic Tinplate or Tinplate"
+ },
+ {
+  "country": "인도",
+  "item": "액상 에폭시 레진(Liquid Epoxy Resins)",
+  "name_ko": "액상 에폭시 레진",
+  "name_en": "Liquid Epoxy Resins"
+ },
+ {
+  "country": "튀르키예",
+  "item": "주석도금강판(Flat Rolled Products of Tin-coated Iron or Non-alloy Steel)",
+  "name_ko": "주석도금강판",
+  "name_en": "Flat Rolled Products of Tin-coated Iron or Non-alloy Steel"
+ },
+ {
+  "country": "베트남",
+  "item": "아연도금 강판(Galvanized Steel)",
+  "name_ko": "아연도금 강판",
+  "name_en": "Galvanized Steel"
+ },
+ {
+  "country": "튀르키예",
+  "item": "폴리스티렌(Polystyrene)",
+  "name_ko": "폴리스티렌",
+  "name_en": "Polystyrene"
+ },
+ {
+  "country": "미국",
+  "item": "에폭시 수지(Epoxy Resins)",
+  "name_ko": "에폭시 수지",
+  "name_en": "Epoxy Resins"
+ },
+ {
+  "country": "튀르키예",
+  "item": "열연후판(Hot Rolled Flat Steel (Thick Plate))",
+  "name_ko": "열연후판",
+  "name_en": "Hot Rolled Flat Steel (Thick Plate)"
+ },
+ {
+  "country": "사우디아라비아",
+  "item": "PVC 코팅직물(Textiles or Fabrics coated by PVC)",
+  "name_ko": "PVC 코팅직물",
+  "name_en": "Textiles or Fabrics coated by PVC"
+ },
+ {
+  "country": "인도",
+  "item": "폴리염화비닐 페이스트 레진(Poly Vinyl Chloride Paste Resin)",
+  "name_ko": "폴리염화비닐 페이스트 레진",
+  "name_en": "Poly Vinyl Chloride Paste Resin"
+ },
+ {
+  "country": "인도",
+  "item": "에피클로로히드린(ECH)(Epichlorohydrin )",
+  "name_ko": "에피클로로히드린",
+  "name_en": "ECH)(Epichlorohydrin"
+ },
+ {
+  "country": "미국",
+  "item": "황동봉(Brass Rod)",
+  "name_ko": "황동봉",
+  "name_en": "Brass Rod"
+ },
+ {
+  "country": "인도",
+  "item": "시안화나트륨(Sodium Cyanide (NaCN))",
+  "name_ko": "시안화나트륨",
+  "name_en": "Sodium Cyanide (NaCN)"
+ },
+ {
+  "country": "인도",
+  "item": "4-t-부틸페놀(Para-Tertiary Butyl Phenol)",
+  "name_ko": "4-t-부틸페놀",
+  "name_en": "Para-Tertiary Butyl Phenol"
+ },
+ {
+  "country": "인도",
+  "item": "합금 절삭 장비 및 유압식 굴착기(Alloy Steel Chisel/Tool and Hydraulic Rock Breaker)",
+  "name_ko": "합금 절삭 장비 및 유압식 굴착기",
+  "name_en": "Alloy Steel Chisel/Tool and Hydraulic Rock Breaker"
+ },
+ {
+  "country": "인도",
+  "item": "광섬유(Dispersion Unshifted Single-mode Optical Fibre)",
+  "name_ko": "광섬유",
+  "name_en": "Dispersion Unshifted Single-mode Optical Fibre"
+ },
+ {
+  "country": "인도",
+  "item": "우르소데옥시콜산(우르소디올)(Ursodeoxycholic Acid (UDCA, Ursodiol))",
+  "name_ko": "우르소데옥시콜산",
+  "name_en": "우르소디올)(Ursodeoxycholic Acid (UDCA, Ursodiol)"
+ },
+ {
+  "country": "미국",
+  "item": "고흡수성수지(Certain Superabsorbent Polymers: SAP)",
+  "name_ko": "고흡수성수지",
+  "name_en": "Certain Superabsorbent Polymers: SAP"
+ },
+ {
+  "country": "GCC",
+  "item": "아크릴폴리머 (고흡수성 수지)(Superabsorbent Polymers)",
+  "name_ko": "아크릴폴리머",
+  "name_en": "고흡수성 수지)(Superabsorbent Polymers"
+ },
+ {
+  "country": "인도",
+  "item": "전기아연도금강판(Electrogalvanized Steel)",
+  "name_ko": "전기아연도금강판",
+  "name_en": "Electrogalvanized Steel"
+ },
+ {
+  "country": "일본",
+  "item": "아연도금철선(Hot-dipped Galvanized Steel Wire)",
+  "name_ko": "아연도금철선",
+  "name_en": "Hot-dipped Galvanized Steel Wire"
+ },
+ {
+  "country": "뉴질랜드",
+  "item": "알루미늄아연도금강판(Aluminium-zinc coated steel)",
+  "name_ko": "알루미늄아연도금강판",
+  "name_en": "Aluminium-zinc coated steel"
+ },
+ {
+  "country": "튀르키예",
+  "item": "폴리에스터사(Polyester fully drawn yarn)",
+  "name_ko": "폴리에스터사",
+  "name_en": "Polyester fully drawn yarn"
+ },
+ {
+  "country": "튀르키예",
+  "item": "임플란트(Dental implants)",
+  "name_ko": "임플란트",
+  "name_en": "Dental implants"
+ },
+ {
+  "country": "캐나다",
+  "item": "60MVA 이하 변압기(Small power transformers)",
+  "name_ko": "60MVA 이하 변압기",
+  "name_en": "Small power transformers"
+ },
+ {
+  "country": "파키스탄",
+  "item": "냉간압연코일/강판(Cold Rolled Coils/Sheets)",
+  "name_ko": "냉간압연코일/강판",
+  "name_en": "Cold Rolled Coils/Sheets"
+ },
+ {
+  "country": "EU",
+  "item": "고용성수지(Superabsorbent polymers)",
+  "name_ko": "고용성수지",
+  "name_en": "Superabsorbent polymers"
+ },
+ {
+  "country": "튀르키예",
+  "item": "열연강판(Hot-rolled Flat Steel)",
+  "name_ko": "열연강판",
+  "name_en": "Hot-rolled Flat Steel"
+ },
+ {
+  "country": "미국",
+  "item": "감열지(Thermal Paper)",
+  "name_ko": "감열지",
+  "name_en": "Thermal Paper"
+ },
+ {
+  "country": "인도",
+  "item": "건식실리카(Untreated Fumed Silica)",
+  "name_ko": "건식실리카",
+  "name_en": "Untreated Fumed Silica"
+ },
+ {
+  "country": "인도",
+  "item": "차아황산소다(디티온산나트륨)(Sodium Hydrosulphite)",
+  "name_ko": "차아황산소다",
+  "name_en": "디티온산나트륨)(Sodium Hydrosulphite"
+ },
+ {
+  "country": "미국",
+  "item": "무계목강관(Seamless Carbon and Alloy Steel Standard, Line, and Pressure Pipe)",
+  "name_ko": "무계목강관",
+  "name_en": "Seamless Carbon and Alloy Steel Standard, Line, and Pressure Pipe"
+ },
+ {
+  "country": "호주",
+  "item": "알루미늄아연도금강판(Aluminium zinc coated steel of a width equal to or greater than 600 millimeters)",
+  "name_ko": "알루미늄아연도금강판",
+  "name_en": "Aluminium zinc coated steel of a width equal to or greater than 600 millimeters"
+ },
+ {
+  "country": "일본",
+  "item": "탄산칼륨(Potassium carbonate)",
+  "name_ko": "탄산칼륨",
+  "name_en": "Potassium carbonate"
+ },
+ {
+  "country": "미국",
+  "item": "타이어(Passenger Vehicle and Light Truck Tires)",
+  "name_ko": "타이어",
+  "name_en": "Passenger Vehicle and Light Truck Tires"
+ },
+ {
+  "country": "인도",
+  "item": "무수프탈산(Phthalic Anhydride)",
+  "name_ko": "무수프탈산",
+  "name_en": "Phthalic Anhydride"
+ },
+ {
+  "country": "태국",
+  "item": "크롬 도금강판(Flat-rolled Steel Coated or Plated with Chromium)",
+  "name_ko": "크롬 도금강판",
+  "name_en": "Flat-rolled Steel Coated or Plated with Chromium"
+ },
+ {
+  "country": "태국",
+  "item": "석도강판 (Tin plate)",
+  "name_ko": "석도강판",
+  "name_en": "Tin plate"
+ },
+ {
+  "country": "호주",
+  "item": "정밀강관 (Precision pipe and tube steel)",
+  "name_ko": "정밀강관",
+  "name_en": "Precision pipe and tube steel"
+ },
+ {
+  "country": "멕시코",
+  "item": "디옥틸 프탈레이트 (Dioctyl Phtalate DOP)",
+  "name_ko": "디옥틸 프탈레이트",
+  "name_en": "Dioctyl Phtalate DOP"
+ },
+ {
+  "country": "말레이시아",
+  "item": "평판압연 비합금철 (Flat Rolled Product of Non-Alloy Steel Plated or Coated with Aluminum Zinc)",
+  "name_ko": "평판압연 비합금철",
+  "name_en": "Flat Rolled Product of Non-Alloy Steel Plated or Coated with Aluminum Zinc"
+ },
+ {
+  "country": "파키스탄",
+  "item": "무수프탈산 (Phthalic Anhydride)",
+  "name_ko": "무수프탈산",
+  "name_en": "Phthalic Anhydride"
+ },
+ {
+  "country": "미국",
+  "item": "단조강 부품 (Forged Steel Fittings)",
+  "name_ko": "단조강 부품",
+  "name_en": "Forged Steel Fittings"
+ },
+ {
+  "country": "태국",
+  "item": "알루미늄 아연 합금 도금강판(Painted hot dip plated or coated with aluminium-zinc alloys of cold-rolled steel)",
+  "name_ko": "알루미늄 아연 합금 도금강판",
+  "name_en": "Painted hot dip plated or coated with aluminium-zinc alloys of cold-rolled steel"
+ },
+ {
+  "country": "EU",
+  "item": "중량 감열지 (Heavyweight thermal paper)",
+  "name_ko": "중량 감열지",
+  "name_en": "Heavyweight thermal paper"
+ },
+ {
+  "country": "미국",
+  "item": "풍력타워 (Utility Scale Wind Towers)",
+  "name_ko": "풍력타워",
+  "name_en": "Utility Scale Wind Towers"
+ },
+ {
+  "country": "중국",
+  "item": "에틸렌프-로필렌-비공액 디엔 고무 (EPDM, Ethylene-Propylene-non-conjugated Diene Rubber)",
+  "name_ko": "에틸렌프-로필렌-비공액 디엔 고무",
+  "name_en": "EPDM, Ethylene-Propylene-non-conjugated Diene Rubber"
+ },
+ {
+  "country": "중국",
+  "item": "폴리페닐렌 설파이드 (Polyphenylene Sulfide, PPS)",
+  "name_ko": "폴리페닐렌 설파이드",
+  "name_en": "Polyphenylene Sulfide, PPS"
+ },
+ {
+  "country": "인도",
+  "item": "디지털 오프셋 인쇄용 판 (Digital Offset Printing Plates)",
+  "name_ko": "디지털 오프셋 인쇄용 판",
+  "name_en": "Digital Offset Printing Plates"
+ },
+ {
+  "country": "인도",
+  "item": "염소화 폴리염화비닐 (CPVC, Chlorinated Polyvinyl Chloride)",
+  "name_ko": "염소화 폴리염화비닐",
+  "name_en": "CPVC, Chlorinated Polyvinyl Chloride"
+ },
+ {
+  "country": "미국",
+  "item": "아세톤 (Acetone)",
+  "name_ko": "아세톤",
+  "name_en": "Acetone"
+ },
+ {
+  "country": "베트남",
+  "item": "컬러도금강판 (Certain flat-rolled products of painted coated alloy steel or non-alloy steel)",
+  "name_ko": "컬러도금강판",
+  "name_en": "Certain flat-rolled products of painted coated alloy steel or non-alloy steel"
+ },
+ {
+  "country": "캐나다",
+  "item": "도금강판 (Certain Corrosion-resistant Steel Sheet)",
+  "name_ko": "도금강판",
+  "name_en": "Certain Corrosion-resistant Steel Sheet"
+ },
+ {
+  "country": "중국",
+  "item": "스테인리스 열연 (Stainless Steel Billet and Hot-rolled Stainless Steel Plate)",
+  "name_ko": "스테인리스 열연",
+  "name_en": "Stainless Steel Billet and Hot-rolled Stainless Steel Plate"
+ },
+ {
+  "country": "캐나다",
+  "item": "냉연강재 (Certain Cold-rolled steel in coils or cut lengths)",
+  "name_ko": "냉연강재",
+  "name_en": "Certain Cold-rolled steel in coils or cut lengths"
+ },
+ {
+  "country": "중국",
+  "item": "페놀 (Phenol )",
+  "name_ko": "페놀",
+  "name_en": "Phenol"
+ },
+ {
+  "country": "미국",
+  "item": "대형구경강관 (Large Diameter Welded Pipe)",
+  "name_ko": "대형구경강관",
+  "name_en": "Large Diameter Welded Pipe"
+ },
+ {
+  "country": "중국",
+  "item": "니트릴 고무 (Nitrile Rubber)",
+  "name_ko": "니트릴 고무",
+  "name_en": "Nitrile Rubber"
+ },
+ {
+  "country": "멕시코",
+  "item": "스타이렌 부타디엔 고무(Styrene Butadiene Rubber (SBR))",
+  "name_ko": "스타이렌 부타디엔 고무",
+  "name_en": "Styrene Butadiene Rubber (SBR)"
+ },
+ {
+  "country": "미국",
+  "item": "저융점 폴리에스터 단섬유(Low Melt Polyester Staple Fiber)",
+  "name_ko": "저융점 폴리에스터 단섬유",
+  "name_en": "Low Melt Polyester Staple Fiber"
+ },
+ {
+  "country": "브라질",
+  "item": "니트릴 고무 (Borracha Nitrilica: NBR)",
+  "name_ko": "니트릴 고무",
+  "name_en": "Borracha Nitrilica: NBR"
+ },
+ {
+  "country": "중국",
+  "item": "스티렌 (Styrene Monomer)",
+  "name_ko": "스티렌",
+  "name_en": "Styrene Monomer"
+ },
+ {
+  "country": "미국",
+  "item": "미세 데니어 폴리에스터 단섬유(Fine denier polyester staple fiber)",
+  "name_ko": "미세 데니어 폴리에스터 단섬유",
+  "name_en": "Fine denier polyester staple fiber"
+ },
+ {
+  "country": "캐나다",
+  "item": "탄소합금강관 (Certain Carbon and Alloy Steel Line Pipe)",
+  "name_ko": "탄소합금강관",
+  "name_en": "Certain Carbon and Alloy Steel Line Pipe"
+ },
+ {
+  "country": "말레이시아",
+  "item": "냉연스테인리스강 (Cold Rolled Stainless Steel)",
+  "name_ko": "냉연스테인리스강",
+  "name_en": "Cold Rolled Stainless Steel"
+ },
+ {
+  "country": "미국",
+  "item": "냉간압연강관 (Cold-Drawn Mechanical Tubing of Carbon and Alloy Steel)",
+  "name_ko": "냉간압연강관",
+  "name_en": "Cold-Drawn Mechanical Tubing of Carbon and Alloy Steel"
+ },
+ {
+  "country": "미국",
+  "item": "탄소합금강선재 (Carbon and Alloy Steel Wire Rod)",
+  "name_ko": "탄소합금강선재",
+  "name_en": "Carbon and Alloy Steel Wire Rod"
+ },
+ {
+  "country": "중국",
+  "item": "메틸이소부틸케톤 (4-Methyl-2-Pentanone)",
+  "name_ko": "메틸이소부틸케톤",
+  "name_en": "4-Methyl-2-Pentanone"
+ },
+ {
+  "country": "멕시코",
+  "item": "무계목강관 (seamless pipe)",
+  "name_ko": "무계목강관",
+  "name_en": "seamless pipe"
+ },
+ {
+  "country": "파키스탄",
+  "item": "폴리염화비닐 (Polyvinyl Chloride)",
+  "name_ko": "폴리염화비닐",
+  "name_en": "Polyvinyl Chloride"
+ },
+ {
+  "country": "파키스탄",
+  "item": "설폰산 (Sulphonic Acid)",
+  "name_ko": "설폰산",
+  "name_en": "Sulphonic Acid"
+ },
+ {
+  "country": "중국",
+  "item": "폴리아세탈 (Polyformaldehyde Copolymer,Polyoxym ethylene Copolymer,Copolymer-type Acetal Resin or Acetal Copolymer)",
+  "name_ko": "폴리아세탈",
+  "name_en": "Polyformaldehyde Copolymer,Polyoxym ethylene Copolymer,Copolymer-type Acetal Resin or Acetal Copolymer"
+ },
+ {
+  "country": "인도",
+  "item": "TDI (Toluene Di Isocyanate)",
+  "name_ko": "TDI",
+  "name_en": "Toluene Di Isocyanate"
+ },
+ {
+  "country": "미국",
+  "item": "ESBR고무 (Emulsion Styrene-Butadiene Rubber)",
+  "name_ko": "ESBR고무",
+  "name_en": "Emulsion Styrene-Butadiene Rubber"
+ },
+ {
+  "country": "미국",
+  "item": "가소제 (DOTP; Dioctyl Terephthalate)",
+  "name_ko": "가소제",
+  "name_en": "DOTP; Dioctyl Terephthalate"
+ },
+ {
+  "country": "미국",
+  "item": "페로바나듐 (Ferro-Vanadium)",
+  "name_ko": "페로바나듐",
+  "name_en": "Ferro-Vanadium"
+ },
+ {
+  "country": "튀르키예",
+  "item": "무수프탈산 (Phthalic Anhydride)",
+  "name_ko": "무수프탈산",
+  "name_en": "Phthalic Anhydride"
+ },
+ {
+  "country": "미국",
+  "item": "탄소합금후판 (Carbon and Alloy Steel Cut-to-length Plate)",
+  "name_ko": "탄소합금후판",
+  "name_en": "Carbon and Alloy Steel Cut-to-length Plate"
+ },
+ {
+  "country": "미국",
+  "item": "인동 (Phosphor Copper)",
+  "name_ko": "인동",
+  "name_en": "Phosphor Copper"
+ },
+ {
+  "country": "대만",
+  "item": "아연도금강판(Certain flat-rolled steel products, plated or coated with zinc or zinc-alloy)",
+  "name_ko": "아연도금강판",
+  "name_en": "Certain flat-rolled steel products, plated or coated with zinc or zinc-alloy"
+ },
+ {
+  "country": "대만",
+  "item": "탄소강 후판(Carbon Steel Plates)",
+  "name_ko": "탄소강 후판",
+  "name_en": "Carbon Steel Plates"
+ },
+ {
+  "country": "EU",
+  "item": "경량감열지 (Lightweight thermal paper)",
+  "name_ko": "경량감열지",
+  "name_en": "Lightweight thermal paper"
+ },
+ {
+  "country": "파키스탄",
+  "item": "백판지 (Coated duplex board-grey back)",
+  "name_ko": "백판지",
+  "name_en": "Coated duplex board-grey back"
+ },
+ {
+  "country": "태국",
+  "item": "강관 (Pipe)",
+  "name_ko": "강관",
+  "name_en": "Pipe"
+ },
+ {
+  "country": "GCC",
+  "item": "납축전지 (Electric lead-acid accumulators) 이집트 디옥틸 프탈레이트(Dioctyl Phthalate)",
+  "name_ko": "납축전지",
+  "name_en": "Electric lead-acid accumulators) 이집트 디옥틸 프탈레이트(Dioctyl Phthalate"
+ },
+ {
+  "country": "태국",
+  "item": "스테인리스스틸 파이프 및 튜브 (Stainless steel pipe and tube)",
+  "name_ko": "스테인리스스틸 파이프 및 튜브",
+  "name_en": "Stainless steel pipe and tube"
+ },
+ {
+  "country": "미국",
+  "item": "열연강판 (Hot-Rolled Steel Flat Products)",
+  "name_ko": "열연강판",
+  "name_en": "Hot-Rolled Steel Flat Products"
+ },
+ {
+  "country": "미국",
+  "item": "냉간압연강판 (Certain Cold-Rolled Steel Flat Products)",
+  "name_ko": "냉간압연강판",
+  "name_en": "Certain Cold-Rolled Steel Flat Products"
+ },
+ {
+  "country": "미국",
+  "item": "강벽사각파이프 (Heavy Walled Rectangular Welded Carbon Steel Pipes and Tubes)",
+  "name_ko": "강벽사각파이프",
+  "name_en": "Heavy Walled Rectangular Welded Carbon Steel Pipes and Tubes"
+ },
+ {
+  "country": "중국",
+  "item": "방향성 전기강판 (GOES: Grain oriented flat-rolled electrical steel)",
+  "name_ko": "방향성 전기강판",
+  "name_en": "GOES: Grain oriented flat-rolled electrical steel"
+ },
+ {
+  "country": "중국",
+  "item": "아크릴섬유 (Polyacrylonitrile Fiber or Acrylic Fiber)",
+  "name_ko": "아크릴섬유",
+  "name_en": "Polyacrylonitrile Fiber or Acrylic Fiber"
+ },
+ {
+  "country": "미국",
+  "item": "도금강판(Certain Corrosion-Resistant Steel Products)",
+  "name_ko": "도금강판",
+  "name_en": "Certain Corrosion-Resistant Steel Products"
+ },
+ {
+  "country": "일본",
+  "item": "수산화칼륨 (Potassium Hydroxide)",
+  "name_ko": "수산화칼륨",
+  "name_en": "Potassium Hydroxide"
+ },
+ {
+  "country": "인도",
+  "item": "에틸 헥사놀 (2-Ethyl Hexanol)",
+  "name_ko": "에틸 헥사놀",
+  "name_en": "2-Ethyl Hexanol"
+ },
+ {
+  "country": "미국",
+  "item": "송유관(Welded Line Pipe)",
+  "name_ko": "송유관",
+  "name_en": "Welded Line Pipe"
+ },
+ {
+  "country": "호주",
+  "item": "철근 (Steel Reinforcing Bar)",
+  "name_ko": "철근",
+  "name_en": "Steel Reinforcing Bar"
+ },
+ {
+  "country": "EU",
+  "item": "전기강판 (GOES: Grain-oriented flat rolled products of silicon-electrical steel)",
+  "name_ko": "전기강판",
+  "name_en": "GOES: Grain-oriented flat rolled products of silicon-electrical steel"
+ },
+ {
+  "country": "캐나다",
+  "item": "유정용강관 (OCTG : Oil Country Tubular Goods)",
+  "name_ko": "유정용강관",
+  "name_en": "OCTG : Oil Country Tubular Goods"
+ },
+ {
+  "country": "미국",
+  "item": "강철 못 (Certain Steel Nail)",
+  "name_ko": "강철 못",
+  "name_en": "Certain Steel Nail"
+ },
+ {
+  "country": "캐나다",
+  "item": "콘크리트 철근 (Concrete reinforcing bars)",
+  "name_ko": "콘크리트 철근",
+  "name_en": "Concrete reinforcing bars"
+ },
+ {
+  "country": "호주",
+  "item": "열연 철강 구조물 류 (Hot Rolled Structural Steel Sections)",
+  "name_ko": "열연 철강 구조물 류",
+  "name_en": "Hot Rolled Structural Steel Sections"
+ },
+ {
+  "country": "미국",
+  "item": "무방향성 전기강판 (NOES: Non-Oriented Electrical Steel)",
+  "name_ko": "무방향성 전기강판",
+  "name_en": "NOES: Non-Oriented Electrical Steel"
+ },
+ {
+  "country": "캐나다",
+  "item": "후판 열연강판 (Certain hot-rolled carbon steel plate and high-strength low-alloy steel plate)",
+  "name_ko": "후판 열연강판",
+  "name_en": "Certain hot-rolled carbon steel plate and high-strength low-alloy steel plate"
+ },
+ {
+  "country": "미국",
+  "item": "유정용 강관 (OCTG : Oil Country Tubular Goods)",
+  "name_ko": "유정용 강관",
+  "name_en": "OCTG : Oil Country Tubular Goods"
+ },
+ {
+  "country": "브라질",
+  "item": "버스 및 트럭용 타이어 (Pneumatic tires for trucks and buses)",
+  "name_ko": "버스 및 트럭용 타이어",
+  "name_en": "Pneumatic tires for trucks and buses"
+ },
+ {
+  "country": "캐나다",
+  "item": "동관 (Copper Tube)",
+  "name_ko": "동관",
+  "name_en": "Copper Tube"
+ },
+ {
+  "country": "대만",
+  "item": "스테인리스 냉연강판 (Certain Cold-rolled Stainless Steel Products)",
+  "name_ko": "스테인리스 냉연강판",
+  "name_en": "Certain Cold-rolled Stainless Steel Products"
+ },
+ {
+  "country": "멕시코",
+  "item": "냉연강판 (flat cold-rolled products of iron or non-alloy steel)",
+  "name_ko": "냉연강판",
+  "name_en": "flat cold-rolled products of iron or non-alloy steel"
+ },
+ {
+  "country": "호주",
+  "item": "아연도금강판 (Zinc coated galvanised steel)",
+  "name_ko": "아연도금강판",
+  "name_en": "Zinc coated galvanised steel"
+ },
+ {
+  "country": "중국",
+  "item": "태양광용 폴리실리콘 (Polysilicon)",
+  "name_ko": "태양광용 폴리실리콘",
+  "name_en": "Polysilicon"
+ },
+ {
+  "country": "브라질",
+  "item": "나일론사 (Nylon synthetic filament yarn)",
+  "name_ko": "나일론사",
+  "name_en": "Nylon synthetic filament yarn"
+ },
+ {
+  "country": "인도네시아",
+  "item": "석도강판 (Tin plate)",
+  "name_ko": "석도강판",
+  "name_en": "Tin plate"
+ },
+ {
+  "country": "캐나다",
+  "item": "용접탄소강관 (Carbon Steel Welded Pipe)",
+  "name_ko": "용접탄소강관",
+  "name_en": "Carbon Steel Welded Pipe"
+ },
+ {
+  "country": "브라질",
+  "item": "평판압연제품 중 후판 (Heavy Plate Steel)",
+  "name_ko": "평판압연제품 중 후판",
+  "name_en": "Heavy Plate Steel"
+ },
+ {
+  "country": "캐나다",
+  "item": "유입식변압기 (Liquid Dielectric Transformers)",
+  "name_ko": "유입식변압기",
+  "name_en": "Liquid Dielectric Transformers"
+ },
+ {
+  "country": "브라질",
+  "item": "압연실리콘철강 (flat-rolled product silicon steel)",
+  "name_ko": "압연실리콘철강",
+  "name_en": "flat-rolled product silicon steel"
+ },
+ {
+  "country": "호주",
+  "item": "철강재 파이프 (Hollow Structural Sections)",
+  "name_ko": "철강재 파이프",
+  "name_en": "Hollow Structural Sections"
+ },
+ {
+  "country": "미국",
+  "item": "유입식 변압기 (Large Power Transformers)",
+  "name_ko": "유입식 변압기",
+  "name_en": "Large Power Transformers"
+ },
+ {
+  "country": "태국",
+  "item": "도색 아연도금강판 (Certain Hot Dip Plated or Coated with Aluminium Zinc Alloys of Cold Rolled Steel)",
+  "name_ko": "도색 아연도금강판",
+  "name_en": "Certain Hot Dip Plated or Coated with Aluminium Zinc Alloys of Cold Rolled Steel"
+ },
+ {
+  "country": "파키스탄",
+  "item": "과산화수소 (Hydrogen Peroxide)",
+  "name_ko": "과산화수소",
+  "name_en": "Hydrogen Peroxide"
+ },
+ {
+  "country": "미국",
+  "item": "연벽사각파이프 (Light-Walled Rectangular Pipe and Tube)",
+  "name_ko": "연벽사각파이프",
+  "name_en": "Light-Walled Rectangular Pipe and Tube"
+ },
+ {
+  "country": "캐나다",
+  "item": "동제관연결구류 (Certain Copper Pipe Fittings)",
+  "name_ko": "동제관연결구류",
+  "name_en": "Certain Copper Pipe Fittings"
+ },
+ {
+  "country": "남아프리카공화국",
+  "item": "폴리에틸렌 테레프탈레이트(Polyethylene Terephthalate (PET))",
+  "name_ko": "폴리에틸렌 테레프탈레이트",
+  "name_en": "Polyethylene Terephthalate (PET)"
+ },
+ {
+  "country": "튀르키예",
+  "item": "금속드리사 (Metallized Yarn)",
+  "name_ko": "금속드리사",
+  "name_en": "Metallized Yarn"
+ },
+ {
+  "country": "중국",
+  "item": "광섬유 (Dispersion Unshifted Single-Mode Optical Fiber)",
+  "name_ko": "광섬유",
+  "name_en": "Dispersion Unshifted Single-Mode Optical Fiber"
+ },
+ {
+  "country": "캐나다",
+  "item": "구조용 강관 (Hollow structural sections (HSS))",
+  "name_ko": "구조용 강관",
+  "name_en": "Hollow structural sections (HSS)"
+ },
+ {
+  "country": "미국",
+  "item": "PC강선 (Prestressed Concrete steel wire strand)",
+  "name_ko": "PC강선",
+  "name_en": "Prestressed Concrete steel wire strand"
+ },
+ {
+  "country": "태국",
+  "item": "재압연용 열연강판 (Flat Hot-Rolled in Coils and not in Coils)",
+  "name_ko": "재압연용 열연강판",
+  "name_en": "Flat Hot-Rolled in Coils and not in Coils"
+ },
+ {
+  "country": "태국",
+  "item": "스테인리스 압연강판 (Flat Cold-Rolled Stainless Steel)",
+  "name_ko": "스테인리스 압연강판",
+  "name_en": "Flat Cold-Rolled Stainless Steel"
+ },
+ {
+  "country": "EU",
+  "item": "철강제 관연결구류 (tube and pipe fitting of iron or steel)",
+  "name_ko": "철강제 관연결구류",
+  "name_en": "tube and pipe fitting of iron or steel"
+ },
+ {
+  "country": "튀르키예",
+  "item": "합성필라멘트섬유 (synthetic filament yarn)",
+  "name_ko": "합성필라멘트섬유",
+  "name_en": "synthetic filament yarn"
+ },
+ {
+  "country": "미국",
+  "item": "폴리에스터 단섬유(Polyester Staple Fiber: PSF)",
+  "name_ko": "폴리에스터 단섬유",
+  "name_en": "Polyester Staple Fiber: PSF"
+ },
+ {
+  "country": "미국",
+  "item": "철강후판 (Cut-to-length Carbon Steel plate)",
+  "name_ko": "철강후판",
+  "name_en": "Cut-to-length Carbon Steel plate"
+ },
+ {
+  "country": "튀르키예",
+  "item": "폴리에스터 단섬유(polyester staple fiber)",
+  "name_ko": "폴리에스터 단섬유",
+  "name_en": "polyester staple fiber"
+ },
+ {
+  "country": "미국",
+  "item": "스테인레스 냉연강판 코일 (cold-rolled stainless steel sheet and strip in coils)",
+  "name_ko": "스테인레스 냉연강판 코일",
+  "name_en": "cold-rolled stainless steel sheet and strip in coils"
+ },
+ {
+  "country": "미국",
+  "item": "스테인레스 선재 (Stainless Steel Wire Rod)",
+  "name_ko": "스테인레스 선재",
+  "name_en": "Stainless Steel Wire Rod"
+ },
+ {
+  "country": "미국",
+  "item": "스테인리스 용접강관 (ASTM A-312 welded stainless steel pipes)",
+  "name_ko": "스테인리스 용접강관",
+  "name_en": "ASTM A-312 welded stainless steel pipes"
+ },
+ {
+  "country": "미국",
+  "item": "스탠다드 강관 (Circular Welded Non-Alloy Steel Pipes)",
+  "name_ko": "스탠다드 강관",
+  "name_en": "Circular Welded Non-Alloy Steel Pipes"
+ }
+]
