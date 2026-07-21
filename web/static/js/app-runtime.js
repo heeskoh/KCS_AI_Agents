@@ -2212,7 +2212,7 @@ const riskRateAtLeast = field => c => (c[field] || 0) >= RISK_INDICATOR_THRESHOL
 /* code — DB company_risk_indicator.indicator_code. 해당 기업들의 근거 레코드 수를 합산해
    "N개사 · 근거 M건"으로 병기한다(근거 건수는 API의 risk_evidence로 내려온다). */
 const RISK_DASH_FOCUS = {
-  all:      { label: "전체 관리대상 업체",   match: () => true },
+  all:      { label: "관세조사 대상 업체",   match: () => true },
   // 심사필요 — 위험도가 높아 심사 조건을 갖춘 기업
   review:   { label: "심사필요",             match: c => c.risk_level === "HIGH" },
   // 조사 임박 — 위험도·사건혐의가 의심되는 대상
@@ -2233,7 +2233,7 @@ const RISK_DASH_FOCUS = {
 function riskFocusStats(focus){
   const def = RISK_DASH_FOCUS[focus];
   if(!def) return { companies: 0, evidence: 0 };
-  const matched = scenarioCompanies.filter(def.match);
+  const matched = riskDashboardCompanies().filter(def.match);
   const evidence = def.code
     ? matched.reduce((sum, c) => sum + Number((c.risk_evidence || {})[def.code] || 0), 0)
     : 0;
@@ -2248,11 +2248,23 @@ function riskFocusMatch(company){
   return (RISK_DASH_FOCUS[riskDashboardFilter.focus] || RISK_DASH_FOCUS.all).match(company);
 }
 
+/* 관세포탈 대시보드 대상 — 관세조사 대상 기업(entity_role="audit")만 본다.
+   우범기업(밀수·마약·외환)과 덤핑관리 기업은 각자 전용 화면에서 다루므로 제외한다.
+   entity_role이 비어 있는 구 데이터는 관세조사 대상으로 간주(하위호환). */
+function isAuditTargetCompany(company){
+  const role = company.entity_role;
+  return !role || role === "audit";
+}
+
+function riskDashboardCompanies(){
+  return scenarioCompanies.filter(isAuditTargetCompany);
+}
+
 /* 검색어·스코어·포커스를 모두 적용한 목록 — 위험도 내림차순(동점이면 업체명순) */
 function riskDashboardFiltered(){
   const q = riskDashboardFilter.query.toLowerCase();
   const minS = riskDashboardFilter.minScore;
-  return scenarioCompanies.filter(c => {
+  return riskDashboardCompanies().filter(c => {
     if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
     if(minS && (c.risk_score||0) < minS) return false;
     return riskFocusMatch(c);
@@ -8328,15 +8340,15 @@ function riskDashboardContent(){
       <div class="risk-dashboard">
         <div class="risk-dash-header">
           <div>
-            <h2>분석대상 업체 위험도 모니터링</h2>
-            <p class="muted">담당자가 관리하는 전체 기업의 위험도 현황을 실시간으로 모니터링합니다.</p>
+            <h2>관세포탈 위험도 모니터링</h2>
+            <p class="muted">관세조사 대상 기업의 관세포탈 위험도 현황을 실시간으로 모니터링합니다.</p>
           </div>
         </div>
         <div class="profile-loading">위험도 데이터 로딩 중...</div>
       </div>`;
   }
 
-  const companies = scenarioCompanies;
+  const companies = riskDashboardCompanies();
   const total = companies.length;
   const needReview = riskFocusCount("review");
   const nearAudit  = riskFocusCount("audit");
@@ -8359,11 +8371,11 @@ function riskDashboardContent(){
     <div class="risk-dashboard">
       <div class="risk-dash-header">
         <div>
-          <h2>분석대상 업체 위험도 모니터링</h2>
-          <p class="muted">담당자가 관리하는 전체 기업의 위험도 현황을 실시간으로 모니터링합니다.</p>
+          <h2>관세포탈 위험도 모니터링</h2>
+          <p class="muted">관세조사 대상 기업의 관세포탈 위험도 현황을 실시간으로 모니터링합니다.</p>
         </div>
         <div class="risk-kpi-strip">
-          ${riskKpiItem("all",    "총 관리대상 업체", `${total.toLocaleString()} 개사`, focusKey)}
+          ${riskKpiItem("all",    "관세조사 대상 업체", `${total.toLocaleString()} 개사`, focusKey)}
           ${riskKpiItem("review", "심사필요",        `${needReview} 개사`, focusKey)}
           ${riskKpiItem("audit",  "조사 임박",       `${nearAudit} 개사`, focusKey)}
         </div>

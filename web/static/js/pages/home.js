@@ -11,7 +11,7 @@ const WORK_SHORTCUTS = [
 ];
 
 const DASHBOARD_SHORTCUTS = [
-  { className: "red", page: "profile", label: "기업 대시보드", image: "CompanyDashborad.png", desc: "기업 위험도, 신고 추이, 이상 징후를 확인합니다." },
+  { className: "red", page: "profile", label: "관세포탈 대시보드", image: "CompanyDashborad.png", desc: "관세조사 대상 기업의 관세포탈 위험도와 이상 징후를 확인합니다." },
   { className: "rose", page: "generalinv", label: "우범자 대시보드", image: "CriminalP.png", desc: "우범자 프로파일과 일반수사 대상을 확인합니다." },
   { className: "purple", page: "lawsearch", label: "마약 대시보드", image: "Drug_dashboard.png", desc: "마약 위험 모니터링과 수사 대상을 확인합니다." },
   { className: "orange", page: "investigation", label: "덤핑 대시보드", image: "DumpingDashborad.png", desc: "저가신고, 덤핑 의심 신호를 중심으로 검토합니다." },

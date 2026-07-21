@@ -4,7 +4,7 @@ export const SCENARIO_BUILDER_STORAGE_KEY = "kcs_ai_scenario_builder_config_v1";
 export const SCENARIO_BUILDER_CONFIG_VERSION = 1;
 
 export const DEFAULT_ANALYSIS_BUTTONS = [
-  { className: "red", page: "profile", label: "기업 위험도 대시보드" },
+  { className: "red", page: "profile", label: "관세포탈 대시보드" },
   { className: "sky", page: "investigation", label: "관세 조사 분석" },
   { className: "rose", page: "generalinv", label: "관세수사 분석" },
   { className: "purple", page: "lawsearch", label: "마약 수사 분석" },

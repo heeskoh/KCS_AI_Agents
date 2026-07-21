@@ -7,7 +7,7 @@ export const pageNames = {
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
   generalinv:"관세수사분석",
-  profile:"기업 위험도 대시보드",
+  profile:"관세포탈 대시보드",
   classification:"품목분류",
   lawsearch:"마약수사분석",
   fxsearch:"외환수사분석",

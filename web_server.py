@@ -88,6 +88,8 @@ def list_companies() -> list[dict[str, object]]:
                 c.annual_import_amount,
                 c.declared_duty_amount,
                 c.crime_types,
+                c.entity_role,
+                c.primary_domain,
                 r.undervaluation_suspicion_rate,
                 r.related_party_anomaly_rate,
                 r.fta_origin_misuse_suspicion_rate,
