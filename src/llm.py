@@ -6,7 +6,7 @@ Configure via .env:
     LLM_TEMPERATURE = 0.0~1.0                     (default: 0)
 
 Provider defaults:
-    openai    → gpt-4o
+    openai    → gpt-5.6-terra
     anthropic → claude-sonnet-4-6
     gemini    → gemini-2.0-flash
 """
@@ -21,11 +21,11 @@ _PROVIDER    = os.getenv("LLM_PROVIDER", "openai").lower().strip()
 _TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0"))
 
 _DEFAULTS = {
-    "openai":    "gpt-4o",
+    "openai":    "gpt-5.6-terra",
     "anthropic": "claude-sonnet-4-6",
     "gemini":    "gemini-2.0-flash",
 }
-_MODEL = os.getenv("LLM_MODEL") or _DEFAULTS.get(_PROVIDER, "gpt-4o")
+_MODEL = os.getenv("LLM_MODEL") or _DEFAULTS.get(_PROVIDER, "gpt-5.6-terra")
 
 
 def get_llm():

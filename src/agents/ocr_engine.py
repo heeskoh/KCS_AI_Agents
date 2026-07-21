@@ -7,7 +7,7 @@
 둘 다 실패하면 빈 문자열을 돌려주고, 호출부는 시뮬레이션으로 폴백한다.
 
 환경변수
-  OCR_VISION_MODEL  비전 판독 모델 (기본 gpt-5.5). "off"면 Tesseract만 사용
+  OCR_VISION_MODEL  비전 판독 모델 (기본 gpt-5.6-terra). "off"면 Tesseract만 사용
   TESSERACT_CMD     tesseract 실행파일 경로 (기본: Program Files 설치 위치)
   TESSDATA_PREFIX   언어팩 디렉터리 (기본: <repo>/data/tessdata)
   OCR_DPI           렌더링 해상도 (기본 300, 비전은 200)
@@ -96,7 +96,7 @@ _VISION_PROMPT = (
 @lru_cache(maxsize=1)
 def vision_model() -> str:
     """비전 판독 모델명. 'off'이거나 API 키가 없으면 빈 문자열."""
-    model = (os.getenv("OCR_VISION_MODEL") or "gpt-5.5").strip()
+    model = (os.getenv("OCR_VISION_MODEL") or "gpt-5.6-terra").strip()
     if model.lower() in {"off", "none", "0", "false"}:
         return ""
     if not os.getenv("OPENAI_API_KEY"):
