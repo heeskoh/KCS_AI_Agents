@@ -2265,7 +2265,10 @@ function riskDashboardFiltered(){
   const q = riskDashboardFilter.query.toLowerCase();
   const minS = riskDashboardFilter.minScore;
   return riskDashboardCompanies().filter(c => {
-    if(q && !((c.company_name||"").toLowerCase().includes(q) || (c.company_id||"").includes(q))) return false;
+    // 검색어는 소문자로 정규화하므로 기업ID도 소문자로 비교해야 한다
+    // (그렇지 않으면 화면에 보이는 대로 "C-1041"을 입력했을 때 매칭되지 않는다)
+    if(q && !((c.company_name||"").toLowerCase().includes(q)
+           || (c.company_id||"").toLowerCase().includes(q))) return false;
     if(minS && (c.risk_score||0) < minS) return false;
     return riskFocusMatch(c);
   }).sort((a, b) => (b.risk_score||0) - (a.risk_score||0)
