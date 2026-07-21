@@ -15,8 +15,10 @@ RAG 검색이 아니라 신고건 단위 보고서 등록 서비스다.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -39,20 +41,29 @@ _DECL_PATTERNS = [
 ]
 
 _OPINION_PROMPT = """당신은 관세청 통관 담당자입니다.
-아래 수입신고 내용과 현장 사진 증빙을 근거로 통관보고서의 의견란을 작성하세요.
+아래 수입신고 내용과 현장 사진 증빙을 근거로 통관보고서의 항목을 작성하세요.
 
 [신고 내용]
 {declaration}
 
-[현장 사진 증빙]
+[현장 사진 판독]
 {photos}
 
-작성 항목 (각 2~4줄, 개조식):
-1. 현품 확인 결과 — 사진과 신고 내용의 일치 여부
-2. 확인이 필요한 사항 — 신고 항목 중 추가 확인 대상
-3. 통관 의견 — 수리/보완요구/검사강화 중 하나를 근거와 함께 제시
+아래 JSON만 반환하십시오 (마크다운/설명 없이).
+{{
+  "photo_analysis": {{
+    "label": "<사진에서 확인된 라벨·표시사항 1~2줄>",
+    "condition": "<포장 상태·파손·재포장 흔적 1~2줄>"
+  }},
+  "opinion": {{
+    "match": "<현품과 신고사항 일치 여부 1~2줄>",
+    "to_verify": "<추가 확인이 필요한 사항 1~2줄>",
+    "decision": "<수리 | 보완요구 | 검사강화 중 하나와 근거 1줄>"
+  }}
+}}
 
 사진에서 확인되지 않는 사실을 단정하지 말고, 확인이 필요하면 "확인 필요"로 표기하십시오.
+사진이 없으면 photo_analysis 값은 빈 문자열로 두십시오.
 """
 
 _PHOTO_PROMPT = (
@@ -112,48 +123,44 @@ def _fmt(value: Any) -> str:
 
 
 def _render_declaration(data: dict[str, Any]) -> str:
+    """3. 신고 내용 — 신고개요·거래당사자·운송화물·품목·금액세액을 항목으로 나열."""
     h = data["header"]
     items = data["items"]
-    lines = [
-        "**신고 개요**",
-        f"- 신고번호: {_fmt(h.get('declaration_no'))}",
-        f"- 신고일: {_fmt(h.get('import_date'))} · 처리상태: {_fmt(h.get('status'))}",
-        f"- 세관: {_fmt(h.get('customs_office_code'))} · 신고구분: {_fmt(h.get('declaration_type'))}",
-        f"- 검사구분: {_fmt(h.get('inspection_type'))}",
-        "",
-        "**거래 당사자**",
-        f"- 수입자: {_fmt(h.get('importer_name'))} ({_fmt(h.get('company_id'))})",
-        f"- 납세의무자: {_fmt(h.get('taxpayer_name'))} · 사업자번호 {_fmt(h.get('taxpayer_business_no'))}",
-        f"- 신고인: {_fmt(h.get('filer_name'))}",
-        f"- 해외거래처: {_fmt(h.get('overseas_supplier_name'))} ({_fmt(h.get('overseas_supplier_country'))})",
-        "",
-        "**운송·화물**",
-        f"- B/L: {_fmt(h.get('bl_awb_no'))} · 화물관리번호: {_fmt(h.get('cargo_control_no'))}",
-        f"- 적출국: {_fmt(h.get('departure_country'))} → 도착항: {_fmt(h.get('arrival_port'))}",
-        f"- 선기명: {_fmt(h.get('vessel_name'))} · 운송형태: {_fmt(h.get('transport_type'))}",
-        f"- 총중량: {_fmt(h.get('total_weight'))} {_fmt(h.get('total_weight_unit'))}"
-        f" · 포장: {_fmt(h.get('total_packages'))} {_fmt(h.get('package_type'))}",
-        "",
-        "**품목**",
-        f"- 품목번호(HS): {_fmt(h.get('hs_code'))} · 품명: {_fmt(h.get('item_name'))}",
-        f"- 원산지: {_fmt(h.get('origin_country'))}",
+    rows = [
+        ("신고개요", f"신고일 {_fmt(h.get('import_date'))} · 처리상태 {_fmt(h.get('status'))}"
+                     f" · 세관 {_fmt(h.get('customs_office_code'))}"
+                     f" · 신고구분 {_fmt(h.get('declaration_type'))}"
+                     f" · 검사구분 {_fmt(h.get('inspection_type'))}"),
+        ("거래당사자", f"납세의무자 {_fmt(h.get('taxpayer_name'))}"
+                       f"(사업자번호 {_fmt(h.get('taxpayer_business_no'))})"
+                       f" · 신고인 {_fmt(h.get('filer_name'))}"
+                       f" · 해외거래처 {_fmt(h.get('overseas_supplier_name'))}"
+                       f"({_fmt(h.get('overseas_supplier_country'))})"),
+        ("운송·화물", f"B/L {_fmt(h.get('bl_awb_no'))}"
+                      f" · 화물관리번호 {_fmt(h.get('cargo_control_no'))}"
+                      f" · {_fmt(h.get('departure_country'))} → {_fmt(h.get('arrival_port'))}"
+                      f" · 선기명 {_fmt(h.get('vessel_name'))}"
+                      f" · 운송형태 {_fmt(h.get('transport_type'))}"
+                      f" · 총중량 {_fmt(h.get('total_weight'))} {_fmt(h.get('total_weight_unit'))}"
+                      f" · 포장 {_fmt(h.get('total_packages'))} {_fmt(h.get('package_type'))}"),
+        ("품목", f"품목번호(HS) {_fmt(h.get('hs_code'))} · 품명 {_fmt(h.get('item_name'))}"
+                 f" · 원산지 {_fmt(h.get('origin_country'))}"),
     ]
     for item in items[:5]:
-        lines.append(
-            f"- 규격: {_fmt(item.get('tariff_item_name_en'))}"
-            f" · 수량 {_fmt(item.get('tariff_quantity'))} {_fmt(item.get('tariff_quantity_unit'))}"
-            f" · 순중량 {_fmt(item.get('net_weight'))} {_fmt(item.get('net_weight_unit'))}"
-        )
-    lines += [
-        "",
-        "**금액·세액**",
-        f"- 결제금액: {_fmt(h.get('payment_currency'))} {_fmt(h.get('payment_amount'))}"
-        f" ({_fmt(h.get('payment_incoterms'))}) · 환율 {_fmt(h.get('exchange_rate'))}",
-        f"- 과세가격: KRW {_fmt(h.get('total_customs_value_krw'))}",
-        f"- 관세 {_fmt(h.get('tax_customs_duty'))} · 부가세 {_fmt(h.get('tax_vat'))}"
-        f" · 총세액 {_fmt(h.get('total_tax_amount'))}",
+        rows.append(("규격", f"{_fmt(item.get('tariff_item_name_en'))}"
+                             f" · 수량 {_fmt(item.get('tariff_quantity'))}"
+                             f" {_fmt(item.get('tariff_quantity_unit'))}"
+                             f" · 순중량 {_fmt(item.get('net_weight'))}"
+                             f" {_fmt(item.get('net_weight_unit'))}"))
+    rows += [
+        ("금액", f"결제금액 {_fmt(h.get('payment_currency'))} {_fmt(h.get('payment_amount'))}"
+                 f"({_fmt(h.get('payment_incoterms'))}) · 환율 {_fmt(h.get('exchange_rate'))}"
+                 f" · 과세가격 KRW {_fmt(h.get('total_customs_value_krw'))}"),
+        ("세액", f"관세 {_fmt(h.get('tax_customs_duty'))}"
+                 f" · 부가세 {_fmt(h.get('tax_vat'))}"
+                 f" · 총세액 {_fmt(h.get('total_tax_amount'))}"),
     ]
-    return "\n".join(lines)
+    return "\n".join(f"    -   **{label}:** {value}" for label, value in rows)
 
 
 def _collect_photos(scenario: dict[str, Any]) -> list[dict[str, Any]]:
@@ -193,16 +200,79 @@ def _describe_photo(file_info: dict[str, Any]) -> str:
         return ""
 
 
-def _render_photos(photos: list[dict[str, Any]], descriptions: list[str]) -> str:
+def _thumbnail_data_uri(file_info: dict[str, Any], max_px: int = 720) -> str:
+    """보고서 본문에 삽입할 축소 이미지(data URI). 원본을 그대로 실으면 보고서가 비대해진다."""
+    content = str(file_info.get("content") or "")
+    if not content or str(file_info.get("encoding") or "").lower() != "base64":
+        return ""
+    raw = content.split(",", 1)[1] if content.startswith("data:") else content
+    try:
+        import base64
+        import io
+
+        from PIL import Image
+        img = Image.open(io.BytesIO(base64.b64decode(raw)))
+        img.thumbnail((max_px, max_px))
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=72)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"[Agent] 통관보고서 사진 축소 실패 — {str(exc)[:100]}")
+        return ""
+
+
+def _render_photo_section(photos: list[dict[str, Any]], descriptions: list[str]) -> str:
+    """2. 등록 증빙사진 — 제출 내역 + 실제 사진 삽입."""
+    read_cnt = sum(1 for d in descriptions if d)
+    lines = [
+        f"*   **제출 내역:** {len(photos)}장"
+        + (f" (판독 {read_cnt}장)" if photos else " — 등록된 현장 사진 없음"),
+    ]
     if not photos:
-        return "- 등록된 현장 사진이 없습니다."
-    lines = []
-    for idx, (photo, desc) in enumerate(zip(photos, descriptions), 1):
+        return "\n".join(lines)
+    lines.append("*   **증빙 사진:**")
+    for idx, photo in enumerate(photos, 1):
+        name = str(photo.get("name") or f"사진{idx}")
         size_kb = int(photo.get("size") or 0) / 1024
-        lines.append(f"**증빙사진 {idx}. {photo.get('name')}** ({size_kb:,.0f} KB)")
-        lines.append(desc or "- 사진 설명을 생성하지 못했습니다 (판독 불가).")
-        lines.append("")
+        uri = _thumbnail_data_uri(photo)
+        lines.append(f"    - 증빙사진 {idx}. {name} ({size_kb:,.0f} KB)")
+        lines.append(f"    ![{name}]({uri})" if uri
+                     else "    - (이미지를 보고서에 삽입하지 못했습니다)")
     return "\n".join(lines)
+
+
+def _render_photo_readings(photos: list[dict[str, Any]], descriptions: list[str]) -> str:
+    """LLM 의견 생성에 넘길 사진 판독 원문."""
+    if not photos:
+        return "(사진 없음)"
+    return "\n".join(
+        f"- {p.get('name')}: {d or '판독 불가'}" for p, d in zip(photos, descriptions)
+    )
+
+
+def _build_opinion(declaration_md: str, photo_readings: str) -> dict[str, Any]:
+    """사진 분석·통관 의견을 구조화해 받는다. 실패하면 빈 dict."""
+    if not llm:
+        return {}
+    try:
+        raw = llm.invoke(_OPINION_PROMPT.format(
+            declaration=declaration_md[:4000], photos=photo_readings[:3000],
+        )).content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip().rstrip("`").strip()
+        start, end = raw.find("{"), raw.rfind("}")
+        if start >= 0 and end > start:
+            raw = raw[start:end + 1]
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"[Agent] 통관보고서 의견 생성 실패 — {str(exc)[:140]}")
+        return {}
 
 
 def agent_clearance_report(state: CustomsState) -> CustomsState:
@@ -232,34 +302,43 @@ def agent_clearance_report(state: CustomsState) -> CustomsState:
 
     declaration_md = _render_declaration(data)
     descriptions = [_describe_photo(p) for p in photos]
-    photos_md = _render_photos(photos, descriptions)
 
-    opinion = ""
-    if llm:
-        try:
-            opinion = llm.invoke(_OPINION_PROMPT.format(
-                declaration=declaration_md[:4000],
-                photos=photos_md[:3000] or "(사진 없음)",
-            )).content
-        except Exception as exc:                               # noqa: BLE001
-            print(f"[Agent] 통관보고서 의견 생성 실패 — {exc}")
+    parsed = _build_opinion(declaration_md, _render_photo_readings(photos, descriptions))
+    analysis = parsed.get("photo_analysis") or {}
+    opinion = parsed.get("opinion") or {}
 
     header = data["header"]
+    author = str(scenario.get("current_user") or os.getenv("REPORT_AUTHOR") or "통관담당자")
     result = "\n".join([
-        "[통관보고서]",
-        f"- 신고번호: {declaration_no}",
-        f"- 수입자: {_fmt(header.get('importer_name'))} ({_fmt(header.get('company_id'))})",
-        f"- 품명: {_fmt(header.get('item_name'))} · 원산지: {_fmt(header.get('origin_country'))}",
-        f"- 등록 증빙사진: {len(photos)}장"
-        + (f" (판독 {sum(1 for d in descriptions if d)}장)" if photos else ""),
+        "# [통관보고서]",
         "",
-        "## 신고 내용 (CDW 조회)",
+        "## 1. 기본 정보 (Basic Information)",
+        f"*   **신고번호:** {declaration_no}",
+        f"*   **수입자:** {_fmt(header.get('importer_name'))} ({_fmt(header.get('company_id'))})",
+        f"*   **품명:** {_fmt(header.get('item_name'))}",
+        f"*   **원산지:** {_fmt(header.get('origin_country'))}",
+        "",
+        "## 2. 등록 증빙사진 (Registered Evidentiary Photographs)",
+        _render_photo_section(photos, descriptions),
+        "",
+        "## 3. 신고 내용 (Declaration Details - CDW Inquiry)",
+        "*   **조회 결과:**",
         declaration_md,
         "",
-        "## 현장 증빙사진",
-        photos_md,
-        "## 통관 의견",
-        opinion or "- 의견을 생성하지 못했습니다 (LLM 사용 불가).",
+        "## 4. 현장 증빙사진 분석 (Field Photo Analysis)",
+        "*   **분석 내용:**",
+        f"    -   {analysis.get('label') or '라벨 확인 내용 없음 (사진 미등록 또는 판독 불가)'}",
+        f"    -   {analysis.get('condition') or '포장 상태 확인 내용 없음'}",
+        "",
+        "## 5. 통관 의견 (Customs Opinion)",
+        "*   **최종 의견 및 조치 사항:**",
+        f"    1.  **현품 확인:** {opinion.get('match') or '확인 필요'}",
+        f"    2.  **확인 필요:** {opinion.get('to_verify') or '확인 필요'}",
+        f"    3.  **통관 의견:** {opinion.get('decision') or '확인 필요'}",
+        "",
+        "---",
+        f"*보고서 작성일:* {date.today().isoformat()}",
+        f"*작성자:* {author}",
     ])
 
     print("[Agent] 통관보고서 생성 완료")

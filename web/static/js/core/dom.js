@@ -11,8 +11,17 @@ export function dataTable(headers, rows){
   return `<table class="table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
+/* 이미지 삽입 허용 범위 — 첨부 사진(data URI)과 앱 내부 정적 경로만.
+   escapeHtml이 바꾸는 문자(&<>"')가 없는 형태만 통과시키므로 이스케이프 뒤에 치환해도 안전하다.
+   javascript: 등 다른 스킴은 매칭되지 않아 그대로 텍스트로 남는다. */
+const SAFE_IMG_SRC = /^(?:data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+|\/static\/[\w\-./]+)$/;
+
 export function inlineMarkdown(value){
   return escapeHtml(value)
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt, src) =>
+      SAFE_IMG_SRC.test(src)
+        ? `<img src="${src}" alt="${alt}" class="md-image" loading="lazy">`
+        : whole)
     .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
     .replace(/\*(.+?)\*/g,"<em>$1</em>")
     .replace(/`(.+?)`/g,"<code>$1</code>");

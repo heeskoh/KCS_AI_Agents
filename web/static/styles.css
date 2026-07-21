@@ -2886,3 +2886,7 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .agentic-hist-meta{margin-left:auto;color:var(--tx-3);font-size:11px}
 .agentic-del-btn{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #f1c4c0;background:#fdf2f1;color:#b91c1c;font-weight:700;font-size:13px;border-radius:9px;padding:8px;cursor:pointer;margin-top:2px}
 .agentic-del-btn:hover{background:#fbe5e3}
+
+/* 보고서 본문에 삽입되는 증빙 이미지 (통관보고서 현장사진 등) */
+.md-image{display:block;max-width:100%;height:auto;margin:10px 0;
+  border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
