@@ -20,3 +20,6 @@ data/_workspace_state_backup_*/
 .env.bak*
 # data backup artifacts
 data/scenario_templates.backup-*
+
+# OCR 언어팩 (수십 MB 바이너리 — 스크립트로 내려받음)
+data/tessdata/

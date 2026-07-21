@@ -46,3 +46,9 @@ sentence-transformers>=2.7,<3.0   # jhgan/ko-sroberta-multitask 임베딩 사용
 openpyxl>=3.1,<4.0
 pypdf>=4.0,<7.0
 olefile>=0.46         # HWP(한글) OLE 스트림 파싱
+
+# --- 스캔 문서 OCR (src/agents/ocr_engine.py) ---
+# Tesseract 본체는 별도 설치: winget install UB-Mannheim.TesseractOCR
+# 한국어 언어팩은 data/tessdata/kor.traineddata (tessdata_best) — git 미포함
+pymupdf>=1.24,<2.0    # PDF 페이지 → 이미지 렌더링 (Poppler 불필요)
+pytesseract>=0.3.10   # Tesseract 바인딩

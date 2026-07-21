@@ -19,6 +19,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from src.agents.ocr_engine import extract_text
 from src.agents.state import CustomsState
 from src.llm import llm
 
@@ -91,6 +92,12 @@ DECLARATION_SCHEMA: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
 ]
 SCHEMA_KEYS = [k for _, fields in DECLARATION_SCHEMA for k, _ in fields]
+
+_SOURCE_LABEL = {
+    "text": "문서 본문 인식",
+    "ocr": "OCR 판독(Tesseract kor+eng)",
+    "simulated": "OCR 시뮬레이션(판독 불가)",
+}
 
 _EXTRACT_PROMPT = """당신은 관세청 수입신고서 인식 AI입니다.
 아래 문서 내용을 읽고 수입신고서 항목에 값을 매핑하여 JSON으로만 반환하세요.
@@ -177,9 +184,10 @@ def _has_text(file_info: dict[str, Any]) -> bool:
 
 
 def _text_sample(file_info: dict[str, Any], limit: int = 6000) -> str:
-    if not _has_text(file_info):
-        return ""
-    return str(file_info.get("content") or "")[:limit]
+    """인식 대상 본문 — 텍스트 첨부는 그대로, PDF·이미지는 OCR로 추출한다."""
+    if _has_text(file_info):
+        return str(file_info.get("content") or "")[:limit]
+    return extract_text(file_info)[:limit]
 
 
 def _is_communication_record(name: str, text: str) -> bool:
@@ -242,6 +250,9 @@ def _recognize(file_info: dict[str, Any]) -> dict[str, Any]:
     text = _text_sample(file_info)
     doc_code, doc_label = _detect_doc_type(name, text)
     simulated = not text.strip()
+    # 인식 경로 구분 — 텍스트 첨부 / OCR 판독 / 시뮬레이션
+    source = ("text" if _has_text(file_info)
+              else "simulated" if simulated else "ocr")
 
     result: dict[str, Any] = {
         "name": name,
@@ -251,6 +262,8 @@ def _recognize(file_info: dict[str, Any]) -> dict[str, Any]:
         "doc_code": doc_code,
         "doc_label": doc_label,
         "simulated": simulated,
+        "source": source,
+        "ocr_chars": len(text) if source == "ocr" else 0,
         "confidence": 0,
         "fields": {},
         "findings": [],
@@ -288,8 +301,9 @@ def _render_document(item: dict[str, Any]) -> str:
     lines = [
         f"### {item['name']}",
         f"- 서류 종류: {item['doc_label']}",
-        f"- 인식 방식: {'OCR 시뮬레이션(본문 텍스트 없음)' if item['simulated'] else '문서 본문 인식'}"
-        f" · 신뢰도 {item['confidence']}%",
+        f"- 인식 방식: {_SOURCE_LABEL.get(item.get('source'), '문서 본문 인식')}"
+        + (f" · 판독 {item['ocr_chars']:,}자" if item.get("ocr_chars") else "")
+        + f" · 신뢰도 {item['confidence']}%",
         f"- 매핑된 항목: {filled}/{len(SCHEMA_KEYS)}개",
         "",
     ]
@@ -314,11 +328,14 @@ def _render_document(item: dict[str, Any]) -> str:
 
 
 def _render_result(analyses: list[dict[str, Any]], recommended: list[str]) -> str:
-    simulated = sum(1 for a in analyses if a.get("simulated"))
+    by_source: dict[str, int] = {}
+    for a in analyses:
+        key = a.get("source") or "text"
+        by_source[key] = by_source.get(key, 0) + 1
+    detail = ", ".join(f"{_SOURCE_LABEL[k]} {n}건" for k, n in by_source.items() if k in _SOURCE_LABEL)
     head = [
         "[OCR/문서인식 결과]",
-        f"- 인식 문서: {len(analyses)}건"
-        + (f" (본문 추출 불가 {simulated}건은 OCR 시뮬레이션)" if simulated else ""),
+        f"- 인식 문서: {len(analyses)}건" + (f" ({detail})" if detail else ""),
         f"- 서류 종류: {', '.join(sorted({a['doc_label'] for a in analyses}))}",
         f"- 후속 AI 서비스 추천: {', '.join(recommended) if recommended else '없음'}",
         "",
