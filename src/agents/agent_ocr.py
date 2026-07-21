@@ -19,7 +19,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from src.agents.ocr_engine import extract_text
+from src.agents.ocr_engine import extract
 from src.agents.state import CustomsState
 from src.llm import llm
 
@@ -95,7 +95,9 @@ SCHEMA_KEYS = [k for _, fields in DECLARATION_SCHEMA for k, _ in fields]
 
 _SOURCE_LABEL = {
     "text": "문서 본문 인식",
-    "ocr": "OCR 판독(Tesseract kor+eng)",
+    "embedded": "PDF 텍스트층 추출",
+    "vision": "OCR 판독(비전 모델)",
+    "tesseract": "OCR 판독(Tesseract kor+eng)",
     "simulated": "OCR 시뮬레이션(판독 불가)",
 }
 
@@ -183,11 +185,12 @@ def _has_text(file_info: dict[str, Any]) -> bool:
     return (file_info.get("encoding") or "").lower() == "text" and bool(file_info.get("content"))
 
 
-def _text_sample(file_info: dict[str, Any], limit: int = 6000) -> str:
-    """인식 대상 본문 — 텍스트 첨부는 그대로, PDF·이미지는 OCR로 추출한다."""
+def _read_source(file_info: dict[str, Any], limit: int = 6000) -> tuple[str, str]:
+    """인식 대상 본문과 판독 엔진 — 텍스트 첨부는 그대로, PDF·이미지는 판독한다."""
     if _has_text(file_info):
-        return str(file_info.get("content") or "")[:limit]
-    return extract_text(file_info)[:limit]
+        return str(file_info.get("content") or "")[:limit], "text"
+    text, engine = extract(file_info)
+    return text[:limit], engine
 
 
 def _is_communication_record(name: str, text: str) -> bool:
@@ -247,12 +250,11 @@ def _parse_json(raw: str) -> dict[str, Any]:
 def _recognize(file_info: dict[str, Any]) -> dict[str, Any]:
     """파일 1건 → 신고서 항목에 매핑된 인식 결과."""
     name = _file_name(file_info)
-    text = _text_sample(file_info)
+    text, engine = _read_source(file_info)
     doc_code, doc_label = _detect_doc_type(name, text)
     simulated = not text.strip()
-    # 인식 경로 구분 — 텍스트 첨부 / OCR 판독 / 시뮬레이션
-    source = ("text" if _has_text(file_info)
-              else "simulated" if simulated else "ocr")
+    # 인식 경로 — 텍스트 첨부 / 비전 판독 / Tesseract 판독 / PDF 텍스트층 / 시뮬레이션
+    source = "simulated" if simulated else (engine or "text")
 
     result: dict[str, Any] = {
         "name": name,
@@ -263,7 +265,7 @@ def _recognize(file_info: dict[str, Any]) -> dict[str, Any]:
         "doc_label": doc_label,
         "simulated": simulated,
         "source": source,
-        "ocr_chars": len(text) if source == "ocr" else 0,
+        "ocr_chars": len(text) if source in ("vision", "tesseract", "embedded") else 0,
         "confidence": 0,
         "fields": {},
         "findings": [],
