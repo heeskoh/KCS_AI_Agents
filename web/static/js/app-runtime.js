@@ -3231,6 +3231,10 @@ const AI_SERVICE_INPUTS = {
   rag_create: [
     { key:"source", label:"대상 자료", placeholder:"지식화할 자료/문서", required:true },
   ],
+  clearance_report: [
+    { key:"declaration_no", label:"신고번호", placeholder:"예: DV2-C-1001-01", required:true },
+    { key:"photos", label:"현장 사진", placeholder:"파일첨부로 사진 1장 이상 등록", required:true },
+  ],
   summary: [
     { key:"scope", label:"요약 대상", placeholder:"예: 이전 분석 결과 전체 / 특정 단계 결과" },
   ],

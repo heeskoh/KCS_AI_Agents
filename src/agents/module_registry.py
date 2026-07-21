@@ -30,6 +30,7 @@ from src.agents.agent_origin_analysis import agent_origin_analysis
 from src.agents.agent_patent import agent_patent
 from src.agents.agent_proceeds_tracking import agent_proceeds_tracking
 from src.agents.agent_rag import agent_rag_source
+from src.agents.agent_clearance_report import agent_clearance_report
 from src.agents.agent_rag_create import agent_rag_create
 from src.agents.agent_report import agent_report
 from src.agents.agent_report_standard import agent_report_standard
@@ -86,6 +87,7 @@ AGENT_MODULES: tuple[AgentModule, ...] = (
     AgentModule("external_agency", "외부기관정보수집", agent_external_agency, "external_agency_result", "external_agency_agent", ("agency_collect",)),
     AgentModule("rag_customs", "관세정보 RAG", result_key="rag_result", node_prefix="rag_customs_agent", runner_factory=_rag_runner),
     AgentModule("rag_trade", "무역정보 RAG", result_key="rag_result", node_prefix="rag_trade_agent", runner_factory=_rag_runner),
+    AgentModule("clearance_report", "통관보고서 생성", agent_clearance_report, "clearance_report_result", "clearance_report_agent"),
     AgentModule("rag_audit", "심사정보 RAG", result_key="rag_result", node_prefix="rag_audit_agent", runner_factory=_rag_runner),
     AgentModule("rag_investigation", "조사정보 RAG", result_key="rag_result", node_prefix="rag_investigation_agent", runner_factory=_rag_runner),
     AgentModule("rag_global", "국제협력 RAG", result_key="rag_result", node_prefix="rag_global_agent", runner_factory=_rag_runner),

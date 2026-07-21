@@ -246,12 +246,23 @@ export const AI_SERVICE_REGISTRY = {
     ],
   },
   rag_trade: {
-    label: "통관보고서 생성", type: "rag_trade", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
+    label: "무역정보 RAG 분석", type: "rag_trade", group: ANALYSIS_AI_GROUP, permissionGroup: "agents",
     defaultInstruction: "통관/무역 정보에서 이상 징후와 참고 근거 확인",
     personInstruction: "개인 반입·운송·거래 정보에서 이상 징후와 참고 근거 확인",
     behaviorOptions: [
       { value: "trade_signal", label: "무역 징후 확인" },
       { value: "market_context", label: "시장 맥락 확인" },
+    ],
+  },
+  /* 통관보고서 — 신고건 단위 등록 서비스. RAG 검색이 아니라 신고번호로 DB를 읽고
+     현장 사진을 증빙으로 붙여 통관 의견까지 작성한다. */
+  clearance_report: {
+    label: "통관보고서 생성", type: "clearance_report", group: REPORT_AI_GROUP, permissionGroup: "agents",
+    defaultInstruction: "신고번호의 수입신고 내용을 조회하고 현장 사진을 증빙으로 첨부해 통관보고서 작성",
+    personInstruction: "신고번호의 수입신고 내용을 조회하고 현장 사진을 증빙으로 첨부해 통관보고서 작성",
+    behaviorOptions: [
+      { value: "field_check", label: "현품 확인" },
+      { value: "doc_check", label: "서류 대사" },
     ],
   },
   external_agency: {
