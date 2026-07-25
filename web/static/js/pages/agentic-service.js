@@ -31,6 +31,8 @@ export function agenticNodeTypeDef(type){
 
 export function agenticNodePorts(type){
   const def = agenticNodeTypeDef(type);
+  // 기본은 좌(입력)·우(출력) 1개씩. 분기/반복만 출력 2개(참·거짓).
+  // 추가 연결점은 노드 우클릭 메뉴로 손수 늘린다.
   return { in: def.in ?? 1, out: def.out ?? 1 };
 }
 

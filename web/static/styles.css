@@ -2809,7 +2809,7 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .agentic-df-canvas .drawflow{transform-origin:0 0}
 
 /* Drawflow 노드 — 라운드 박스 + 파스텔 톤 (id 셀렉터로 drawflow.min.css 기본 스타일을 확실히 덮는다) */
-#agenticDrawflow .drawflow-node{border:1.5px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:0;width:auto;min-width:132px;color:var(--tx-1);font-family:var(--ff)}
+#agenticDrawflow .drawflow-node{border:1.5px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:0;width:auto;min-width:150px;color:var(--tx-1);font-family:var(--ff)}
 #agenticDrawflow .drawflow-node:hover{box-shadow:var(--shadow-md)}
 #agenticDrawflow .drawflow-node.selected{box-shadow:0 0 0 3px var(--accent-soft)}
 #agenticDrawflow .drawflow-node .drawflow_content_node{padding:0}
@@ -2819,12 +2819,17 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 #agenticDrawflow .drawflow-node.tone-agent{background:#eef3ff;border-color:#cad9fb}
 #agenticDrawflow .drawflow-node.tone-amber{background:#fcf4e3;border-color:#ecd9ab}
 #agenticDrawflow .drawflow-node.tone-slate{background:#eef1f8;border-color:#d6dded}
-.agentic-df-inner{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px}
-.agentic-df-ic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;font-size:14px;flex:none;background:rgba(255,255,255,.85);box-shadow:var(--shadow-sm)}
-.agentic-df-title{font-weight:700;font-size:13px;color:var(--tx-1);line-height:1.25;white-space:nowrap}
+.agentic-df-inner{display:flex;align-items:center;gap:9px;padding:8px 15px 8px 10px}
+.agentic-df-ic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;font-size:17px;flex:none;background:rgba(255,255,255,.85);box-shadow:var(--shadow-sm)}
+.agentic-df-title{font-weight:700;font-size:15px;color:var(--tx-1);line-height:1.3;white-space:nowrap}
 /* 포트 & 연결선 */
 #agenticDrawflow .drawflow-node .input,#agenticDrawflow .drawflow-node .output{background:#fff;border:2px solid var(--accent);width:13px;height:13px;box-shadow:var(--shadow-sm)}
 #agenticDrawflow .drawflow-node .input:hover,#agenticDrawflow .drawflow-node .output:hover{background:var(--accent)}
+/* 4방향 연결점: 좌(input_1)·우(output_1)에 더해 상단 입력(input_2)·하단 출력(output_2)을
+   노드 상/하단 중앙에 배치한다. 곡선 끝점은 포트 DOM 위치를 따르므로 CSS 배치만으로 충분.
+   (분기·반복은 참/거짓 2출력을 우측에 유지하므로 하단 출력 재배치에서 제외) */
+#agenticDrawflow .drawflow-node .input.input_2{position:absolute;top:-7px;bottom:auto;left:50%;right:auto;transform:translateX(-50%);margin:0}
+#agenticDrawflow .drawflow-node:not(.agentic-type-branch):not(.agentic-type-loop) .output.output_2{position:absolute;bottom:-7px;top:auto;left:50%;right:auto;transform:translateX(-50%);margin:0}
 #agenticDrawflow .connection .main-path{stroke:color-mix(in oklab,var(--accent) 60%,#94a3b8);stroke-width:2.5px}
 #agenticDrawflow .connection .main-path:hover{stroke:var(--accent)}
 /* 분기/반복 출력 포트 라벨 */
@@ -2872,6 +2877,13 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .agentic-loop-hint b{color:var(--amber)}
 .agentic-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%) translateY(10px);background:#7a2018;color:#fff;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:999px;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.2s;z-index:20;white-space:nowrap}
 .agentic-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 노드 우클릭 컨텍스트 메뉴 — 입력점/출력점 추가·제거 */
+.agentic-ctxmenu{position:absolute;z-index:40;min-width:150px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:5px;display:flex;flex-direction:column;gap:2px}
+.agentic-ctxmenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:transparent;color:var(--tx-1);font-size:13px;font-weight:600;padding:8px 10px;border-radius:7px;cursor:pointer;font-family:var(--ff)}
+.agentic-ctxmenu button:hover:not(:disabled){background:var(--accent-soft)}
+.agentic-ctxmenu button:disabled{color:var(--tx-3);cursor:not-allowed;opacity:.6}
+.agentic-ctxmenu-sep{height:1px;background:var(--line);margin:3px 4px}
 
 /* 실행 중 노드 상태 */
 .agentic-mini-btn.run{color:var(--accent-strong);border-color:color-mix(in oklab,var(--accent) 40%,transparent);background:var(--accent-soft);font-weight:700}
