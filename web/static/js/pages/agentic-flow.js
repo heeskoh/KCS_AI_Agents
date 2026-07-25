@@ -88,15 +88,20 @@ function decoratePorts(editor, container){
         nodeEl.querySelectorAll(".agentic-port-label").forEach(e => e.remove());
         const typeClass = [...nodeEl.classList].find(c => c.startsWith("agentic-type-"));
         const type = typeClass ? typeClass.replace("agentic-type-", "") : null;
-        const labels = type ? agenticOutputLabels(type) : null;
+        const nodeData = editor.getNodeFromId(nodeEl.id.replace("node-", ""))?.data;
+        // 노드별 커스텀 분기 이름(outLabels) 우선, 없으면 타입 기본 라벨
+        const labels = (nodeData && nodeData.outLabels) || (type ? agenticOutputLabels(type) : null);
         if(!labels) return;
         labels.forEach((text, idx) => {
+          if(!text) return;
           const port = nodeEl.querySelector(`.outputs .output_${idx + 1}`);
           if(!port) return;
           const span = document.createElement("span");
           span.className = "agentic-port-label";
           span.textContent = text;
-          span.style.top = `${port.offsetTop + port.offsetHeight / 2}px`;
+          // 연결점 '밖'(선 쪽)에 표시 — 포트 오른쪽 바깥에 배치
+          span.style.left = `${port.offsetLeft + port.offsetWidth + 6}px`;
+          span.style.top  = `${port.offsetTop + port.offsetHeight / 2}px`;
           nodeEl.appendChild(span);
         });
       });
@@ -516,8 +521,8 @@ export function createAgenticFlow({ container, service, persist, onSelect, onCon
       const node = editor.getNodeFromId(id);
       if(!node) return null;
       const result = { id, ...node.data };
-      // 분기/반복 노드: 출력 포트별 연결 대상 노드명을 함께 제공
-      const labels = agenticOutputLabels(node.data?.type);
+      // 분기/반복 노드: 출력 포트별 연결 대상 노드명을 함께 제공(커스텀 분기 이름 우선)
+      const labels = (node.data?.outLabels) || agenticOutputLabels(node.data?.type);
       if(labels){
         result._outputs = labels.map((label, idx) => {
           const out = node.outputs?.[`output_${idx + 1}`];
@@ -541,6 +546,7 @@ export function createAgenticFlow({ container, service, persist, onSelect, onCon
         const titleEl = container.querySelector(`#node-${id} .agentic-df-title`);
         if(titleEl) titleEl.textContent = patch.label || agenticNodeTypeDef(data.type).label;
       }
+      if("outLabels" in patch) decoratePorts(editor, container);   // 분기 이름 변경 → 포트 라벨 갱신
       persist(editor.export());
     },
 

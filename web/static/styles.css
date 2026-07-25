@@ -2832,8 +2832,8 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 #agenticDrawflow .drawflow-node:not(.agentic-type-branch):not(.agentic-type-loop) .output.output_2{position:absolute;bottom:-7px;top:auto;left:50%;right:auto;transform:translateX(-50%);margin:0}
 #agenticDrawflow .connection .main-path{stroke:color-mix(in oklab,var(--accent) 60%,#94a3b8);stroke-width:2.5px}
 #agenticDrawflow .connection .main-path:hover{stroke:var(--accent)}
-/* 분기/반복 출력 포트 라벨 */
-#agenticDrawflow .drawflow-node .agentic-port-label{position:absolute;right:16px;transform:translateY(-50%);font-size:10px;font-weight:700;color:var(--amber);background:#fff;border:1px solid var(--amber-soft);border-radius:6px;padding:0 5px;line-height:15px;pointer-events:none;white-space:nowrap}
+/* 분기/반복 출력 포트 라벨 — 연결점 '밖'(선 쪽)에 표시. left/top은 JS(decoratePorts)가 포트 기준으로 지정 */
+#agenticDrawflow .drawflow-node .agentic-port-label{position:absolute;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--amber);background:#fff;border:1px solid var(--amber-soft);border-radius:6px;padding:0 6px;line-height:16px;pointer-events:none;white-space:nowrap;z-index:6;box-shadow:var(--shadow-sm)}
 
 /* 우측 인스펙터 */
 /* 속성 인스펙터 — 에디터 위에 뜨는 팝업 */
@@ -2869,6 +2869,8 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .agentic-routes{display:flex;flex-direction:column;gap:6px}
 .agentic-route{display:flex;align-items:center;gap:8px;font-size:12px}
 .agentic-route-port{display:inline-flex;align-items:center;justify-content:center;min-width:42px;padding:3px 8px;border-radius:6px;font-weight:700;color:var(--amber);background:var(--amber-soft);flex:none}
+.agentic-route-port-input{width:88px;flex:none;padding:4px 8px;border-radius:6px;font-weight:700;font-size:12px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-soft);font-family:var(--ff)}
+.agentic-route-port-input:focus{outline:none;border-color:var(--amber);background:#fff}
 .agentic-route svg{color:var(--tx-3);flex:none}
 .agentic-route-target{flex:1;min-width:0;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--tx-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agentic-route-target.empty{color:var(--tx-3);font-style:italic}

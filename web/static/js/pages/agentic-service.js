@@ -42,6 +42,16 @@ export function agenticOutputLabels(type){
 }
 
 export const AGENTIC_MODEL_OPTIONS = ["KCS_LLM", "외부 LLM", "외부+내부 LLM"];
+/* 분기 노드 출력 이름 프리셋(2분기). '직접 입력'으로 자유 편집도 가능. */
+export const AGENTIC_BRANCH_PRESETS = [
+  { value:"true_false",       labels:["참", "거짓"] },
+  { value:"approve_reject",   labels:["승인", "반려"] },
+  { value:"normal_abnormal",  labels:["정상", "비정상"] },
+  { value:"pass_fail",        labels:["성공", "실패"] },
+  { value:"yes_no",           labels:["예", "아니오"] },
+  { value:"pass_hold",        labels:["통과", "보류"] },
+  { value:"match_mismatch",   labels:["일치", "불일치"] },
+];
 export const AGENTIC_OUTPUT_FORMATS = [
   { value:"text",     label:"text" },
   { value:"markdown", label:"markdown" },
@@ -70,6 +80,7 @@ export function defaultNodeData(type){
     maxIterations: 10,     // 안전 상한 (무한루프 방지)
     recipients: "",        // 메일/메신저 수신자
     useNeo4j: false,       // DB 노드: 그래프(Neo4j) 조회 여부
+    outLabels: def.outLabels ? [...def.outLabels] : undefined,  // 분기/반복 출력 라벨(편집 가능)
   };
 }
 
@@ -301,35 +312,47 @@ function agentNodeFields(node){
   `;
 }
 
-/* 출력 포트별(참/거짓·본문/종료) 연결 대상 표시 — 분기·반복 공용 */
+/* 출력 포트별(참/거짓·본문/종료) 분기 이름 + 연결 대상 — 분기·반복 공용.
+   분기 이름은 편집 가능(각 출력 포트 옆·선 쪽에 표시). */
 function routeListHtml(node){
-  const routes = (node._outputs || []).map(o => {
+  const routes = (node._outputs || []).map((o, idx) => {
     const targets = (o.targets && o.targets.length) ? o.targets.map(escapeHtml).join(", ") : null;
     return `
       <div class="agentic-route">
-        <span class="agentic-route-port">${escapeHtml(o.label)}</span>
+        <input class="agentic-route-port-input" type="text" value="${escapeHtml(o.label)}"
+               data-agentic-outlabel="${idx}" placeholder="분기 이름" aria-label="분기 이름">
         <svg width="16" height="12" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="7" x2="18" y2="7"/><polyline points="13 2 18 7 13 12"/></svg>
         <span class="agentic-route-target${targets ? "" : " empty"}">${targets || "미연결"}</span>
       </div>`;
   }).join("");
   return `
     <div class="agentic-field">
-      <span>출력 분기</span>
+      <span>출력 분기 이름</span>
       <div class="agentic-routes">${routes}</div>
-      <small class="agentic-route-hint">캔버스에서 각 포트를 다음 노드로 연결하세요.</small>
+      <small class="agentic-route-hint">각 분기 이름을 정하고, 캔버스에서 포트를 다음 노드로 연결하세요.</small>
     </div>`;
 }
 
-/* 분기 노드 전용 — 조건(참/거짓) + 라우팅 */
+/* 분기 노드 전용 — 이름 + 분기유형 프리셋 + 조건 + 라우팅(분기 이름 편집) */
 function branchNodeFields(node){
+  const labels = Array.isArray(node.outLabels) ? node.outLabels : (node._outputs || []).map(o => o.label);
+  const matched = AGENTIC_BRANCH_PRESETS.find(p => p.labels[0] === labels[0] && p.labels[1] === labels[1]);
+  const presetVal = matched ? matched.value : "custom";
+  const presetOpts = AGENTIC_BRANCH_PRESETS.map(p =>
+      `<option value="${p.value}" data-labels="${escapeHtml(p.labels.join("|"))}"${p.value === presetVal ? " selected" : ""}>${escapeHtml(p.labels.join(" / "))}</option>`).join("")
+    + `<option value="custom"${presetVal === "custom" ? " selected" : ""}>직접 입력</option>`;
   return `
     <label class="agentic-field">
       <span>이름</span>
       <input type="text" value="${escapeHtml(node.label || "")}" data-agentic-field="label" placeholder="노드 이름">
     </label>
+    <label class="agentic-field row">
+      <span>분기 유형</span>
+      <select data-agentic-branch-preset>${presetOpts}</select>
+    </label>
     <label class="agentic-field">
       <span>분기 조건</span>
-      <textarea rows="3" data-agentic-field="condition" placeholder="예: 위험도 점수가 0.7 이상이면 참">${escapeHtml(node.condition || "")}</textarea>
+      <textarea rows="3" data-agentic-field="condition" placeholder="예: 위험도 점수가 0.7 이상이면 승인">${escapeHtml(node.condition || "")}</textarea>
     </label>
     ${routeListHtml(node)}
   `;

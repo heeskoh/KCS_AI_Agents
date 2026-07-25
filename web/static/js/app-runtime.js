@@ -12186,6 +12186,16 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("change", (event)=>{
+  /* ── AI Agentic 분기 유형 프리셋(승인/반려·정상/비정상 등) ── */
+  if(event.target.matches("[data-agentic-branch-preset]")){
+    if(agenticFlow && agenticSelectedNodeId != null){
+      const opt = event.target.selectedOptions[0];
+      const raw = opt?.dataset?.labels;   // "승인|반려" (custom은 없음)
+      if(raw) agenticFlow.updateNodeData(agenticSelectedNodeId, { outLabels: raw.split("|") });
+      renderAgenticInspector();   // 프리셋 반영해 분기 이름 입력칸 갱신
+    }
+    return;
+  }
   /* ── AI Agentic 노드 필드(셀렉트/체크박스) ── */
   if(event.target.closest("[data-agentic-add-tool]")){
     const tool = event.target.value;
@@ -12243,6 +12253,19 @@ document.addEventListener("input", (event) => {
   if(event.target.matches("[data-agentic-service-name]")){
     const svc = activeAgenticService();
     if(svc){ svc.name = event.target.value; saveCanvasState(); }
+    return;
+  }
+  // 분기/반복 출력 라벨(분기 이름) 편집 — 포커스 유지 위해 인스펙터 재렌더 없이 데이터·포트라벨만 갱신
+  const agOutIdx = event.target.dataset?.agenticOutlabel;
+  if(agOutIdx != null && event.target.matches("input")){
+    if(agenticFlow && agenticSelectedNodeId != null){
+      const node = agenticFlow.getNodeData(agenticSelectedNodeId);
+      const labels = Array.isArray(node?.outLabels)
+        ? [...node.outLabels]
+        : (node?._outputs ? node._outputs.map(o => o.label) : []);
+      labels[Number(agOutIdx)] = event.target.value;
+      agenticFlow.updateNodeData(agenticSelectedNodeId, { outLabels: labels });
+    }
     return;
   }
   const agField = event.target.dataset?.agenticField;
