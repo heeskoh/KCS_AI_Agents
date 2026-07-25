@@ -459,7 +459,44 @@ function renderAgenticInspector(){
   // 노드 선택 시에만 팝업 표시
   panel.hidden = !node;
   panel.innerHTML = node ? agenticInspectorHtml(node) : "";
+  // 사용자가 옮긴 위치가 있으면 재렌더 후에도 유지
+  if(node && agenticInspectorPos){
+    panel.style.left  = `${agenticInspectorPos.left}px`;
+    panel.style.top   = `${agenticInspectorPos.top}px`;
+    panel.style.right = "auto";
+  }
 }
+
+/* 에이전트 설명창(인스펙터 팝업)을 헤더를 잡고 드래그해 이동. 위치는 세션 동안 유지. */
+let agenticInspectorPos = null;   // {left, top}
+(function setupAgenticInspectorDrag(){
+  let drag = null;   // { panel, startX, startY, startLeft, startTop }
+  document.addEventListener("mousedown", (e) => {
+    const head = e.target.closest && e.target.closest(".agentic-inspect-head");
+    if(!head || e.target.closest(".agentic-inspect-close")) return;   // 닫기 버튼 제외
+    const panel = head.closest(".agentic-inspector-popup");
+    if(!panel) return;
+    e.preventDefault();
+    drag = { panel, startX:e.clientX, startY:e.clientY, startLeft:panel.offsetLeft, startTop:panel.offsetTop };
+    panel.classList.add("dragging");
+  });
+  document.addEventListener("mousemove", (e) => {
+    if(!drag) return;
+    const { panel, startX, startY, startLeft, startTop } = drag;
+    const parent = panel.offsetParent || document.documentElement;
+    const maxLeft = Math.max(0, parent.clientWidth  - panel.offsetWidth);
+    const maxTop  = Math.max(0, parent.clientHeight - panel.offsetHeight);
+    const left = Math.min(Math.max(0, startLeft + (e.clientX - startX)), maxLeft);
+    const top  = Math.min(Math.max(0, startTop  + (e.clientY - startY)), maxTop);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.right = "auto";
+    agenticInspectorPos = { left, top };
+  });
+  document.addEventListener("mouseup", () => {
+    if(drag){ drag.panel.classList.remove("dragging"); drag = null; }
+  });
+})();
 
 function agenticServicePage(){
   if(!isCurrentUserAdmin()){

@@ -2838,8 +2838,11 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 /* 우측 인스펙터 */
 /* 속성 인스펙터 — 에디터 위에 뜨는 팝업 */
 .agentic-inspector-popup{position:absolute;top:12px;right:12px;width:300px;max-width:calc(100% - 24px);max-height:calc(100% - 24px);overflow-y:auto;z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg)}
+.agentic-inspector-popup.dragging{user-select:none;box-shadow:var(--shadow-xl,0 12px 32px rgba(15,23,42,.28))}
 .agentic-inspect-card{display:flex;flex-direction:column;gap:11px;padding:13px}
-.agentic-inspect-head{display:flex;align-items:flex-start;gap:9px}
+/* 헤더를 잡고 팝업을 옮길 수 있음(닫기 버튼 제외) */
+.agentic-inspect-head{display:flex;align-items:flex-start;gap:9px;cursor:move}
+.agentic-inspect-head .agentic-inspect-close{cursor:pointer}
 .agentic-inspect-ic{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;font-size:17px;flex:none}
 .agentic-inspect-head>div{flex:1;min-width:0}
 .agentic-inspect-head strong{display:block;font-size:14px;color:var(--tx-1)}
