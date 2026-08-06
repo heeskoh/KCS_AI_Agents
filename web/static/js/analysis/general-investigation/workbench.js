@@ -9,7 +9,7 @@ export function renderWorkbenchPanel(deps) {
 
 export const workbenchSubtab = {
   id:       "workbench",
-  label:    "AI서비스 분석 작업",
+  label:    "AI수사 증거 수집/분석",
   enabledWhen: context => !!context.case,
   aiServices: [
     "db_cdw", "declaration_verify", "customs_value", "hs_verify",

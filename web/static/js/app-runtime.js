@@ -8050,14 +8050,12 @@ function giStageWorkbenchHtml(){
       <div class="scenario-work-header">
         <div class="scenario-title-row">
           <div>
-            <h3>분석 시나리오 확인 및 설정</h3>
-            <p class="muted">기초데이터 분석 → 외부데이터 수집 → 심층 분석 시나리오 → 보고서 생성 및 검증의 4단계로 분석을 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초 분석과 보고서 생성·검증은 기본(default)으로 항시 수행됩니다.</em></p>
+            <h3>AI수사 증거 수집/분석</h3>
+            <p class="muted">기초데이터 분석 → 증거 수집 → 접견/신문 → 범죄일람표 작성의 4단계로 수사를 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초데이터 분석과 범죄일람표 작성은 기본(default)으로 수행되고, 증거·접견/신문은 항목별로 등록합니다.</em></p>
           </div>
         </div>
         <div class="scenario-header-actions">
           ${doneNote}
-          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
-            title="4단계 분석을 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
         </div>
       </div>
 
