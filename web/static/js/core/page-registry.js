@@ -1,11 +1,15 @@
 ﻿import { dataTable } from "./dom.js";
 import { homePage } from "../pages/home.js";
+import { invPlatformShell, dumpingPageHtml, taxHelpPageHtml } from "../pages/inv-copilot.js";
+import { isPlatformShellPage } from "../core-engine/platform-sites.js";
 
 export const pageNames = {
   home:"My AI 분석",
   agentic:"AI Agentic 서비스",
   canvas:"AI 작업 캔버스",
   investigation:"관세조사분석",
+  dumping:"덤핑관리",
+  taxhelp:"납세도움정보",
   generalinv:"관세수사분석",
   profile:"관세포탈 대시보드",
   classification:"품목분류",
@@ -24,18 +28,15 @@ export const pageNames = {
 };
 
 export function createPageRegistry({
-  activeAnalysisJobs,
   agenticServicePage,
-  analysisButtons,
   canvasPage,
+  getCurrentUser,
   customsInfoPage,
   customsOntologyPage,
   drugInvestigationPage,
   generalInvPage,
   intlInfoPage,
   investigationPage,
-  isSuperAdmin,
-  mainCanvasJob,
   permissionApprovePage,
   riskDashboard,
   riskScreeningPage,
@@ -43,22 +44,31 @@ export function createPageRegistry({
   shortcutState,
   simplePage,
 }){
+  // 관세조사 플랫폼 셸 — 좌측 AI 조사관 채팅 패널의 인사말용 사용자 정보
+  const platformUser = () => {
+    const user = getCurrentUser?.() || {};
+    return { userId: user.id || "", userName: user.name || "" };
+  };
+
   return {
-    home: () => homePage({
-      activeAnalysisJobs,
-      mainCanvasJob,
-      isSuperAdmin,
-      shortcutState,
-      analysisButtons: typeof analysisButtons === "function" ? analysisButtons() : analysisButtons,
-    }),
+    home: () => homePage({ shortcutState }),
 
     canvas: () => canvasPage(),
 
     agentic: () => agenticServicePage(),
 
-    investigation: () => investigationPage(),
+    // 업무영역 별도 사이트에서는 해당 페이지를 플랫폼 셸(좌측 AI 채팅)로 감싼다.
+    // 관세조사: AI 조사관(investigator.html) 전용 — 포털에는 진입 경로 없음
+    investigation: () => isPlatformShellPage("investigation")
+      ? invPlatformShell(investigationPage(), platformUser())
+      : investigationPage(),
+    dumping: () => invPlatformShell(dumpingPageHtml(), platformUser()),
+    taxhelp: () => invPlatformShell(taxHelpPageHtml(), platformUser()),
 
-    generalinv: () => generalInvPage(),
+    // 관세수사: AI 수사관(detective.html)에서는 셸로, 포털에서는 기존 페이지로
+    generalinv: () => isPlatformShellPage("generalinv")
+      ? invPlatformShell(generalInvPage(), platformUser())
+      : generalInvPage(),
 
     profile: () => riskDashboard(),
 
@@ -76,7 +86,13 @@ export function createPageRegistry({
     model: () => customsOntologyPage(),
     rag: () => customsInfoPage(),
     case: () => intlInfoPage(),
-    report: () => simplePage("보고서 생성센터", "AI 캔버스 블록을 조합해 조사보고서를 생성합니다.", `<button class="btn">조사보고서 초안 생성</button>`),
+    // 표준보고서: 별도 사이트(report-support.html)에서는 셸로, 포털에서는 기존 페이지로
+    report: () => {
+      const body = simplePage("보고서 생성센터", "AI 캔버스 블록을 조합해 조사보고서를 생성합니다.", `<button class="btn">조사보고서 초안 생성</button>`);
+      return isPlatformShellPage("report")
+        ? invPlatformShell(`<div class="inv-platform-page">${body}</div>`, platformUser())
+        : body;
+    },
     system: () => simplePage("시스템 관리", "연계시스템, 데이터 파이프라인, 사용자 권한, 보안정책을 관리합니다.", ""),
     governance: () => simplePage("모델·권한·감사 로그", "AI 모델 사용 이력, 프롬프트 로그, 승인 프로세스를 점검합니다.", ""),
     permission: () => permissionApprovePage(),

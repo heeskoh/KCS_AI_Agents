@@ -2,117 +2,70 @@ import { escapeHtml } from "../core/dom.js";
 
 const COACH_PROMPT_PLACEHOLDER = "자연어로 질문을 입력하면 선택된 데이터 소스에 따라 AI가 답변을 제공합니다.\n기본은 LLM 자체 답변이며, 내부정보를 활용하실 때에는 하단의 데이터 소스나 AI 서비스를 선택해 주세요.";
 
-// 2026-07 개편: 마약수사·외환수사 바로가기 제거, 일반수사 → 관세수사 명칭 변경(전면 개편 예정)
-const WORK_SHORTCUTS = [
-  { className: "sky", page: "investigation", label: "관세조사", image: "Customs_Aduit.png" },
-  { className: "rose", page: "generalinv", label: "관세수사", image: "General_Inv.png" },
-  { className: "olive", page: "case", label: "국제정보", image: "Global.png" },
-  { className: "lime", page: "model", label: "관계망 분석", image: "Ontology.png" },
+// 2026-08 개편: 하단 업무 바로가기·대시보드 슬라이드·AI 작업 캔버스 제거.
+// 우측 컬럼은 전문 업무영역 진입 카드(AI 기업조사관·AI 수사관·표준보고서 지원)로 구성,
+// 관리자 진입은 상단 메뉴 오른쪽 끝(tbAdminBtn)으로 이동.
+// 카드 아이콘 — 파스텔 단색 스트로크 SVG (색상은 CSS .work-card-icon 카드 클래스별 지정)
+const WORK_CARDS = [
+  { className: "sky",    page: "investigation", href: "/static/investigator.html", label: "AI 기업조사관",
+    desc: "관세조사 대상 기업의 위험분석부터 조사보고서까지 AI가 지원합니다.",
+    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="11" height="18" rx="1.5"/><path d="M8 7h1M8 11h1M8 15h1M12 7h0.5M12 11h0.5"/><circle cx="16.5" cy="16.5" r="3.2"/><line x1="18.9" y1="18.9" x2="21.5" y2="21.5"/></svg>` },
+  { className: "rose",   page: "generalinv",    href: "/static/detective.html", label: "AI 수사관",
+    desc: "사건·우범자 정보를 기반으로 관세수사 업무를 AI가 지원합니다.",
+    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="8.5 11.5 11 14 15.5 9.5"/></svg>` },
+  { className: "purple", page: "report",        href: "/static/report-support.html", label: "표준보고서 지원",
+    desc: "표준 서식에 맞춘 보고서 작성과 검증을 AI가 지원합니다.",
+    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>` },
 ];
 
-const DASHBOARD_SHORTCUTS = [
-  { className: "red", page: "profile", label: "관세포탈 대시보드", image: "CompanyDashborad.png", desc: "관세조사 대상 기업의 관세포탈 위험도와 이상 징후를 확인합니다." },
-  { className: "rose", page: "generalinv", label: "우범자 대시보드", image: "CriminalP.png", desc: "우범자 프로파일과 일반수사 대상을 확인합니다." },
-  { className: "purple", page: "lawsearch", label: "마약 대시보드", image: "Drug_dashboard.png", desc: "마약 위험 모니터링과 수사 대상을 확인합니다." },
-  { className: "orange", page: "investigation", label: "덤핑 대시보드", image: "DumpingDashborad.png", desc: "저가신고, 덤핑 의심 신호를 중심으로 검토합니다." },
-];
-
-function imageTag(fileName, label){
-  return `<img src="/static/img/${escapeHtml(fileName)}" alt="" onerror="this.style.display='none';this.closest('button')?.classList.add('image-missing')">`;
-}
-
-function shortcutButton(button){
-  return `
-    <button class="special-analysis-btn home-image-shortcut ${escapeHtml(button.className)}"
-            data-page="${escapeHtml(button.page)}" type="button" title="${escapeHtml(button.label)}">
-      ${imageTag(button.image, button.label)}
-      <span>${escapeHtml(button.label)}</span>
-    </button>
-  `;
-}
-
-const NAV_ICONS = {
-  investigation: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
-  generalinv:    `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-  lawsearch:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 0 0 6.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 0 0 6.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>`,
-  fxsearch:      `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-  case:          `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-  model:         `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
-  system:        `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>`,
-};
-
-function bnItem({ page, label, image, state = "granted", dataAttr = null }){
+function workCard(item, state){
   const locked = state !== "granted";
-  const attr = dataAttr || `data-page="${escapeHtml(page)}"`;
+  // href가 있으면 별도 사이트로 이동(예: AI 기업조사관 → investigator.html), 없으면 SPA 페이지 전환
+  const navAttr = item.href ? `data-nav-href="${escapeHtml(item.href)}"` : `data-page="${escapeHtml(item.page)}"`;
   return `
-    <button class="bn-item${locked ? " locked" : ""}" ${locked ? "disabled" : attr} type="button"
-            title="${escapeHtml(label)}${locked ? " · 권한이 없습니다" : ""}">
-      ${imageTag(image, label)}
-      <span>${escapeHtml(label)}</span>
-      <i class="bn-state ${locked ? "off" : "on"}" aria-label="${locked ? "비활성" : "활성"}"></i>
+    <button class="home-work-card special-analysis-btn ${escapeHtml(item.className)}${locked ? " locked" : ""}"
+            ${locked ? "disabled" : navAttr} type="button"
+            title="${escapeHtml(item.label)}${locked ? " · 권한이 없습니다" : ""}">
+      <span class="work-card-icon" aria-hidden="true">${item.icon}</span>
+      <span>
+        <strong>${escapeHtml(item.label)}</strong>
+        <small>${escapeHtml(item.desc)}</small>
+      </span>
     </button>`;
 }
 
-function bottomShortcutBar({ isSuperAdmin = () => false, shortcutState = () => "granted" } = {}){
-  const adminButton = bnItem({
-    page: "system", label: "관리자", image: "Admin.png",
-    state: shortcutState("system"),
-    dataAttr: isSuperAdmin() ? "data-super-scenario-builder" : `data-page="system"`,
-  });
+// 좌측 채팅 패널 — 일반적인 AI Chat UI 구성: 새 채팅·바로가기(AI 어시스턴트/AI 분석서비스)·채팅 이력.
+// 이력 목록은 렌더 후 런타임(homeRenderChatHistory)이 localStorage에서 채운다.
+function chatSidePanel(){
   return `
-    <nav class="home-bottom-nav" aria-label="업무 분석 바로가기">
-      <span class="bn-label">업무 바로가기</span>
-      <div class="bn-items">
-        ${WORK_SHORTCUTS.map(s => bnItem({ ...s, state: shortcutState(s.page) })).join("")}
-        ${adminButton}
-      </div>
-      <button class="bn-exit" id="shutdownAllBtn" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        종료
+    <aside class="card home-chat-side home-col-card" aria-label="채팅 패널">
+      <button class="chat-side-new" id="homeNewChatBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        새 채팅
       </button>
-    </nav>
-  `;
-}
-
-function dashboardRail(){
-  return `
-    <button class="home-dashboard-rail-toggle" data-dashboard-open type="button" aria-expanded="false">
-      대시보드
-    </button>
-  `;
-}
-
-function dashboardDrawer(){
-  return `
-    <div class="home-dashboard-backdrop" data-dashboard-close hidden></div>
-    <aside class="home-dashboard-drawer" aria-label="대시보드 슬라이딩 윈도우" aria-hidden="true">
-      <div class="home-dashboard-drawer-head">
-        <div>
-          <h3>대시보드</h3>
-        </div>
-        <button class="home-dashboard-close" data-dashboard-close type="button" aria-label="대시보드 닫기">×</button>
-      </div>
-      <div class="home-dashboard-drawer-body">
-        ${DASHBOARD_SHORTCUTS.map(item => `
-          <button class="home-dashboard-card special-analysis-btn ${escapeHtml(item.className)}"
-                  data-page="${escapeHtml(item.page)}"
-                  type="button">
-            ${imageTag(item.image, item.label)}
-            <span>
-              <strong>${escapeHtml(item.label)}</strong>
-              <small>${escapeHtml(item.desc)}</small>
-            </span>
-          </button>
-        `).join("")}
+      <div class="chat-side-label">바로가기</div>
+      <button class="chat-side-item" data-chat-shortcut="assistant" type="button" title="AI 어시스턴트">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        AI 어시스턴트
+      </button>
+      <button class="chat-side-item" data-chat-shortcut="services" type="button" title="AI 분석서비스">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        AI 분석서비스
+      </button>
+      <div class="chat-side-label">채팅 이력</div>
+      <div class="chat-side-history" id="homeChatHistoryList">
+        <div class="chat-side-empty">아직 채팅 이력이 없습니다.</div>
       </div>
     </aside>
   `;
 }
 
-export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () => false, shortcutState = () => "granted" }){
+export function homePage({ shortcutState = () => "granted" } = {}){
   return `
     <div class="home-layout">
     <div class="home-focus-grid">
+      ${chatSidePanel()}
+      <div class="home-col-resizer" data-col-resize="left" title="드래그하여 크기 조절" role="separator" aria-orientation="vertical"></div>
       <section class="home-analysis-card home-col-card">
 
         <!-- 인사말 (결과 없을 때 표시) -->
@@ -202,18 +155,22 @@ export function homePage({ activeAnalysisJobs, mainCanvasJob, isSuperAdmin = () 
         </div>
       </section>
 
-      <section class="card home-canvas-card home-col-card">
-        <h3>AI 작업 캔버스</h3>
-        <button class="btn secondary canvas-open-main" data-page="canvas" data-canvas-tab="overview">캔버스 열기</button>
-        <p class="canvas-main-copy">다양한 데이터소스와 AI 서비스를 활용하여 나만의 분석을 수행합니다.</p>
-        <div class="main-job-list">
-          ${activeAnalysisJobs().map(mainCanvasJob).join("") || `<div class="empty-state">진행 중인 분석 작업이 없습니다. 아카이브에서 완료된 결과를 확인할 수 있습니다.</div>`}
+      <div class="home-col-resizer" data-col-resize="right" title="드래그하여 크기 조절" role="separator" aria-orientation="vertical"></div>
+      <section class="card home-worknav-card home-col-card">
+        <button class="worknav-toggle" data-worknav-toggle type="button" title="전문 업무 접기" aria-label="전문 업무 접기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <h3>전문 업무</h3>
+        <p class="worknav-copy">전문 업무영역으로 이동하여 AI 분석을 수행합니다.</p>
+        <div class="home-work-list">
+          ${WORK_CARDS.map(item => workCard(item, shortcutState(item.page))).join("")}
         </div>
+        <button class="worknav-rail" data-worknav-toggle type="button" title="전문 업무 펼치기" aria-label="전문 업무 펼치기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          전문 업무
+        </button>
       </section>
     </div>
-    ${bottomShortcutBar({ isSuperAdmin, shortcutState })}
-    ${dashboardRail()}
-    ${dashboardDrawer()}
     </div>
   `;
 }

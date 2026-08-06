@@ -245,7 +245,7 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
 .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.pipeline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.step{background:#eef4ff;border:1px solid #d6e5fb;border-radius:12px;padding:10px 12px;font-size:13px}
 .badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;background:#eff5ff;color:#174ea6}.high{color:var(--red)}.good{color:var(--green)}
 .canvas-toolbar{display:flex;gap:8px;margin:0 0 12px}.canvas-area{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.canvas-block{grid-column:span 6;border:1px solid var(--line);border-radius:16px;background:white;box-shadow:var(--shadow);padding:16px}.canvas-block.wide{grid-column:span 12}.canvas-block.third{grid-column:span 4}.canvas-block h3{margin:0 0 10px}.ppt-note{border-left:4px solid var(--blue);background:#f8fbff;padding:12px;border-radius:12px}
-@media(max-width:1200px){.grid-3,.grid-2,.grid-4,.canvas-area{grid-template-columns:1fr 1fr}.grid-3>.home-canvas-card{max-height:none}.profile{display:none}.canvas-block,.canvas-block.wide,.canvas-block.third{grid-column:span 1}}
+@media(max-width:1200px){.grid-3,.grid-2,.grid-4,.canvas-area{grid-template-columns:1fr 1fr}.profile{display:none}.canvas-block,.canvas-block.wide,.canvas-block.third{grid-column:span 1}}
 @media(max-width:800px){.sidebar{display:none}.main{margin-left:0;width:100%}.topbar{height:auto;flex-direction:column;align-items:stretch}.top-title{min-width:0}.work-tabs{width:100%;min-width:0;flex:none}.grid-3,.grid-2,.grid-4,.split,.canvas-area{grid-template-columns:1fr}.home-layout{height:auto}.home-layout>.grid-3,.home-focus-grid{flex:none}.home-col-card,.home-analysis-card{overflow-y:visible;max-height:none}.home-col-aside{overflow:visible}.home-permission-body{grid-template-columns:1fr}.person-profile-head{display:block}.person-risk-badge{margin-top:10px}.person-profile-metrics,.person-profile-grid{grid-template-columns:1fr}.person-profile-defs{grid-template-columns:1fr}}
 
 .collapsible-label{
@@ -294,19 +294,17 @@ body{margin:0;background:var(--bg);font-family:var(--ff),Arial,'Noto Sans KR',sa
   border-color:#aac7ff;
 }
 /* ── 홈 페이지 레이아웃 — 컬럼별 내부 스크롤 ── */
-.home-layout{display:flex;flex-direction:column;height:100%;gap:10px;min-height:0;position:relative;overflow:hidden;padding-bottom:62px}
+.home-layout{display:flex;flex-direction:column;height:100%;gap:10px;min-height:0;position:relative;overflow:hidden}
 /* ── 관세행정 Copilot 모드(?copilot=1) — 기간계 호출용 독립 단일 UI.
-   My AI 분석만 노출: 업무 탭·캔버스·바로가기·대시보드 등 포털 크롬 숨김.
+   My AI 분석만 노출: 업무 탭·전문 업무 카드 등 포털 크롬 숨김.
    창 크기(가로 30%·최대 높이)는 호출측 window.open 이 지정한다. ── */
 body.copilot-mode .tb-tabs,
 body.copilot-mode .tb-right,
 body.copilot-mode .tb-ic,
 body.copilot-mode .tb-copilot-btn,
-body.copilot-mode .home-canvas-card,
-body.copilot-mode .home-bottom-nav,
-body.copilot-mode .home-dashboard-rail-toggle,
-body.copilot-mode .home-dashboard-drawer,
-body.copilot-mode .home-dashboard-backdrop{display:none !important}
+body.copilot-mode .home-chat-side,
+body.copilot-mode .home-col-resizer,
+body.copilot-mode .home-worknav-card{display:none !important}
 body.copilot-mode .topbar{padding:8px 14px;min-height:0}
 body.copilot-mode .tb-brand-text strong{font-size:15px}
 body.copilot-mode .content{padding:10px}
@@ -327,7 +325,47 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 /* 포털 상단 Copilot 실행 버튼 */
 .tb-copilot-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid #c9d7ef;border-radius:999px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .tb-copilot-btn:hover{border-color:#2f6fed;background:#e6efff}
-.home-focus-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(230px,1fr);gap:8px;flex:1;min-height:0;align-items:stretch}
+/* 상단 브랜드 — 클릭 시 포털 홈 이동 (관세조사 플랫폼 셸 스타일은 investigator.css) */
+.tb-brand{cursor:pointer}
+
+/* 포털 상단 오른쪽 끝 — 전체 종료·관리자 진입 */
+.tb-shutdown-btn:hover{color:var(--red)}
+.tb-admin-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--tx-2);font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.tb-admin-btn:hover{border-color:#2f6fed;color:#2f5fd6;background:#eef4ff}
+.home-focus-grid{display:grid;grid-template-columns:var(--home-col-left,225px) 6px minmax(0,1fr) 6px var(--home-col-right,300px);gap:2px;flex:1;min-height:0;align-items:stretch}
+/* 컬럼 리사이저 — 드래그로 좌/우 컬럼 폭 조절 */
+.home-col-resizer{width:6px;border-radius:3px;cursor:col-resize;background:transparent;transition:background .15s;align-self:stretch}
+.home-col-resizer:hover,body.col-resizing .home-col-resizer{background:color-mix(in oklab,var(--accent) 28%,transparent)}
+body.col-resizing{user-select:none;cursor:col-resize}
+/* 우측 전문 업무 컬럼 접기 — 슬림 레일만 남김 */
+.home-focus-grid.worknav-collapsed{grid-template-columns:var(--home-col-left,225px) 6px minmax(0,1fr) 6px 36px}
+.home-focus-grid.worknav-collapsed .home-col-resizer[data-col-resize="right"]{pointer-events:none}
+.home-worknav-card{position:relative}
+.worknav-toggle{position:absolute;top:9px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--tx-3);cursor:pointer;padding:0}
+.worknav-toggle:hover{color:var(--accent);border-color:var(--accent)}
+.worknav-rail{display:none}
+.home-focus-grid.worknav-collapsed .home-worknav-card{padding:8px 3px;overflow:hidden;align-items:center}
+.home-focus-grid.worknav-collapsed .home-worknav-card > *:not(.worknav-rail){display:none}
+.home-focus-grid.worknav-collapsed .worknav-rail{display:flex;flex:1 1 auto;flex-direction:column;align-items:center;gap:9px;width:100%;border:0;background:transparent;cursor:pointer;color:#0f559c;font-weight:900;font-size:12.5px;letter-spacing:1px;writing-mode:vertical-rl;padding:12px 0;border-radius:8px;justify-content:flex-start}
+.home-focus-grid.worknav-collapsed .worknav-rail:hover{background:var(--accent-soft)}
+.home-focus-grid.worknav-collapsed .worknav-rail svg{flex:none}
+/* ── 홈 좌측 채팅 패널 (일반 AI Chat UI) ── */
+.home-chat-side{display:flex;flex-direction:column;gap:2px;padding:12px 10px}
+.chat-side-new{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:38px;border:1px solid #c9d7ef;border-radius:10px;background:linear-gradient(120deg,#eef4ff,#f6f9ff);color:#2f5fd6;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:6px;flex:none}
+.chat-side-new:hover{border-color:#2f6fed;background:#e6efff}
+.chat-side-label{font-size:11px;font-weight:800;color:var(--tx-3);letter-spacing:.3px;padding:10px 6px 4px;flex:none}
+.chat-side-item{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:var(--tx-1);font-size:13px;font-weight:700;text-align:left;padding:8px;border-radius:9px;cursor:pointer;flex:none}
+.chat-side-item:hover{background:var(--accent-soft);color:var(--accent-strong)}
+.chat-side-item svg{color:var(--tx-3);flex:none}
+.chat-side-item:hover svg{color:var(--accent)}
+.home-chat-side .chat-side-history{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.chat-side-empty{font-size:12px;color:var(--tx-3);padding:8px 6px}
+.chat-history-item{position:relative;padding-right:26px}
+.chat-history-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.chat-history-time{flex:none;font-size:10.5px;color:var(--tx-3);font-weight:600}
+.chat-history-del{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:16px;height:16px;line-height:15px;text-align:center;border-radius:50%;font-style:normal;font-size:13px;color:var(--tx-3);display:none;cursor:pointer}
+.chat-history-item:hover .chat-history-del{display:block}
+.chat-history-del:hover{background:#fee2e2;color:#dc2626}
 .home-col-card{overflow-y:auto;display:flex;flex-direction:column;min-height:0}
 .home-col-card>*{flex:none}
 .home-col-aside{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
@@ -402,12 +440,23 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
   background:var(--surface);padding:8px 10px;
 }
 .home-composer-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
-/* canvas card */
-.home-canvas-card h3,.home-special-card h3{position:relative;padding-left:10px;margin-bottom:8px}
-.home-canvas-card h3::after,.home-special-card h3::after{content:"";position:absolute;left:0;right:38px;bottom:-8px;height:1px;background:#2b78a6}
-.home-canvas-card{display:flex;flex-direction:column}
-.canvas-open-main{float:none;display:block;width:100%;margin:14px 0 16px}
-.canvas-main-copy{clear:both;margin:0 0 18px;color:#0f559c;font-size:17px;line-height:1.55;font-weight:800}
+/* ── 홈 우측 전문 업무 카드 컬럼 ── */
+.home-worknav-card h3,.home-special-card h3{position:relative;padding-left:10px;margin-bottom:8px}
+.home-worknav-card h3::after,.home-special-card h3::after{content:"";position:absolute;left:0;right:38px;bottom:-8px;height:1px;background:#2b78a6}
+.home-worknav-card{display:flex;flex-direction:column}
+.worknav-copy{margin:14px 0 16px;color:#0f559c;font-size:15px;line-height:1.5;font-weight:800}
+.home-work-list{display:grid;gap:12px;align-content:start;flex:1;min-height:0;overflow-y:auto;padding-right:2px}
+.home-work-card{width:100%;min-height:88px;display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:12px;text-align:left;padding:12px 14px}
+/* 카드 아이콘 — 카드 색 계열의 파스텔 단색 칩 */
+.work-card-icon{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex:none}
+.home-work-card.sky .work-card-icon{background:#e8f4fd;color:#6cb2e2}
+.home-work-card.rose .work-card-icon{background:#fdeef4;color:#dd93b0}
+.home-work-card.purple .work-card-icon{background:#f3eefc;color:#a98ad8}
+.home-work-card span{display:grid;gap:4px}
+.home-work-card strong{font-size:16px}
+.home-work-card small{font-size:11.5px;line-height:1.35;color:#475569;font-weight:700}
+.home-work-card.locked{opacity:.55;filter:grayscale(.65);cursor:not-allowed;box-shadow:none;transform:none}
+.home-work-card.image-missing img{display:none}
 .main-job-list{display:grid;gap:12px;flex:1;overflow-y:auto;padding-right:4px;min-height:0}
 .main-job-card{border:1px solid #d8e5fb;border-radius:15px;background:#fff;padding:14px;box-shadow:0 8px 22px rgba(8,31,72,.06);cursor:pointer}
 .main-job-card.new{background:#fbfdff;border-color:#aac7ff}
@@ -790,84 +839,15 @@ body.copilot-mode .home-analysis-card{overflow:hidden}
 .special-analysis-btn.lime{border-left-color:#38e36d}
 .special-analysis-btn.brown{border-left-color:#7a4a20}
 .special-analysis-btn.orange{border-left-color:#f97316;color:#c2410c}
-.home-shutdown-btn{margin-top:22px;width:100%;min-height:46px;border:1px solid #f87171;border-radius:8px;background:#fff1f2;color:#dc2626;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 3px 10px rgba(220,38,38,.12)}
-.home-shutdown-btn:hover{background:#fee2e2;border-color:#dc2626}
-/* ── 바텀 네비게이션 — 프로토타입 디자인 ──────── */
-.home-bottom-nav{
-  position:absolute;left:0;right:0;bottom:0;z-index:30;
-  display:flex;align-items:center;gap:10px;
-  min-height:54px;padding:8px 14px;
-  background:color-mix(in oklab,var(--surface) 94%,transparent);
-  backdrop-filter:blur(12px);
-  border-top:1px solid var(--line);
-  box-shadow:0 -4px 16px rgba(16,32,58,.06);
-}
-.bn-label{font-size:11px;font-weight:700;color:var(--tx-3);letter-spacing:.2px;flex:none;white-space:nowrap}
-.bn-items{display:flex;gap:6px;flex:1;overflow-x:auto;padding:2px;scrollbar-width:none}
-.bn-items::-webkit-scrollbar{display:none}
-.bn-item{
-  display:inline-flex;align-items:center;gap:8px;flex:none;
-  border:1px solid var(--line);background:var(--surface);
-  color:var(--tx-1);font-size:13px;font-weight:700;
-  padding:7px 13px;border-radius:11px;cursor:pointer;transition:.15s;white-space:nowrap;
-  box-shadow:0 2px 6px rgba(16,32,58,.06);
-}
-.bn-item:hover:not(:disabled){background:var(--accent-soft);border-color:color-mix(in oklab,var(--accent) 40%,transparent);color:var(--accent-strong);transform:translateY(-1px)}
-.bn-item svg{color:var(--tx-3);flex:none;transition:.15s}
-.bn-item:hover:not(:disabled) svg{color:var(--accent)}
-.bn-item img{width:24px;height:24px;object-fit:contain;flex:none}
-/* 권한 상태 표시: 활성(녹색) / 비활성(회색) */
-.bn-state{flex:none;width:8px;height:8px;border-radius:50%;font-style:normal}
-.bn-state.on{background:#16a34a;box-shadow:0 0 0 2.5px color-mix(in oklab,#16a34a 22%,transparent)}
-.bn-state.off{background:#9ca3af}
-.bn-item.locked{
-  opacity:.55;filter:grayscale(.65);cursor:not-allowed;
-  background:var(--surface-2);box-shadow:none;
-}
-.bn-item.image-missing img{display:none}
-.bn-exit{
-  display:inline-flex;align-items:center;gap:6px;flex:none;
-  border:1px solid var(--line);background:var(--surface);
-  color:var(--tx-2);font-size:12.5px;font-weight:600;
-  padding:8px 14px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap;
-}
-.bn-exit:hover{border-color:color-mix(in oklab,var(--red) 50%,transparent);background:color-mix(in oklab,var(--red) 8%,transparent);color:var(--red)}
-/* legacy compat */
-.home-bottom-shortcuts{display:none}
-.home-image-shortcut{display:none}
-.home-dashboard-rail-toggle{position:fixed;right:0;top:142px;z-index:46;writing-mode:vertical-rl;text-orientation:mixed;min-height:96px;border:1px solid #f43f5e;border-right:0;border-radius:14px 0 0 14px;background:#fff;color:#e11d48;font-weight:900;letter-spacing:0;padding:12px 7px;cursor:pointer;box-shadow:0 8px 22px rgba(15,23,42,.16)}
-.home-dashboard-rail-toggle:hover,.home-dashboard-rail-toggle.open{background:#fff1f2}
-.home-dashboard-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.2);z-index:80}
-.home-dashboard-backdrop[hidden]{display:none}
-.home-dashboard-drawer{position:fixed;top:112px;right:0;bottom:auto;z-index:90;width:min(390px,92vw);max-height:calc(100vh - 126px);background:#fff;border:1px solid var(--line);border-right:0;border-radius:14px 0 0 14px;box-shadow:-18px 0 44px rgba(8,31,72,.22);transform:translateX(104%);transition:transform .24s ease;display:flex;flex-direction:column;overflow:hidden}
-.home-dashboard-drawer.open{transform:translateX(0)}
-.home-dashboard-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px 9px;border-bottom:1px solid var(--line);background:#f8fbff;flex:none}
-.home-dashboard-drawer-head span{display:block;color:#0f559c;font-size:12px;font-weight:900;text-transform:uppercase}
-.home-dashboard-drawer-head h3{margin:0;font-size:17px}
-.home-dashboard-close{border:0;background:#fff;color:#334155;width:30px;height:30px;border-radius:50%;font-size:23px;line-height:1;cursor:pointer;box-shadow:0 3px 10px rgba(15,23,42,.12)}
-.home-dashboard-drawer-body{display:grid;gap:9px;overflow-y:auto;padding:12px 12px 14px}
-.home-dashboard-card{width:100%;min-height:74px;display:grid;grid-template-columns:50px minmax(0,1fr);align-items:center;gap:10px;text-align:left;padding:10px 12px}
-.home-dashboard-card img{width:44px;height:44px;object-fit:contain}
-.home-dashboard-card span{display:grid;gap:4px}
-.home-dashboard-card strong{font-size:16px}
-.home-dashboard-card small{font-size:11px;line-height:1.3;color:#475569;font-weight:700}
-@media(max-width:1200px){
-  .home-focus-grid{grid-template-columns:minmax(0,3fr) minmax(220px,1fr)}
-}
 @media(max-width:800px){
   .content{padding:10px}
-  .home-layout{height:auto;min-height:calc(100vh - 150px);overflow:visible;padding-bottom:92px}
-  .home-focus-grid{grid-template-columns:1fr;gap:10px}
-  .home-bottom-shortcuts{grid-template-columns:1fr;gap:5px;min-height:82px;padding:6px 9px}
-  .home-bottom-shortcut-list{gap:7px}
-  .home-image-shortcut{min-width:84px;height:42px;font-size:12px;padding:4px 7px}
-  .home-image-shortcut img{width:25px;height:25px}
+  .home-layout{height:auto;min-height:calc(100vh - 150px);overflow:visible}
+  .home-focus-grid,.home-focus-grid.worknav-collapsed{grid-template-columns:1fr;gap:10px}
+  .home-col-resizer{display:none}
   .home-mail-share-panel{grid-template-columns:1fr}
   .home-mail-share-form{align-items:stretch}
   .home-mail-share-form input{min-width:0;flex:1}
   .scenario-web-target-form{grid-template-columns:1fr}
-  .home-dashboard-rail-toggle{top:auto;right:0;bottom:92px;min-height:74px}
-  .home-dashboard-drawer{top:90px;width:min(420px,96vw);max-height:calc(100vh - 102px)}
 }
 /* ── 홈 피커 오버레이 (공통) ──────────────────────── */
 .home-permission-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px}

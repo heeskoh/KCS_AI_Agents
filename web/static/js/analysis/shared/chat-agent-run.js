@@ -5,6 +5,7 @@
 
    Copilot(app-runtime homeRunAnalysis)과 같은 엔드포인트·규약을 쓰되, 홈 화면의
    전역 상태(카드·KPI)에 묶이지 않아 워크벤치 대화창 등 어디서든 재사용 가능하다. */
+import { readSseResponse } from "../../core-engine/sse-runner.js";
 
 /** 의도분석 후 내부 AI 서비스를 실행한다.
  * @param {string} userText  사용자 질문
@@ -102,9 +103,6 @@ export async function runChatIntent(userText, {
     return { handled: true, text: header() + "\n_실행 요청이 반려되었습니다._", agents: labels };
   }
 
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   const emit = () => { if(onToken) onToken(compose(true)); };
   emit();
 
@@ -119,27 +117,11 @@ export async function runChatIntent(userText, {
     }
   };
 
-  while(true){
-    let chunk;
-    try { chunk = await reader.read(); }
-    catch(err){ break; }
-    if(chunk.done) break;
-    buffer += decoder.decode(chunk.value, { stream: true });
-    let idx;
-    while((idx = buffer.indexOf("\n\n")) >= 0){
-      const frame = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-      const evName = /event:\s*(\w+)/.exec(frame)?.[1] || "message";
-      const dataMatch = /data:\s*([\s\S]*)/.exec(frame);
-      if(!dataMatch) continue;
-      let data = {};
-      try { data = JSON.parse(dataMatch[1]); } catch(e){ continue; }
-      handleEvent(evName, data);
-      if(evName === "workflow" && (data.status === "completed" || data.status === "failed")){
-        try { reader.cancel(); } catch(e){}
-      }
-    }
-  }
+  // 프레임 파싱은 core-engine/sse-runner — workflow 종료(completed/failed) 수신 시 즉시 닫는다
+  await readSseResponse(resp, (evName, data) => {
+    handleEvent(evName, data);
+    if(evName === "workflow" && (data.status === "completed" || data.status === "failed")) return false;
+  });
 
   return { handled: true, text: compose(false), agents: labels };
 }

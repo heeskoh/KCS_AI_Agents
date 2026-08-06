@@ -1,0 +1,9 @@
+/* ── 표준보고서 지원 사이트 고유 스타일 ─────────────────────────────────
+   공통 셸은 platform-shell.css — 여기서는 사이트 액센트(퍼플)만 지정한다. */
+:root{
+  --plat-pill-border:#c3aae8;
+  --plat-pill-color:#5b2d91;
+  --plat-pill-hover-bg:#f6f1fc;
+  --plat-pill-active-bg:#e9def8;
+  --plat-pill-active-border:#a279d6;
+}

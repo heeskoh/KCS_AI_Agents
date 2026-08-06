@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>표준보고서 지원</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/platform-shell.css" />
+  <link rel="stylesheet" href="/static/report-support.css" />
+  <!-- 별도 사이트 플래그 — 모듈 로드 전에 설정되어 엔진이 플랫폼 셸로 부팅한다 -->
+  <script>window.__KCS_PLATFORM__ = "report";</script>
+  <script type="module" src="/static/report-support.js"></script>
+</head>
+<body class="inv-platform-standalone">
+  <div class="app-shell">
+    <main class="main">
+      <header class="topbar">
+        <div class="tb-brand" title="AI 관세행정 통합포털로 이동" onclick="location.href='/'">
+          <div class="tb-mark" aria-hidden="true">
+            <img src="/static/img/kcs_logo.png" alt="관세청 로고" class="tb-mark-img">
+          </div>
+          <div class="tb-brand-text">
+            <strong>표준보고서 지원</strong>
+            <span>보고서 작성 · 표준 서식 · 근거 검증</span>
+          </div>
+        </div>
+
+        <div class="tb-platform-nav" id="invPlatformNav">
+          <button class="tb-platform-pill" data-page="report" type="button">표준보고서</button>
+        </div>
+
+        <!-- 엔진(addWorkTab) 호환용 — 플랫폼에서는 표시하지 않음 -->
+        <div class="tb-tabs" id="workTabs" style="display:none"></div>
+
+        <div class="tb-right">
+          <button class="tb-portal-link" type="button" onclick="location.href='/'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            포털 홈
+          </button>
+          <button class="tb-profile profile-switcher" id="profileSwitcherBtn" title="사용자 변경">
+            <div class="tb-avatar" id="profileAvatar">김</div>
+            <div class="tb-profile-info">
+              <strong id="profileName">김기획</strong>
+              <small id="profileTeam">정보국 정보기획담당관</small>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section id="content" class="content"></section>
+    </main>
+  </div>
+</body>
+</html>

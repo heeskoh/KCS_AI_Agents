@@ -1,0 +1,9 @@
+/* ── AI 수사관(지능형 관세수사) 사이트 고유 스타일 ──────────────────────
+   공통 셸은 platform-shell.css — 여기서는 사이트 액센트(로즈)만 지정한다. */
+:root{
+  --plat-pill-border:#e3a4bd;
+  --plat-pill-color:#9d2c5a;
+  --plat-pill-hover-bg:#fdf1f6;
+  --plat-pill-active-bg:#f7d9e5;
+  --plat-pill-active-border:#d6799e;
+}

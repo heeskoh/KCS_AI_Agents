@@ -1,0 +1,9 @@
+/* ── AI 조사관(지능형 관세조사) 사이트 고유 스타일 ──────────────────────
+   공통 셸은 platform-shell.css — 여기서는 사이트 액센트(블루)만 지정한다. */
+:root{
+  --plat-pill-border:#7cb1e8;
+  --plat-pill-color:#134d8c;
+  --plat-pill-hover-bg:#eef6ff;
+  --plat-pill-active-bg:#cfe6f7;
+  --plat-pill-active-border:#5a9fd6;
+}
