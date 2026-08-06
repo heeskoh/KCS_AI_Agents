@@ -83,7 +83,10 @@ export function createPageRegistry({
 
     document: () => simplePage("문서검증센터", "비정형 문서를 OCR/LLM으로 인식하고 DB 값과 비교합니다.", `${dataTable(["추출항목","문서값","DB값","판정"], [["품명","Power Module","Power Module","일치"],["단가","USD 120","USD 98","불일치"],["Incoterms","CIF","FOB","불일치"],["로열티","존재","미신고","확인필요"]])}`),
     dw: () => riskScreeningPage(),
-    model: () => customsOntologyPage(),
+    // 관계망분석: AI 수사관(detective.html)에서는 플랫폼 셸로, 포털에서는 기존 페이지로
+    model: () => isPlatformShellPage("model")
+      ? invPlatformShell(`<div class="inv-platform-page">${customsOntologyPage()}</div>`, platformUser())
+      : customsOntologyPage(),
     rag: () => customsInfoPage(),
     case: () => intlInfoPage(),
     // 표준보고서: 별도 사이트(report-support.html)에서는 셸로, 포털에서는 기존 페이지로

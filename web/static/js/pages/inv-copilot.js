@@ -16,6 +16,18 @@ const ATTACH_TOTAL_LIMIT = 24 * 1024;   // GET 한도와 무관(POST)이나 프�
 const threadsByUser = {};   // { userId: message[] } — 세션 내 유지(재렌더에도 보존)
 let attachedFiles = [];     // { name, content }
 let draftText = "";         // 서브탭 이동 재렌더 시 입력 중 텍스트 보존
+let panelMode = "chat";     // "chat" | "case" — Case 패턴분석 지원 사이트(수사관)의 좌측 패널 모드
+
+/* Case 패턴분석 가이드 항목 — 칩 클릭 시 "라벨: " 형태로 입력창에 삽입 */
+const CASE_GUIDE_FIELDS = ["사건유형", "대상국가", "대상품목", "수사관"];
+const CASE_INPUT_PLACEHOLDER = "예: 사건유형 밀수입, 대상국가 중국, 대상품목 의류 — 유사 사건 패턴을 분석합니다.";
+
+function casePatternPrompt(text){
+  return `[Case 패턴분석 요청] 아래 조건과 유사한 과거 수사 사건들의 패턴을 분석해줘.
+수법·대상품목·대상국가·경로·처리결과의 공통 패턴과 시사점을 중심으로 정리할 것.
+[조건]
+${text}`;
+}
 
 function thread(userId){
   return threadsByUser[userId] || (threadsByUser[userId] = []);
@@ -43,6 +55,8 @@ function chipsHtml(){
 
 export function invCopilotPanelHtml({ userId = "", userName = "" } = {}){
   const messages = thread(userId);
+  const withCaseSearch = siteConfig().caseSearch === true;
+  const caseMode = withCaseSearch && panelMode === "case";
   return `
     <aside class="inv-copilot-panel" id="invCopilotPanel">
       <div class="inv-copilot-greet">
@@ -54,11 +68,31 @@ export function invCopilotPanelHtml({ userId = "", userName = "" } = {}){
         </h2>
         <p>${escapeHtml(GREET_COPY)}</p>
       </div>
+      ${withCaseSearch ? `
+      <div class="inv-copilot-modes" role="tablist">
+        <button class="inv-copilot-mode${caseMode ? "" : " active"}" data-inv-mode="chat" type="button" role="tab" aria-selected="${!caseMode}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          AI Chat
+        </button>
+        <button class="inv-copilot-mode${caseMode ? " active" : ""}" data-inv-mode="case" type="button" role="tab" aria-selected="${caseMode}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Case 패턴분석
+        </button>
+      </div>` : ""}
       <div class="inv-copilot-list" data-inv-chat-list>
         ${messages.map(bubbleHtml).join("")}
       </div>
+      ${withCaseSearch ? `
+      <div class="inv-case-guide" data-inv-case-guide ${caseMode ? "" : "hidden"}>
+        <strong>Case 패턴분석 가이드</strong>
+        <p>아래 항목을 조합해 조건을 입력하면 과거 유사 사건의 수법·품목·국가 패턴을 분석합니다.</p>
+        <div class="inv-case-guide-chips">
+          ${CASE_GUIDE_FIELDS.map(field => `<button type="button" data-inv-guide-chip="${escapeHtml(field)}">${escapeHtml(field)}</button>`).join("")}
+          <span class="inv-case-guide-etc">등</span>
+        </div>
+      </div>` : ""}
       <div class="inv-copilot-composer">
-        <textarea data-inv-chat-input rows="3" placeholder="${escapeHtml(INPUT_PLACEHOLDER)}">${escapeHtml(draftText)}</textarea>
+        <textarea data-inv-chat-input rows="3" placeholder="${escapeHtml(caseMode ? CASE_INPUT_PLACEHOLDER : INPUT_PLACEHOLDER)}">${escapeHtml(draftText)}</textarea>
         <div class="inv-copilot-bar">
           <label class="inv-copilot-attach" title="파일 첨부">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -134,6 +168,38 @@ ${userText}${attachmentBlock()}`;
 export function initInvCopilot({ userId = "", companyId = "" } = {}){
   const root = document.getElementById("invCopilotPanel");
   if(!root) return;
+
+  /* ── Case 패턴분석 모드 (AI 수사관): 탭 전환 + 가이드 칩 ── */
+  const guide = root.querySelector("[data-inv-case-guide]");
+  if(guide){
+    const promptInput = root.querySelector("[data-inv-chat-input]");
+    root.querySelectorAll("[data-inv-mode]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        panelMode = btn.dataset.invMode;
+        const caseMode = panelMode === "case";
+        root.querySelectorAll("[data-inv-mode]").forEach(b => {
+          b.classList.toggle("active", b.dataset.invMode === panelMode);
+          b.setAttribute("aria-selected", b.dataset.invMode === panelMode);
+        });
+        guide.hidden = !caseMode;
+        if(promptInput){
+          promptInput.placeholder = caseMode ? CASE_INPUT_PLACEHOLDER : INPUT_PLACEHOLDER;
+          promptInput.focus();
+        }
+      });
+    });
+    // 가이드 칩 클릭 → "항목: " 을 입력창에 삽입
+    guide.addEventListener("click", (event) => {
+      const chip = event.target.closest("[data-inv-guide-chip]");
+      if(!chip || !promptInput) return;
+      const token = `${chip.dataset.invGuideChip}: `;
+      promptInput.value = promptInput.value
+        ? `${promptInput.value.replace(/\s+$/, "")}\n${token}`
+        : token;
+      draftText = promptInput.value;
+      promptInput.focus();
+    });
+  }
   const list = root.querySelector("[data-inv-chat-list]");
   const input = root.querySelector("[data-inv-chat-input]");
   const send = root.querySelector("[data-inv-chat-send]");
@@ -192,17 +258,20 @@ export function initInvCopilot({ userId = "", companyId = "" } = {}){
     const bodyEl = assistantEl.querySelector(".chat-bubble-body");
     const paint = acc => { if(bodyEl){ bodyEl.innerHTML = markdownToHtml(acc); scrollBottom(); } };
 
+    // Case 패턴분석 모드: 조건 입력을 유사 사건 패턴분석 요청으로 프레이밍(버블에는 원문 표시)
+    const effective = (panelMode === "case" && siteConfig().caseSearch) ? casePatternPrompt(text) : text;
+
     // Copilot과 동일 흐름 — ① 의도분석으로 내부 AI 서비스 자동 실행
     let answer = "";
     try{
-      const res = await runChatIntent(text + attachmentBlock(), {
+      const res = await runChatIntent(effective + attachmentBlock(), {
         companyId, targetType: "company", llmMode: "ext_int", onToken: paint,
       });
       if(res?.handled) answer = res.text || "";
     }catch(e){ /* 폴백 진행 */ }
     // ② 내부 서비스 해당 없음 → 일반 LLM 답변 폴백
     if(!answer){
-      answer = await streamLlmText(buildFallbackPrompt(messages, text), { mode: "ext_int", onToken: paint });
+      answer = await streamLlmText(buildFallbackPrompt(messages, effective), { mode: "ext_int", onToken: paint });
     }
     const finalText = answer || "응답을 받지 못했습니다. 잠시 후 다시 시도하세요.";
     if(bodyEl) bodyEl.innerHTML = markdownToHtml(finalText);

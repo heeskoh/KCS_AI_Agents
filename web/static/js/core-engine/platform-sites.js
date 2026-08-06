@@ -12,9 +12,10 @@ const PLATFORM_SITES = {
   },
   detective: {
     boot: "generalinv",
-    pages: ["generalinv"],
+    pages: ["generalinv", "model"],
     role: "관세청 관세수사 업무를 돕는 'AI 수사관'",
     scope: "관세수사·사건분석·우범자 정보",
+    caseSearch: true,   // 좌측 패널에 'AI Chat / 사건검색' 2모드 지원
   },
   report: {
     boot: "report",

@@ -1407,6 +1407,7 @@ const GEN_INV_TYPES = [
 ];
 
 function genInvTypeById(id){ return GEN_INV_TYPES.find(t => t.id === id) || GEN_INV_TYPES[6]; }
+
 let giRunEventSource   = null; // 일반수사 분석 실행 SSE 연결
 let drugRunEventSource = null; // 마약수사 분석 실행 SSE 연결 (별도 분리)
 
@@ -8005,7 +8006,7 @@ export function render(page="home"){
                    (page === "canvas" && canvasTab === "report") ||
                    // 업무영역 별도 사이트: 좌측 AI 채팅 패널 풀 높이 유지
                    page === "dumping" || page === "taxhelp" ||
-                   (isStandalonePlatform() && page === "report") ||
+                   (isStandalonePlatform() && isPlatformShellPage(page)) ||
                    // 관세조사: 모든 서브탭을 시나리오/관계분석과 동일한 전체 프레임으로 통일
                    (page === "investigation" || pageTemplate === "customs") ||
                    // 관세수사: 모든 서브탭을 관세조사와 동일한 전체 프레임으로 통일
