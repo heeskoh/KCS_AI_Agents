@@ -1,5 +1,7 @@
 /* ── AI 수사관(지능형 관세수사) 사이트 고유 스타일 ──────────────────────
-   공통 셸은 platform-shell.css — 여기서는 사이트 액센트(로즈)만 지정한다. */
+   공통 셸은 platform-shell.css — 여기서는 사이트 액센트(로즈)와
+   좌측 AI Chat 패널 폭(화면의 30%)을 지정한다. */
+.inv-copilot-panel{width:30vw;min-width:320px}
 :root{
   --plat-pill-border:#e3a4bd;
   --plat-pill-color:#9d2c5a;
