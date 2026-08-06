@@ -2042,20 +2042,28 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .scenario-list{min-height:66px;margin:0;padding:0 2px 4px;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;list-style:none;scrollbar-width:thin}
 /* ── 관세조사 4단계 시나리오 스테이지 UI (분석 시나리오 확인 및 설정) ── */
 .ci-stage-workbench{display:flex;flex-direction:column;min-height:0}
+/* 확인및설정 탭에서는 좌측 챗 UI와 하단선을 맞추기 위해 허브·카드의 하단 여백을 제거 */
+.ci-hub:has(.ci-stage-workbench){padding-bottom:0}
+.ci-stage-workbench.scenario-workbench-v2{padding-bottom:0;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
 .ci-stage-layout{display:flex;gap:12px;flex:1;min-height:0;margin-top:10px}
 .ci-stage-side{width:25%;min-width:300px;flex:none;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:3px}
 /* 우측 분석결과 창 — 기본 .scenario-log(margin-top 14px·고정 520px)를 덮어
    좌측 단계(기초데이터 분석) 컬럼과 상단·하단 높이를 정렬한다 */
-.scenario-log.ci-stage-main{flex:1;min-width:0;min-height:0;margin-top:0;height:auto}
-/* 결과 영역 탭 — 선택된 서비스 / 단계별 결과 */
+.scenario-log.ci-stage-main{flex:1;min-width:0;min-height:0;margin-top:0;height:auto;border:0;background:transparent;padding:0}
+/* 결과 영역 탭 — 선택된 서비스 / 단계별 결과 (좌측 단계 헤더 바와 같은 높이) */
 .ci-result-tabs{display:flex;gap:7px;flex-wrap:wrap;flex:none;margin-bottom:10px}
-.ci-result-tab{border:1.5px solid #215f9a;border-radius:9px;background:repeating-linear-gradient(45deg,#fff 0 6px,#f0f5fb 6px 12px);color:#215f9a;font-size:12px;font-weight:800;padding:6px 13px;cursor:pointer;transition:.15s}
+.ci-result-tab{display:inline-flex;align-items:center;height:38px;box-sizing:border-box;border:1.5px solid #215f9a;border-radius:9px;background:repeating-linear-gradient(45deg,#fff 0 6px,#f0f5fb 6px 12px);color:#215f9a;font-size:12px;font-weight:800;padding:0 13px;cursor:pointer;transition:.15s}
 .ci-result-tab:hover{background:#eef4fb}
-.ci-result-tab.active{background:#215f9a;color:#fff}
+.ci-result-tab.active{background:#1f60f2;border-color:#1f60f2;color:#fff}
 .ci-result-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:3px}
-.ci-result-block{border:1px solid #d3e0ec;border-radius:10px;background:#fbfdff;padding:10px 12px}
-.ci-result-block-head{font-size:12.5px;font-weight:800;color:#215f9a;margin-bottom:6px}
-.ci-result-block .markdown-output{font-size:12.5px}
+/* 단계별 결과 블록 — '선택된 서비스 분석결과'(스텝 아코디언)와 동일 디자인:
+   상단 타이틀 바(서비스명 + 상태 배지) + 본문 */
+.ci-result-block{border:1px solid #38bdf8;border-radius:13px;background:#fff;padding:0;flex:none;overflow:hidden}
+.ci-result-block-head{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;font-size:14px;font-weight:800;color:var(--text);border-bottom:1px solid var(--line);margin-bottom:0}
+.ci-result-block-head span{flex:1;min-width:0}
+.ci-result-block-head em{font-style:normal;border-radius:999px;background:#eef4ff;color:#174ea6;padding:3px 8px;font-size:12px;font-weight:700;flex:none}
+.ci-result-block-body{padding:16px;font-size:13px;line-height:1.65}
+.ci-result-block .markdown-output{font-size:13px}
 .ci-stage{border:1.5px solid #215f9a;border-radius:10px;background:#fff;overflow:hidden;flex:none}
 .ci-stage-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:#215f9a;color:#fff;font-size:13px;font-weight:800;padding:7px 10px 7px 12px;cursor:pointer;text-align:left}
 .ci-stage-head em{font-style:normal;font-weight:700;opacity:.85;font-size:11.5px}
@@ -2070,6 +2078,12 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .ci-stage.open .ci-stage-body{display:block}
 .ci-stage-note{margin:0 0 8px;font-size:11.5px;line-height:1.5;color:#475569;font-weight:600}
 .ci-base-list{margin:0;padding-left:16px;font-size:12px;line-height:1.7;color:#1f2c40;font-weight:600}
+/* 확인및설정 기초데이터 분석 — default 수행 서비스도 개별 선택 박스로 표시 */
+.ci-base-list:has(> .ci-base-selectable){padding-left:0;list-style:none;display:grid;gap:6px}
+li.ci-base-selectable{list-style:none;border:1px solid #b9cdea;border-radius:10px;background:#fff;padding:7px 11px;cursor:pointer;transition:.15s}
+li.ci-base-selectable:hover{border-color:#215f9a;background:#f6faff;color:inherit}
+li.ci-base-selectable.active{border-color:#215f9a;background:#e9f1fa;box-shadow:inset 3px 0 0 #215f9a}
+li.ci-base-selectable ul{margin-top:2px}
 .ci-base-list ul{margin:2px 0 0;padding-left:14px;font-weight:500;color:#41546e}
 /* 관세조사 템플릿 4단계 스테이지 편집기 */
 /* 관세조사 템플릿 4단계 편집기 — 좌측 설정 패널 폭 1.5배(300→450px) */
@@ -2130,7 +2144,9 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .ci-chip-detail{list-style:none;margin:0 0 2px;padding:0}
 .ci-stage-config{border:1px solid #cfe0fb;border-left:4px solid var(--blue);border-radius:0 0 10px 10px;background:#f8fbff;padding:10px;margin-top:-4px}
 .ci-stage-config-dock:empty{display:none}
-.ci-stage-templates{border:1.5px solid #215f9a;border-radius:10px;background:#fff;padding:9px 11px;display:grid;gap:7px;flex:none}
+.ci-stage-templates{border:1.5px solid #215f9a;border-radius:10px;background:#fff;padding:9px 11px;display:grid;gap:7px;flex:none;margin-top:auto}
+/* 확인및설정에서는 템플릿 등록 박스를 좌측 컬럼 맨 아래에 고정(챗 UI·분석결과 창과 하단 정렬) */
+.ci-stage-side .ci-stage-templates{position:sticky;bottom:0}
 .ci-stage-template-actions{display:flex;gap:6px}
 .ci-stage-template-actions .btn{flex:1}
 .scenario-list-horizontal .scenario-chip{flex:0 0 232px;min-height:58px}
@@ -2356,6 +2372,10 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .risk-kpi-item:last-child{border-right:0}
 .risk-kpi-item span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .risk-kpi-item strong{font-size:22px;font-weight:900}
+/* 분석대상 기업등록(엑셀 업로드) — KPI 스트립 첫 칸의 액션 버튼 */
+.risk-kpi-item.risk-kpi-register{background:#f0f6ff}
+.risk-kpi-register strong{font-size:15px;color:#1d4ed8;line-height:31px}
+.risk-kpi-item.risk-kpi-register:hover{background:#e0edff}
 .risk-alert-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .risk-alert-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center;box-shadow:var(--shadow)}
 .risk-alert-item span{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.4}

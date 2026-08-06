@@ -1,17 +1,12 @@
-/* 관세조사 "수사정보 분석" 탭 — 3단 구조.
-   좌: 실시간 AI 챗봇(조사 대상·분석결과·선택 자료 컨텍스트 주입)
-   중: AI정보분석 시각화 — 분석 관점 탭(신고·물품 정합성/물류·경로/자금흐름/관계·네트워크/행위·패턴)
+/* 관세조사 "수사정보 분석" 탭 — 2단 구조.
+   (AI 대화는 사이트 좌측 공통 AI Chat 패널이 담당하므로 워크벤치 내 대화창은 두지 않는다)
+   좌(확대): AI정보분석 시각화 — 분석 관점 탭(신고·물품 정합성/물류·경로/자금흐름/관계·네트워크/행위·패턴)
        선택 시 대응하는 관계 그래프 뷰로 전환
    우: 수집된 정보 — 앞의 탭에서 구성한 기초자료·RAG·AI 분석결과·프로파일 목록.
-       카드를 선택하면 시각화·대화 컨텍스트에 활용된다.
-   대화는 canvasJobOverrides[companyId].insightChat에 영속(50개 캡, deps 경유). */
+       카드를 선택하면 시각화 컨텍스트에 활용된다. */
 import { escapeHtml } from "../../core/dom.js";
-import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
-import { runChatIntent } from "../shared/chat-agent-run.js";
 import { insightVizHtml } from "./insight-viz.js";
 import { networkGraphPanelHtml } from "../shared/network-graph.js";
-
-const CHAT_MOUNT_ID = "ciInsightChat";
 
 /* 분석 관점 탭 — 선택 시 대응하는 분석 결과 시각화(insight-viz.js)를 표시.
    관세수사 수사정보 분석 탭도 동일 워크벤치를 공유한다(general-investigation/insight.js). */
@@ -28,11 +23,9 @@ const groupsOpen = {};
 const selectedItems = new Map();   // itemKey → { title, text }
 let activePerspective = "A";
 let insightCenterMode = "viz";     // 중앙 모드: viz(정보분석 시각화) | graph(프로파일 관계 분석)
-let chatCollapsed = false;         // 좌측 'AI분석 대화창' 접힘
 let cardsCollapsed = false;        // 우측 '수집된 정보' 접힘
 
 const GRAPH_TITLE = "프로파일 관계 분석";
-const CHAT_TITLE = "AI분석 대화창";
 
 function activeCompanyOf(deps, uctx){
   const ctx = uctx?.target;
@@ -49,27 +42,6 @@ function archiveResults(deps, companyId){
   return (archive.scenarioItems || [])
     .filter(item => outputs[item.id])
     .map(item => ({ id: item.id, label: item.label, text: String(outputs[item.id]) }));
-}
-
-/* ── 조사 컨텍스트(시스템 프롬프트) — 선택 자료 우선 반영 ───────────── */
-export function buildCiCaseContext(deps, company){
-  const results = archiveResults(deps, company.company_id)
-    .slice(-4)
-    .map(r => `- [${r.label}] ${r.text.slice(0, 500)}`)
-    .join("\n");
-  const selected = [...selectedItems.values()]
-    .slice(0, 6)
-    .map(item => `- [${item.title}] ${String(item.text || "").slice(0, 400)}`)
-    .join("\n");
-  const profileLine = `기업 · 위험등급 ${company.risk_level || "-"} · 위험점수 ${company.risk_score ?? "-"} · 연간수입액 ${company.annual_import_amount ?? "-"} · 신고관세 ${company.declared_duty_amount ?? "-"}`;
-  return `당신은 대한민국 관세청 조사국의 조사정보 분석 지원 AI입니다.
-아래 조사 컨텍스트를 근거로 조사관의 질문에 한국어로 간결하게(개조식 허용) 답하십시오.
-근거에 없는 사실은 지어내지 말고 "확인 필요"로 표시하십시오.
-
-[조사 대상] ${company.company_name || company.company_id} (${company.company_id}) · 관세조사
-[프로파일 요약] ${profileLine}
-${selected ? `[조사관이 선택한 활용 자료]\n${selected}` : ""}
-${results ? `[AI 분석결과]\n${results}` : "[AI 분석결과] 아직 없음"}`;
 }
 
 /* ── 우측: 수집된 정보 그룹(기초자료·RAG·AI 분석결과·프로파일) ─────── */
@@ -134,33 +106,15 @@ function ciInsightGroupsHtml(deps, company){
   }).join("");
 }
 
-/* ── 렌더: 3단 레이아웃 (gi-insight 공용 스타일 재사용) ────────────── */
+/* ── 렌더: 2단 레이아웃 (gi-insight 공용 스타일 재사용, 시각화 영역 확대) ── */
 export function renderCiInsightPanel(deps, uctx){
   const company = activeCompanyOf(deps, uctx);
   if(!company) return `<div class="profile-loading">진행중인 관세조사에서 조사 대상을 먼저 선택하세요.</div>`;
-  const messages = deps.getCustomsInsightChat?.(company.company_id) || [];
   const persp = PERSPECTIVES.find(p => p.id === activePerspective) || PERSPECTIVES[0];
   const graphMode = insightCenterMode === "graph";
   return `
     <div class="gi-insight-page">
       <div class="gi-insight-layout">
-        <aside class="gi-insight-chat-col${chatCollapsed ? " collapsed" : ""}">
-          <button type="button" class="gi-insight-collapsed-bar" data-ci-insight-expand="chat" title="펼치기">
-            <span class="cbar-arrow">▶</span><span class="cbar-label">${escapeHtml(CHAT_TITLE)}</span>
-          </button>
-          <div class="gi-insight-col-head">
-            <strong>${escapeHtml(CHAT_TITLE)}</strong>
-            <button type="button" class="gi-insight-collapse-btn" data-ci-insight-collapse="chat" title="접기">◀</button>
-          </div>
-          ${chatThreadHtml({
-            mountId: CHAT_MOUNT_ID,
-            messages,
-            placeholder: "조사 대상·분석 결과에 대해 질문하세요 (Enter 전송)",
-            emptyText: "예: \"관세환급 이상률의 근거와 우선 확인할 사항은?\"",
-          })}
-        </aside>
-        <div class="resize-gutter x" data-ci-gutter="chat" data-resize-min="240"
-          title="드래그하여 좌·우 영역 크기 조절" ${chatCollapsed ? `style="display:none"` : ""}></div>
         <section class="gi-insight-center-col">
           <div class="gi-insight-col-head gi-insight-mode-head">
             <div class="gi-insight-mode-tabs">
@@ -248,41 +202,20 @@ export function downloadCurrentViz(perspId, companyId){
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
 }
 
-/* 렌더 후 훅 — Chat·관점 탭·그룹 토글·자료 선택 바인딩 (app-runtime postRender에서 호출) */
+/* 렌더 후 훅 — 관점 탭·그룹 토글·자료 선택 바인딩 (app-runtime postRender에서 호출) */
 export function bindCiInsightChat(deps){
   const companyId = deps.getActiveCanvasCompanyId?.();
   if(!companyId) return;
   const company = (deps.getScenarioCompanies?.() || []).find(c => c.company_id === companyId)
     || { company_id: companyId };
-  bindChatThread({
-    mountId: CHAT_MOUNT_ID,
-    getMessages: () => deps.getCustomsInsightChat?.(companyId) || [],
-    mode: "int",
-    // 관세행정 Copilot과 동일하게 — 질문을 의도분석해 대상 기업 대상으로 AI 서비스 실행,
-    // 내부 서비스가 없으면 아래 buildPrompt 기반 사건 컨텍스트 LLM 답변으로 폴백
-    runIntent: (userText, hooks) => runChatIntent(userText, {
-      companyId, targetType: "company", llmMode: "int", ...hooks,
-    }),
-    buildPrompt: (messages, userText) => {
-      const history = messages
-        .slice(-9, -1)   // 마지막(방금 질문) 제외 최근 대화 4왕복
-        .map(m => `${m.role === "user" ? "조사관" : "AI"}: ${String(m.text).slice(0, 400)}`)
-        .join("\n");
-      return `${buildCiCaseContext(deps, company)}
-${history ? `\n[최근 대화]\n${history}\n` : ""}
-[조사관 질문]
-${userText}`;
-    },
-    onDone: () => deps.saveCanvasState?.(),
-  });
   // 이미지 저장 — 현재 관점의 시각화를 PNG로 다운로드
   document.querySelector("[data-ci-viz-download]")?.addEventListener("click", () => {
     downloadCurrentViz(activePerspective, companyId);
   });
-  // 좌측 'AI분석 대화창' / 우측 '수집된 정보' 접기·펼치기 (전체 재렌더 없이 클래스만 토글)
+  // 우측 '수집된 정보' 접기·펼치기 (전체 재렌더 없이 클래스만 토글)
   const setInsightCollapse = (which, collapsed) => {
-    if(which === "chat") chatCollapsed = collapsed; else cardsCollapsed = collapsed;
-    const col = document.querySelector(which === "chat" ? ".gi-insight-chat-col" : ".gi-insight-cards-col");
+    cardsCollapsed = collapsed;
+    const col = document.querySelector(".gi-insight-cards-col");
     const gutter = document.querySelector(`[data-ci-gutter="${which}"]`);
     if(col) col.classList.toggle("collapsed", collapsed);
     if(gutter) gutter.style.display = collapsed ? "none" : "";
