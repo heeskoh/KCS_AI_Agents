@@ -17,6 +17,28 @@ const threadsByUser = {};   // { userId: message[] } — 세션 내 유지(재�
 let attachedFiles = [];     // { name, content }
 let draftText = "";         // 서브탭 이동 재렌더 시 입력 중 텍스트 보존
 let panelMode = "chat";     // "chat" | "case" — Case 패턴분석 지원 사이트(수사관)의 좌측 패널 모드
+let evidenceSearchOn = false;          // 증거내 검색 모드(수사관) — 등록 증거·기초정보 대상 지능형 검색
+let evidenceContextProvider = null;    // app-runtime이 주입 — 등록된 증거·기초정보 컨텍스트 문자열 반환
+
+/* app-runtime(관세수사 스테이지)이 증거·기초정보 컨텍스트 공급자를 등록한다 */
+export function setEvidenceContextProvider(fn){
+  evidenceContextProvider = fn;
+}
+
+const EVIDENCE_INPUT_PLACEHOLDER = "등록된 증거·기초정보에서 검색할 내용을 입력하세요. (예: 홍콩 송금 관련 진술)";
+
+function buildEvidenceSearchPrompt(userText){
+  const context = (evidenceContextProvider && evidenceContextProvider()) || "";
+  return `당신은 관세청 수사 지원 AI입니다. 아래 [수사 자료]는 이 사건에 등록된 증거·접견/신문 기록·기초데이터 분석 결과입니다.
+질문과 관련된 내용을 자료에서 지능형 검색하여, 출처(자료명)를 밝히며 한국어 개조식으로 답하십시오.
+자료에 없는 내용은 "자료 없음"으로 표시하고 지어내지 마십시오.
+
+[수사 자료]
+${context || "(등록된 자료 없음)"}
+
+[검색 질문]
+${userText}`;
+}
 
 /* Case 패턴분석 가이드 항목 — 칩 클릭 시 "라벨: " 형태로 입력창에 삽입 */
 const CASE_GUIDE_FIELDS = ["사건유형", "대상국가", "대상품목", "수사관"];
@@ -100,6 +122,12 @@ export function invCopilotPanelHtml({ userId = "", userName = "" } = {}){
             <input type="file" data-inv-chat-file multiple accept=".txt,.md,.csv,.json,.html,.xml" style="display:none">
           </label>
           <div class="inv-copilot-chips" data-inv-chat-chips>${chipsHtml()}</div>
+          ${withCaseSearch ? `
+          <button type="button" class="inv-copilot-evsearch${evidenceSearchOn ? " active" : ""}" data-inv-ev-search
+            title="등록된 증거·기초정보 내 지능형 검색">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            증거내 검색
+          </button>` : ""}
           <button type="button" class="inv-copilot-send" data-inv-chat-send>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             실행
@@ -238,6 +266,16 @@ export function initInvCopilot({ userId = "", companyId = "" } = {}){
     renderChips();
   });
 
+  // 증거내 검색 토글 — 켜면 등록 증거·기초정보 대상 지능형 검색으로 실행된다
+  const evSearchBtn = root.querySelector("[data-inv-ev-search]");
+  evSearchBtn?.addEventListener("click", () => {
+    evidenceSearchOn = !evidenceSearchOn;
+    evSearchBtn.classList.toggle("active", evidenceSearchOn);
+    input.placeholder = evidenceSearchOn ? EVIDENCE_INPUT_PLACEHOLDER
+      : (panelMode === "case" && siteConfig().caseSearch ? CASE_INPUT_PLACEHOLDER : INPUT_PLACEHOLDER);
+    input.focus();
+  });
+
   const appendBubble = (message) => {
     list.insertAdjacentHTML("beforeend", bubbleHtml(message));
     scrollBottom();
@@ -261,17 +299,22 @@ export function initInvCopilot({ userId = "", companyId = "" } = {}){
     // Case 패턴분석 모드: 조건 입력을 유사 사건 패턴분석 요청으로 프레이밍(버블에는 원문 표시)
     const effective = (panelMode === "case" && siteConfig().caseSearch) ? casePatternPrompt(text) : text;
 
-    // Copilot과 동일 흐름 — ① 의도분석으로 내부 AI 서비스 자동 실행
     let answer = "";
-    try{
-      const res = await runChatIntent(effective + attachmentBlock(), {
-        companyId, targetType: "company", llmMode: "ext_int", onToken: paint,
-      });
-      if(res?.handled) answer = res.text || "";
-    }catch(e){ /* 폴백 진행 */ }
-    // ② 내부 서비스 해당 없음 → 일반 LLM 답변 폴백
-    if(!answer){
-      answer = await streamLlmText(buildFallbackPrompt(messages, effective), { mode: "ext_int", onToken: paint });
+    if(evidenceSearchOn && siteConfig().caseSearch){
+      // 증거내 검색 모드 — 등록된 증거·접견 기록·기초정보 컨텍스트에서 지능형 검색
+      answer = await streamLlmText(buildEvidenceSearchPrompt(text), { mode: "int", onToken: paint });
+    }else{
+      // Copilot과 동일 흐름 — ① 의도분석으로 내부 AI 서비스 자동 실행
+      try{
+        const res = await runChatIntent(effective + attachmentBlock(), {
+          companyId, targetType: "company", llmMode: "ext_int", onToken: paint,
+        });
+        if(res?.handled) answer = res.text || "";
+      }catch(e){ /* 폴백 진행 */ }
+      // ② 내부 서비스 해당 없음 → 일반 LLM 답변 폴백
+      if(!answer){
+        answer = await streamLlmText(buildFallbackPrompt(messages, effective), { mode: "ext_int", onToken: paint });
+      }
     }
     const finalText = answer || "응답을 받지 못했습니다. 잠시 후 다시 시도하세요.";
     if(bodyEl) bodyEl.innerHTML = markdownToHtml(finalText);

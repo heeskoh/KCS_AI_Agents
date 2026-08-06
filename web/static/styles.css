@@ -2091,6 +2091,34 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .ci-stage.open .ci-stage-body{display:block}
 .ci-stage-note{margin:0 0 8px;font-size:11.5px;line-height:1.5;color:#475569;font-weight:600}
 .ci-base-list{margin:0;padding-left:16px;font-size:12px;line-height:1.7;color:#1f2c40;font-weight:600}
+/* 관세수사 증거 수집·접견/신문 — 등록 항목 카드(요청/결과 등록) */
+.gis-ev-list{display:grid;gap:8px;margin-top:8px}
+.gis-ev-item{border:1px solid #b9cdea;border-left:4px solid #6b8fc9;border-radius:9px;background:#fff}
+.gis-ev-item.active{border-color:#215f9a;border-left-color:#215f9a;box-shadow:0 0 0 1px #215f9a inset}
+.gis-ev-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;cursor:pointer;font-size:12.5px;color:#1d3a63}
+.gis-ev-head strong{font-weight:800}
+.gis-ev-head-side{display:inline-flex;align-items:center;gap:7px;flex:none}
+.gis-ev-head-side i{font-style:normal;font-size:11px;color:#5b7db1}
+.gis-ev-status{font-style:normal;border-radius:999px;background:#fef3c7;color:#92400e;padding:2px 8px;font-size:10.5px;font-weight:800}
+.gis-ev-body{padding:0 11px 9px;display:grid;gap:7px}
+.gis-ev-desc{margin:0;font-size:12px;line-height:1.5;color:#3b4a63}
+.gis-ev-actions{display:flex;gap:6px;justify-content:flex-end}
+.gis-ev-btn{border:1px solid #bfe5cd;border-radius:999px;background:#e7f5ec;color:#1f9254;font-size:11.5px;font-weight:800;padding:4px 13px;cursor:pointer;transition:.15s}
+.gis-ev-btn:hover{background:#d5eedd;border-color:#9fd6b3}
+.gis-iv-content{font-family:inherit;line-height:1.6}
+/* 요청서 승인·결과 등록 오버레이 */
+.gis-doc-overlay{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+.gis-doc-card{width:min(620px,94vw);max-height:88vh;overflow-y:auto;background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(15,23,42,.35);padding:16px 18px;display:grid;gap:10px}
+.gis-doc-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gis-doc-head strong{font-size:14px;color:#123c85}
+.gis-doc-x{border:0;background:transparent;font-size:14px;color:#64748b;cursor:pointer}
+.gis-doc-note{margin:0;font-size:12px;color:#3b4a63;line-height:1.5}
+.gis-doc-text{width:100%;border:1px solid #d8e0ec;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;font-family:'Noto Sans KR',Consolas,monospace;resize:vertical}
+.gis-doc-text:focus{outline:none;border-color:#9ec2f0}
+.gis-doc-actions{display:flex;gap:8px;justify-content:flex-end}
+/* 수사보고서 관리 — [수정] 편집 모드 본문 */
+.gi-doc-edit-area{width:100%;min-height:320px;border:1px solid #9ec2f0;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.65;font-family:'Noto Sans KR',Consolas,monospace;resize:vertical}
+.gi-doc-edit-area:focus{outline:none;border-color:#2f6fed}
 /* 확인및설정 기초데이터 분석 — default 수행 서비스도 개별 선택 박스로 표시 */
 .ci-base-list:has(> .ci-base-selectable){padding-left:0;list-style:none;display:grid;gap:6px}
 li.ci-base-selectable{list-style:none;border:1px solid #b9cdea;border-radius:10px;background:#fff;padding:7px 11px;cursor:pointer;transition:.15s}

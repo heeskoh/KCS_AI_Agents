@@ -51,6 +51,11 @@
 .inv-copilot-chip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#1e4e8c;background:#eaf2fd;border:1px solid #cfe0fb;border-radius:999px;padding:2px 8px;max-width:130px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .inv-copilot-chip i{font-style:normal;cursor:pointer;color:#5b7db1}
 .inv-copilot-chip i:hover{color:#dc2626}
+/* 증거내 검색 — 실행 버튼 앞 토글(수사관): 등록 증거·기초정보 대상 지능형 검색 */
+.inv-copilot-evsearch{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--plat-pill-border);border-radius:9px;background:#fff;color:var(--plat-pill-color);font-size:12px;font-weight:800;padding:6px 11px;cursor:pointer;flex:none;transition:.15s;white-space:nowrap}
+.inv-copilot-evsearch:hover{background:var(--plat-pill-hover-bg)}
+.inv-copilot-evsearch.active{background:var(--plat-pill-active-bg);border-color:var(--plat-pill-active-border)}
+.inv-copilot-bar:has(.inv-copilot-evsearch) .inv-copilot-send{margin-left:0}
 .inv-copilot-send{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:0;border-radius:9px;background:#2f6fed;color:#fff;font-size:12.5px;font-weight:800;padding:7px 14px;cursor:pointer;flex:none}
 .inv-copilot-send:hover{background:#2558c8}
 .inv-copilot-send:disabled{opacity:.55;cursor:default}

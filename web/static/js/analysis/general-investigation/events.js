@@ -74,6 +74,38 @@ export function registerGeneralInvestigationEvents(ctx){
     const giReportDoc = event.target.closest("[data-gi-report-doc]");
     if(giReportDoc){
       generalInvestigationState.giReportDocId = giReportDoc.dataset.giReportDoc;
+      generalInvestigationState.giReportEditing = false;
+      ctx.render("generalinv");
+      return;
+    }
+
+    // 수사보고서 관리: [수정] 편집 모드 토글 / [등록] 저장·등록 처리
+    if(event.target.closest("[data-gi-doc-edit]")){
+      generalInvestigationState.giReportEditing = !generalInvestigationState.giReportEditing;
+      ctx.render("generalinv");
+      return;
+    }
+    if(event.target.closest("[data-gi-doc-register]")){
+      const aCase = ctx.activeGenInvCase();
+      if(!aCase) return;
+      const docId = generalInvestigationState.giReportDocId || "final";
+      const editArea = document.getElementById("giDocEditArea");
+      if(editArea){
+        const text = editArea.value;
+        if(String(docId).startsWith("gis:")){
+          ctx.updateGiStageDoc?.(aCase.caseId, docId, text);
+        }else{
+          const steps = ctx.activeGiCaseSteps();
+          const rep = steps.find(s => s.key === "gi_rep" || s.key === "report_generate" || s.sourceKey === "report_generate");
+          if(rep){
+            aCase.stepResults = { ...(aCase.stepResults || {}), [rep.id]: text };
+            aCase.stepStates  = { ...(aCase.stepStates  || {}), [rep.id]: "done" };
+          }
+        }
+      }
+      aCase.docRegistered = { ...(aCase.docRegistered || {}), [docId]: Date.now() };
+      generalInvestigationState.giReportEditing = false;
+      ctx.saveCanvasState();
       ctx.render("generalinv");
       return;
     }

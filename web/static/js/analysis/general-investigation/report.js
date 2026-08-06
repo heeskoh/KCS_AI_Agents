@@ -16,8 +16,8 @@ function fmtDate(value){
   return d.toLocaleDateString("ko-KR");
 }
 
-/* 좌측 목록: 작성된 수사단서 문서(등록순) + 최종 수사보고서 */
-function reportDocs(aCase){
+/* 좌측 목록: 작성된 수사단서 문서(등록순) + 증거요청/결과 수사보고 + 최종 수사보고서 */
+function reportDocs(aCase, deps){
   // 초안 생성 중(autoDrafting)인 단서도 목록에 표시 — 백그라운드 생성 진행을 이 탭에서 확인
   const docs = (aCase.leads || [])
     .filter(lead => lead.draft || lead.content || lead.autoDrafting)
@@ -31,12 +31,14 @@ function reportDocs(aCase){
       status: lead.confirmed ? "확정" : lead.autoDrafting ? "초안 생성 중" : "작성중",
       date: lead.confirmedAt || lead.createdAt || "",
     }));
+  // 증거수집·접견/신문의 요청(요청서 발송)·결과 등록에서 자동 생성되는 수사보고
+  (deps?.getGiStageDocs?.(aCase.caseId) || []).forEach(d => docs.push({ ...d, kind: "gisdoc" }));
   docs.push({ id: "final", kind: "final", icon: "📑", title: "수사 보고서 (AI 종합)", docLabel: "최종 수사보고서" });
   return docs;
 }
 
-function selectedDoc(aCase){
-  const docs = reportDocs(aCase);
+function selectedDoc(aCase, deps){
+  const docs = reportDocs(aCase, deps);
   const savedId = generalInvestigationState.giReportDocId;
   return docs.find(d => d.id === savedId) || docs[docs.length - 1];   // 기본: 최종 수사보고서
 }
@@ -75,8 +77,13 @@ export function renderReportPanel(deps){
   const repText  = repStep  ? (results[repStep.id]  || "") : "";
   const apprText = apprStep ? (results[apprStep.id] || "") : "";
 
-  const docs = reportDocs(aCase);
-  const doc = selectedDoc(aCase);
+  const docs = reportDocs(aCase, deps);
+  const doc = selectedDoc(aCase, deps);
+  const editing = !!generalInvestigationState.giReportEditing;
+  const registered = (aCase.docRegistered || {})[doc.id];
+  const editRegisterButtons = `
+    <button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-doc-edit>${editing ? "취소" : "✎ 수정"}</button>
+    <button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-doc-register>등록</button>`;
 
   /* ── 좌: 단계별 수사보고서 목록 ── */
   const finalStatus = apprDone ? "검증 완료" : repDone ? "작성 완료" : "미작성";
@@ -96,16 +103,32 @@ export function renderReportPanel(deps){
   let docTitle, docActions = "", docBody;
   if(doc.kind === "final"){
     docTitle = "수사 보고서";
-    docActions = repStep ? (repDone
+    docActions = editRegisterButtons + (repStep ? (repDone
       ? `<button class="btn secondary" style="height:26px;padding:0 10px;font-size:11px" data-gi-rerun-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">↺ 재작성</button>`
-      : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">▶ 보고서 작성 실행</button>`) : "";
-    const bodyHtml = markdownToHtml(deps.ensureReportRequiredSections(repDone ? repText : "", "general", { targetName: aCase.targetName }));
+      : `<button class="btn" style="height:26px;padding:0 10px;font-size:11px" data-gi-run-step="${escapeHtml(aCase.caseId)}:${escapeHtml(repStep.id)}">▶ 보고서 작성 실행</button>`) : "");
+    const bodyHtml = editing
+      ? `<textarea id="giDocEditArea" class="gi-doc-edit-area">${escapeHtml(repText)}</textarea>`
+      : markdownToHtml(deps.ensureReportRequiredSections(repDone ? repText : "", "general", { targetName: aCase.targetName }));
     docBody = standardDocHtml(aCase, [
       ["문서", "최종 수사보고서"],
       ["수사 대상", `${escapeHtml(aCase.targetName)} (${escapeHtml(aCase.companyId || aCase.personId || "-")})`],
       ["작성", repDone ? "AI 초안 생성 완료" : "미작성 — 서식만 표시"],
       ["검증", apprDone ? "AI 검증 완료" : "미검증"],
+      ["등록", registered ? `등록됨 (${escapeHtml(fmtDate(registered))})` : ""],
     ], bodyHtml);
+  } else if(doc.kind === "gisdoc"){
+    // 증거수집·접견/신문에서 자동 생성된 수사보고(증거요청/결과)
+    docTitle = doc.docLabel;
+    docActions = editRegisterButtons;
+    docBody = standardDocHtml(aCase, [
+      ["문서", escapeHtml(doc.docLabel)],
+      ["제목", escapeHtml(doc.title)],
+      ["수사 대상", `${escapeHtml(aCase.targetName)} (${escapeHtml(aCase.companyId || aCase.personId || "-")})`],
+      ["작성일", escapeHtml(fmtDate(doc.date))],
+      ["상태", escapeHtml(doc.status) + (registered ? ` · 등록 ${escapeHtml(fmtDate(registered))}` : "")],
+    ], editing
+      ? `<textarea id="giDocEditArea" class="gi-doc-edit-area">${escapeHtml(doc.text || "")}</textarea>`
+      : markdownToHtml(doc.text || ""));
   } else {
     // 단서 문서: 확정 전에는 이 탭에서 본문 편집·AI 초안 재생성·확정까지 수행한다
     // ('진행중인 수사' 탭은 단서 등록·이력만 담당).
@@ -145,6 +168,17 @@ export function renderReportPanel(deps){
         <p><b>보고서 검증 미실행</b></p>
         <p>보고서 작성 후 검증을 실행하면<br>근거·일관성 검증 결과가 표시됩니다.</p>
       </div>`;
+  } else if(doc.kind === "gisdoc"){
+    const isReq = String(doc.id).endsWith(":req");
+    validBody = `
+      <div class="gi-report3-empty">
+        <span style="font-size:30px;opacity:.25">${isReq ? "📮" : "🧾"}</span>
+        <p><b>${isReq ? "증거요청 보고서" : "결과 보고서"}</b></p>
+        <p>${isReq
+          ? "표준 요청서 승인·발송 시 자동 생성된 수사보고입니다."
+          : "결과 등록 시 AI 분석/요약으로 자동 생성된 수사보고입니다."}</p>
+        <p class="muted" style="font-size:11px">AI 보고서 검증은 최종 수사보고서에 대해 수행됩니다.</p>
+      </div>`;
   } else {
     const lead = doc.lead;
     validBody = `
@@ -180,7 +214,7 @@ export function renderReportPanel(deps){
 
 export const reportSubtab = {
   id: "report",
-  label: "분석 보고서 및 검증",
+  label: "수사보고서 관리",
   enabledWhen: context => !!context.case,
   aiServices: ["report_generate", "report_validate", "mail_share"],
   render: renderReportPanel,
