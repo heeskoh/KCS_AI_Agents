@@ -1116,6 +1116,15 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .gi-crime-plan-preview{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding:8px 10px;border:1px dashed #93c5fd;border-radius:9px;background:#f4f8ff}
 .gi-crime-plan-dims{font-size:11.5px;font-weight:800;color:#1e3a8a}
 .gi-crime-plan-flow{font-size:11.5px;color:#3b4a63;line-height:1.5}
+.gi-crime-plan-sub{font-size:11.5px;color:#3b4a63;line-height:1.5;padding-left:14px}
+/* 유형·수법 설명 — 수법 버튼 옆에 선택된 항목의 설명 표시 */
+.gi-crime-body{display:flex;gap:12px;align-items:stretch}
+.gi-crime-offense-col{flex:1;min-width:0}
+.gi-crime-desc{flex:0 0 36%;min-width:260px;margin-top:8px;border:1px solid #cfe0fb;border-radius:10px;background:#fff;padding:9px 12px;font-size:12px;line-height:1.55;color:#3b4a63;overflow-y:auto;max-height:180px}
+.gi-crime-desc p{margin:0 0 6px}
+.gi-crime-desc p:last-child{margin-bottom:0}
+.gi-crime-desc b{color:#123c85}
+.gi-crime-desc-cat{padding-bottom:6px;border-bottom:1px dashed #d8e0ec}
 /* 단서 타임라인 */
 .gi-lead-timeline{display:flex;flex-direction:column;gap:0;max-height:520px;overflow-y:auto}
 .gi-lead-node{display:flex;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;position:relative}
@@ -2045,6 +2054,10 @@ body.col-resizing{user-select:none;cursor:col-resize}
 /* 확인및설정 탭에서는 좌측 챗 UI와 하단선을 맞추기 위해 허브·카드의 하단 여백을 제거 */
 .ci-hub:has(.ci-stage-workbench){padding-bottom:0}
 .ci-stage-workbench.scenario-workbench-v2{padding-bottom:0;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* 관세수사 AI서비스 분석작업(4단계 스테이지 복사본) — 동일한 높이 체인·하단 정렬 */
+.gi-hub:has(.gis-stage-workbench){padding-bottom:0}
+.gi-tab-body:has(> .gis-stage-workbench){overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.gi-tab-body>.gis-stage-workbench{flex:1;min-height:0}
 .ci-stage-layout{display:flex;gap:12px;flex:1;min-height:0;margin-top:10px}
 .ci-stage-side{width:25%;min-width:300px;flex:none;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:3px}
 /* 우측 분석결과 창 — 기본 .scenario-log(margin-top 14px·고정 520px)를 덮어
@@ -2372,10 +2385,10 @@ li.ci-base-selectable ul{margin-top:2px}
 .risk-kpi-item:last-child{border-right:0}
 .risk-kpi-item span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 .risk-kpi-item strong{font-size:22px;font-weight:900}
-/* 분석대상 기업등록(엑셀 업로드) — KPI 스트립 첫 칸의 액션 버튼 */
-.risk-kpi-item.risk-kpi-register{background:#f0f6ff}
-.risk-kpi-register strong{font-size:15px;color:#1d4ed8;line-height:31px}
-.risk-kpi-item.risk-kpi-register:hover{background:#e0edff}
+/* 기업목록 등록(엑셀 업로드) — KPI 스트립 앞의 단순 버튼(파일첨부 버튼과 동일 스타일) */
+.risk-kpi-side{display:flex;align-items:center;gap:10px;flex:none}
+.risk-register-btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--tx-2);cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:#fff;flex:none;white-space:nowrap}
+.risk-register-btn:hover{border-color:#2f6fed;color:#2f5fd6}
 .risk-alert-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .risk-alert-item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center;box-shadow:var(--shadow)}
 .risk-alert-item span{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.4}

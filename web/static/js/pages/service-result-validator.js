@@ -75,8 +75,8 @@ function processSteps(){
     const v = validate(label, status, text);
     body.insertAdjacentHTML("afterbegin", badgeHtml(v));
   });
-  // 결과 영역 단계별 탭(#ciResultBody)의 결과 블록도 동일하게 검증 배지 부착
-  document.querySelectorAll("#ciResultBody .ci-result-block").forEach(block => {
+  // 결과 영역 단계별 탭(관세조사 #ciResultBody · 관세수사 #gisResultBody)의 결과 블록도 검증 배지 부착
+  document.querySelectorAll("#ciResultBody .ci-result-block, #gisResultBody .ci-result-block").forEach(block => {
     if(block.querySelector(`[${BADGE_ATTR}]`)) return;
     const status = block.querySelector(".ci-result-block-head em")?.textContent.trim() || "";
     if(status !== "완료" && status !== "오류") return;

@@ -1457,6 +1457,7 @@ const genDeps = {
       `<option value="${escapeHtml(tpl.id)}"${tpl.id === giDefaultTemplateId(currentInvTypeId) ? " selected" : ""}>${escapeHtml(tpl.name)}</option>`
     ).join(""),
   sharedScenarioWorkbenchHtml,
+  giStageWorkbenchHtml,   // 관세수사 4단계 스테이지 워크벤치(관세조사 확인및설정 복사본)
   // 수사정보 분석(insight) 탭 deps
   getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
   saveCanvasState,
@@ -1485,6 +1486,8 @@ genDeps.buildSubtabsForPage = page => {
   const aCase = genDeps.activeGenInvCase?.();
   // 관계망(network) 서브탭은 노출하지 않는다 — 관계 시각화는 "수사정보 분석" 탭으로 통일
   options.removeIds.push("network");
+  // 분석 시나리오 템플릿 서브탭도 수사에서는 노출하지 않는다(워크벤치 내 템플릿 영역 삭제와 동일 취지)
+  options.appendIds = options.appendIds.filter(id => id !== "templates");
   // 수사정보 분석 탭 — 설정(enabledSubtabs)에 없어도 활성 사건이 있으면 노출(폴백)
   if(aCase && !options.appendIds.includes("insight")) options.appendIds.push("insight");
   return unifiedSubtabRegistry.subtabsForPage(page, "general", scenarioBuilderConfig, options);
@@ -2564,9 +2567,10 @@ function renderWebTargetPanel(scope){
   // 리뷰 모드(시나리오 스코프): URL 등록 패널은 "URL 직접 등록" 탭 본문에 내장 —
   // 좌측 독립 컨테이너 대신 탭 안의 슬롯을 갱신한다(등록/삭제 후 재렌더 경로 포함).
   if(scope === "scenario" && scenarioReviewMode){
-    // 관세조사 4단계 스테이지 UI: '외부데이터 수집' 단계에 웹 정보수집(URL 등록)을 통합 표시.
+    // 4단계 스테이지 UI: '외부데이터 수집' 단계에 웹 정보수집(URL 등록)을 통합 표시.
     // 서비스가 시나리오에 없어도 폼은 항시 렌더 — 등록 시 서비스가 자동 추가된다.
-    const ext = document.getElementById("ciExtWebPanel");
+    // 관세조사(#ciExtWebPanel)·관세수사(#gisExtWebPanel)는 같은 폼을 각자 슬롯에 렌더.
+    const ext = document.getElementById("ciExtWebPanel") || document.getElementById("gisExtWebPanel");
     if(ext){
       const webItem = scenarioItems.find(item => item.key === "web_search");
       const formItem = webItem
@@ -2593,8 +2597,8 @@ function renderWebTargetPanel(scope){
 }
 
 function addWebTargetToScope(scope){
-  // 관세조사 스테이지 UI: 선택 상태와 무관하게 웹 정보수집 항목에 등록(없으면 자동 추가)
-  const item = (scope === "scenario" && ciStageWebItem(true)) || shareEmailScopeItem(scope);
+  // 스테이지 UI(관세조사 ci/관세수사 gis): 선택 상태와 무관하게 웹 정보수집 항목에 등록(없으면 자동 추가)
+  const item = (scope === "scenario" && (ciStageWebItem(true) || gisStageWebItem(true))) || shareEmailScopeItem(scope);
   if(!item || item.key !== "web_search") return false;
   const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
   const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
@@ -2619,17 +2623,27 @@ function addWebTargetToScope(scope){
   if(queryInput) queryInput.value = "";
   if(loginIdInput) loginIdInput.value = "";
   if(loginPwInput) loginPwInput.value = "";
-  if(scope === "scenario") saveScenarioShareEmailState();
+  if(scope === "scenario") persistScenarioWebTargetState();
   renderWebTargetPanel(scope);
   return true;
 }
 
 function removeWebTargetFromScope(scope, index){
-  const item = (scope === "scenario" && ciStageWebItem(false)) || shareEmailScopeItem(scope);
+  const item = (scope === "scenario" && (ciStageWebItem(false) || gisStageWebItem(false))) || shareEmailScopeItem(scope);
   if(!item || item.key !== "web_search") return;
   setScenarioItemWebTargets(item, scenarioItemWebTargets(item).filter((_, i) => i !== index));
-  if(scope === "scenario") saveScenarioShareEmailState();
+  if(scope === "scenario") persistScenarioWebTargetState();
   renderWebTargetPanel(scope);
+}
+
+/* 시나리오 스코프 URL 등록 상태 영속 — 관세수사 스테이지에서는 사건 단계로 저장 */
+function persistScenarioWebTargetState(){
+  if(document.getElementById("gisExtWebPanel")){
+    const aCase = activeGenInvCase();
+    if(aCase){ saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+    return;
+  }
+  saveScenarioShareEmailState();
 }
 
 function addPendingScenarioWebTarget(){
@@ -2849,6 +2863,11 @@ async function loadCanvasState(){
     if(saved.ciExtUrlOpen === false) ciExtUrlOpen = false;
     if(Array.isArray(saved.ciBaseAiServices) && saved.ciBaseAiServices.length) ciBaseAiServices = saved.ciBaseAiServices;
     if(saved.ciBaseNotes && typeof saved.ciBaseNotes === "object") ciBaseNotesByCompany = saved.ciBaseNotes;
+    if(saved.giStageScenarioNotes && typeof saved.giStageScenarioNotes === "object") gisScenarioNotesByCase = saved.giStageScenarioNotes;
+    if(Array.isArray(saved.giStageExtAgencies)) gisExtAgencyChecked = new Set(saved.giStageExtAgencies);
+    if(saved.giStageExtUrlOpen === false) gisExtUrlOpen = false;
+    if(Array.isArray(saved.giStageBaseAiServices) && saved.giStageBaseAiServices.length) gisBaseAiServices = saved.giStageBaseAiServices;
+    if(saved.giStageBaseNotes && typeof saved.giStageBaseNotes === "object") gisBaseNotesByCase = saved.giStageBaseNotes;
     // 분석 템플릿은 별도 파일(data/analysis_templates.json)에서 로드.
     // 없으면 기존 workspace 상태의 템플릿 키를 1회 이행.
     let templates = await fetchJsonStore("/api/analysis_templates");
@@ -2905,6 +2924,11 @@ function buildWorkspaceStatePayload(){
     ciExtUrlOpen,
     ciBaseAiServices,
     ciBaseNotes: ciBaseNotesByCompany,
+    giStageScenarioNotes: gisScenarioNotesByCase,
+    giStageExtAgencies: [...gisExtAgencyChecked],
+    giStageExtUrlOpen: gisExtUrlOpen,
+    giStageBaseAiServices: gisBaseAiServices,
+    giStageBaseNotes: gisBaseNotesByCase,
     currentUserId,
     generalInvTab: generalInvestigationState.generalInvTab,
     activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
@@ -7089,6 +7113,777 @@ function scenarioReviewWorkbench(){
   `;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   관세수사 — AI서비스 분석 작업: 4단계 스테이지 UI
+   관세조사 "분석 시나리오 확인 및 설정"(위 ci* 클러스터)의 복사본.
+   공유가 아닌 독립 코드(gis* 접두)로 유지해 수사 쪽을 자유롭게 변경한다.
+   실행은 관세수사 엔진(/api/gi_run SSE)을 쓰는 전용 러너(gisStreamSteps)로 수행.
+   기존 워크벤치 요소 id 계약(scenarioList·scenarioStepAccordion·픽커·템플릿 등)은
+   유지하므로 initGiScenarioWorkbench의 바인딩·엔진 함수는 그대로 동작한다.
+   ═══════════════════════════════════════════════════════════════════════ */
+const GIS_BASE_BATCH_SERVICES = [
+  { label: "CDW 조회", items: ["기업 프로파일·수입신고 내역", "최근 심사/범죄 이력"] },
+  { label: "심사정보 RAG 조회", items: ["유사사례 검색"] },
+  { label: "빅데이터모델 결과수집", items: ["기업심사통합정보"] },
+  { label: "전자통관 외부정보조회", items: ["국세청(세적정보)", "한국은행(외환거래)", "여신협회(해외카드내역)"] },
+  { label: "수입신고서 검증(신고내용·첨부파일)", items: [] },
+];
+const GIS_BASE_TAIL_SERVICES = [
+  { label: "법령검토(통관적법성 검증)", items: [] },
+];
+const GIS_BASE_AI_DEFAULTS = [
+  { key: "base_hs",     label: "품목분류 검증",     desc: "신고 품목의 HS코드 분류 적정성을 검증합니다." },
+  { key: "base_price",  label: "신고가격 검증",     desc: "신고가격·과세가격의 적정성(저가·고가신고 여부)을 검증합니다." },
+  { key: "base_refund", label: "환급내역 검증",     desc: "관세 환급 신청 내역의 적정성을 검증합니다." },
+  { key: "base_forex",  label: "외환거래 분석",     desc: "수입대금 송금·외환거래와 신고내역의 일치 여부를 분석합니다." },
+  { key: "base_req",    label: "요건확인대상 검증", desc: "수입요건 확인 대상 해당 여부와 요건 구비를 검증합니다." },
+  { key: "base_origin", label: "원산지 검증",       desc: "FTA 원산지결정기준 충족·원산지증명서 적정성을 검증합니다." },
+];
+const GIS_BASE_FIXED_RUNS = [
+  { label: "CDW 조회", key: "db_cdw",
+    instruction: "기업 프로파일·수입신고 내역과 최근 심사/범죄 이력을 조회하십시오." },
+  { label: "심사정보 RAG 조회", key: "rag_audit",
+    instruction: "유사사례를 검색하여 수사 참고사항을 정리하십시오." },
+  { label: "빅데이터모델 결과수집", key: "ml",
+    instruction: "기업심사통합정보(빅데이터모델 결과)를 수집·정리하십시오." },
+  { label: "전자통관 외부정보조회", key: "db_external",
+    instruction: "국세청(세적정보)·한국은행(외환거래)·여신협회(해외카드내역) 정보를 조회하십시오." },
+  { label: "수입신고서 검증(신고내용·첨부파일)", key: "declaration_verify",
+    instruction: "수입신고 내용과 첨부파일의 정합성을 검증하십시오." },
+];
+const GIS_BASE_AI_RUN_KEYS = {
+  base_hs: "hs_verify", base_price: "customs_value", base_forex: "abnormal_trade",
+  base_refund: "declaration_verify", base_req: "declaration_verify", base_origin: "declaration_verify",
+};
+const GIS_EXT_AGENCIES = [
+  { key: "dart",   label: "금융감독원 전자공시시스템(DART)" },
+  { key: "nice",   label: "NICE평가정보 BizLINE" },
+  { key: "cretop", label: "한국기업데이터 CRETOP" },
+  { key: "kpds",   label: "코리아PDS(KOREA PDS)" },
+  { key: "kpi",    label: "한국물가정보(KPI)" },
+  { key: "kipris", label: "특허정보넷(KIPRIS)" },
+  { key: "orbis",  label: "뷰로반다이크(ORBIS)" },
+  { key: "dnb",    label: "Dun&Bradstreet(D&B)" },
+];
+const GIS_AGENCY_BEHAVIOR = {
+  dart: "dart", nice: "nice_bizline", cretop: "cretop", kpds: "korea_pds",
+  kpi: "kpi", kipris: "kipris", orbis: "orbis", dnb: "dnb",
+};
+const GIS_STAGE_RUN_KEYS = {
+  ext: ["web_search", "external_agency"],
+};
+const GIS_RESULT_TABS = [
+  { key: "selected", label: "선택된 서비스 분석결과" },
+  { key: "base",     label: "1. 기초데이터 분석 결과" },
+  { key: "ext",      label: "2. 외부 데이터 수집 결과" },
+  { key: "deep",     label: "3. 심층 분석 결과" },
+  { key: "report",   label: "4. 보고서 생성 및 검증 결과" },
+];
+const GIS_STAGE_BASE_KEYS = ["db_cdw", "ml", "db_external", "rag_audit", "declaration_verify", "law"];
+
+let gisBaseAiServices = GIS_BASE_AI_DEFAULTS.map(svc => ({ ...svc }));   // 영속
+let gisBaseNotesByCase = {};        // 기초조사 착안사항(사건별·영속)
+let gisScenarioNotesByCase = {};    // 수사 착안사항(사건별·영속)
+let gisBaseSelectedKey = null;
+let gisBaseDetailOpenKey = null;
+let gisBaseRunStatus = {};
+let gisBaseRunResults = [];
+let gisExtRunResults = [];
+let gisStageOpen = { base: false, ext: false, deep: true, report: false };
+let gisDetailCollapsed = false;
+let gisExtAgencyChecked = new Set(["dart", "nice", "orbis"]);   // 영속
+let gisExtUrlOpen = true;                                       // 영속
+let gisResultTab = "selected";
+let gisSelectedBase = null;
+let gisStageEventSource = null;
+
+function gisBaseStateIcon(state){
+  return state === "running" ? "⏳" : state === "done" ? "✅" : state === "error" ? "⚠️" : "";
+}
+
+function gisPaintBaseRunStatus(){
+  document.querySelectorAll("[data-gis-base-state]").forEach(el => {
+    el.textContent = gisBaseStateIcon(gisBaseRunStatus[el.dataset.gisBaseState]);
+  });
+}
+
+function gisPaintBaseSelection(){
+  document.querySelectorAll("[data-gis-base-result]").forEach(li =>
+    li.classList.toggle("active", li.dataset.gisBaseResult === gisSelectedBase));
+}
+
+function gisIsReportStageItem(item){
+  return ["report", "validation", "approve"].includes(item.type)
+    || ["report_generate", "report_validate"].includes(item.key);
+}
+
+function gisStageItemStage(item){
+  if(gisIsReportStageItem(item)) return "report";
+  if(["web_search", "external_agency"].includes(item.key)) return "ext";
+  if(GIS_STAGE_BASE_KEYS.includes(item.key)) return "base";
+  return "deep";
+}
+
+/* 저장하지 않는 일회성 실행 단계 — 기초·외부 배치 수행용(사건 상태 미기록) */
+function gisTransientStep(key, label, instruction){
+  const source = scenarioSourceByKey(key) || {};
+  return {
+    id: `gisbase_${uid()}`, key, sourceKey: key, type: source.type || "agent", label,
+    behaviors: sourceDefaultBehaviors(key),
+    note: instruction, instruction,
+  };
+}
+
+/* 관세수사 스테이지 전용 SSE 러너 — giStreamSteps의 복사본(독립 변경용).
+   기본은 사건 상태(stepStates/stepResults)에 기록하고, transient 모드에서는
+   사건 상태를 건드리지 않고 opts.onStep 콜백으로만 전달한다. 종료 시 resolve. */
+function gisStreamSteps(aCase, stepsToRun, opts = {}){
+  return new Promise(resolve => {
+    if(!aCase || !stepsToRun.length){ resolve(); return; }
+    if(gisStageEventSource){ try{ gisStageEventSource.close(); }catch(e){} gisStageEventSource = null; }
+    const transient = !!opts.transient;
+    if(!transient){
+      if(!aCase.stepStates)  aCase.stepStates  = {};
+      if(!aCase.stepResults) aCase.stepResults = {};
+      stepsToRun.forEach(s => { if(aCase.stepStates[s.id] === "run") delete aCase.stepStates[s.id]; });
+      saveCanvasState();
+      refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+    }
+    const targetType = aCase.targetType || "company";
+    const stepsPayload = stepsToRun.map(s => ({
+      id: s.id, key: s.key, label: s.label, type: s.type,
+      sourceKey: s.sourceKey || giCommonSourceKey(s.key),
+      target_type: targetType, targetType,
+      behaviors: s.behaviors || sourceDefaultBehaviors(s.sourceKey || giCommonSourceKey(s.key)),
+      note: giScenarioRunInstruction(s, targetType),
+      share_recipients: scenarioItemShareRecipients({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
+      web_targets: scenarioItemWebTargets({ ...s, key: s.sourceKey || giCommonSourceKey(s.key) }),
+    }));
+    const shareRecipients = normalizeEmailIds(stepsPayload
+      .filter(step => step.sourceKey === "mail_share")
+      .flatMap(step => step.share_recipients || [])
+      .join(","));
+    const params = new URLSearchParams({
+      execution_mode: "sequential",
+      case_id:     aCase.caseId,
+      target_name: aCase.targetName,
+      target_type: targetType,
+      targetType,
+      target_id:   targetType === "person" ? (aCase.personId || "") : (aCase.companyId || generalInvCompanyId(aCase) || ""),
+      steps:       JSON.stringify(stepsPayload),
+      share_recipients: JSON.stringify(shareRecipients),
+      web_targets: JSON.stringify(normalizeWebTargets(stepsPayload.flatMap(step => step.web_targets || []))),
+    });
+    const finish = () => { gisStageEventSource = null; resolve(); };
+    gisStageEventSource = openRunEventStream(`/api/gi_run?${params.toString()}`, {
+      onStep(data){
+        const step = stepsToRun.find(s => s.id === data.gi_step_id);
+        if(!step) return;
+        if(transient){
+          const output = data.status === "done" ? (data.output || "")
+            : data.status === "error"
+              ? `❗ 실행 오류 — ${step.label || step.id}\n\n${data.error || "실행 중 오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`
+              : "";
+          opts.onStep?.(step, data.status, output);
+          return;
+        }
+        if(data.status === "running"){
+          aCase.stepStates[step.id] = "run";
+        } else if(data.status === "done"){
+          aCase.stepStates[step.id]  = "done";
+          aCase.stepResults[step.id] = data.output || "";
+          const allSteps = aCase.giSteps || [];
+          const doneCnt  = allSteps.filter(s => (aCase.stepStates||{})[s.id] === "done").length;
+          aCase.stepsDone = doneCnt;
+          aCase.status = {
+            ...aCase.status,
+            done: doneCnt, total: allSteps.length,
+            pct:  allSteps.length ? Math.round(doneCnt / allSteps.length * 100) : 0,
+            label: doneCnt === allSteps.length ? "완료" : "진행중",
+            tone:  doneCnt === allSteps.length ? "done"  : "run",
+          };
+        } else if(data.status === "error"){
+          console.error(`[수사 스테이지 실행] 단계 오류 — ${step.label || step.id}\n${data.error || "(상세 없음)"}`);
+          aCase.stepStates[step.id]  = "error";
+          aCase.stepResults[step.id] = `❗ 실행 오류 — ${step.label || step.id}\n\n${data.error || "실행 중 오류가 발생했습니다.(서버가 상세 사유를 반환하지 않음)"}`;
+        }
+        saveCanvasState();
+        refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+      },
+      onWorkflow(data, terminal){
+        if(data.status === "failed") console.error("[수사 스테이지 실행] 워크플로 실패" + (data.error ? `\n${data.error}` : " (직전 단계 오류 참조)"));
+        if(terminal){
+          if(!transient){
+            saveCanvasState();
+            refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+          }
+          finish();
+        }
+      },
+      onDisconnect(info, ev){
+        if(transient){
+          stepsToRun.forEach(s => opts.onStep?.(s, "disconnect",
+            `❗ ${info.reason}\n\n엔드포인트: /api/gi_run\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`));
+        } else {
+          const running = stepsToRun.some(s => aCase.stepStates[s.id] === "run");
+          if(running){
+            console.error(`[수사 스테이지 실행] 서버 연결 오류 — ${info.reason} · 엔드포인트 /api/gi_run · 연결상태 ${info.readyState}`, ev);
+            stepsToRun.forEach(s => {
+              if(aCase.stepStates[s.id] === "run"){
+                aCase.stepStates[s.id] = "error";
+                aCase.stepResults[s.id] = `❗ ${info.reason}\n\n엔드포인트: /api/gi_run\n서버 상태(실행 여부·콘솔 로그)를 확인한 뒤 다시 실행하세요.`;
+              }
+            });
+          }
+          saveCanvasState();
+          refreshScenarioWorkbenchFromCase(aCase, () => render("generalinv"));
+        }
+        finish();
+      },
+    });
+  });
+}
+
+/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 + 법령검토를 순차 수행 */
+async function gisRunBaseBatch(){
+  const aCase = activeGenInvCase();
+  if(!aCase){ alert("수사 대상을 먼저 선택하세요."); return; }
+  const specs = [
+    ...GIS_BASE_FIXED_RUNS.map(fixed => ({ ...fixed })),
+    ...gisBaseAiServices.map(svc => ({
+      label: svc.label,
+      key: GIS_BASE_AI_RUN_KEYS[svc.key]
+        || (svc.key.startsWith("svc_") ? svc.key.slice(4) : "declaration_verify"),
+      instruction: `${svc.desc || `${svc.label}을(를) 수행하십시오.`}` +
+        (svc.note ? `\n[수사 착안사항·확인사항]\n${svc.note}` : ""),
+    })),
+    { label: "법령검토(통관적법성 검증)", key: "law",
+      instruction: "통관적법성 관점에서 관련 법령을 검토하십시오." },
+  ];
+  gisBaseRunStatus = {};
+  gisBaseRunResults = [];
+  const runnable = [];
+  specs.forEach(spec => {
+    const step = gisTransientStep(spec.key, spec.label, spec.instruction);
+    if(!scenarioItemHasPermission(step)){
+      gisBaseRunStatus[spec.label] = "error";
+      gisBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      return;
+    }
+    const entry = { label: spec.label, status: "wait", output: "" };
+    gisBaseRunResults.push(entry);
+    runnable.push({ step, entry });
+  });
+  gisPaintBaseRunStatus();
+  gisRenderResultTab();
+  if(!runnable.length) return;
+  const byId = new Map(runnable.map(r => [r.step.id, r.entry]));
+  await gisStreamSteps(aCase, runnable.map(r => r.step), {
+    transient: true,
+    onStep(step, status, output){
+      const entry = byId.get(step.id);
+      if(!entry) return;
+      if(status === "running") entry.status = "running";
+      else if(status === "done"){ entry.status = "done"; entry.output = output; }
+      else if(status === "error"){ entry.status = "error"; entry.output = output; }
+      else if(status === "disconnect" && entry.status !== "done" && entry.status !== "error"){
+        entry.status = "error"; entry.output = entry.output || output;
+      }
+      gisBaseRunStatus[entry.label] = entry.status === "wait" ? "" : entry.status;
+      gisPaintBaseRunStatus();
+      gisRenderResultTab();
+    },
+  });
+}
+
+function gisBaseAiListHtml(){
+  return gisBaseAiServices.map(svc => `
+    <div class="ci-base-chip${svc.key === gisBaseSelectedKey ? " active" : ""}" data-gis-base-chip="${escapeHtml(svc.key)}">
+      <strong>${escapeHtml(svc.label)}</strong>
+      <span class="ci-base-chip-side">
+        <i class="ci-base-state" data-gis-base-state="${escapeHtml(svc.label)}">${gisBaseStateIcon(gisBaseRunStatus[svc.label])}</i>
+        <i>${gisBaseDetailOpenKey === svc.key ? "▴" : "▾"}</i>
+      </span>
+    </div>
+    ${gisBaseDetailOpenKey === svc.key ? `
+    <div class="ci-base-chip-detail">
+      <p>${escapeHtml(svc.desc || "기초조사 배치 수행에 포함됩니다.")}</p>
+      <textarea class="ci-stage-notes ci-base-svc-notes" data-gis-base-note="${escapeHtml(svc.key)}" rows="2"
+        placeholder="수사 착안사항 및 확인사항">${escapeHtml(svc.note || "")}</textarea>
+    </div>` : ""}
+  `).join("");
+}
+
+function gisRenderBaseAiList(){
+  const box = document.getElementById("gisBaseAiList");
+  if(box) box.innerHTML = gisBaseAiListHtml()
+    || `<div class="empty-state">등록된 AI 분석서비스가 없습니다.</div>`;
+}
+
+/* 외부데이터 수집 실행 — 외부기관정보수집 → 웹 정보수집 요청을 순차 수행 */
+async function gisRunExtBatch(){
+  const aCase = activeGenInvCase();
+  if(!aCase){ alert("수사 대상을 먼저 선택하세요."); return; }
+  gisExtRunResults = [];
+  const agencyBehaviors = [...gisExtAgencyChecked].map(key => GIS_AGENCY_BEHAVIOR[key]).filter(Boolean);
+  const agencyItem = scenarioItems.find(item => item.key === "external_agency");
+  const webItem = scenarioItems.find(item => item.key === "web_search");
+  const specs = [
+    {
+      label: "외부기관정보수집 AI 서비스",
+      transient: !agencyItem,
+      item: agencyItem
+        ? { ...agencyItem, sourceKey: "external_agency", behaviors: agencyBehaviors.length ? agencyBehaviors : agencyItem.behaviors }
+        : (() => {
+            const step = gisTransientStep("external_agency", "외부기관정보수집 AI 서비스",
+              "선택한 외부기관 사이트의 공시·신용·시세·특허 정보를 수집하십시오.");
+            if(agencyBehaviors.length) step.behaviors = agencyBehaviors;
+            return step;
+          })(),
+    },
+    {
+      label: "웹 정보수집 요청 AI 서비스",
+      transient: !webItem,
+      item: webItem
+        ? { ...webItem, sourceKey: "web_search" }
+        : gisTransientStep("web_search", "웹 정보수집 요청 AI 서비스",
+            "등록된 URL·검색 키워드에 대한 수집 요청을 접수하십시오."),
+    },
+  ];
+  for(const spec of specs){
+    if(!scenarioItemHasPermission(spec.item)){
+      gisExtRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      gisRenderResultTab();
+      continue;
+    }
+    if(spec.transient){
+      const entry = { label: spec.label, status: "running", output: "" };
+      gisExtRunResults.push(entry);
+      gisRenderResultTab();
+      await gisStreamSteps(aCase, [spec.item], {
+        transient: true,
+        onStep(step, status, output){
+          if(status === "done"){ entry.status = "done"; entry.output = output; }
+          else if(status === "error"){ entry.status = "error"; entry.output = output; }
+          else if(status === "disconnect" && entry.status === "running"){ entry.status = "error"; entry.output = entry.output || output; }
+          gisRenderResultTab();
+        },
+      });
+    }else{
+      // 시나리오 항목 실행 — 선택을 따라가 진행 상태가 3단계 목록·결과 탭에 반영된다
+      selectedScenarioId = spec.item.id;
+      renderScenarioList();
+      syncScenarioEditor();
+      if(scenarioReviewMode) renderScenarioSteps();
+      await gisStreamSteps(aCase, [spec.item]);
+    }
+  }
+}
+
+function gisStageRunItems(stageKey){
+  if(stageKey === "report") return scenarioItems.filter(gisIsReportStageItem);
+  if(stageKey === "deep")   return scenarioItems.filter(item => !gisIsReportStageItem(item));
+  const keys = GIS_STAGE_RUN_KEYS[stageKey] || [];
+  return scenarioItems.filter(item => keys.includes(item.key));
+}
+
+async function gisRunStage(stageKey, btn){
+  const aCase = activeGenInvCase();
+  if(!aCase){ alert("수사 대상을 먼저 선택하세요."); return; }
+  if(stageKey === "base" || stageKey === "ext"){
+    if(btn){ btn.disabled = true; btn.textContent = "실행 중…"; }
+    try{ await (stageKey === "base" ? gisRunBaseBatch() : gisRunExtBatch()); }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; } }
+    return;
+  }
+  const items = gisStageRunItems(stageKey).filter(scenarioItemHasPermission);
+  if(!items.length){ alert("이 단계에서 실행할 수 있는 서비스가 시나리오에 없습니다."); return; }
+  if(!ensureMailShareRecipients(items)) return;
+  if(!ensureDirectUrlTargets(items)) return;
+  saveWorkbenchToCaseSteps(aCase);
+  const steps = (aCase.giSteps || []).filter(s => items.some(i => i.id === s.id));
+  if(btn){ btn.disabled = true; btn.textContent = "실행 중…"; }
+  try{
+    await gisStreamSteps(aCase, steps);
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; }
+  }
+}
+
+function gisResultBlockHtml(label, status, output){
+  const statusLabel = status === "running" ? "실행 중" : status === "error" ? "오류" : status === "done" ? "완료" : "대기";
+  return `
+    <section class="ci-result-block">
+      <div class="ci-result-block-head"><span>${escapeHtml(label)}</span><em>${statusLabel}</em></div>
+      <div class="ci-result-block-body">
+        ${output ? `<div class="markdown-output">${markdownToHtml(output)}</div>`
+          : `<div class="muted" style="font-size:12px">${status === "running" ? "실행 중…" : "결과가 아직 없습니다."}</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function gisStageResultsHtml(stageKey){
+  const blocks = [];
+  if(stageKey === "base"){
+    gisBaseRunResults.forEach(entry => blocks.push(gisResultBlockHtml(entry.label, entry.status, entry.output)));
+  }
+  if(stageKey === "ext"){
+    gisExtRunResults.forEach(entry => blocks.push(gisResultBlockHtml(entry.label, entry.status, entry.output)));
+  }
+  scenarioItems
+    .filter(item => gisStageItemStage(item) === stageKey)
+    .forEach(item => {
+      const status = { "실행 중": "running", "실행중": "running", "완료": "done", "오류": "error" }[stepStatuses[item.id]] || "wait";
+      if(stepOutputs[item.id] || status !== "wait"){
+        blocks.push(gisResultBlockHtml(normalizeReportValidationLabel(item.label), status, stepOutputs[item.id] || ""));
+      }
+    });
+  if(!blocks.length){
+    const stageLabel = GIS_RESULT_TABS.find(t => t.key === stageKey)?.label || "";
+    return `<div class="empty-state">${escapeHtml(stageLabel.replace(/ 결과$/, ""))}을(를) 실행하면 결과가 여기에 표시됩니다.</div>`;
+  }
+  return blocks.join("");
+}
+
+function gisRenderResultTab(){
+  const body = document.getElementById("gisResultBody");
+  const accordion = document.getElementById("scenarioStepAccordion");
+  if(!body || !accordion) return;
+  document.querySelectorAll("[data-gis-result-tab]").forEach(tab =>
+    tab.classList.toggle("active", tab.dataset.gisResultTab === gisResultTab));
+  const selectedMode = gisResultTab === "selected";
+  const baseSelected = selectedMode && !!gisSelectedBase;
+  accordion.style.display = selectedMode && !baseSelected ? "" : "none";
+  body.style.display = selectedMode && !baseSelected ? "none" : "";
+  if(baseSelected){
+    const entry = gisBaseRunResults.find(e => e.label === gisSelectedBase);
+    body.innerHTML = entry
+      ? gisResultBlockHtml(entry.label, entry.status, entry.output)
+      : `<section class="ci-result-block">
+           <div class="ci-result-block-head"><span>${escapeHtml(gisSelectedBase)}</span><em>대기</em></div>
+           <div class="ci-result-block-body">
+             <div class="muted" style="font-size:12px">1. 기초데이터 분석을 실행하면 이 서비스의 결과가 표시됩니다.</div>
+           </div>
+         </section>`;
+    return;
+  }
+  if(!selectedMode) body.innerHTML = gisStageResultsHtml(gisResultTab);
+}
+
+/* 선택 칩 아래 상세 설정 아코디언 배치(관세수사 스테이지) — DOM 노드 이동으로 바인딩 보존 */
+function gisPlaceScenarioDetail(){
+  const config = document.querySelector(".gis-stage-config");
+  const dock = document.getElementById("gisStageConfigDock");
+  if(!config || !dock) return;
+  const active = document.querySelector("#scenarioList .scenario-chip.active, #gisStage4List .scenario-chip.active");
+  if(!active || gisDetailCollapsed){
+    dock.appendChild(config);
+    config.style.display = "none";
+    return;
+  }
+  config.style.display = "";
+  const holder = document.createElement("li");
+  holder.className = "ci-chip-detail";
+  active.after(holder);
+  holder.appendChild(config);
+}
+
+/* 관세수사 스테이지 UI: 웹 정보수집 항목 — 없으면 등록 시점에 자동 추가 */
+function gisStageWebItem(createIfMissing = false){
+  if(!document.getElementById("gisExtWebPanel")) return null;   // 관세수사 스테이지 UI가 아니면 미개입
+  let item = scenarioItems.find(entry => entry.key === "web_search");
+  if(!item && createIfMissing){
+    const source = scenarioSourceByKey("web_search");
+    if(!source) return null;
+    const aCase = activeGenInvCase();
+    const targetType = aCase?.targetType || "company";
+    const behaviors = [...new Set([...(sourceDefaultBehaviors("web_search") || []), "direct_url"])];
+    item = {
+      id: uid(), key: "web_search", type: source.type, label: source.label,
+      behaviors, order: scenarioItems.length + 1,
+      targetType, target_type: targetType,
+      instruction: scenarioSuggestedInstruction("web_search", targetType, behaviors),
+      shareRecipients: [], webTargets: [],
+    };
+    scenarioItems.push(item);
+    normalizeScenarioOrder();
+    if(aCase){ saveWorkbenchToCaseSteps(aCase); saveCanvasState(); }
+    renderScenarioList();
+    setScenarioStatus("웹 정보수집 요청 AI 서비스가 시나리오에 추가되었습니다");
+    item = scenarioItems.find(entry => entry.key === "web_search");
+  }
+  return item;
+}
+
+/* 관세수사 — AI서비스 분석 작업 (4단계 스테이지 레이아웃) */
+function giStageWorkbenchHtml(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
+  scenarioReviewMode = true;      // renderScenarioSteps/syncScenarioEditor 리뷰 모드 분기
+  scenarioResultViewTab = "result";
+  const states = aCase.stepStates || {};
+  const doneCount = Object.values(states).filter(s => s === "done").length;
+  const doneNote = doneCount
+    ? `<span class="muted" style="font-size:12px">AI 분석 수행 결과 · 완료 ${doneCount}단계</span>`
+    : `<span class="muted" style="font-size:12px">수행된 분석 결과가 없습니다</span>`;
+
+  const baseServiceList = services => `
+    <ul class="ci-base-list">
+      ${services.map(service => `
+        <li class="ci-base-selectable" data-gis-base-result="${escapeHtml(service.label)}" title="클릭하면 이 서비스의 결과를 표시합니다">${escapeHtml(service.label)}
+          <i class="ci-base-state" data-gis-base-state="${escapeHtml(service.label)}">${gisBaseStateIcon(gisBaseRunStatus[service.label])}</i>
+          ${service.items.length
+            ? `<ul>${service.items.map(entry => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
+            : ""}</li>
+      `).join("")}
+    </ul>
+  `;
+  const stage1 = `
+    <p class="ci-stage-note">다음 서비스를 배치(Batch)로 항시 수행합니다(default) — 로그 수준의 초안 보고서를 생성합니다.</p>
+    ${baseServiceList(GIS_BASE_BATCH_SERVICES)}
+    <div class="ci-base-ai">
+      <strong class="ci-base-ai-title">AI 분석서비스</strong>
+      <div class="ci-stage-tools">
+        <select id="gisBaseServiceSelect" class="scenario-template-select"></select>
+        <button type="button" class="btn scenario-template-apply-btn" data-gis-base-add>서비스 추가</button>
+        <button type="button" class="btn secondary scenario-template-apply-btn" data-gis-base-delete>선택 삭제</button>
+      </div>
+      <textarea id="gisBaseNotes" class="ci-stage-notes" rows="2"
+        placeholder="수사 착안사항 및 확인사항">${escapeHtml(gisBaseNotesByCase[aCase.caseId] || "")}</textarea>
+      <div class="ci-base-ai-list" id="gisBaseAiList">${gisBaseAiListHtml()}</div>
+    </div>
+    ${baseServiceList(GIS_BASE_TAIL_SERVICES)}
+  `;
+
+  const stage2 = `
+    <p class="ci-stage-note">데이터 수집이 필요한 외부 기관을 선택하세요.</p>
+    <div class="ci-agency-list">
+      ${GIS_EXT_AGENCIES.map(agency => `
+        <label><input type="checkbox" data-gis-agency="${agency.key}" ${gisExtAgencyChecked.has(agency.key) ? "checked" : ""}> ${escapeHtml(agency.label)}</label>
+      `).join("")}
+      <label><input type="checkbox" data-gis-url-toggle ${gisExtUrlOpen ? "checked" : ""}> URL 직접 등록</label>
+    </div>
+    <div id="gisExtWebPanel" class="ci-ext-web-panel" ${gisExtUrlOpen ? "" : "hidden"}></div>
+  `;
+
+  const stage3 = `
+    <p class="ci-stage-note">심층분석을 위한 분석 시나리오 등록 — 서비스를 추가하고 순서를 변경하거나 수사 착안사항을 등록합니다.</p>
+    <div class="ci-stage-tools">
+      <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
+      <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add>서비스 추가</button>
+      <button type="button" class="btn secondary scenario-template-apply-btn" data-scenario-quick-delete>선택 삭제</button>
+    </div>
+    <textarea id="gisScenarioNotes" class="ci-stage-notes" rows="3"
+      placeholder="수사 착안사항 및 확인사항">${escapeHtml(gisScenarioNotesByCase[aCase.caseId] || "")}</textarea>
+    <ol id="scenarioList" class="scenario-list ci-stage-list"></ol>
+    <div id="gisStageConfigDock" class="ci-stage-config-dock">
+    <div class="ci-stage-config gis-stage-config">
+      <div class="scenario-agent-zone">
+        <div id="scenarioSourceHint" class="scenario-source-hint"></div>
+        <div class="scenario-field scenario-setting-field" id="scenarioServiceSettingsField" style="display:none">
+          <span>입력/설정값</span>
+          <div id="scenarioServiceSettings" class="scenario-setting-options"></div>
+        </div>
+        <div id="scenarioShareEmailPanel"></div>
+        <div id="scenarioWebTargetPanel"></div>
+        <div id="scenarioRagPanel"></div>
+        <div class="scenario-field scenario-behavior-prompt-field">
+          <div id="scenarioBehaviorPromptList" class="scenario-behavior-prompt-list"></div>
+        </div>
+      </div>
+      <div id="scenarioPromptValidation" class="scenario-prompt-validation"></div>
+      <div class="scenario-prompt-actions">
+        <button id="scenarioApplyPromptButton" type="button" class="btn secondary">프롬프트 변경 적용</button>
+        <button id="scenarioValidatePromptButton" type="button" class="btn secondary">프롬프트 검증</button>
+        <button id="scenarioReviewRunButton" type="button" class="btn primary">▶ AI 분석서비스 수행</button>
+      </div>
+    </div>
+    </div>
+  `;
+
+  const stage4 = `
+    <p class="ci-stage-note">보고서 생성과 검증 서비스를 통합 실행하여 보고서와 검증 결과를 생성합니다.</p>
+    <ol id="gisStage4List" class="scenario-list ci-stage-list"></ol>
+  `;
+
+  const gisStageSection = (key, title, isDefault, bodyHtml) => `
+    <section class="ci-stage${gisStageOpen[key] ? " open" : ""}" data-gis-stage="${key}">
+      <div class="ci-stage-head" data-gis-stage-toggle="${key}" role="button" tabindex="0">
+        <span>${title}${isDefault ? ` <em>(default)</em>` : ""}</span>
+        <span class="ci-stage-head-actions">
+          <button type="button" class="ci-stage-run" data-gis-stage-run="${key}" title="이 단계의 서비스를 순차 실행">▶ 실행</button>
+        </span>
+      </div>
+      <div class="ci-stage-body">${bodyHtml}</div>
+    </section>
+  `;
+
+  return `
+    <section class="card scenario-workbench scenario-workbench-v2 scenario-review-mode ci-stage-workbench gis-stage-workbench">
+      <div class="scenario-work-header">
+        <div class="scenario-title-row">
+          <div>
+            <h3>분석 시나리오 확인 및 설정</h3>
+            <p class="muted">기초데이터 분석 → 외부데이터 수집 → 심층 분석 시나리오 → 보고서 생성 및 검증의 4단계로 분석을 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초 분석과 보고서 생성·검증은 기본(default)으로 항시 수행됩니다.</em></p>
+          </div>
+        </div>
+        <div class="scenario-header-actions">
+          ${doneNote}
+          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
+            title="4단계 분석을 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
+        </div>
+      </div>
+
+      <div class="ci-stage-layout">
+        <aside class="ci-stage-side">
+          ${gisStageSection("base",   "1. 기초데이터 분석", true,  stage1)}
+          ${gisStageSection("ext",    "2. 외부데이터 수집", false, stage2)}
+          ${gisStageSection("deep",   "3. 심층 분석 시나리오", false, stage3)}
+          ${gisStageSection("report", "4. 보고서 생성 및 검증", true, stage4)}
+        </aside>
+
+        <section class="scenario-log ci-stage-main">
+          <div class="ci-result-tabs">
+            ${GIS_RESULT_TABS.map(tab => `
+              <button type="button" class="ci-result-tab${gisResultTab === tab.key ? " active" : ""}"
+                data-gis-result-tab="${tab.key}">${escapeHtml(tab.label)}</button>
+            `).join("")}
+          </div>
+          <div id="scenarioClarify" class="scenario-clarify-slot"></div>
+          <div id="scenarioStepAccordion" class="scenario-step-accordion" ${gisResultTab === "selected" ? "" : `style="display:none"`}></div>
+          <div id="gisResultBody" class="ci-result-body" ${gisResultTab === "selected" ? `style="display:none"` : ""}></div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+/* ── 관세수사 스테이지 위임 핸들러(gis 전용 — 관세조사 ci 핸들러와 독립) ── */
+document.addEventListener("click", (event) => {
+  const baseChip = event.target.closest("[data-gis-base-chip]");
+  if(baseChip){
+    const key = baseChip.dataset.gisBaseChip;
+    gisBaseDetailOpenKey = (gisBaseDetailOpenKey === key && gisBaseSelectedKey === key) ? null : key;
+    gisBaseSelectedKey = key;
+    gisRenderBaseAiList();
+    const svc = gisBaseAiServices.find(entry => entry.key === key);
+    if(svc){
+      gisSelectedBase = svc.label;
+      gisResultTab = "selected";
+      gisRenderResultTab();
+      gisPaintBaseSelection();
+    }
+    return;
+  }
+  const baseFixed = event.target.closest("[data-gis-base-result]");
+  if(baseFixed){
+    gisSelectedBase = baseFixed.dataset.gisBaseResult;
+    gisResultTab = "selected";
+    gisRenderResultTab();
+    gisPaintBaseSelection();
+    return;
+  }
+  if(event.target.closest("[data-gis-base-add]")){
+    const select = document.getElementById("gisBaseServiceSelect");
+    const key = select?.value;
+    const source = key ? scenarioSourceByKey(key) : null;
+    if(!source) return;
+    if(gisBaseAiServices.some(svc => svc.key === `svc_${key}`)){
+      alert("이미 기초조사에 추가된 서비스입니다.");
+      return;
+    }
+    gisBaseAiServices.push({
+      key: `svc_${key}`,
+      label: source.label,
+      desc: AI_SERVICE_REGISTRY[key]?.description || AI_SERVICE_REGISTRY[key]?.desc
+        || "기초조사 배치 수행에 포함됩니다.",
+    });
+    gisBaseSelectedKey = `svc_${key}`;
+    gisBaseDetailOpenKey = `svc_${key}`;
+    gisRenderBaseAiList();
+    saveCanvasState();
+    return;
+  }
+  if(event.target.closest("[data-gis-base-delete]")){
+    if(!gisBaseSelectedKey){ alert("삭제할 AI 분석서비스를 먼저 선택하세요."); return; }
+    gisBaseAiServices = gisBaseAiServices.filter(svc => svc.key !== gisBaseSelectedKey);
+    gisBaseSelectedKey = null;
+    gisBaseDetailOpenKey = null;
+    gisRenderBaseAiList();
+    saveCanvasState();
+    return;
+  }
+  const stageRun = event.target.closest("[data-gis-stage-run]");
+  if(stageRun){
+    gisRunStage(stageRun.dataset.gisStageRun, stageRun);
+    return;
+  }
+  const toggle = event.target.closest("[data-gis-stage-toggle]");
+  if(toggle){
+    const key = toggle.dataset.gisStageToggle;
+    gisStageOpen[key] = !gisStageOpen[key];
+    const section = toggle.closest(".ci-stage");
+    section?.classList.toggle("open", gisStageOpen[key]);
+    if(key === "ext" && gisStageOpen.ext){
+      const webItem = scenarioItems.find(item => item.key === "web_search");
+      if(webItem && selectedScenarioId !== webItem.id){
+        selectedScenarioId = webItem.id;
+        renderScenarioList();
+        syncScenarioEditor();
+        if(scenarioReviewMode) renderScenarioSteps();
+      }
+      renderWebTargetPanel("scenario");
+    }
+    return;
+  }
+  const resultTab = event.target.closest("[data-gis-result-tab]");
+  if(resultTab){
+    gisResultTab = resultTab.dataset.gisResultTab;
+    gisRenderResultTab();
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const agency = event.target.closest("[data-gis-agency]");
+  if(agency){
+    if(agency.checked) gisExtAgencyChecked.add(agency.dataset.gisAgency);
+    else gisExtAgencyChecked.delete(agency.dataset.gisAgency);
+    saveCanvasState();
+    return;
+  }
+  const urlToggle = event.target.closest("[data-gis-url-toggle]");
+  if(urlToggle){
+    gisExtUrlOpen = urlToggle.checked;
+    const panel = document.getElementById("gisExtWebPanel");
+    if(panel){
+      panel.hidden = !gisExtUrlOpen;
+      if(gisExtUrlOpen) renderWebTargetPanel("scenario");
+    }
+    saveCanvasState();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if(event.target?.id === "gisScenarioNotes"){
+    const aCase = activeGenInvCase();
+    if(aCase) gisScenarioNotesByCase[aCase.caseId] = event.target.value;
+    saveCanvasState();
+    return;
+  }
+  if(event.target?.id === "gisBaseNotes"){
+    const aCase = activeGenInvCase();
+    if(aCase) gisBaseNotesByCase[aCase.caseId] = event.target.value;
+    saveCanvasState();
+    return;
+  }
+  const baseNote = event.target.closest?.("[data-gis-base-note]");
+  if(baseNote){
+    const svc = gisBaseAiServices.find(entry => entry.key === baseNote.dataset.gisBaseNote);
+    if(svc){ svc.note = baseNote.value; saveCanvasState(); }
+  }
+});
+
 
 function uid(){
   if(window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
@@ -7144,16 +7939,15 @@ function riskDashboardContent(){
           <h2>관세포탈 위험도 모니터링</h2>
           <p class="muted">관세조사 대상 기업의 관세포탈 위험도 현황을 실시간으로 모니터링합니다.</p>
         </div>
-        <div class="risk-kpi-strip">
-          <button type="button" class="risk-kpi-item risk-kpi-register" data-risk-register
-            title="엑셀 파일(.xlsx/.xls/.csv)로 분석대상 기업을 일괄 등록합니다">
-            <span>분석대상 기업등록</span>
-            <strong>⬆ 엑셀</strong>
-          </button>
+        <div class="risk-kpi-side">
+          <button type="button" class="risk-register-btn" data-risk-register
+            title="엑셀 파일(.xlsx/.xls/.csv)로 분석대상 기업을 일괄 등록합니다">📎 기업목록 등록</button>
           <input type="file" id="riskRegisterFile" accept=".xlsx,.xls,.csv" style="display:none">
-          ${riskKpiItem("all",    "분석대상 기업",   `${total.toLocaleString()} 개사`, focusKey)}
-          ${riskKpiItem("audit",  "조사필요",        `${needAudit} 개사`, focusKey)}
-          ${riskKpiItem("review", "심사필요",        `${needReview} 개사`, focusKey)}
+          <div class="risk-kpi-strip">
+            ${riskKpiItem("all",    "분석대상 기업",   `${total.toLocaleString()} 개사`, focusKey)}
+            ${riskKpiItem("audit",  "조사필요",        `${needAudit} 개사`, focusKey)}
+            ${riskKpiItem("review", "심사필요",        `${needReview} 개사`, focusKey)}
+          </div>
         </div>
       </div>
 
@@ -8245,7 +9039,12 @@ function renderScenarioList(){
   const target = document.getElementById("scenarioList");
   if(!target) return;
   normalizeScenarioOrder();
-  const stage4 = document.getElementById("ciStage4List");
+  // 4단계 스테이지 UI — 관세조사(ci*)와 관세수사(gis*)는 각자 독립 상태·함수를 쓴다
+  const ciStage4  = document.getElementById("ciStage4List");
+  const gisStage4 = document.getElementById("gisStage4List");
+  const stage4 = ciStage4 || gisStage4;
+  const isGisStage = !ciStage4 && !!gisStage4;
+  const isReportItem = isGisStage ? gisIsReportStageItem : ciIsReportStageItem;
   const chipHtml = item => {
     const status = scenarioItemPermissionStatus(item);
     const locked = status !== "granted";
@@ -8276,11 +9075,11 @@ function renderScenarioList(){
 
   if(stage4){
     // 리스트 재렌더 전 상세 설정 블록을 dock으로 대피(내부 이벤트 바인딩 보존)
-    const dock = document.getElementById("ciStageConfigDock");
-    const config = document.querySelector(".ci-stage-config");
+    const dock = document.getElementById(isGisStage ? "gisStageConfigDock" : "ciStageConfigDock");
+    const config = document.querySelector(isGisStage ? ".gis-stage-config" : ".ci-stage-config");
     if(dock && config) dock.appendChild(config);
-    target.innerHTML = scenarioItems.filter(item => !ciIsReportStageItem(item)).map(chipHtml).join("");
-    stage4.innerHTML = scenarioItems.filter(ciIsReportStageItem).map(chipHtml).join("")
+    target.innerHTML = scenarioItems.filter(item => !isReportItem(item)).map(chipHtml).join("");
+    stage4.innerHTML = scenarioItems.filter(isReportItem).map(chipHtml).join("")
       || `<div class="empty-state">보고서 생성·검증 서비스가 시나리오에 없습니다.</div>`;
   }else{
     target.innerHTML = scenarioItems.map(chipHtml).join("");
@@ -8291,18 +9090,22 @@ function renderScenarioList(){
     chip.addEventListener("click", () => {
       // 스테이지 UI: 활성 칩 재클릭 = 상세 접기/펴기 토글, 다른 칩 클릭 = 선택 + 상세 표시
       if(stage4 && selectedScenarioId === chip.dataset.scenarioId){
-        ciDetailCollapsed = !ciDetailCollapsed;
+        if(isGisStage) gisDetailCollapsed = !gisDetailCollapsed;
+        else ciDetailCollapsed = !ciDetailCollapsed;
       }else{
         selectedScenarioId = chip.dataset.scenarioId;
-        ciDetailCollapsed = false;
+        if(isGisStage) gisDetailCollapsed = false;
+        else ciDetailCollapsed = false;
       }
       // 시나리오 서비스 선택 → '선택된 서비스 분석결과'가 이 항목을 가리키게 복귀
       ciSelectedBase = null;
+      gisSelectedBase = null;
       renderScenarioList();
       syncScenarioEditor();
       // 리뷰 모드: 우측 결과 패널이 선택된 AI 서비스를 따라가도록 갱신
       if(scenarioReviewMode) renderScenarioSteps();
       if(document.getElementById("ciResultBody")){ ciRenderResultTab(); ciPaintBaseSelection(); }
+      if(document.getElementById("gisResultBody")){ gisRenderResultTab(); gisPaintBaseSelection(); }
     });
     chip.addEventListener("dragstart", event => event.dataTransfer.setData("text/plain", chip.dataset.scenarioId));
     chip.addEventListener("dragover", event => event.preventDefault());
@@ -8312,7 +9115,8 @@ function renderScenarioList(){
     });
   }));
 
-  if(stage4) ciPlaceScenarioDetail();   // 선택 칩 아래 상세 설정 아코디언 배치
+  // 선택 칩 아래 상세 설정 아코디언 배치
+  if(stage4) (isGisStage ? gisPlaceScenarioDetail : ciPlaceScenarioDetail)();
   updateScenarioProgress();
 }
 
@@ -8331,8 +9135,9 @@ function moveScenarioItem(dragId, targetId){
 function renderScenarioSteps(){
   const target = document.getElementById("scenarioStepAccordion");
   if(!target) return;
-  // 관세조사 스테이지 UI: 단계별 결과 탭이 열려 있으면 해당 탭 본문도 최신화
+  // 스테이지 UI: 단계별 결과 탭이 열려 있으면 해당 탭 본문도 최신화(관세조사 ci / 관세수사 gis)
   if(document.getElementById("ciResultBody") && ciResultTab !== "selected") ciRenderResultTab();
+  if(document.getElementById("gisResultBody") && gisResultTab !== "selected") gisRenderResultTab();
   const fullMode = Boolean(expandedResultStepId);
   target.classList.toggle("result-full-active", fullMode);
   target.closest(".scenario-log")?.classList.toggle("result-full-active", fullMode);
@@ -8640,6 +9445,11 @@ function initGiScenarioWorkbench(){
   const sourceSelect = document.getElementById("scenarioQuickSourceSelect");
   if(!sourceSelect) return;
   sourceSelect.innerHTML = scenarioSourceOptionsHtml();
+
+  // 관세수사 4단계 스테이지 UI: 웹 패널 초기 렌더 + 기초 AI 서비스 추가용 셀렉트 채움
+  if(document.getElementById("gisExtWebPanel")) renderWebTargetPanel("scenario");
+  const gisBaseSelect = document.getElementById("gisBaseServiceSelect");
+  if(gisBaseSelect && !gisBaseSelect.options.length) gisBaseSelect.innerHTML = scenarioSourceOptionsHtml();
 
   if(scenarioInitialized) return;
   scenarioInitialized = true;

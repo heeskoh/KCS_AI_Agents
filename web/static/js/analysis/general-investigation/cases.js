@@ -170,39 +170,57 @@ function crimeSelectorHtml(aCase, state){
   const confirmed = aCase.crimes && aCase.crimes.categoryId ? aCase.crimes : null;
   const draft = state.crimeDraft || confirmed || { categoryId: null, offenseIds: [] };
   const category = crimeCategoryById(draft.categoryId);
+  const selectedOffenses = category
+    ? category.offenses.filter(offense => (draft.offenseIds || []).includes(offense.id))
+    : [];
   return `
     <div class="gi-crime-selector">
       <div class="gi-crime-selector-head">
-        <strong>혐의 범죄</strong>
+        <strong>관세범죄 유형</strong>
         ${confirmed
           ? `<span class="gi-crime-chip">${escapeHtml(crimeSummary(confirmed))}</span>`
-          : `<span class="gi-crime-chip empty">미지정 — 대분류와 죄명을 선택 후 등록하세요</span>`}
+          : `<span class="gi-crime-chip empty">미지정 — 유형과 수법을 선택 후 등록하세요</span>`}
         <span class="muted">혐의 등록 시 관련 분석 시나리오(정보분석 워크스페이스)가 자동 구성됩니다.</span>
       </div>
       <div class="gi-crime-cats">
         ${CRIME_TAXONOMY.map(cat => `
-          <button type="button" class="gi-crime-cat-btn${cat.id === draft.categoryId ? " active" : ""}"
-            data-gi-crime-cat="${escapeHtml(cat.id)}">${cat.num} ${escapeHtml(cat.label)}</button>
+          <button type="button" class="gi-crime-cat-btn${category && cat.id === category.id ? " active" : ""}"
+            data-gi-crime-cat="${escapeHtml(cat.id)}" title="${escapeHtml(cat.desc || "")}">${cat.num} ${escapeHtml(cat.label)}</button>
         `).join("")}
       </div>
       ${category ? `
-        <div class="gi-crime-offenses">
-          ${category.offenses.map(offense => `
-            <button type="button" class="gi-crime-offense-btn${(draft.offenseIds || []).includes(offense.id) ? " on" : ""}"
-              data-gi-crime-offense="${escapeHtml(offense.id)}">${escapeHtml(offense.label)}</button>
-          `).join("")}
-          <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 등록</button>
-        </div>
-        ${(() => {
-          // 선택 중인 죄명 기준 분석서비스 자동 구성 미리보기 (관점 매트릭스 기반)
-          const plan = crimeAnalysisPlan(draft);
-          return plan ? `
-            <div class="gi-crime-plan-preview">
-              <span class="gi-crime-plan-dims">분석 관점: ${escapeHtml(plan.dimSummary)}</span>
-              <span class="gi-crime-plan-flow">자동 구성(${plan.keys.length}단계): ${escapeHtml(plan.labels.join(" → "))}</span>
+        <div class="gi-crime-body">
+          <div class="gi-crime-offense-col">
+            <div class="gi-crime-offenses">
+              ${category.offenses.map(offense => `
+                <button type="button" class="gi-crime-offense-btn${(draft.offenseIds || []).includes(offense.id) ? " on" : ""}"
+                  data-gi-crime-offense="${escapeHtml(offense.id)}" title="${escapeHtml(offense.desc || "")}">${escapeHtml(offense.label)}</button>
+              `).join("")}
+              <button type="button" class="btn primary gi-crime-apply-btn" data-gi-crime-apply>혐의 등록</button>
             </div>
-          ` : "";
-        })()}
+            ${(() => {
+              // 선택 중인 수법 기준 수사 단계 자동 구성 미리보기 — 수사 절차 4단계 구성
+              const plan = crimeAnalysisPlan(draft);
+              return plan ? `
+                <div class="gi-crime-plan-preview">
+                  <span class="gi-crime-plan-dims">분석 관점: ${escapeHtml(plan.dimSummary)}</span>
+                  ${plan.phases.map(phase => `
+                    <span class="gi-crime-plan-flow"><b>[${escapeHtml(phase.title)}]</b>${phase.text ? ` ${escapeHtml(phase.text)}` : ""}</span>
+                    ${(phase.lines || []).map(line => `<span class="gi-crime-plan-sub">${escapeHtml(line)}</span>`).join("")}
+                  `).join("")}
+                </div>
+              ` : "";
+            })()}
+          </div>
+          <div class="gi-crime-desc">
+            <p class="gi-crime-desc-cat"><b>${category.num} ${escapeHtml(category.label)}</b> — ${escapeHtml(category.desc || "")}</p>
+            ${selectedOffenses.length
+              ? selectedOffenses.map(offense => `
+                  <p><b>${escapeHtml(offense.label)}</b> — ${escapeHtml(offense.desc || "")}</p>
+                `).join("")
+              : `<p class="muted">수법을 선택하면 설명이 표시됩니다.</p>`}
+          </div>
+        </div>
       ` : ""}
     </div>
   `;

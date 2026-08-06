@@ -216,8 +216,8 @@ export function registerGeneralInvestigationEvents(ctx){
       const aCase = ctx.activeGenInvCase();
       const draft = generalInvestigationState.crimeDraft
         || (aCase?.crimes?.categoryId ? aCase.crimes : null);
-      if(!aCase || !draft?.categoryId){ alert("혐의 대분류를 선택하세요."); return; }
-      if(!draft.offenseIds?.length){ alert("죄명을 1개 이상 선택하세요."); return; }
+      if(!aCase || !draft?.categoryId){ alert("관세범죄 유형을 선택하세요."); return; }
+      if(!draft.offenseIds?.length){ alert("수법을 1개 이상 선택하세요."); return; }
       aCase.crimes = { categoryId: draft.categoryId, offenseIds: [...draft.offenseIds] };
       aCase.invTypeId = giInvTypeForCrimes(aCase.crimes);
       // 죄명별 분석 관점 매트릭스 기반 분석서비스 자동 세팅
@@ -225,9 +225,13 @@ export function registerGeneralInvestigationEvents(ctx){
       const plan = crimeAnalysisPlan(aCase.crimes);
       if(plan){
         const hasExisting = !!aCase.giSteps?.length;
+        const phaseText = plan.phases
+          .map(phase => `[${phase.title}]${phase.text ? ` ${phase.text}` : ""}`
+            + (phase.lines || []).map(line => `\n  ${line}`).join(""))
+          .join("\n");
         const proceed = !hasExisting || confirm(
-          `혐의 분석 관점(${plan.dimSummary})에 맞춰 분석서비스를 자동 구성할까요?\n\n`
-          + `구성(${plan.keys.length}단계): ${plan.labels.join(" → ")}\n\n`
+          `혐의 분석 관점(${plan.dimSummary})에 맞춰 수사 단계를 자동 구성할까요?\n\n`
+          + `${phaseText}\n\n`
           + `기존 단계 구성과 실행 결과가 대체됩니다.`);
         if(proceed) giApplyCrimePlan(ctx, aCase, plan);
       }
@@ -431,15 +435,12 @@ export function registerGeneralInvestigationEvents(ctx){
       return;
     }
 
-    /* ── 수사정보 분석 탭 (3단: Chat/시각화/정보카드) ─────────────── */
-    // 좌(수사 대화)·우(수집된 정보) 열 접기/펼치기
+    /* ── 수사정보 분석 탭 (2단: 시각화/정보카드) ──────────────────── */
+    // 우(수집된 정보) 열 접기/펼치기
     const giInsightCollapse = event.target.closest("[data-gi-insight-collapse]");
     const giInsightExpand   = event.target.closest("[data-gi-insight-expand]");
     if(giInsightCollapse || giInsightExpand){
-      const which = (giInsightCollapse || giInsightExpand).dataset.giInsightCollapse
-                 || giInsightExpand.dataset.giInsightExpand;
-      const key = which === "chat" ? "insightChatCollapsed" : "insightCardsCollapsed";
-      generalInvestigationState[key] = !!giInsightCollapse;
+      generalInvestigationState.insightCardsCollapsed = !!giInsightCollapse;
       ctx.render("generalinv");
       return;
     }
@@ -469,9 +470,14 @@ export function registerGeneralInvestigationEvents(ctx){
 
     const giInsightCite = event.target.closest("[data-gi-insight-cite]");
     if(giInsightCite){
-      // 카드 클릭 → 좌측 대화 입력에 인용 삽입 (재렌더 없이 입력만 갱신)
-      const chat = document.getElementById("giInsightChat");
-      if(chat?.insertCite) chat.insertCite(giInsightCite.dataset.giInsightCite || "");
+      // 카드 클릭 → 사이트 좌측 공통 AI Chat 입력에 인용 삽입 (재렌더 없이 입력만 갱신)
+      const input = document.querySelector("[data-inv-chat-input]");
+      if(input){
+        const cite = giInsightCite.dataset.giInsightCite || "";
+        input.value = input.value ? `${input.value.trimEnd()}\n${cite}\n` : `${cite}\n`;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+      }
       return;
     }
 

@@ -35,22 +35,27 @@ export const RISK_INDICATOR_SETS = {
 
 export const DEFAULT_INDICATOR_SET = "audit";
 
-/* 혐의 대분류(crime-taxonomy CRIME_TAXONOMY id) → 지표 세트 */
+/* 관세범죄 유형(crime-taxonomy CRIME_TAXONOMY id) → 지표 세트 */
 export const CRIME_CATEGORY_TO_INDICATOR_SET = {
-  c1: "audit",       // 관세수입 침해(포탈·환급·감면·가격조작)
-  c2: "smuggling",   // 밀수출입
-  c3: "audit",       // 부정 통관·신고(원산지 표시 위반 등) — 신고검증·원산지 관점
-  c4: "smuggling",   // 금지·제한 위반(위해물품·지재권·전략물자)
-  c5: "audit",       // 통관·절차 질서
-  c6: "audit",       // 외환수사 — 기업 프로파일에서는 역외자금 지표로 관찰(전용 세트는 우범자 도메인)
-  c7: "smuggling",   // 마약수사 — 반입 경로·은닉 관점
+  k1: "audit",       // 관세포탈(저가신고·허위 인보이스·과세가격 조작)
+  k2: "smuggling",   // 밀수(무신고 수출입)
+  k3: "audit",       // 부정 관세감면·면탈
+  k4: "audit",       // 부정 관세환급
+  k5: "audit",       // 부정 수입·수출(요건 위반) — 신고검증 관점
+  k6: "smuggling",   // 지식재산권 침해물품 수입
+  k7: "audit",       // 불법 외환거래 — 기업 프로파일에서는 역외자금 지표로 관찰(전용 세트는 우범자 도메인)
+  k8: "smuggling",   // 마약·총기·위해물품 밀반입 — 반입 경로·은닉 관점
+  k9: "smuggling",   // 밀수품 취득·운반·보관
+  // 구 체계(c1~c7) 호환
+  c1: "audit", c2: "smuggling", c3: "audit", c4: "smuggling",
+  c5: "audit", c6: "audit", c7: "smuggling",
 };
 
-/* 죄명 단위 예외 — 대분류 기본값보다 우선 */
+/* 수법 단위 예외 — 유형 기본값보다 우선 */
 export const OFFENSE_INDICATOR_SET_OVERRIDES = {
-  c3_origin: "audit",          // 원산지 표시 위반 → FTA·원산지 지표
-  c4_ip: "smuggling",          // 지식재산권 침해물품
-  c2_possession: "smuggling",  // 밀수품 취득
+  k1_origin_false: "audit",    // 원산지 허위 표시 → FTA·원산지 지표
+  k6_fake_brand: "smuggling",  // 지식재산권 침해물품(상표 위장)
+  k9_acquire: "smuggling",     // 밀수품 취득
 };
 
 /* 사건(aCase.crimes) → 지표 세트 결정.

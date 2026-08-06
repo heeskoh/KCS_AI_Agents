@@ -1,57 +1,16 @@
-/* "수사분석 워크벤치" 탭 — 3단 구조. 중앙은 관세조사 정보분석 워크벤치와 동일한
+/* "수사분석 워크벤치" 탭 — 2단 구조. 중앙은 관세조사 정보분석 워크벤치와 동일한
    AI정보분석 워크벤치(분석 관점 A~E 시각화)를 공유한다.
-   좌: Chat UI(실시간 LLM, 사건·수집정보 컨텍스트 주입)
-   중: 상위 탭 2종 — [AI정보분석 시각화](관점 A~E + 단서 타임라인, customs/insight-viz.js 공용)
+   (AI 대화는 사이트 좌측 공통 AI Chat 패널이 담당하므로 워크벤치 내 대화창은 두지 않는다)
+   좌(확대): 상위 탭 2종 — [AI정보분석 시각화](관점 A~E + 단서 타임라인, customs/insight-viz.js 공용)
        / [관계망 분석](메인 '관계망 분석'과 동일한 KCS_Investigation.html 임베드)
    우: 수집된 정보 그룹핑 카드(수사단서 문서·기초자료·AI 분석결과·프로파일 요약)
-   카드 클릭 시 좌측 채팅 입력에 인용 삽입. 대화는 aCase.insightChat에 영속(50개 캡). */
+   카드 클릭 시 좌측 공통 AI Chat 입력에 인용 삽입. */
 import { escapeHtml } from "../../core/dom.js";
 import { generalInvestigationState } from "./state.js";
-import { chatThreadHtml, bindChatThread } from "../shared/chat-thread.js";
-import { runChatIntent } from "../shared/chat-agent-run.js";
 import { crimeSummary } from "./crime-taxonomy.js";
 import { leadTypeById, leadDocLabel, leadTimelineHtml } from "./leads.js";
 import { insightVizHtml } from "../customs/insight-viz.js";
 import { PERSPECTIVES, downloadCurrentViz } from "../customs/insight.js";
-
-const CHAT_MOUNT_ID = "giInsightChat";
-
-/* ── 사건 컨텍스트(시스템 프롬프트) ─────────────────────────────── */
-export function buildGiCaseContext(deps, aCase){
-  const type = deps.genInvTypeById(aCase.invTypeId);
-  const crime = crimeSummary(aCase.crimes) || "혐의 미지정";
-  const leadLines = (aCase.leads || [])
-    .filter(lead => lead.confirmed || lead.content)
-    .slice(-5)
-    .map(lead => `- [${leadTypeById(lead.type).label} · ${leadDocLabel(lead)}] ${lead.title || ""}: ${String(lead.draft || lead.content || "").slice(0, 300)}`)
-    .join("\n");
-  const steps = aCase.giSteps || [];
-  const resultLines = steps
-    .filter(step => (aCase.stepResults || {})[step.id])
-    .slice(-4)
-    .map(step => `- [${step.label}] ${String(aCase.stepResults[step.id]).slice(0, 500)}`)
-    .join("\n");
-  let profileLine = "";
-  if(aCase.targetType === "person"){
-    const detail = deps.getRiskPersonProfile?.(aCase.personId);
-    const person = detail?.person || {};
-    profileLine = `개인 · 위험등급 ${person.risk_level || aCase.personRiskLevel || "-"} · 위험점수 ${person.risk_score ?? aCase.personRiskScore ?? "-"} · 국적 ${person.nationality || aCase.personNationality || "-"}`;
-  } else {
-    const company = (deps.getScenarioCompanies?.() || []).find(c => c.company_id === aCase.companyId);
-    profileLine = company
-      ? `기업 · 위험등급 ${company.risk_level || "-"} · 위험점수 ${company.risk_score ?? "-"} · 연간수입액 ${company.annual_import_amount ?? "-"}`
-      : "기업 · 프로파일 미조회";
-  }
-  return `당신은 대한민국 관세청 조사국의 수사정보 분석 지원 AI입니다.
-아래 사건 컨텍스트를 근거로 수사관의 질문에 한국어로 간결하게(개조식 허용) 답하십시오.
-근거에 없는 사실은 지어내지 말고 "확인 필요"로 표시하십시오.
-
-[사건] ${aCase.caseId} · 대상 ${aCase.targetName} (${aCase.companyId || aCase.personId || "-"}) · 수사유형 ${type.label}
-[혐의] ${crime}
-[프로파일 요약] ${profileLine}
-${leadLines ? `[수사단서 문서]\n${leadLines}` : "[수사단서 문서] 없음"}
-${resultLines ? `[AI 분석결과]\n${resultLines}` : "[AI 분석결과] 아직 없음"}`;
-}
 
 /* ── 우측: 수집 정보 그룹 ────────────────────────────────────────── */
 export function giInsightGroups(deps, aCase){
@@ -115,7 +74,7 @@ export function giInsightGroupsHtml(deps, aCase){
           <div class="gi-insight-group-body">
             ${group.items.length ? group.items.map(item => `
               <button type="button" class="gi-insight-card" data-gi-insight-cite="${escapeHtml(`[${item.title.replace(/^[^ ]+ /, "")}] ${item.text || item.meta || ""}`.slice(0, 240))}"
-                title="클릭하면 좌측 대화 입력에 인용됩니다">
+                title="클릭하면 좌측 AI Chat 입력에 인용됩니다">
                 <strong>${escapeHtml(item.title)}</strong>
                 <span>${escapeHtml(item.meta || "")}</span>
                 ${item.text ? `<p>${escapeHtml(item.text.slice(0, 120))}${item.text.length > 120 ? "…" : ""}</p>` : ""}
@@ -141,10 +100,8 @@ function vizTargetOf(deps, aCase){
 export function renderInsightPanel(deps){
   const aCase = deps.activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">진행중인 수사에서 사건을 먼저 선택하세요.</div>`;
-  if(!Array.isArray(aCase.insightChat)) aCase.insightChat = [];
   // 중앙 상위 탭: AI정보분석 시각화 / 관계망 분석(메인 '관계망 분석' 화면과 동일)
   const centerTab = generalInvestigationState.insightCenterTab === "network" ? "network" : "viz";
-  const chatCollapsed  = !!generalInvestigationState.insightChatCollapsed;
   const cardsCollapsed = !!generalInvestigationState.insightCardsCollapsed;
   // 시각화 뷰: 분석 관점 A~E(관세조사와 공용 워크벤치) + 단서 타임라인
   const stored = generalInvestigationState.insightView;
@@ -158,7 +115,7 @@ export function renderInsightPanel(deps){
       <div class="gi-insight-head">
         <div>
           <strong>수사분석 워크벤치</strong>
-          <p class="muted">사건 정보·수집 자료를 근거로 AI와 대화하며 분석합니다. 우측 카드를 클릭하면 대화에 인용됩니다.</p>
+          <p class="muted">사건 정보·수집 자료를 근거로 분석 시각화를 확인합니다. 우측 카드를 클릭하면 좌측 AI Chat에 인용됩니다.</p>
         </div>
         <div class="gi-insight-target">
           <span class="muted">사건</span>
@@ -167,23 +124,6 @@ export function renderInsightPanel(deps){
         </div>
       </div>
       <div class="gi-insight-layout">
-        <aside class="gi-insight-chat-col${chatCollapsed ? " collapsed" : ""}">
-          <button type="button" class="gi-insight-collapsed-bar" data-gi-insight-expand="chat" title="펼치기">
-            <span class="cbar-arrow">▶</span><span class="cbar-label">수사 대화</span>
-          </button>
-          <div class="gi-insight-col-head">
-            <strong>수사 대화</strong>
-            <button type="button" class="gi-insight-collapse-btn" data-gi-insight-collapse="chat" title="접기">◀</button>
-          </div>
-          ${chatThreadHtml({
-            mountId: CHAT_MOUNT_ID,
-            messages: aCase.insightChat,
-            placeholder: "사건·수집정보에 대해 질문하세요 (Enter 전송)",
-            emptyText: "예: \"확정된 단서를 근거로 우선 확인할 사항은?\"",
-          })}
-        </aside>
-        <div class="resize-gutter x" data-resize-min="240" title="드래그하여 좌·우 영역 크기 조절"
-          ${chatCollapsed ? `style="display:none"` : ""}></div>
         <section class="gi-insight-center-col">
           <div class="gi-insight-col-head gi-insight-center-tabs">
             <button type="button" class="gi-insight-center-tab${centerTab === "viz" ? " active" : ""}"
@@ -227,33 +167,10 @@ export function renderInsightPanel(deps){
   `;
 }
 
-/* 렌더 후 훅 — Chat 스레드 바인딩 (app-runtime postRender에서 호출) */
+/* 렌더 후 훅 — 시각화 저장·관계망 전체화면 바인딩 (app-runtime postRender에서 호출) */
 export function bindGiInsightChat(deps){
   const aCase = deps.activeGenInvCase?.();
   if(!aCase) return;
-  if(!Array.isArray(aCase.insightChat)) aCase.insightChat = [];
-  bindChatThread({
-    mountId: CHAT_MOUNT_ID,
-    getMessages: () => aCase.insightChat,
-    mode: "int",
-    // Copilot과 동일 — 의도분석 후 사건 대상으로 AI 서비스 실행, 없으면 사건 컨텍스트 LLM 답변
-    runIntent: (userText, hooks) => runChatIntent(userText, {
-      companyId: aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : aCase.companyId,
-      targetType: aCase.targetType === "person" ? "person" : "company",
-      llmMode: "int", ...hooks,
-    }),
-    buildPrompt: (messages, userText) => {
-      const history = messages
-        .slice(-9, -1)   // 마지막(방금 질문) 제외 최근 대화 4왕복
-        .map(m => `${m.role === "user" ? "수사관" : "AI"}: ${String(m.text).slice(0, 400)}`)
-        .join("\n");
-      return `${buildGiCaseContext(deps, aCase)}
-${history ? `\n[최근 대화]\n${history}\n` : ""}
-[수사관 질문]
-${userText}`;
-    },
-    onDone: () => deps.saveCanvasState?.(),
-  });
   // 이미지 저장 — 현재 관점의 시각화를 PNG로 다운로드 (관세조사 워크벤치 공용 로직)
   document.querySelector("[data-gi-viz-download]")?.addEventListener("click", () => {
     const view = generalInvestigationState.insightView || "A";

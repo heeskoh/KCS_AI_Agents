@@ -3,21 +3,29 @@ import { profileNetworkLayout } from "../shared/network-graph.js";
 import { CRIME_TAXONOMY, CRIME_PROFILE_EMPHASIS, profileGraphTypeForCrimes } from "../general-investigation/crime-taxonomy.js";
 
 /* 기업 프로파일의 혐의 유형(crime_types: "관세포탈,가격조작" 등)을 관세수사와 동일한
-   혐의 체계(CRIME_TAXONOMY)로 해석한다 — 관세조사·관세수사의 관세포탈죄는 동일 내용이므로
-   같은 대분류·죄명·중점 확인 지표를 공유한다. */
+   관세범죄 유형 체계(CRIME_TAXONOMY)로 해석한다 — 관세조사·관세수사의 관세포탈은 동일
+   내용이므로 같은 유형·수법·중점 확인 지표를 공유한다.
+   토큰은 유형/수법의 label과 aliases(구 죄명·DB 표기)에 모두 대조한다. */
 function crimesFromCompany(company){
   const tokens = String((company && company.crime_types) || "")
     .split(/[,·/\s]+/).map(t => t.trim()).filter(Boolean);
   if(!tokens.length) return null;
+  const matches = entry => tokens.some(t =>
+    entry.label.includes(t) || (entry.aliases || []).some(a => a.includes(t) || t.includes(a)));
   const offenses = [];
   let category = null;
-  CRIME_TAXONOMY.forEach(cat => cat.offenses.forEach(off => {
-    if(tokens.some(t => off.label.includes(t)) && !offenses.some(o => o.id === off.id)){
-      offenses.push(off);
-      if(!category) category = cat;
-    }
-  }));
-  return offenses.length ? { category, offenses } : null;
+  CRIME_TAXONOMY.forEach(cat => {
+    if(!category && matches(cat)) category = cat;
+    cat.offenses.forEach(off => {
+      if(matches(off) && !offenses.some(o => o.id === off.id)){
+        offenses.push(off);
+        if(!category) category = cat;
+      }
+    });
+  });
+  if(!category) return null;
+  // 유형만 매칭되고 수법이 없으면 유형 칩만 표시(수법 칩 없음)
+  return { category, offenses: offenses.filter(off => category.offenses.some(o => o.id === off.id)) };
 }
 
 /* 혐의 뱃지 스트립 — 관세수사 기업 프로파일과 동일한 구성(대분류·죄명 칩 + 중점 확인 지표) */

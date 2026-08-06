@@ -1,29 +1,10 @@
-/* 관세수사 AI서비스 분석 작업 — 관세조사 탭4와 동일한 구조(리뷰모드):
-   좌측 분석범위별 상세설정(탭)·입력/설정값 인라인 + "AI 분석서비스 수행"(선택 단계 실시간 실행),
-   우측 [분석 결과|통합 프롬프트] 탭.
-   AI 분석서비스 구성은 혐의 확정 시 관점 매트릭스로 자동 세팅된다. */
+/* 관세수사 AI서비스 분석 작업 — 관세조사 "분석 시나리오 확인 및 설정"과 동일한
+   4단계 스테이지 UI. 공유 코드가 아닌 복사본(app-runtime의 gis* 클러스터,
+   giStageWorkbenchHtml)이므로 수사 쪽을 독립적으로 변경할 수 있다. */
 export function renderWorkbenchPanel(deps) {
   const aCase = deps.activeGenInvCase();
   if (!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
-
-  const templateOptionsHtml = deps.giScenarioTemplateOptionsHtml
-    ? deps.giScenarioTemplateOptionsHtml(aCase.invTypeId)
-    : "";
-
-  const states = aCase.stepStates || {};
-  const doneCount = Object.values(states).filter(s => s === "done").length;
-  const reviewNoteHtml = doneCount
-    ? `<span class="muted" style="font-size:12px">AI 분석 수행 결과 · 완료 ${doneCount}단계</span>`
-    : `<span class="muted" style="font-size:12px">수행된 분석 결과가 없습니다</span>`;
-
-  return deps.sharedScenarioWorkbenchHtml({
-    archived: false,
-    reviewMode: true,
-    reviewNoteHtml,
-    titleHtml: "조사 및 수사 분석 단계",
-    subtitleHtml: `혐의 확정 시 분석 관점 매트릭스에 따라 AI 분석서비스가 자동 구성됩니다. <em style="color:#0369a1;font-style:normal;font-weight:700">단계 구성·분석범위·프롬프트를 조정한 뒤 "AI 분석서비스 수행"으로 분석을 실행하세요.</em>`,
-    templateOptionsHtml,
-  });
+  return deps.giStageWorkbenchHtml();
 }
 
 export const workbenchSubtab = {
