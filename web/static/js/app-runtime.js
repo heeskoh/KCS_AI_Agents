@@ -1073,7 +1073,7 @@ const scenarioTemplates = [
     description: "CDW·빅데이터·외부정보 수집 후 신고검증과 과세가격평가에 집중하는 조사 흐름",
     items: [
       ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
-      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"과세가격 결정 요소(가산·공제)와 저가신고 가능성 집중 검토" },
+      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, required:true, instruction:"과세가격 결정 요소(가산·공제)와 저가신고 가능성 집중 검토" },
       ...customsTemplateCommonTail(
         "과세가격 쟁점 관점의 유사 심사사례와 추징 포인트 정리",
         "과세가격 결정(관세법 제30~35조) 관련 법령·판례·유권해석 근거 검토",
@@ -1087,7 +1087,7 @@ const scenarioTemplates = [
     description: "CDW·빅데이터·외부정보 수집 후 신고검증과 품목분류검증에 집중하는 조사 흐름",
     items: [
       ...customsTemplateCommonHead(ML_BEHAVIORS_HS),
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, instruction:"HS 분류 적정성과 대체 후보(세율 차이) 집중 검토" },
+      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, required:true, instruction:"HS 분류 적정성과 대체 후보(세율 차이) 집중 검토" },
       ...customsTemplateCommonTail(
         "품목분류 오류·재분류 관점의 유사 심사사례와 추징 포인트 정리",
         "품목분류(관세법 제86조, 관세율표 해석통칙) 관련 법령·판례 근거 검토",
@@ -1101,7 +1101,7 @@ const scenarioTemplates = [
     description: "CDW·빅데이터·외환 수신자료 수집 후 신고검증과 이상거래 검증에 집중하는 조사 흐름",
     items: [
       ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
-      { key:"abnormal_trade", type:"abnormal_trade", label:"이상거래 검증 AI 서비스", behaviors:["price_pattern","counterparty_pattern","declaration_pattern"], order:6, instruction:"외환 수수 내역과 연계해 가격·거래상대방·신고 패턴의 이상 징후 검증" },
+      { key:"abnormal_trade", type:"abnormal_trade", label:"이상거래 검증 AI 서비스", behaviors:["price_pattern","counterparty_pattern","declaration_pattern"], order:6, required:true, instruction:"외환 수수 내역과 연계해 가격·거래상대방·신고 패턴의 이상 징후 검증" },
       ...customsTemplateCommonTail(
         "외환 수수-신고금액 불일치 관점의 유사 심사사례와 추징 포인트 정리",
         "외국환거래법·관세법상 가격조작·허위신고 관련 법령·판례 근거 검토",
@@ -1115,7 +1115,7 @@ const scenarioTemplates = [
     description: "CDW·빅데이터·외부정보 수집 후 환급 근거가 되는 과세가격 적정성에 집중하는 조사 흐름",
     items: [
       ...customsTemplateCommonHead(ML_BEHAVIORS_STD),
-      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, instruction:"환급 신청의 근거가 되는 과세가격·납부세액의 적정성 집중 검토" },
+      { key:"customs_value", type:"customs_value", label:"과세가격평가 AI 서비스", behaviors:["valuation_basis","undervaluation"], order:6, required:true, instruction:"환급 신청의 근거가 되는 과세가격·납부세액의 적정성 집중 검토" },
       ...customsTemplateCommonTail(
         "관세환급 이상·과다환급 관점의 유사 심사사례와 추징 포인트 정리",
         "관세환급특례법·관세법상 환급요건 관련 법령·판례 근거 검토",
@@ -1129,7 +1129,7 @@ const scenarioTemplates = [
     description: "CDW·빅데이터·외부정보 수집 후 통관요건 판정의 기초인 품목분류에 집중하는 조사 흐름",
     items: [
       ...customsTemplateCommonHead(ML_BEHAVIORS_HS),
-      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, instruction:"통관요건(허가·승인·세관장확인 대상) 판정의 기초가 되는 품목분류 적정성 집중 검토" },
+      { key:"hs_verify", type:"hs_verify", label:"품목분류검증 AI 서비스", behaviors:["classification_check","alternative_hs"], order:6, required:true, instruction:"통관요건(허가·승인·세관장확인 대상) 판정의 기초가 되는 품목분류 적정성 집중 검토" },
       ...customsTemplateCommonTail(
         "수입요건 미구비·요건회피 관점의 유사 심사사례와 추징 포인트 정리",
         "세관장확인 대상 수입요건(관세법 제226조)·개별법령 요건 관련 법령·판례 근거 검토",
@@ -2532,10 +2532,53 @@ function webTargetPanelHtml(item, scope){
   `;
 }
 
+/* 관세조사 스테이지 UI: '외부데이터 수집'의 웹 정보수집 대상 항목.
+   시나리오에 없으면(createIfMissing) 등록 시점에 자동 추가해 항시 등록 가능하게 한다. */
+function ciStageWebItem(createIfMissing = false){
+  if(!document.getElementById("ciExtWebPanel")) return null;   // 관세조사 스테이지 UI가 아니면 미개입
+  let item = scenarioItems.find(entry => entry.key === "web_search");
+  if(!item && createIfMissing){
+    const source = scenarioSourceByKey("web_search");
+    if(!source) return null;
+    const behaviors = [...new Set([...(sourceDefaultBehaviors("web_search") || []), "direct_url"])];
+    item = {
+      id: uid(), key: "web_search", type: source.type, label: source.label,
+      behaviors, order: scenarioItems.length + 1,
+      targetType: "company", target_type: "company",
+      instruction: scenarioSuggestedInstruction("web_search", "company", behaviors),
+      shareRecipients: [], webTargets: [],
+    };
+    scenarioItems.push(item);
+    normalizeScenarioOrder();
+    saveCompanyScenario();
+    renderScenarioList();
+    setScenarioStatus("웹 정보수집 요청 AI 서비스가 시나리오에 추가되었습니다");
+    // normalizeScenarioOrder가 배열 항목을 복제 재할당하므로 배열에서 실물 참조를 재취득한다
+    item = scenarioItems.find(entry => entry.key === "web_search");
+  }
+  return item;
+}
+
 function renderWebTargetPanel(scope){
   // 리뷰 모드(시나리오 스코프): URL 등록 패널은 "URL 직접 등록" 탭 본문에 내장 —
   // 좌측 독립 컨테이너 대신 탭 안의 슬롯을 갱신한다(등록/삭제 후 재렌더 경로 포함).
   if(scope === "scenario" && scenarioReviewMode){
+    // 관세조사 4단계 스테이지 UI: '외부데이터 수집' 단계에 웹 정보수집(URL 등록)을 통합 표시.
+    // 서비스가 시나리오에 없어도 폼은 항시 렌더 — 등록 시 서비스가 자동 추가된다.
+    const ext = document.getElementById("ciExtWebPanel");
+    if(ext){
+      const webItem = scenarioItems.find(item => item.key === "web_search");
+      const formItem = webItem
+        ? { ...webItem, behaviors: [...new Set([...(webItem.behaviors?.length ? webItem.behaviors : sourceDefaultBehaviors("web_search") || []), "direct_url"])] }
+        : { key: "web_search", behaviors: ["direct_url"], webTargets: [], web_targets: [] };
+      ext.innerHTML = webTargetPanelHtml(formItem, scope)
+        + (webItem ? "" : `<p class="muted" style="font-size:11.5px;margin:6px 0 0">등록 시 '웹 정보수집 요청 AI 서비스'가 3단계 시나리오에 자동 추가됩니다.</p>`);
+      const slot = document.querySelector("#scenarioBehaviorPromptList [data-behavior-url-slot]");
+      if(slot) slot.innerHTML = `<div class="muted" style="font-size:12px">URL·검색 키워드 등록은 좌측 '2. 외부데이터 수집' 단계에서 관리합니다.</div>`;
+      const legacy = document.getElementById("scenarioWebTargetPanel");
+      if(legacy) legacy.innerHTML = "";
+      return;
+    }
     const slot = document.querySelector("#scenarioBehaviorPromptList [data-behavior-url-slot]");
     if(slot) slot.innerHTML = webTargetPanelHtml(shareEmailScopeItem(scope), scope);
     const legacy = document.getElementById("scenarioWebTargetPanel");
@@ -2549,7 +2592,8 @@ function renderWebTargetPanel(scope){
 }
 
 function addWebTargetToScope(scope){
-  const item = shareEmailScopeItem(scope);
+  // 관세조사 스테이지 UI: 선택 상태와 무관하게 웹 정보수집 항목에 등록(없으면 자동 추가)
+  const item = (scope === "scenario" && ciStageWebItem(true)) || shareEmailScopeItem(scope);
   if(!item || item.key !== "web_search") return false;
   const urlId = scope === "template" ? "templateWebTargetUrl" : "scenarioWebTargetUrl";
   const queryId = scope === "template" ? "templateWebTargetQuery" : "scenarioWebTargetQuery";
@@ -2580,7 +2624,7 @@ function addWebTargetToScope(scope){
 }
 
 function removeWebTargetFromScope(scope, index){
-  const item = shareEmailScopeItem(scope);
+  const item = (scope === "scenario" && ciStageWebItem(false)) || shareEmailScopeItem(scope);
   if(!item || item.key !== "web_search") return;
   setScenarioItemWebTargets(item, scenarioItemWebTargets(item).filter((_, i) => i !== index));
   if(scope === "scenario") saveScenarioShareEmailState();
@@ -2799,6 +2843,11 @@ async function loadCanvasState(){
     if(saved.hiddenCanvasJobsByUser && typeof saved.hiddenCanvasJobsByUser === "object") hiddenCanvasJobsByUser = saved.hiddenCanvasJobsByUser;
     if(saved.userWorkspaces && typeof saved.userWorkspaces === "object") setUserWorkspaces(saved.userWorkspaces);
     if(saved.agenticServicesByGroup && typeof saved.agenticServicesByGroup === "object") agenticServicesByGroup = saved.agenticServicesByGroup;
+    if(saved.ciScenarioNotes && typeof saved.ciScenarioNotes === "object") ciScenarioNotesByCompany = saved.ciScenarioNotes;
+    if(Array.isArray(saved.ciExtAgencies)) ciExtAgencyChecked = new Set(saved.ciExtAgencies);
+    if(saved.ciExtUrlOpen === false) ciExtUrlOpen = false;
+    if(Array.isArray(saved.ciBaseAiServices) && saved.ciBaseAiServices.length) ciBaseAiServices = saved.ciBaseAiServices;
+    if(saved.ciBaseNotes && typeof saved.ciBaseNotes === "object") ciBaseNotesByCompany = saved.ciBaseNotes;
     // 분석 템플릿은 별도 파일(data/analysis_templates.json)에서 로드.
     // 없으면 기존 workspace 상태의 템플릿 키를 1회 이행.
     let templates = await fetchJsonStore("/api/analysis_templates");
@@ -2850,6 +2899,11 @@ function buildWorkspaceStatePayload(){
     hiddenCanvasJobsByUser,
     userWorkspaces,
     agenticServicesByGroup,
+    ciScenarioNotes: ciScenarioNotesByCompany,
+    ciExtAgencies: [...ciExtAgencyChecked],
+    ciExtUrlOpen,
+    ciBaseAiServices,
+    ciBaseNotes: ciBaseNotesByCompany,
     currentUserId,
     generalInvTab: generalInvestigationState.generalInvTab,
     activeGenInvCaseId: generalInvestigationState.activeGenInvCaseId,
@@ -5403,6 +5457,84 @@ function editingCardStepsHtml(){
   `).join("");
 }
 
+/* ── 관세조사 템플릿 4단계 구조 표시 — 단계별 서비스 그룹 + 필수/선택 뱃지 ── */
+const CI_TEMPLATE_STAGES = [
+  { key: "base",   title: "1) 기초데이터 분석" },
+  { key: "ext",    title: "2) 외부데이터 수집" },
+  { key: "deep",   title: "3) 심층분석 시나리오" },
+  { key: "report", title: "4) 보고서 생성 및 검증" },
+];
+const CI_TEMPLATE_BASE_KEYS = ["db_cdw", "ml", "db_external", "rag_audit", "declaration_verify", "law"];
+
+function ciTemplateItemStage(item){
+  if(["report", "validation", "approve"].includes(item.type)
+    || ["report_generate", "report_validate"].includes(item.key)) return "report";
+  if(["web_search", "external_agency"].includes(item.key)) return "ext";
+  if(CI_TEMPLATE_BASE_KEYS.includes(item.key)) return "base";
+  return "deep";
+}
+
+/* 필수/선택 — 항목에 명시(required)가 있으면 우선, 없으면 기초·보고서 단계는 필수 */
+function ciTemplateItemRequired(item){
+  if(typeof item.required === "boolean") return item.required;
+  const stage = ciTemplateItemStage(item);
+  return stage === "base" || stage === "report";
+}
+
+function ciTemplateStagedListHtml(template){
+  const items = template.items || [];
+  const stageItemRow = item => `
+    <li>
+      <b>${item.order ?? ""}</b>
+      <div>
+        <div class="template-step-title">
+          <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
+          <em class="tpl-req ${ciTemplateItemRequired(item) ? "req" : "opt"}">${ciTemplateItemRequired(item) ? "필수" : "선택"}</em>
+        </div>
+        <small>${escapeHtml(sourceBehaviorLabels(item.key, item.behaviors).join(", "))}</small>
+      </div>
+    </li>`;
+  return CI_TEMPLATE_STAGES.map(stage => {
+    const stageItems = items.filter(item => ciTemplateItemStage(item) === stage.key);
+    let extraHtml = "";
+    if(stage.key === "base"){
+      // 기초조사에 등록된 AI 분석서비스(템플릿 저장분 또는 기본 6종) — 변경 가능 목록 표시
+      const baseSvcs = (Array.isArray(template.baseAiServices) && template.baseAiServices.length)
+        ? template.baseAiServices : CI_BASE_AI_DEFAULTS;
+      extraHtml = `
+        <div class="template-stage-sub">AI 분석서비스</div>
+        <ol class="template-step-list">${baseSvcs.map(svc => `
+          <li>
+            <b>·</b>
+            <div>
+              <div class="template-step-title">
+                <strong>${escapeHtml(svc.label)}</strong>
+              </div>
+              ${svc.note ? `<small>${escapeHtml(svc.note)}</small>` : ""}
+            </div>
+          </li>`).join("")}</ol>`;
+    }
+    if(stage.key === "ext"){
+      const agencyKeys = Array.isArray(template.extAgencies) ? template.extAgencies : ["dart", "nice", "orbis"];
+      const labels = CI_EXT_AGENCIES.filter(a => agencyKeys.includes(a.key)).map(a => a.label);
+      if(template.extUrlOpen !== false){
+        const urlCount = Array.isArray(template.webTargets) ? template.webTargets.length : 0;
+        labels.push(urlCount ? `URL 직접 등록 ${urlCount}건` : "URL 직접 등록");
+      }
+      extraHtml = `<div class="template-stage-sub">수집 기관</div>
+        <div class="template-agency-chips">${labels.map(label => `<span>${escapeHtml(label)}</span>`).join("")}</div>`;
+    }
+    const emptyStage = !stageItems.length && !extraHtml;
+    return `
+      <div class="template-stage-group">
+        <div class="template-stage-title">${stage.title}</div>
+        ${stageItems.length ? `<ol class="template-step-list">${stageItems.map(stageItemRow).join("")}</ol>` : ""}
+        ${extraHtml}
+        ${emptyStage ? `<div class="template-stage-empty">구성된 서비스 없음</div>` : ""}
+      </div>`;
+  }).join("");
+}
+
 function templateCardHtml(template){
   const isCustom = !!template.isCustom;
   const isEditing = editingTemplateId === template.id;
@@ -5411,7 +5543,9 @@ function templateCardHtml(template){
   const ownerLabel = templateOwnerLabel(template);
   const stepListHtml = isEditing
     ? `<ol class="template-step-list template-step-list-editable" id="templateEditorStepList">${editingCardStepsHtml()}</ol>`
-    : `<ol class="template-step-list">${template.items.map((item, i) => `
+    : (templateEditorDomain === "customs"
+      ? `<div class="template-staged-list">${ciTemplateStagedListHtml(template)}</div>`
+      : `<ol class="template-step-list">${template.items.map((item, i) => `
         <li>
           <b>${i + 1}</b>
           <div>
@@ -5419,7 +5553,7 @@ function templateCardHtml(template){
             <small>${escapeHtml(sourceBehaviorLabels(item.key, item.behaviors).join(", "))}</small>
           </div>
         </li>`).join("")}
-      </ol>`;
+      </ol>`);
   const stepCount = isEditing ? templateEditorItems.length : template.items.length;
 
   // Button states:
@@ -5466,12 +5600,428 @@ function editingTemplateName(){
   return t?.name || "";
 }
 
+/* ═══ 관세조사 분석 시나리오 템플릿 — 4단계 스테이지 편집기 ═══
+   "분석 시나리오 확인 및 설정"과 동일한 4단계 구성(기초조사·외부데이터·심층·보고서)으로
+   템플릿을 등록/수정한다. 실행 버튼 없이 구성 편집만 제공한다. */
+let tplStage = null;   // 편집 중 템플릿 상태(null이면 안내 표시)
+
+function tplStageReportDefaults(){
+  return [
+    { id: uid(), key: "report_generate", type: "report", label: "보고서 생성 AI 서비스",
+      behaviors: ["issue_report"], order: 1, required: true, instruction: "전체 분석 결과를 종합한 조사보고서 초안 작성" },
+    { id: uid(), key: "report_validate", type: "validation", label: "보고서 검증 AI 서비스",
+      behaviors: ["evidence_validation"], order: 2, required: true, instruction: "보고서의 근거 충실성과 누락 증빙 검증" },
+  ];
+}
+
+function tplStageLoad(template = null, { copyName = "" } = {}){
+  tplStage = {
+    id: template?.id || null,
+    name: copyName || template?.name || "",
+    stageOpen: { base: false, ext: false, deep: true, report: false },
+    baseAiServices: (Array.isArray(template?.baseAiServices) && template.baseAiServices.length
+      ? template.baseAiServices : CI_BASE_AI_DEFAULTS).map(svc => ({ ...svc })),
+    baseSelectedKey: null,
+    baseDetailKey: null,
+    extAgencies: Array.isArray(template?.extAgencies) ? [...template.extAgencies] : ["dart", "nice", "orbis"],
+    extUrlOpen: template?.extUrlOpen !== false,
+    webTargets: normalizeWebTargets(template?.webTargets || []),
+    deepNotes: template?.deepNotes || "",
+    items: (template?.items || []).map(item => ({ ...item, id: uid() })),
+    selectedItemId: null,
+  };
+  if(!tplStage.items.some(ciIsReportStageItem)) tplStage.items.push(...tplStageReportDefaults());
+}
+
+function tplStageDeepItems(){ return tplStage ? tplStage.items.filter(item => !ciIsReportStageItem(item)) : []; }
+function tplStageReportItems(){ return tplStage ? tplStage.items.filter(ciIsReportStageItem) : []; }
+
+function tplStageSectionHtml(key, title, isDefault, bodyHtml){
+  const open = tplStage.stageOpen[key];
+  return `
+    <section class="ci-stage${open ? " open" : ""}" data-tpl-stage="${key}">
+      <div class="ci-stage-head" data-tpl-stage-toggle="${key}" role="button" tabindex="0">
+        <span>${title}${isDefault ? ` <em>(default)</em>` : ""}</span>
+      </div>
+      <div class="ci-stage-body">${bodyHtml}</div>
+    </section>
+  `;
+}
+
+function tplStageReqBadge(item){
+  const required = ciTemplateItemRequired(item);
+  return `<em class="tpl-req ${required ? "req" : "opt"}" data-tpl-req-toggle="${escapeHtml(item.id)}"
+    title="클릭하여 필수/선택 전환">${required ? "필수" : "선택"}</em>`;
+}
+
+function tplStageEditorHtml(){
+  if(!tplStage){
+    return `<div class="empty-state">오른쪽 템플릿 카드의 [템플릿 변경]을 누르거나 [새 템플릿]으로 시작하세요.</div>`;
+  }
+  const baseServiceList = services => `
+    <ul class="ci-base-list">
+      ${services.map(service => `
+        <li>${escapeHtml(service.label)}${service.items.length
+          ? `<ul>${service.items.map(entry => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
+          : ""}</li>
+      `).join("")}
+    </ul>
+  `;
+
+  const stage1 = `
+    <p class="ci-stage-note">다음 서비스를 배치(Batch)로 항시 수행합니다(default) — 로그 수준의 초안 보고서를 생성합니다.</p>
+    ${baseServiceList(CI_BASE_BATCH_SERVICES)}
+    <div class="ci-base-ai">
+      <strong class="ci-base-ai-title">AI 분석서비스</strong>
+      <div class="ci-stage-tools">
+        <select id="tplBaseSelect" class="scenario-template-select">${scenarioSourceOptionsHtml()}</select>
+        <button type="button" class="btn scenario-template-apply-btn" data-tpl-base-add>서비스 추가</button>
+        <button type="button" class="btn secondary scenario-template-apply-btn" data-tpl-base-delete>선택 삭제</button>
+      </div>
+      <div class="ci-base-ai-list">
+        ${tplStage.baseAiServices.map(svc => `
+          <div class="ci-base-chip${svc.key === tplStage.baseSelectedKey ? " active" : ""}" data-tpl-base-chip="${escapeHtml(svc.key)}">
+            <strong>${escapeHtml(svc.label)}</strong>
+            <span class="ci-base-chip-side">
+              <i>${tplStage.baseDetailKey === svc.key ? "▴" : "▾"}</i>
+            </span>
+          </div>
+          ${tplStage.baseDetailKey === svc.key ? `
+          <div class="ci-base-chip-detail">
+            <p>${escapeHtml(svc.desc || "기초조사 배치 수행에 포함됩니다.")}</p>
+            <textarea class="ci-stage-notes ci-base-svc-notes" data-tpl-base-note="${escapeHtml(svc.key)}" rows="2"
+              placeholder="조사 착안사항 및 확인사항">${escapeHtml(svc.note || "")}</textarea>
+          </div>` : ""}
+        `).join("") || `<div class="empty-state">등록된 AI 분석서비스가 없습니다.</div>`}
+      </div>
+    </div>
+    ${baseServiceList(CI_BASE_TAIL_SERVICES)}
+  `;
+
+  const stage2 = `
+    <p class="ci-stage-note">데이터 수집이 필요한 외부 기관을 선택하세요.</p>
+    <div class="ci-agency-list">
+      ${CI_EXT_AGENCIES.map(agency => `
+        <label><input type="checkbox" data-tpl-agency="${agency.key}" ${tplStage.extAgencies.includes(agency.key) ? "checked" : ""}> ${escapeHtml(agency.label)}</label>
+      `).join("")}
+      <label><input type="checkbox" data-tpl-url-toggle ${tplStage.extUrlOpen ? "checked" : ""}> URL 직접 등록</label>
+    </div>
+    ${tplStage.extUrlOpen ? `
+    <div class="scenario-web-target-panel">
+      <div class="scenario-web-target-head">
+        <strong>수집 대상 URL·검색 키워드 등록</strong>
+        <span>템플릿에 등록한 URL·키워드는 템플릿 적용 시 웹 정보수집 요청 AI 서비스에 함께 적용됩니다.</span>
+      </div>
+      <div class="scenario-web-target-form">
+        <input id="tplWebUrl" class="scenario-web-target-url" type="url" placeholder="https:// (선택 — 키워드만 등록 가능)">
+        <input id="tplWebQuery" class="scenario-web-target-query" type="text" placeholder="수집할 내용 / 주요 검색 키워드">
+        <input id="tplWebLoginId" class="scenario-web-target-login-id" type="text" placeholder="로그인 ID (선택)" autocomplete="off">
+        <input id="tplWebLoginPw" class="scenario-web-target-login-pw" type="password" placeholder="로그인 PW (선택)" autocomplete="new-password">
+        <button type="button" class="btn secondary" data-tpl-web-add>등록</button>
+      </div>
+      <div class="scenario-web-target-list">
+        ${tplStage.webTargets.length ? tplStage.webTargets.map((target, index) => `
+          <div class="scenario-web-target-chip">
+            <span>
+              <strong>${target.url ? escapeHtml(target.url) : `🔍 ${escapeHtml(target.query)}`}</strong>
+              <small>${target.url ? escapeHtml(target.query || "수집 내용 미지정") : "주요 검색 키워드"}</small>
+              ${target.loginId ? `<small class="scenario-web-target-login">🔒 로그인정보 등록 (${escapeHtml(target.loginId)} / •••)</small>` : ""}
+            </span>
+            <button type="button" data-tpl-web-remove="${index}" aria-label="등록 삭제">×</button>
+          </div>
+        `).join("") : `<span class="scenario-web-target-empty">등록된 URL·검색 키워드가 없습니다.</span>`}
+      </div>
+    </div>` : ""}
+  `;
+
+  const deepItems = tplStageDeepItems();
+  const stage3 = `
+    <p class="ci-stage-note">심층분석을 위한 분석 시나리오 등록 — 서비스를 추가하고 순서를 변경하거나 조사 착안사항을 등록합니다.</p>
+    <div class="ci-stage-tools">
+      <select id="tplDeepSelect" class="scenario-template-select">${scenarioSourceOptionsHtml()}</select>
+      <button type="button" class="btn scenario-template-apply-btn" data-tpl-deep-add>서비스 추가</button>
+      <button type="button" class="btn secondary scenario-template-apply-btn" data-tpl-deep-delete>선택 삭제</button>
+    </div>
+    <textarea id="tplDeepNotes" class="ci-stage-notes" rows="3"
+      placeholder="조사 착안사항 및 확인사항">${escapeHtml(tplStage.deepNotes || "")}</textarea>
+    <div class="ci-base-ai-list">
+      ${deepItems.map((item, index) => `
+        <div class="ci-base-chip tpl-deep-chip${item.id === tplStage.selectedItemId ? " active" : ""}" data-tpl-deep-chip="${escapeHtml(item.id)}">
+          <strong>${index + 1}. ${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
+          <span class="ci-base-chip-side">
+            ${tplStageReqBadge(item)}
+            <button type="button" class="step-move-btn" data-tpl-move="${escapeHtml(item.id)}" data-dir="up" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button type="button" class="step-move-btn" data-tpl-move="${escapeHtml(item.id)}" data-dir="down" ${index === deepItems.length - 1 ? "disabled" : ""}>↓</button>
+          </span>
+        </div>
+        ${item.id === tplStage.selectedItemId ? `
+        <div class="ci-base-chip-detail">
+          <div class="scenario-field">
+            <span>분석범위</span>
+            <div id="tplStageBehaviors" class="scenario-behavior-options"></div>
+          </div>
+          <textarea id="tplDeepInstruction" class="ci-stage-notes" rows="3"
+            placeholder="이 단계에서 중점적으로 확인할 내용(추가 지시)">${escapeHtml(item.instruction || "")}</textarea>
+        </div>` : ""}
+      `).join("") || `<div class="empty-state">서비스를 추가해 심층 분석 시나리오를 구성하세요.</div>`}
+    </div>
+  `;
+
+  const stage4 = `
+    <p class="ci-stage-note">보고서 생성과 검증 서비스를 통합 실행하여 보고서와 검증 결과를 생성합니다.</p>
+    <div class="ci-base-ai-list">
+      ${tplStageReportItems().map(item => `
+        <div class="ci-base-chip">
+          <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  return `
+    <label class="tpl-name-field">
+      <span>템플릿 이름</span>
+      <input id="tplStageName" type="text" placeholder="템플릿 이름을 입력하세요" value="${escapeHtml(tplStage.name)}">
+    </label>
+    ${tplStageSectionHtml("base",   "1. 기초데이터 분석", true,  stage1)}
+    ${tplStageSectionHtml("ext",    "2. 외부데이터 수집", false, stage2)}
+    ${tplStageSectionHtml("deep",   "3. 심층 분석 시나리오", false, stage3)}
+    ${tplStageSectionHtml("report", "4. 보고서 생성 및 검증", true, stage4)}
+    <button id="tplStageSaveButton" type="button" class="btn template-save-btn">분석 시나리오 템플릿 저장</button>
+  `;
+}
+
+function tplStageRender(){
+  const box = document.getElementById("tplStageEditor");
+  if(!box) return;
+  box.innerHTML = tplStageEditorHtml();
+  const selected = tplStage?.items.find(item => item.id === tplStage.selectedItemId);
+  if(selected && !ciIsReportStageItem(selected)){
+    syncBehaviorOptions(selected.key, selected.behaviors, "tplStageBehaviors");
+  }
+}
+
+function tplStageSave(){
+  if(!tplStage) return;
+  const name = String(document.getElementById("tplStageName")?.value || "").trim();
+  if(!name){ alert("템플릿 이름을 입력해 주세요."); document.getElementById("tplStageName")?.focus(); return; }
+  const deep = tplStageDeepItems().map((item, index) => ({ ...item, order: index + 1 }));
+  const report = tplStageReportItems().map((item, index) => ({ ...item, order: deep.length + index + 1 }));
+  const payload = {
+    name,
+    description: `${new Date().toLocaleDateString("ko-KR")} 저장 · 4단계`,
+    items: [...deep, ...report].map(item => ({ ...item, id: uid() })),
+    baseAiServices: tplStage.baseAiServices.map(svc => ({ ...svc })),
+    extAgencies: [...tplStage.extAgencies],
+    extUrlOpen: tplStage.extUrlOpen,
+    webTargets: tplStage.webTargets.map(target => ({ ...target })),
+    deepNotes: tplStage.deepNotes,
+  };
+  const customIdx = tplStage.id ? customTemplates.findIndex(t => t.id === tplStage.id) : -1;
+  const isBuiltin = tplStage.id && scenarioTemplates.some(t => t.id === tplStage.id);
+  if(customIdx >= 0){
+    customTemplates[customIdx] = { ...customTemplates[customIdx], ...payload, isCustom: true };
+  }else if(isBuiltin){
+    builtinOverrides[tplStage.id] = payload;
+  }else{
+    const newId = `custom-${uid()}`;
+    customTemplates.unshift({
+      id: newId, ...payload, isCustom: true, shared: true,
+      ownerUserId: currentUserId, ownerName: currentUser().name, ownerOrgId: currentUserGroup().org,
+    });
+    tplStage.id = newId;
+  }
+  saveTemplatesState();
+  saveCanvasState();
+  alert(`"${name}" 템플릿이 저장되었습니다.`);
+  render(currentPage);
+}
+
+/* 템플릿 스테이지 편집기 — 위임 핸들러(클릭) */
+document.addEventListener("click", (event) => {
+  if(event.target.closest("[data-tpl-new]")){
+    tplStageLoad(null);
+    tplStageRender();
+    return;
+  }
+  if(!document.getElementById("tplStageEditor")) return;   // 관세조사 템플릿 탭이 아닐 때 미개입
+
+  const stageToggle = event.target.closest("[data-tpl-stage-toggle]");
+  if(stageToggle && tplStage){
+    const key = stageToggle.dataset.tplStageToggle;
+    tplStage.stageOpen[key] = !tplStage.stageOpen[key];
+    tplStageRender();
+    return;
+  }
+  const baseChip = event.target.closest("[data-tpl-base-chip]");
+  if(baseChip && tplStage){
+    const key = baseChip.dataset.tplBaseChip;
+    tplStage.baseDetailKey = (tplStage.baseDetailKey === key && tplStage.baseSelectedKey === key) ? null : key;
+    tplStage.baseSelectedKey = key;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("[data-tpl-base-add]") && tplStage){
+    const key = document.getElementById("tplBaseSelect")?.value;
+    const source = key ? scenarioSourceByKey(key) : null;
+    if(!source) return;
+    if(tplStage.baseAiServices.some(svc => svc.key === `svc_${key}`)){ alert("이미 추가된 서비스입니다."); return; }
+    tplStage.baseAiServices.push({
+      key: `svc_${key}`, label: source.label,
+      desc: AI_SERVICE_REGISTRY[key]?.description || AI_SERVICE_REGISTRY[key]?.desc || "기초조사 배치 수행에 포함됩니다.",
+    });
+    tplStage.baseSelectedKey = `svc_${key}`;
+    tplStage.baseDetailKey = `svc_${key}`;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("[data-tpl-base-delete]") && tplStage){
+    if(!tplStage.baseSelectedKey){ alert("삭제할 AI 분석서비스를 먼저 선택하세요."); return; }
+    tplStage.baseAiServices = tplStage.baseAiServices.filter(svc => svc.key !== tplStage.baseSelectedKey);
+    tplStage.baseSelectedKey = null;
+    tplStage.baseDetailKey = null;
+    tplStageRender();
+    return;
+  }
+  const reqToggle = event.target.closest("[data-tpl-req-toggle]");
+  if(reqToggle && tplStage){
+    const item = tplStage.items.find(entry => entry.id === reqToggle.dataset.tplReqToggle);
+    if(item){ item.required = !ciTemplateItemRequired(item); tplStageRender(); }
+    return;
+  }
+  const moveBtn = event.target.closest("[data-tpl-move]");
+  if(moveBtn && tplStage){
+    const deep = tplStageDeepItems();
+    const pos = deep.findIndex(item => item.id === moveBtn.dataset.tplMove);
+    const swapWith = moveBtn.dataset.dir === "up" ? pos - 1 : pos + 1;
+    if(pos < 0 || swapWith < 0 || swapWith >= deep.length) return;
+    const a = tplStage.items.indexOf(deep[pos]);
+    const b = tplStage.items.indexOf(deep[swapWith]);
+    [tplStage.items[a], tplStage.items[b]] = [tplStage.items[b], tplStage.items[a]];
+    tplStageRender();
+    return;
+  }
+  const deepChip = event.target.closest("[data-tpl-deep-chip]");
+  if(deepChip && tplStage){
+    const id = deepChip.dataset.tplDeepChip;
+    tplStage.selectedItemId = tplStage.selectedItemId === id ? null : id;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("[data-tpl-deep-add]") && tplStage){
+    const key = document.getElementById("tplDeepSelect")?.value;
+    const source = key ? scenarioSourceByKey(key) : null;
+    if(!source) return;
+    const item = {
+      id: uid(), key, type: source.type, label: source.label,
+      behaviors: sourceDefaultBehaviors(key), required: false,
+      instruction: sourceDefaultInstruction(key) || "",
+      targetType: "company", target_type: "company", shareRecipients: [], webTargets: [],
+    };
+    const deep = tplStageDeepItems();
+    const insertAt = deep.length ? tplStage.items.indexOf(deep[deep.length - 1]) + 1 : 0;
+    tplStage.items.splice(insertAt, 0, item);
+    tplStage.selectedItemId = item.id;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("[data-tpl-deep-delete]") && tplStage){
+    const selected = tplStage.items.find(item => item.id === tplStage.selectedItemId);
+    if(!selected || ciIsReportStageItem(selected)){ alert("삭제할 심층 서비스를 먼저 선택하세요."); return; }
+    tplStage.items = tplStage.items.filter(item => item.id !== selected.id);
+    tplStage.selectedItemId = null;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("[data-tpl-web-add]")){
+    const url = String(document.getElementById("tplWebUrl")?.value || "").trim();
+    const query = String(document.getElementById("tplWebQuery")?.value || "").trim();
+    const loginId = String(document.getElementById("tplWebLoginId")?.value || "").trim();
+    const loginPw = String(document.getElementById("tplWebLoginPw")?.value || "");
+    if(!url && !query) return;
+    if(url && !isValidHttpUrl(url)){ alert("http 또는 https URL을 입력하세요."); return; }
+    tplStage.webTargets = normalizeWebTargets([...tplStage.webTargets, { url, query, loginId, loginPw }]);
+    tplStageRender();
+    return;
+  }
+  const tplWebRemove = event.target.closest("[data-tpl-web-remove]");
+  if(tplWebRemove){
+    tplStage.webTargets = tplStage.webTargets.filter((_, index) => index !== Number(tplWebRemove.dataset.tplWebRemove));
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest("#tplStageSaveButton")){
+    tplStageSave();
+    return;
+  }
+});
+
+/* 템플릿 스테이지 편집기 — 입력/체크 핸들러 */
+document.addEventListener("input", (event) => {
+  if(!tplStage || !document.getElementById("tplStageEditor")) return;
+  if(event.target?.id === "tplStageName"){ tplStage.name = event.target.value; return; }
+  if(event.target?.id === "tplDeepNotes"){ tplStage.deepNotes = event.target.value; return; }
+  if(event.target?.id === "tplDeepInstruction"){
+    const item = tplStage.items.find(entry => entry.id === tplStage.selectedItemId);
+    if(item) item.instruction = event.target.value;
+    return;
+  }
+  const baseNote = event.target.closest?.("[data-tpl-base-note]");
+  if(baseNote){
+    const svc = tplStage.baseAiServices.find(entry => entry.key === baseNote.dataset.tplBaseNote);
+    if(svc) svc.note = baseNote.value;
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if(!tplStage || !document.getElementById("tplStageEditor")) return;
+  const agency = event.target.closest?.("[data-tpl-agency]");
+  if(agency){
+    tplStage.extAgencies = agency.checked
+      ? [...new Set([...tplStage.extAgencies, agency.dataset.tplAgency])]
+      : tplStage.extAgencies.filter(key => key !== agency.dataset.tplAgency);
+    return;
+  }
+  if(event.target.closest?.("[data-tpl-url-toggle]")){
+    tplStage.extUrlOpen = event.target.checked;
+    tplStageRender();
+    return;
+  }
+  if(event.target.closest?.("#tplStageBehaviors")){
+    const item = tplStage.items.find(entry => entry.id === tplStage.selectedItemId);
+    if(item) item.behaviors = selectedBehaviorValues("tplStageBehaviors");
+  }
+});
+
 function scenarioTemplatePanel(domain = "customs"){
   templateEditorDomain = domain;
   const allTemplates = allScenarioTemplates(domain);
+  // 관세조사: 4단계 스테이지 편집기(분석 시나리오 확인 및 설정과 동일 구성, 실행 없음)
+  if(domain === "customs"){
+    return `
+      <div class="template-management-layout tpl-stage-layout">
+        <aside class="template-editor-panel tpl-stage-panel">
+          <div class="template-editor-header">분석 시나리오 템플릿 설정하기</div>
+          <div class="template-editor-body ci-stage-side tpl-stage-editor" id="tplStageEditor">${tplStageEditorHtml()}</div>
+        </aside>
+        <div class="template-grid-area">
+          <div class="template-grid-header">
+            <div>
+              <h2>분석 시나리오 템플릿</h2>
+              <p class="muted">공통 조사 흐름을 관리하는 화면입니다. 기업별 실행 화면에서는 여기의 템플릿을 불러와 필요한 부분만 조정합니다.</p>
+            </div>
+            <button type="button" class="btn secondary" data-tpl-new>새 템플릿</button>
+          </div>
+          <div class="template-card-grid">
+            ${allTemplates.map(t => templateCardHtml(t)).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
   const editorName = editingTemplateName();
   const hasEditing = !!editingTemplateId;
-  const allowNew = domain === "customs"; // 신규 커스텀 등록은 관세조사에서만(일반/마약은 빌트인 편집)
+  const allowNew = false; // 일반/마약/외환은 빌트인 편집만
   return `
     <div class="template-management-layout">
       <aside class="template-editor-panel">
@@ -5922,22 +6472,515 @@ function scenarioWorkbenchV2(){
   });
 }
 
-/* 관세조사 — 분석 시나리오 확인 및 설정 (리뷰 모드: 사전 준비된 결과 확인 + 설정 편집) */
+/* ── 관세조사 — 분석 시나리오 확인 및 설정: 4단계 스테이지 UI ──────────────
+   (1) 기초 조사 분석(default·항시 수행) → (2) 외부데이터 수집(외부기관+웹 정보수집 통합)
+   → (3) 심층 분석 시나리오(서비스 추가·순서변경·착안사항) → (4) 보고서 생성 및 검증(default).
+   좌측 25% 설정(스테이지 아코디언) / 우측 75% 분석 결과 로그.
+   기존 워크벤치의 요소 id 계약(scenarioList·scenarioStepAccordion·픽커·템플릿 등)을
+   유지하므로 실행·프롬프트·리뷰모드 엔진 함수는 그대로 동작한다. */
+/* 기초조사 — 아래 서비스들을 배치(Batch)로 항시 수행 (서비스 → 세부 수행 항목) */
+const CI_BASE_BATCH_SERVICES = [
+  { label: "CDW 조회", items: ["기업 프로파일·수입신고 내역", "최근 심사/범죄 이력"] },
+  { label: "심사정보 RAG 조회", items: ["유사사례 검색"] },
+  { label: "빅데이터모델 결과수집", items: ["기업심사통합정보"] },
+  { label: "전자통관 외부정보조회", items: ["국세청(세적정보)", "한국은행(외환거래)", "여신협회(해외카드내역)"] },
+  { label: "수입신고서 검증(신고내용·첨부파일)", items: [] },
+];
+const CI_BASE_TAIL_SERVICES = [
+  { label: "법령검토(통관적법성 검증)", items: [] },
+];
+/* 기초조사 AI 분석서비스 — 관리 가능한 목록(추가/삭제·영속), 칩 클릭 시 상세 토글 */
+const CI_BASE_AI_DEFAULTS = [
+  { key: "base_hs",     label: "품목분류 검증",     desc: "신고 품목의 HS코드 분류 적정성을 검증합니다." },
+  { key: "base_price",  label: "신고가격 검증",     desc: "신고가격·과세가격의 적정성(저가·고가신고 여부)을 검증합니다." },
+  { key: "base_refund", label: "환급내역 검증",     desc: "관세 환급 신청 내역의 적정성을 검증합니다." },
+  { key: "base_forex",  label: "외환거래 분석",     desc: "수입대금 송금·외환거래와 신고내역의 일치 여부를 분석합니다." },
+  { key: "base_req",    label: "요건확인대상 검증", desc: "수입요건 확인 대상 해당 여부와 요건 구비를 검증합니다." },
+  { key: "base_origin", label: "원산지 검증",       desc: "FTA 원산지결정기준 충족·원산지증명서 적정성을 검증합니다." },
+];
+let ciBaseAiServices = CI_BASE_AI_DEFAULTS.map(svc => ({ ...svc }));   // 영속
+let ciBaseNotesByCompany = {};                                         // 기초조사 착안사항(기업별·영속)
+let ciBaseSelectedKey = null;                                          // 선택 칩(삭제 대상)
+let ciBaseDetailOpenKey = null;                                        // 상세 토글(칩 재클릭으로 접기)
+let ciBaseRunStatus = {};                                              // 기초 배치 실행 상태 { label: running|done|error }
+
+/* 기초 배치 고정 서비스 → 실제 실행 서비스 매핑(세부 항목은 프롬프트로 전달) */
+const CI_BASE_FIXED_RUNS = [
+  { label: "CDW 조회", key: "db_cdw",
+    instruction: "기업 프로파일·수입신고 내역과 최근 심사/범죄 이력을 조회하십시오." },
+  { label: "심사정보 RAG 조회", key: "rag_audit",
+    instruction: "유사사례를 검색하여 조사 참고사항을 정리하십시오." },
+  { label: "빅데이터모델 결과수집", key: "ml",
+    instruction: "기업심사통합정보(빅데이터모델 결과)를 수집·정리하십시오." },
+  { label: "전자통관 외부정보조회", key: "db_external",
+    instruction: "국세청(세적정보)·한국은행(외환거래)·여신협회(해외카드내역) 정보를 조회하십시오." },
+  { label: "수입신고서 검증(신고내용·첨부파일)", key: "declaration_verify",
+    instruction: "수입신고 내용과 첨부파일의 정합성을 검증하십시오." },
+];
+/* 기초 AI 분석서비스(기본 6종) → 실행 서비스 매핑 — 미매핑은 수입신고검증 관점 실행 */
+const CI_BASE_AI_RUN_KEYS = {
+  base_hs: "hs_verify", base_price: "customs_value", base_forex: "abnormal_trade",
+  base_refund: "declaration_verify", base_req: "declaration_verify", base_origin: "declaration_verify",
+};
+
+function ciBaseStateIcon(state){
+  return state === "running" ? "⏳" : state === "done" ? "✅" : state === "error" ? "⚠️" : "";
+}
+
+function ciPaintBaseRunStatus(){
+  document.querySelectorAll("[data-ci-base-state]").forEach(el => {
+    el.textContent = ciBaseStateIcon(ciBaseRunStatus[el.dataset.ciBaseState]);
+  });
+}
+
+/* 저장하지 않는 일회성 실행 항목 — 기초 배치 순차 수행용 */
+function ciTransientItem(key, label, instruction){
+  const source = scenarioSourceByKey(key) || {};
+  return {
+    id: `cibase_${uid()}`, key, type: source.type || "agent", label,
+    behaviors: sourceDefaultBehaviors(key), order: 0,
+    targetType: "company", target_type: "company",
+    instruction, shareRecipients: [], webTargets: [],
+  };
+}
+
+/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 전체를 순차 수행 */
+async function ciRunBaseBatch(){
+  const specs = [
+    ...CI_BASE_FIXED_RUNS.map(fixed => ({ ...fixed })),
+    ...ciBaseAiServices.map(svc => ({
+      label: svc.label,
+      key: CI_BASE_AI_RUN_KEYS[svc.key]
+        || (svc.key.startsWith("svc_") ? svc.key.slice(4) : "declaration_verify"),
+      instruction: `${svc.desc || `${svc.label}을(를) 수행하십시오.`}` +
+        (svc.note ? `\n[조사 착안사항·확인사항]\n${svc.note}` : ""),
+    })),
+    { label: "법령검토(통관적법성 검증)", key: "law",
+      instruction: "통관적법성 관점에서 관련 법령을 검토하십시오." },
+  ];
+  ciBaseRunStatus = {};
+  ciBaseRunResults = [];
+  ciPaintBaseRunStatus();
+  ciRenderResultTab();
+  for(const spec of specs){
+    const item = ciTransientItem(spec.key, spec.label, spec.instruction);
+    if(!scenarioItemHasPermission(item)){
+      ciBaseRunStatus[spec.label] = "error";
+      ciBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      ciPaintBaseRunStatus();
+      ciRenderResultTab();
+      continue;
+    }
+    ciBaseRunStatus[spec.label] = "running";
+    const entry = { label: spec.label, status: "running", output: "" };
+    ciBaseRunResults.push(entry);
+    ciPaintBaseRunStatus();
+    ciRenderResultTab();
+    await new Promise(resolve => runSingleScenarioItem(item, resolve));
+    entry.status = stepStatuses[item.id] === "오류" ? "error" : "done";
+    entry.output = stepOutputs[item.id] || "";
+    ciBaseRunStatus[spec.label] = entry.status;
+    ciPaintBaseRunStatus();
+    ciRenderResultTab();
+  }
+}
+
+function ciBaseAiListHtml(){
+  return ciBaseAiServices.map(svc => `
+    <div class="ci-base-chip${svc.key === ciBaseSelectedKey ? " active" : ""}" data-ci-base-chip="${escapeHtml(svc.key)}">
+      <strong>${escapeHtml(svc.label)}</strong>
+      <span class="ci-base-chip-side">
+        <i class="ci-base-state" data-ci-base-state="${escapeHtml(svc.label)}">${ciBaseStateIcon(ciBaseRunStatus[svc.label])}</i>
+        <i>${ciBaseDetailOpenKey === svc.key ? "▴" : "▾"}</i>
+      </span>
+    </div>
+    ${ciBaseDetailOpenKey === svc.key ? `
+    <div class="ci-base-chip-detail">
+      <p>${escapeHtml(svc.desc || "기초조사 배치 수행에 포함됩니다.")}</p>
+      <textarea class="ci-stage-notes ci-base-svc-notes" data-ci-base-note="${escapeHtml(svc.key)}" rows="2"
+        placeholder="조사 착안사항 및 확인사항">${escapeHtml(svc.note || "")}</textarea>
+    </div>` : ""}
+  `).join("");
+}
+
+function ciRenderBaseAiList(){
+  const box = document.getElementById("ciBaseAiList");
+  if(box) box.innerHTML = ciBaseAiListHtml()
+    || `<div class="empty-state">등록된 AI 분석서비스가 없습니다.</div>`;
+}
+const CI_EXT_AGENCIES = [
+  { key: "dart",   label: "금융감독원 전자공시시스템(DART)" },
+  { key: "nice",   label: "NICE평가정보 BizLINE" },
+  { key: "cretop", label: "한국기업데이터 CRETOP" },
+  { key: "kpds",   label: "코리아PDS(KOREA PDS)" },
+  { key: "kpi",    label: "한국물가정보(KPI)" },
+  { key: "kipris", label: "특허정보넷(KIPRIS)" },
+  { key: "orbis",  label: "뷰로반다이크(ORBIS)" },
+  { key: "dnb",    label: "Dun&Bradstreet(D&B)" },
+];
+let ciStageOpen = { base: false, ext: false, deep: true, report: false };   // 세션 UI 상태
+let ciDetailCollapsed = false;   // 선택 서비스 상세 접힘 — 활성 칩 재클릭으로 토글
+let ciExtAgencyChecked = new Set(["dart", "nice", "orbis"]);                // 외부기관 선택(영속)
+let ciExtUrlOpen = true;                                                    // URL 직접 등록 체크(상세 폼 표시·영속)
+let ciScenarioNotesByCompany = {};                                          // 조사 착안사항(기업별·영속)
+
+/* 스테이지 아코디언 토글 — DOM 클래스만 전환(재렌더 없음). '외부데이터 수집'을 열면
+   웹 정보수집 서비스가 선택되어 URL 등록 폼이 해당 서비스에 바로 연결된다. */
+document.addEventListener("click", (event) => {
+  /* 기초조사 AI 분석서비스 — 칩 선택/상세 토글·추가·삭제 */
+  const baseChip = event.target.closest("[data-ci-base-chip]");
+  if(baseChip){
+    const key = baseChip.dataset.ciBaseChip;
+    ciBaseDetailOpenKey = (ciBaseDetailOpenKey === key && ciBaseSelectedKey === key) ? null : key;
+    ciBaseSelectedKey = key;
+    ciRenderBaseAiList();
+    return;
+  }
+  if(event.target.closest("[data-ci-base-add]")){
+    const select = document.getElementById("ciBaseServiceSelect");
+    const key = select?.value;
+    const source = key ? scenarioSourceByKey(key) : null;
+    if(!source) return;
+    if(ciBaseAiServices.some(svc => svc.key === `svc_${key}`)){
+      alert("이미 기초조사에 추가된 서비스입니다.");
+      return;
+    }
+    ciBaseAiServices.push({
+      key: `svc_${key}`,
+      label: source.label,
+      desc: AI_SERVICE_REGISTRY[key]?.description || AI_SERVICE_REGISTRY[key]?.desc
+        || "기초조사 배치 수행에 포함됩니다.",
+    });
+    ciBaseSelectedKey = `svc_${key}`;
+    ciBaseDetailOpenKey = `svc_${key}`;
+    ciRenderBaseAiList();
+    saveCanvasState();
+    return;
+  }
+  if(event.target.closest("[data-ci-base-delete]")){
+    if(!ciBaseSelectedKey){ alert("삭제할 AI 분석서비스를 먼저 선택하세요."); return; }
+    ciBaseAiServices = ciBaseAiServices.filter(svc => svc.key !== ciBaseSelectedKey);
+    ciBaseSelectedKey = null;
+    ciBaseDetailOpenKey = null;
+    ciRenderBaseAiList();
+    saveCanvasState();
+    return;
+  }
+
+  /* 단계 헤더 [▶ 실행] — 토글보다 먼저 처리(헤더 내부 버튼) */
+  const stageRun = event.target.closest("[data-ci-stage-run]");
+  if(stageRun){
+    ciRunStage(stageRun.dataset.ciStageRun, stageRun);
+    return;
+  }
+
+  const toggle = event.target.closest("[data-ci-stage-toggle]");
+  if(!toggle) return;
+  const key = toggle.dataset.ciStageToggle;
+  ciStageOpen[key] = !ciStageOpen[key];
+  const section = toggle.closest(".ci-stage");
+  section?.classList.toggle("open", ciStageOpen[key]);
+  if(key === "ext" && ciStageOpen.ext){
+    const webItem = scenarioItems.find(item => item.key === "web_search");
+    if(webItem && selectedScenarioId !== webItem.id){
+      selectedScenarioId = webItem.id;
+      renderScenarioList();
+      syncScenarioEditor();
+      if(scenarioReviewMode) renderScenarioSteps();
+    }
+    renderWebTargetPanel("scenario");
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const agency = event.target.closest("[data-ci-agency]");
+  if(agency){
+    if(agency.checked) ciExtAgencyChecked.add(agency.dataset.ciAgency);
+    else ciExtAgencyChecked.delete(agency.dataset.ciAgency);
+    saveCanvasState();
+    return;
+  }
+  // URL 직접 등록 체크 → 상세(URL·키워드 등록 폼) 표시/숨김
+  const urlToggle = event.target.closest("[data-ci-url-toggle]");
+  if(urlToggle){
+    ciExtUrlOpen = urlToggle.checked;
+    const panel = document.getElementById("ciExtWebPanel");
+    if(panel){
+      panel.hidden = !ciExtUrlOpen;
+      if(ciExtUrlOpen) renderWebTargetPanel("scenario");
+    }
+    saveCanvasState();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if(event.target?.id === "ciScenarioNotes"){
+    if(activeCanvasCompanyId) ciScenarioNotesByCompany[activeCanvasCompanyId] = event.target.value;
+    saveCanvasState();   // 디바운스 저장이므로 입력마다 호출해도 부담 없음
+    return;
+  }
+  if(event.target?.id === "ciBaseNotes"){
+    if(activeCanvasCompanyId) ciBaseNotesByCompany[activeCanvasCompanyId] = event.target.value;
+    saveCanvasState();
+    return;
+  }
+  // 기초조사 AI 분석서비스 — 서비스별 조사 착안사항·확인사항
+  const baseNote = event.target.closest?.("[data-ci-base-note]");
+  if(baseNote){
+    const svc = ciBaseAiServices.find(entry => entry.key === baseNote.dataset.ciBaseNote);
+    if(svc){ svc.note = baseNote.value; saveCanvasState(); }
+  }
+});
+
+/* ── 결과 영역 탭 — 선택된 서비스 / 4단계별 결과 ── */
+const CI_RESULT_TABS = [
+  { key: "selected", label: "선택된 서비스 분석결과" },
+  { key: "base",     label: "1. 기초데이터 분석 결과" },
+  { key: "ext",      label: "2. 외부 데이터 수집 결과" },
+  { key: "deep",     label: "3. 심층 분석 결과" },
+  { key: "report",   label: "4. 보고서 생성 및 검증 결과" },
+];
+let ciResultTab = "selected";
+let ciBaseRunResults = [];   // 기초 배치 실행 결과 [{label, status, output}]
+
+function ciResultBlockHtml(label, status, output){
+  const icon = status === "running" ? "⏳" : status === "error" ? "⚠️" : status === "done" ? "✅" : "•";
+  return `
+    <section class="ci-result-block">
+      <div class="ci-result-block-head">${icon} ${escapeHtml(label)}</div>
+      ${output ? `<div class="markdown-output">${markdownToHtml(output)}</div>`
+        : `<div class="muted" style="font-size:12px">${status === "running" ? "실행 중…" : "결과가 아직 없습니다."}</div>`}
+    </section>
+  `;
+}
+
+function ciStageResultsHtml(stageKey){
+  const blocks = [];
+  if(stageKey === "base"){
+    ciBaseRunResults.forEach(entry => blocks.push(ciResultBlockHtml(entry.label, entry.status, entry.output)));
+  }
+  scenarioItems
+    .filter(item => ciTemplateItemStage(item) === stageKey)
+    .forEach(item => {
+      const status = { "실행 중": "running", "실행중": "running", "완료": "done", "오류": "error" }[stepStatuses[item.id]] || "wait";
+      if(stepOutputs[item.id] || status !== "wait"){
+        blocks.push(ciResultBlockHtml(normalizeReportValidationLabel(item.label), status, stepOutputs[item.id] || ""));
+      }
+    });
+  if(!blocks.length){
+    const stageLabel = CI_RESULT_TABS.find(t => t.key === stageKey)?.label || "";
+    return `<div class="empty-state">${escapeHtml(stageLabel.replace(/ 결과$/, ""))}을(를) 실행하면 결과가 여기에 표시됩니다.</div>`;
+  }
+  return blocks.join("");
+}
+
+function ciRenderResultTab(){
+  const body = document.getElementById("ciResultBody");
+  const accordion = document.getElementById("scenarioStepAccordion");
+  if(!body || !accordion) return;
+  document.querySelectorAll("[data-ci-result-tab]").forEach(tab =>
+    tab.classList.toggle("active", tab.dataset.ciResultTab === ciResultTab));
+  const selectedMode = ciResultTab === "selected";
+  accordion.style.display = selectedMode ? "" : "none";
+  body.style.display = selectedMode ? "none" : "";
+  if(!selectedMode) body.innerHTML = ciStageResultsHtml(ciResultTab);
+}
+
+document.addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-ci-result-tab]");
+  if(!tab) return;
+  ciResultTab = tab.dataset.ciResultTab;
+  ciRenderResultTab();
+});
+
+function ciStageSection(key, title, isDefault, bodyHtml){
+  const open = ciStageOpen[key];
+  return `
+    <section class="ci-stage${open ? " open" : ""}" data-ci-stage="${key}">
+      <div class="ci-stage-head" data-ci-stage-toggle="${key}" role="button" tabindex="0">
+        <span>${title}${isDefault ? ` <em>(default)</em>` : ""}</span>
+        <span class="ci-stage-head-actions">
+          <button type="button" class="ci-stage-run" data-ci-stage-run="${key}" title="이 단계의 서비스를 순차 실행">▶ 실행</button>
+        </span>
+      </div>
+      <div class="ci-stage-body">${bodyHtml}</div>
+    </section>
+  `;
+}
+
+/* 단계별 실행 — 해당 단계에 포함된 서비스를 순차 실행한다.
+   기초(base)는 시나리오와 무관하게 고정 배치 + 등록 AI 분석서비스 전체를 수행(ciRunBaseBatch). */
+const CI_STAGE_RUN_KEYS = {
+  ext: ["web_search", "external_agency"],
+};
+
+function ciStageRunItems(stageKey){
+  if(stageKey === "report") return scenarioItems.filter(ciIsReportStageItem);
+  if(stageKey === "deep")   return scenarioItems.filter(item => !ciIsReportStageItem(item));
+  const keys = CI_STAGE_RUN_KEYS[stageKey] || [];
+  return scenarioItems.filter(item => keys.includes(item.key));
+}
+
+async function ciRunStage(stageKey, btn){
+  if(isCompanyArchived()){ alert("아카이브된 작업은 복원 후 분석할 수 있습니다."); return; }
+  if(stageKey === "base"){
+    if(btn){ btn.disabled = true; btn.textContent = "실행 중…"; }
+    try{ await ciRunBaseBatch(); }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; } }
+    return;
+  }
+  const items = ciStageRunItems(stageKey).filter(scenarioItemHasPermission);
+  if(!items.length){ alert("이 단계에서 실행할 수 있는 서비스가 시나리오에 없습니다."); return; }
+  if(btn){ btn.disabled = true; btn.textContent = "실행 중…"; }
+  try{
+    for(const item of items){
+      selectedScenarioId = item.id;
+      renderScenarioList();
+      syncScenarioEditor();
+      if(scenarioReviewMode) renderScenarioSteps();
+      await new Promise(resolve => runSingleScenarioItem(item, resolve));
+    }
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; }
+  }
+}
+
+/* 관세조사 — 분석 시나리오 확인 및 설정 (리뷰 모드 · 4단계 스테이지 레이아웃) */
 function scenarioReviewWorkbench(){
   const company = activeCanvasCompany();
   const archived = isCompanyArchived(company.company_id);
   const archive = currentRunArchive(company.company_id);
+  scenarioReviewMode = true;   // 이후 renderScenarioSteps/syncScenarioEditor가 리뷰 모드로 분기
   const preparedNote = archive
     ? `<span class="muted" style="font-size:12px">사전 준비된 분석 결과 · ${escapeHtml(archive.savedAt || "")}</span>`
     : `<span class="muted" style="font-size:12px">준비된 분석 결과가 없습니다</span>`;
-  return sharedScenarioWorkbenchHtml({
-    archived,
-    reviewMode: true,
-    reviewNoteHtml: preparedNote,
-    titleHtml:    "분석 시나리오 확인 및 설정",
-    subtitleHtml: `사전 수행된 분석 결과를 단계별로 확인하고, 분석 시나리오 구성·분석범위·프롬프트를 조정합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">설정을 변경한 뒤 "AI 분석서비스 수행"으로 현재 DB 기준 분석을 다시 실행할 수 있습니다.</em>`,
-    templateOptionsHtml: scenarioTemplateOptionsHtml(),
-  });
+
+  const baseServiceList = services => `
+    <ul class="ci-base-list">
+      ${services.map(service => `
+        <li>${escapeHtml(service.label)}
+          <i class="ci-base-state" data-ci-base-state="${escapeHtml(service.label)}">${ciBaseStateIcon(ciBaseRunStatus[service.label])}</i>
+          ${service.items.length
+            ? `<ul>${service.items.map(entry => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
+            : ""}</li>
+      `).join("")}
+    </ul>
+  `;
+  const stage1 = `
+    <p class="ci-stage-note">다음 서비스를 배치(Batch)로 항시 수행합니다(default) — 로그 수준의 초안 보고서를 생성합니다.</p>
+    ${baseServiceList(CI_BASE_BATCH_SERVICES)}
+    <div class="ci-base-ai">
+      <strong class="ci-base-ai-title">AI 분석서비스</strong>
+      <div class="ci-stage-tools">
+        <select id="ciBaseServiceSelect" class="scenario-template-select"></select>
+        <button type="button" class="btn scenario-template-apply-btn" data-ci-base-add ${archived ? "disabled" : ""}>서비스 추가</button>
+        <button type="button" class="btn secondary scenario-template-apply-btn" data-ci-base-delete ${archived ? "disabled" : ""}>선택 삭제</button>
+      </div>
+      <textarea id="ciBaseNotes" class="ci-stage-notes" rows="2"
+        placeholder="조사 착안사항 및 확인사항">${escapeHtml(ciBaseNotesByCompany[company.company_id] || "")}</textarea>
+      <div class="ci-base-ai-list" id="ciBaseAiList">${ciBaseAiListHtml()}</div>
+    </div>
+    ${baseServiceList(CI_BASE_TAIL_SERVICES)}
+  `;
+
+  const stage2 = `
+    <p class="ci-stage-note">데이터 수집이 필요한 외부 기관을 선택하세요.</p>
+    <div class="ci-agency-list">
+      ${CI_EXT_AGENCIES.map(agency => `
+        <label><input type="checkbox" data-ci-agency="${agency.key}" ${ciExtAgencyChecked.has(agency.key) ? "checked" : ""}> ${escapeHtml(agency.label)}</label>
+      `).join("")}
+      <label><input type="checkbox" data-ci-url-toggle ${ciExtUrlOpen ? "checked" : ""}> URL 직접 등록</label>
+    </div>
+    <div id="ciExtWebPanel" class="ci-ext-web-panel" ${ciExtUrlOpen ? "" : "hidden"}></div>
+  `;
+
+  const stage3 = `
+    <p class="ci-stage-note">심층분석을 위한 분석 시나리오 등록 — 서비스를 추가하고 순서를 변경하거나 조사 착안사항을 등록합니다.</p>
+    <div class="ci-stage-tools">
+      <select id="scenarioQuickSourceSelect" class="scenario-template-select"></select>
+      <button type="button" class="btn scenario-template-apply-btn" data-scenario-quick-add ${archived ? "disabled" : ""}>서비스 추가</button>
+      <button type="button" class="btn secondary scenario-template-apply-btn" data-scenario-quick-delete ${archived ? "disabled" : ""}>선택 삭제</button>
+    </div>
+    <textarea id="ciScenarioNotes" class="ci-stage-notes" rows="3"
+      placeholder="조사 착안사항 및 확인사항">${escapeHtml(ciScenarioNotesByCompany[company.company_id] || "")}</textarea>
+    <ol id="scenarioList" class="scenario-list ci-stage-list"></ol>
+    <div id="ciStageConfigDock" class="ci-stage-config-dock">
+    <div class="ci-stage-config">
+      <div class="scenario-agent-zone">
+        <div id="scenarioSourceHint" class="scenario-source-hint"></div>
+        <div class="scenario-field scenario-setting-field" id="scenarioServiceSettingsField" style="display:none">
+          <span>입력/설정값</span>
+          <div id="scenarioServiceSettings" class="scenario-setting-options"></div>
+        </div>
+        <div id="scenarioShareEmailPanel"></div>
+        <div id="scenarioWebTargetPanel"></div>
+        <div id="scenarioRagPanel"></div>
+        <div class="scenario-field scenario-behavior-prompt-field">
+          <div id="scenarioBehaviorPromptList" class="scenario-behavior-prompt-list"></div>
+        </div>
+      </div>
+      <div id="scenarioPromptValidation" class="scenario-prompt-validation"></div>
+      <div class="scenario-prompt-actions">
+        <button id="scenarioApplyPromptButton" type="button" class="btn secondary" ${archived ? "disabled" : ""}>프롬프트 변경 적용</button>
+        <button id="scenarioValidatePromptButton" type="button" class="btn secondary" ${archived ? "disabled" : ""}>프롬프트 검증</button>
+        <button id="scenarioReviewRunButton" type="button" class="btn primary" ${archived ? "disabled" : ""}>▶ AI 분석서비스 수행</button>
+      </div>
+    </div>
+    </div>
+  `;
+
+  const stage4 = `
+    <p class="ci-stage-note">보고서 생성과 검증 서비스를 통합 실행하여 보고서와 검증 결과를 생성합니다.</p>
+    <ol id="ciStage4List" class="scenario-list ci-stage-list"></ol>
+  `;
+
+  return `
+    <section class="card scenario-workbench scenario-workbench-v2 scenario-review-mode ci-stage-workbench">
+      <div class="scenario-work-header">
+        <div class="scenario-title-row">
+          <div>
+            <h3>분석 시나리오 확인 및 설정</h3>
+            <p class="muted">기초데이터 분석 → 외부데이터 수집 → 심층 분석 시나리오 → 보고서 생성 및 검증의 4단계로 분석을 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초 분석과 보고서 생성·검증은 기본(default)으로 항시 수행됩니다.</em></p>
+          </div>
+        </div>
+        <div class="scenario-header-actions">
+          ${preparedNote}
+          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
+            ${archived ? "disabled" : ""} title="4단계 분석을 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
+        </div>
+      </div>
+
+      <div class="ci-stage-layout">
+        <aside class="ci-stage-side">
+          ${ciStageSection("base",   "1. 기초데이터 분석", true,  stage1)}
+          ${ciStageSection("ext",    "2. 외부데이터 수집", false, stage2)}
+          ${ciStageSection("deep",   "3. 심층 분석 시나리오", false, stage3)}
+          ${ciStageSection("report", "4. 보고서 생성 및 검증", true, stage4)}
+          <div class="ci-stage-templates">
+            <select id="scenarioTemplateSelect" class="scenario-template-select">
+              ${scenarioTemplateOptionsHtml()}
+            </select>
+            <div class="ci-stage-template-actions">
+              <button id="scenarioTemplateApplyButton" type="button" class="btn scenario-template-apply-btn" ${archived ? "disabled" : ""}>템플릿 적용</button>
+              <button id="scenarioSaveButton" type="button" class="btn secondary scenario-save-bottom">신규 템플릿 등록</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="scenario-log ci-stage-main">
+          <div class="ci-result-tabs">
+            ${CI_RESULT_TABS.map(tab => `
+              <button type="button" class="ci-result-tab${ciResultTab === tab.key ? " active" : ""}"
+                data-ci-result-tab="${tab.key}">${escapeHtml(tab.label)}</button>
+            `).join("")}
+          </div>
+          <div id="scenarioClarify" class="scenario-clarify-slot"></div>
+          <div id="scenarioStepAccordion" class="scenario-step-accordion" ${ciResultTab === "selected" ? "" : `style="display:none"`}></div>
+          <div id="ciResultBody" class="ci-result-body" ${ciResultTab === "selected" ? `style="display:none"` : ""}></div>
+        </section>
+      </div>
+    </section>
+  `;
 }
 
 
@@ -6401,6 +7444,11 @@ function initScenarioWorkbench(){
   syncScenarioEditor();
   renderScenarioList();
   renderScenarioSteps();
+  // 관세조사 4단계 스테이지 UI: '외부데이터 수집' 웹 패널 초기 렌더
+  if(document.getElementById("ciExtWebPanel")) renderWebTargetPanel("scenario");
+  // 기초조사 AI 분석서비스 추가용 셀렉트 — AI 서비스 카탈로그로 채움
+  const ciBaseSelect = document.getElementById("ciBaseServiceSelect");
+  if(ciBaseSelect && !ciBaseSelect.options.length) ciBaseSelect.innerHTML = scenarioSourceOptionsHtml();
 }
 
 /* 분석범위(동작) 하나에 대한 짧은 설명 — 패턴 등록분 우선, 없으면 기본 문구 */
@@ -6864,6 +7912,19 @@ function applySelectedScenarioTemplate(){
   activeScenarioTemplateId = templateId;
   scenarioItems = cloneTemplateItems(templateId);
   selectedScenarioId = scenarioItems[0]?.id || null;
+  // 4단계 템플릿의 기초 AI 분석서비스·외부기관 구성도 함께 적용
+  const appliedTemplate = allScenarioTemplates().find(t => t.id === templateId);
+  if(Array.isArray(appliedTemplate?.baseAiServices) && appliedTemplate.baseAiServices.length){
+    ciBaseAiServices = appliedTemplate.baseAiServices.map(svc => ({ ...svc }));
+  }
+  if(Array.isArray(appliedTemplate?.extAgencies)){
+    ciExtAgencyChecked = new Set(appliedTemplate.extAgencies);
+  }
+  if(typeof appliedTemplate?.extUrlOpen === "boolean") ciExtUrlOpen = appliedTemplate.extUrlOpen;
+  if(Array.isArray(appliedTemplate?.webTargets) && appliedTemplate.webTargets.length){
+    const webItem = scenarioItems.find(item => item.key === "web_search");
+    if(webItem) setScenarioItemWebTargets(webItem, appliedTemplate.webTargets);
+  }
   stepOutputs = {};
   stepStatuses = {};
   openedSteps = new Set();
@@ -7030,11 +8091,37 @@ function scenarioServiceKindClass(item){
   return "scenario-kind-analysis";
 }
 
+/* 관세조사 4단계 스테이지 UI: 보고서 생성·검증 서비스는 4단계 컨테이너로 분리 렌더 */
+function ciIsReportStageItem(item){
+  return ["report", "validation", "approve"].includes(item.type)
+    || ["report_generate", "report_validate"].includes(item.key);
+}
+
+/* 관세조사 스테이지 UI: 선택된 서비스 칩 바로 아래에 상세 설정(.ci-stage-config)을
+   아코디언처럼 배치한다. DOM 노드를 이동시키므로 내부 요소의 이벤트 바인딩이 보존된다. */
+function ciPlaceScenarioDetail(){
+  const config = document.querySelector(".ci-stage-config");
+  const dock = document.getElementById("ciStageConfigDock");
+  if(!config || !dock) return;
+  const active = document.querySelector("#scenarioList .scenario-chip.active, #ciStage4List .scenario-chip.active");
+  if(!active || ciDetailCollapsed){
+    dock.appendChild(config);
+    config.style.display = "none";
+    return;
+  }
+  config.style.display = "";
+  const holder = document.createElement("li");
+  holder.className = "ci-chip-detail";
+  active.after(holder);
+  holder.appendChild(config);
+}
+
 function renderScenarioList(){
   const target = document.getElementById("scenarioList");
   if(!target) return;
   normalizeScenarioOrder();
-  target.innerHTML = scenarioItems.map(item => {
+  const stage4 = document.getElementById("ciStage4List");
+  const chipHtml = item => {
     const status = scenarioItemPermissionStatus(item);
     const locked = status !== "granted";
     const runStatus = stepStatuses[item.id] || "대기";
@@ -7056,15 +8143,34 @@ function renderScenarioList(){
           <strong>${escapeHtml(normalizeReportValidationLabel(item.label))}</strong>
           ${locked ? `<em>${permissionLabel(status)}</em>` : ""}
         </div>
-        <p>${escapeHtml(scenarioInstructionPreview(item))}</p>
+        ${stage4 ? "" : `<p>${escapeHtml(scenarioInstructionPreview(item))}</p>`}
       </div>
     </li>
   `;
-  }).join("");
+  };
 
-  target.querySelectorAll(".scenario-chip").forEach(chip => {
+  if(stage4){
+    // 리스트 재렌더 전 상세 설정 블록을 dock으로 대피(내부 이벤트 바인딩 보존)
+    const dock = document.getElementById("ciStageConfigDock");
+    const config = document.querySelector(".ci-stage-config");
+    if(dock && config) dock.appendChild(config);
+    target.innerHTML = scenarioItems.filter(item => !ciIsReportStageItem(item)).map(chipHtml).join("");
+    stage4.innerHTML = scenarioItems.filter(ciIsReportStageItem).map(chipHtml).join("")
+      || `<div class="empty-state">보고서 생성·검증 서비스가 시나리오에 없습니다.</div>`;
+  }else{
+    target.innerHTML = scenarioItems.map(chipHtml).join("");
+  }
+
+  const containers = stage4 ? [target, stage4] : [target];
+  containers.forEach(container => container.querySelectorAll(".scenario-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-      selectedScenarioId = chip.dataset.scenarioId;
+      // 스테이지 UI: 활성 칩 재클릭 = 상세 접기/펴기 토글, 다른 칩 클릭 = 선택 + 상세 표시
+      if(stage4 && selectedScenarioId === chip.dataset.scenarioId){
+        ciDetailCollapsed = !ciDetailCollapsed;
+      }else{
+        selectedScenarioId = chip.dataset.scenarioId;
+        ciDetailCollapsed = false;
+      }
       renderScenarioList();
       syncScenarioEditor();
       // 리뷰 모드: 우측 결과 패널이 선택된 AI 서비스를 따라가도록 갱신
@@ -7076,8 +8182,9 @@ function renderScenarioList(){
       event.preventDefault();
       moveScenarioItem(event.dataTransfer.getData("text/plain"), chip.dataset.scenarioId);
     });
-  });
+  }));
 
+  if(stage4) ciPlaceScenarioDetail();   // 선택 칩 아래 상세 설정 아코디언 배치
   updateScenarioProgress();
 }
 
@@ -7096,6 +8203,8 @@ function moveScenarioItem(dragId, targetId){
 function renderScenarioSteps(){
   const target = document.getElementById("scenarioStepAccordion");
   if(!target) return;
+  // 관세조사 스테이지 UI: 단계별 결과 탭이 열려 있으면 해당 탭 본문도 최신화
+  if(document.getElementById("ciResultBody") && ciResultTab !== "selected") ciRenderResultTab();
   const fullMode = Boolean(expandedResultStepId);
   target.classList.toggle("result-full-active", fullMode);
   target.closest(".scenario-log")?.classList.toggle("result-full-active", fullMode);
@@ -7866,24 +8975,27 @@ function runScenarioWorkflow(startIndex = 0){
 }
 
 /* 선택한 AI 서비스 한 단계만 별도로 실행 (단계별 자동실행과는 별도의 SSE 연결 사용) */
-function runSingleScenarioItem(item){
-  if(!item) return;
+function runSingleScenarioItem(item, onDone = null){
+  // onDone: 완료·중단 여부와 관계없이 1회 호출 — 단계별 순차 실행(ciRunStage)의 대기 지점
+  let doneCalled = false;
+  const done = () => { if(!doneCalled){ doneCalled = true; try{ onDone?.(); }catch(e){ /* noop */ } } };
+  if(!item){ done(); return; }
   if(isCompanyArchived()){
     alert("아카이브된 작업은 복원 후 분석할 수 있습니다.");
-    return;
+    done(); return;
   }
   const companyId = activeCanvasCompanyId;
   if(!companyId){
     alert("분석 대상 기업을 선택하세요.");
-    return;
+    done(); return;
   }
   if(!scenarioItemHasPermission(item)){
     alert(`이 AI 서비스를 실행할 권한이 없습니다. (${permissionLabel(scenarioItemPermissionStatus(item))})`);
-    return;
+    done(); return;
   }
   const resumeSingle = () => runSingleScenarioItem(item);
-  if(!ensureMailShareRecipients([item], resumeSingle)) return;
-  if(!ensureDirectUrlTargets([item], resumeSingle)) return;
+  if(!ensureMailShareRecipients([item], resumeSingle)){ done(); return; }
+  if(!ensureDirectUrlTargets([item], resumeSingle)){ done(); return; }
 
   if(scenarioSingleEventSource){ try{ scenarioSingleEventSource.close(); }catch(e){} scenarioSingleEventSource = null; }
 
@@ -7962,6 +9074,7 @@ function runSingleScenarioItem(item){
       }
     }finally{
       finish();
+      done();
     }
   })();
 }
@@ -8937,6 +10050,15 @@ document.addEventListener("click", (event)=>{
     const domain = templateEditorDomain;
     const template = allScenarioTemplates(domain).find(t => t.id === templateId);
     if(!template) return;
+    // 관세조사: 4단계 스테이지 편집기에 로드(편집 불가 템플릿은 사본으로)
+    if(domain === "customs" && document.getElementById("tplStageEditor")){
+      const editable = canEditTemplate(template);
+      tplStageLoad(template, { copyName: editable ? "" : `${template.name} 사본` });
+      if(!editable) tplStage.id = null;   // 사본 저장(신규 커스텀)
+      tplStageRender();
+      document.getElementById("tplStageEditor")?.scrollIntoView({ block: "nearest" });
+      return;
+    }
     // 일반/마약 빌트인 편집은 조직 관리자만
     if(domain !== "customs" && !isCurrentUserAdmin()){
       alert("조직 관리자만 빌트인 템플릿을 편집할 수 있습니다.");
@@ -8948,7 +10070,7 @@ document.addEventListener("click", (event)=>{
     templateEditorItems = template.items.map((item, i) => normalizeScenarioItem({...item, id: uid()}, i));
     templateEditorSelectedId = templateEditorItems[0]?.id || null;
     templateEditorInitialized = false;
-    if(domain === "customs") render("canvas"); else render(currentPage);
+    render(currentPage);
     return;
   }
 
@@ -8981,10 +10103,11 @@ document.addEventListener("click", (event)=>{
       customTemplates = customTemplates.filter(t => t.id !== templateId);
     }
     if(editingTemplateId === templateId){ editingTemplateId = null; templateDraftName = ""; templateEditorItems = []; templateEditorSelectedId = null; }
+    if(tplStage?.id === templateId) tplStage = null;
     saveTemplatesState();
     saveCanvasState();
     templateEditorInitialized = false;
-    render("canvas");
+    render(currentPage);
     return;
   }
 

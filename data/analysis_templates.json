@@ -1,6 +1,113 @@
 {
   "customTemplates": [
     {
+      "id": "custom-d10bea88-aed9-4117-9a13-1d985b165ac9",
+      "name": "전자부품 관세분석 템플릿",
+      "description": "2026. 8. 6. 저장 · 4단계",
+      "items": [
+        {
+          "id": "92b7bcd4-f9ce-4395-9ef7-a29aecc69ba1",
+          "key": "route_analysis",
+          "type": "agent",
+          "label": "운송경로 분석 AI 서비스",
+          "behaviors": [
+            "route_check"
+          ],
+          "behavior": "route_check",
+          "behaviorLabel": "운송경로",
+          "order": 1,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "운송경로와 공급망을 역추적하여 우회수입 가능성을 탐지",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "f506cca8-3ce0-4a96-b3ce-38a24fa28f89",
+          "key": "proceeds_tracking",
+          "type": "agent",
+          "label": "범죄수익 추적 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름",
+          "order": 2,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "자금흐름과 계좌 추적 단서를 기반으로 범죄수익 은닉 가능성을 분석",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "2f3b7ce8-de49-4966-941b-6284de9417f4",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 작성",
+          "behaviors": [
+            "full_report"
+          ],
+          "behavior": "full_report",
+          "behaviorLabel": "전체 보고서",
+          "order": 3,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "보고서 대상 자료를 공식 조사보고서 초안으로 통합",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "c1257dd0-c2b7-4dec-8829-4f60fa110593",
+          "key": "report_validate",
+          "type": "approve",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "order": 4,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "보고서의 근거 충실성, 과도한 추론, URL/출처를 검증",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        }
+      ],
+      "isCustom": true,
+      "ownerUserId": "u01",
+      "ownerName": "김기획",
+      "shared": true
+    },
+    {
       "id": "custom-ae64fcdf-6e04-43fd-b10f-417687889e12",
       "name": "기업 관세조사 분석 템플릿",
       "description": "2026. 6. 12. 저장 · 9단계",
@@ -196,6 +303,12 @@
       "shared": true
     }
   ],
-  "hiddenBuiltinIds": [],
+  "hiddenBuiltinIds": [
+    "customs-valuation",
+    "customs-classification",
+    "customs-forex-audit",
+    "customs-refund",
+    "customs-requirement"
+  ],
   "builtinOverrides": {}
 }
