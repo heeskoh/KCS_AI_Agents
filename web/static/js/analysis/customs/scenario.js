@@ -6,7 +6,7 @@
 
 export const scenarioSubtab = {
   id: "scenario",
-  label: "분석 시나리오 확인 및 설정",
+  label: "심층분석",
   group: "work",
   enabledWhen: context => !!context.case,
   aiServices: ["db_cdw", "company_profile", "rag_customs", "rag_audit", "ml", "declaration_verify", "hs_verify", "customs_value", "law", "report_generate", "report_validate"],

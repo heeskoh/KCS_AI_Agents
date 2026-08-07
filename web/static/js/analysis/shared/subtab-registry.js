@@ -83,6 +83,11 @@ function entryToCatalogSubtab(entry){
       const { impl } = pickImpl(entry, ctx.domain);
       return typeof impl.enabledWhen === "function" ? !!impl.enabledWhen(ctx) : impl.enabledWhen !== false;
     },
+    // 비활성 사유 힌트 — 구현이 정의한 경우만 전달(없으면 렌더러 기본 문구 사용)
+    disabledHint: (ctx = {}) => {
+      const { impl } = pickImpl(entry, ctx.domain);
+      return typeof impl.disabledHint === "function" ? impl.disabledHint(ctx) : impl.disabledHint;
+    },
     __entry: entry,
   };
   return withAgentMetadata(base);
@@ -181,6 +186,7 @@ export function createUnifiedSubtabRegistry(depsByDomain){
       ...subtabWithAgentDefaultOptions(base, config),
       label: ctx => base.label({ ...ctx, domain }),
       enabledWhen: ctx => base.enabledWhen({ ...ctx, domain }),
+      disabledHint: ctx => base.disabledHint({ ...ctx, domain }),
       render: ctx => {
         // 페이지 도메인의 deps로 정규화 대상을 만들어 ctx.target에 주입한다.
         const merged = { ...ctx, domain };

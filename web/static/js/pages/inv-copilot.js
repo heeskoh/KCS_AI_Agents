@@ -16,7 +16,8 @@ const ATTACH_TOTAL_LIMIT = 24 * 1024;   // GET 한도와 무관(POST)이나 프�
 const threadsByUser = {};   // { userId: message[] } — 세션 내 유지(재렌더에도 보존)
 let attachedFiles = [];     // { name, content }
 let draftText = "";         // 서브탭 이동 재렌더 시 입력 중 텍스트 보존
-let panelMode = "chat";     // "chat" | "case" — Case 패턴분석 지원 사이트(수사관)의 좌측 패널 모드
+let panelMode = "chat";     // "chat" | "case" — Case 패턴분석 지원 사이트(수사관)의 채팅 패널 모드
+let panelCollapsed = false; // AI Chat 패널 접힘 상태 — 페이지 전환 재렌더에도 유지
 let evidenceSearchOn = false;          // 증거내 검색 모드(수사관) — 등록 증거·기초정보 대상 지능형 검색
 let evidenceContextProvider = null;    // app-runtime이 주입 — 등록된 증거·기초정보 컨텍스트 문자열 반환
 
@@ -87,6 +88,9 @@ export function invCopilotPanelHtml({ userId = "", userName = "" } = {}){
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </span>
           안녕하세요${userName ? `, ${escapeHtml(userName)}님` : ""}
+          <button class="inv-copilot-close" data-inv-copilot-close type="button" title="AI Chat 패널 접기" aria-label="AI Chat 패널 접기">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </h2>
         <p>${escapeHtml(GREET_COPY)}</p>
       </div>
@@ -138,12 +142,16 @@ export function invCopilotPanelHtml({ userId = "", userName = "" } = {}){
   `;
 }
 
-/* 플랫폼 셸 — 좌측 AI 조사관 채팅 + 우측 업무 콘텐츠 */
+/* 플랫폼 셸 — 좌측 업무 콘텐츠 + 우측 AI 채팅 패널(닫기/열기 토글, 접힘 상태 유지) */
 export function invPlatformShell(contentHtml, user = {}){
   return `
-    <div class="inv-platform-layout">
-      ${invCopilotPanelHtml(user)}
+    <div class="inv-platform-layout${panelCollapsed ? " copilot-collapsed" : ""}">
       <div class="inv-platform-main">${contentHtml}</div>
+      ${invCopilotPanelHtml(user)}
+      <button class="inv-copilot-reopen" data-inv-copilot-open type="button" title="AI Chat 패널 열기" aria-label="AI Chat 패널 열기" ${panelCollapsed ? "" : "hidden"}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <img src="/static/img/naraenaru.jpg" alt="나래나루">
+      </button>
     </div>
   `;
 }
@@ -196,6 +204,22 @@ ${userText}${attachmentBlock()}`;
 export function initInvCopilot({ userId = "", companyId = "" } = {}){
   const root = document.getElementById("invCopilotPanel");
   if(!root) return;
+
+  /* ── 패널 닫기/열기 토글 — 재렌더 없이 클래스 전환, 상태는 모듈에 유지 ── */
+  const layout = root.closest(".inv-platform-layout");
+  const reopenBtn = layout?.querySelector("[data-inv-copilot-open]");
+  const applyCollapsed = () => {
+    layout?.classList.toggle("copilot-collapsed", panelCollapsed);
+    if(reopenBtn) reopenBtn.hidden = !panelCollapsed;
+  };
+  root.querySelector("[data-inv-copilot-close]")?.addEventListener("click", () => {
+    panelCollapsed = true;
+    applyCollapsed();
+  });
+  reopenBtn?.addEventListener("click", () => {
+    panelCollapsed = false;
+    applyCollapsed();
+  });
 
   /* ── Case 패턴분석 모드 (AI 수사관): 탭 전환 + 가이드 칩 ── */
   const guide = root.querySelector("[data-inv-case-guide]");

@@ -4790,6 +4790,72 @@ function fmtAmount(v){
   return `${n.toLocaleString()}원`;
 }
 
+/* 기업 프로파일 — AI위험지표 상세 토글 상태.
+   기본 UI는 지표 그래프·점수만 표시하고, [AI위험지표 상세]를 누르면
+   지표별 상세 원인(근거 bullet·권고)이 있는 상세 분석 뷰로 전환한다. */
+let profileRiskDetailOpen = false;
+let profileBaseResultTab = "summary";   // 상세 뷰 하단 '기초데이터 분석 결과' 창의 활성 탭
+
+document.addEventListener("click", (event) => {
+  if(event.target.closest("[data-profile-risk-detail]")){
+    profileRiskDetailOpen = !profileRiskDetailOpen;
+    render(currentPage);
+    return;
+  }
+  const baseTab = event.target.closest("[data-profile-base-tab]");
+  if(baseTab){
+    profileBaseResultTab = baseTab.dataset.profileBaseTab;
+    render(currentPage);
+  }
+});
+
+/* 기초데이터 분석 결과 창 — AI위험지표 상세 아래에 탭으로 연결(요약 대사표·수입신고 이력·AI분석 서비스결과).
+   baseAnalysis는 관세조사 등록 시 자동 수행분(customs/base-analysis.js)이 프로파일 옵션으로 전달하고,
+   AI분석 서비스결과 탭은 워크벤치 '1. 기초데이터 분석' 서비스별 결과(ciStageResultsHtml)를 공유한다. */
+function profileBaseResultHtml(baseAnalysis, declarationRows, declCount){
+  if(!baseAnalysis || baseAnalysis.status !== "done") return "";
+  const tabs = [
+    { id: "summary", label: "기초 대사 요약" },
+    { id: "decl",    label: `수입신고 이력 (${declCount}건)` },
+    { id: "svc",     label: "AI분석 서비스결과" },
+  ];
+  const active = tabs.some(t => t.id === profileBaseResultTab) ? profileBaseResultTab : "summary";
+  let body = "";
+  if(active === "summary"){
+    body = `
+      <table class="table profile-base-kv">
+        <tbody>
+          ${(baseAnalysis.rows || []).map(([key, value]) =>
+            `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(value)}</td></tr>`).join("")}
+        </tbody>
+      </table>`;
+  } else if(active === "decl"){
+    body = declCount ? `
+      <table class="table">
+        <thead><tr><th>신고번호</th><th>HS코드</th><th>품명</th><th>신고금액</th><th>원산지</th><th>수입일</th><th>상태</th></tr></thead>
+        <tbody>${declarationRows}</tbody>
+      </table>` : `<p class="muted">수입신고 내역이 없습니다.</p>`;
+  } else {
+    // 워크벤치 '1. 기초데이터 분석'의 서비스별 결과 블록 공유 —
+    // 배치 실행 결과(ciBaseRunResults) + 시나리오 기초 단계 서비스의 저장 결과(stepOutputs)
+    body = ciStageResultsHtml("base");
+  }
+  return `
+    <div class="card profile-base-result">
+      <div class="profile-base-head">
+        <h3>기초데이터 분석 결과</h3>
+        <span class="muted">조사 등록 시 자동 수행${baseAnalysis.ranLabel ? ` · ${escapeHtml(baseAnalysis.ranLabel)}` : ""}</span>
+      </div>
+      <div class="profile-base-tabs">
+        ${tabs.map(t => `
+          <button type="button" class="profile-base-tab${t.id === active ? " active" : ""}"
+            data-profile-base-tab="${t.id}">${escapeHtml(t.label)}</button>`).join("")}
+      </div>
+      <div class="profile-base-body">${body}</div>
+    </div>
+  `;
+}
+
 function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options = {}){
   const companyId = companyIdOverride || activeCanvasCompanyId;
   const cache = companyDetailCache[companyId];
@@ -4831,11 +4897,65 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
     </tr>
   `).join("");
 
-  return `
+  // 지표 바 목록 — withDetail=false: 그래프·점수만(기본 UI),
+  //               withDetail=true : 지표별 상세 원인(근거 bullet)·권고 포함(상세 뷰)
+  const riskBarsHtml = (withDetail) => indicatorItems(indicatorSetKey).map(({ label, code, field }) => {
+    const val = risk[field];
+    const pct = val != null ? Math.min(100, Number(val)) : 0;
+    const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
+    const meta = indicators[code] || {};
+    const bullets = String(meta.reason || "")
+      .split("\n").map(s => s.replace(/^[-\s]+/, "").trim()).filter(Boolean);
+    const reasonHtml = (withDetail && bullets.length)
+      ? `<ul class="risk-reason">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+      : "";
+    const recoHtml = (withDetail && pct >= 60 && meta.recommendation)
+      ? `<p class="risk-reco">📌 ${escapeHtml(meta.recommendation)}</p>` : "";
+    return `
+      <div class="risk-bar-row">
+        <span>${label}</span>
+        <div class="risk-bar-track">
+          <i class="${tone}" style="width:${pct}%"></i>
+        </div>
+        <strong class="${tone === "high" ? "high" : tone === "mid" ? "mid-risk" : "good"}">${val != null ? Number(val).toFixed(1) : "-"}%</strong>
+      </div>
+      ${reasonHtml}${recoHtml}`;
+  }).join("");
+
+  const headerHtml = `
     <div class="canvas-selected-company">
       <span>${escapeHtml(selectedLabel)}</span>
       <strong>${escapeHtml(c.company_name || companyId)} (${escapeHtml(companyId)})</strong>
+      <button class="profile-risk-detail-btn${profileRiskDetailOpen ? " active" : ""}" data-profile-risk-detail type="button"
+        title="${profileRiskDetailOpen ? "기본 프로파일 보기로 돌아가기" : "지표별 상세 원인 보기"}">
+        ${profileRiskDetailOpen ? "← 기본 프로파일" : "AI위험지표 상세"}
+      </button>
     </div>
+  `;
+
+  // 상세 뷰 — AI 위험 지표 분석(지표별 상세 원인·권고)만 전체 폭으로 표시
+  if(profileRiskDetailOpen){
+    return `
+      ${headerHtml}
+      <div class="card risk-panel">
+        <div class="risk-panel-head">
+          <h3>AI 위험 지표 분석 <span class="muted" style="font-size:11.5px;font-weight:600">· ${escapeHtml(indicatorSetLabel(indicatorSetKey))}</span></h3>
+          <div class="risk-circle ${riskTone(riskLevel)}">
+            <strong>${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</strong>
+            <span>${riskLabel}</span>
+          </div>
+        </div>
+        <div class="risk-bars">
+          ${riskBarsHtml(true)}
+        </div>
+      </div>
+      ${profileBaseResultHtml(options.baseAnalysis, declarationRows, declarations.length)}
+    `;
+  }
+
+  // 기본 UI — 요약 카드·기업 기본정보 + 위험지표는 그래프·점수만
+  return `
+    ${headerHtml}
 
     <div class="grid grid-4" style="margin-bottom:14px">
       <div class="card"><span class="muted">위험등급</span><h2 class="${riskTone(riskLevel)}">${riskLabel}</h2></div>
@@ -4872,28 +4992,7 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
           </div>
         </div>
         <div class="risk-bars">
-          ${indicatorItems(indicatorSetKey).map(({ label, code, field }) => {
-            const val = risk[field];
-            const pct = val != null ? Math.min(100, Number(val)) : 0;
-            const tone = pct >= 60 ? "high" : pct >= 30 ? "mid" : "low";
-            const meta = indicators[code] || {};
-            const bullets = String(meta.reason || "")
-              .split("\n").map(s => s.replace(/^[-\s]+/, "").trim()).filter(Boolean);
-            const reasonHtml = bullets.length
-              ? `<ul class="risk-reason">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
-              : "";
-            const recoHtml = (pct >= 60 && meta.recommendation)
-              ? `<p class="risk-reco">📌 ${escapeHtml(meta.recommendation)}</p>` : "";
-            return `
-              <div class="risk-bar-row">
-                <span>${label}</span>
-                <div class="risk-bar-track">
-                  <i class="${tone}" style="width:${pct}%"></i>
-                </div>
-                <strong class="${tone === "high" ? "high" : tone === "mid" ? "mid-risk" : "good"}">${val != null ? Number(val).toFixed(1) : "-"}%</strong>
-              </div>
-              ${reasonHtml}${recoHtml}`;
-          }).join("")}
+          ${riskBarsHtml(false)}
         </div>
       </div>
     </div>
@@ -6887,9 +6986,6 @@ function ciStageSection(key, title, isDefault, bodyHtml){
     <section class="ci-stage${open ? " open" : ""}" data-ci-stage="${key}">
       <div class="ci-stage-head" data-ci-stage-toggle="${key}" role="button" tabindex="0">
         <span>${title}${isDefault ? ` <em>(default)</em>` : ""}</span>
-        <span class="ci-stage-head-actions">
-          <button type="button" class="ci-stage-run" data-ci-stage-run="${key}" title="이 단계의 서비스를 순차 실행">▶ 실행</button>
-        </span>
       </div>
       <div class="ci-stage-body">${bodyHtml}</div>
     </section>
@@ -6973,10 +7069,11 @@ function ciStageRunItems(stageKey){
 
 async function ciRunStage(stageKey, btn){
   if(isCompanyArchived()){ alert("아카이브된 작업은 복원 후 분석할 수 있습니다."); return; }
+  const btnLabel = btn ? btn.textContent : "";   // 실행 후 원래 라벨 복원(데이터 수집 요청 등)
   if(stageKey === "base" || stageKey === "ext"){
     if(btn){ btn.disabled = true; btn.textContent = "실행 중…"; }
     try{ await (stageKey === "base" ? ciRunBaseBatch() : ciRunExtBatch()); }
-    finally{ if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; } }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = btnLabel; } }
     return;
   }
   const items = ciStageRunItems(stageKey).filter(scenarioItemHasPermission);
@@ -6991,7 +7088,7 @@ async function ciRunStage(stageKey, btn){
       await new Promise(resolve => runSingleScenarioItem(item, resolve));
     }
   }finally{
-    if(btn){ btn.disabled = false; btn.textContent = "▶ 실행"; }
+    if(btn){ btn.disabled = false; btn.textContent = btnLabel; }
   }
 }
 
@@ -7021,13 +7118,7 @@ function scenarioReviewWorkbench(){
     ${baseServiceList(CI_BASE_BATCH_SERVICES)}
     <div class="ci-base-ai">
       <strong class="ci-base-ai-title">AI 분석서비스</strong>
-      <div class="ci-stage-tools">
-        <select id="ciBaseServiceSelect" class="scenario-template-select"></select>
-        <button type="button" class="btn scenario-template-apply-btn" data-ci-base-add ${archived ? "disabled" : ""}>서비스 추가</button>
-        <button type="button" class="btn secondary scenario-template-apply-btn" data-ci-base-delete ${archived ? "disabled" : ""}>선택 삭제</button>
-      </div>
-      <textarea id="ciBaseNotes" class="ci-stage-notes" rows="2"
-        placeholder="조사 착안사항 및 확인사항">${escapeHtml(ciBaseNotesByCompany[company.company_id] || "")}</textarea>
+      <p class="ci-stage-note" style="margin:4px 0 6px">수행 서비스 구성 변경은 관리자용 분석 시나리오 템플릿에서만 가능합니다.</p>
       <div class="ci-base-ai-list" id="ciBaseAiList">${ciBaseAiListHtml()}</div>
     </div>
     ${baseServiceList(CI_BASE_TAIL_SERVICES)}
@@ -7042,6 +7133,10 @@ function scenarioReviewWorkbench(){
       <label><input type="checkbox" data-ci-url-toggle ${ciExtUrlOpen ? "checked" : ""}> URL 직접 등록</label>
     </div>
     <div id="ciExtWebPanel" class="ci-ext-web-panel" ${ciExtUrlOpen ? "" : "hidden"}></div>
+    <div class="ci-ext-actions">
+      <button type="button" class="btn primary" data-ci-stage-run="ext" ${archived ? "disabled" : ""}
+        title="선택한 외부 기관·등록 URL 대상 데이터 수집을 실행합니다">데이터 수집 요청</button>
+    </div>
   `;
 
   const stage3 = `
@@ -7089,14 +7184,12 @@ function scenarioReviewWorkbench(){
       <div class="scenario-work-header">
         <div class="scenario-title-row">
           <div>
-            <h3>분석 시나리오 확인 및 설정</h3>
+            <h3>심층분석</h3>
             <p class="muted">기초데이터 분석 → 외부데이터 수집 → 심층 분석 시나리오 → 보고서 생성 및 검증의 4단계로 분석을 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초 분석과 보고서 생성·검증은 기본(default)으로 항시 수행됩니다.</em></p>
           </div>
         </div>
         <div class="scenario-header-actions">
           ${preparedNote}
-          <button id="scenarioRunAllButton" type="button" class="btn primary scenario-runall-btn"
-            ${archived ? "disabled" : ""} title="4단계 분석을 순서대로 실행합니다">▶ 전체 시나리오 수행</button>
         </div>
       </div>
 

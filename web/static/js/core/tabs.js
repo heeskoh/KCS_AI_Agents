@@ -17,7 +17,8 @@ export function renderAnalysisTabButtons(tabs, activeTab, dataAttr, className, c
     .filter(tab => analysisTabVisible(tab, context))
     .map(tab => {
       const enabled = analysisTabEnabled(tab, context);
-      const hint = typeof tab.disabledHint === "function" ? tab.disabledHint(context) : (tab.disabledHint || "조사 대상을 먼저 선택하세요");
+      const hint = (typeof tab.disabledHint === "function" ? tab.disabledHint(context) : tab.disabledHint)
+        || "조사 대상을 먼저 선택하세요";
       const classes = `${className}${tab.className ? ` ${tab.className}` : ""}${activeTab === tab.id ? " active" : ""}${enabled ? "" : " disabled"}`;
       // 비활성(회색) 탭: data 속성을 제거하고 disabled 처리하여 클릭/탭 전환을 막는다.
       const attrs = enabled

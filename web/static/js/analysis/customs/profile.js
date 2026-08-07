@@ -1,6 +1,7 @@
 import { escapeHtml } from "../../core/dom.js";
 import { profileNetworkLayout } from "../shared/network-graph.js";
 import { CRIME_TAXONOMY, CRIME_PROFILE_EMPHASIS, profileGraphTypeForCrimes } from "../general-investigation/crime-taxonomy.js";
+import { ciBaseAnalysisForProfile } from "./base-analysis.js";
 
 /* 기업 프로파일의 혐의 유형(crime_types: "관세포탈,가격조작" 등)을 관세수사와 동일한
    관세범죄 유형 체계(CRIME_TAXONOMY)로 해석한다 — 관세조사·관세수사의 관세포탈은 동일
@@ -51,8 +52,12 @@ export function renderProfilePanel(deps){
   const detail = deps.getCompanyDetail?.(companyId);
   const crimes = crimesFromCompany(detail && detail.company);
   const strip = crimeStripHtml(crimes);
+  // AI위험지표 상세 아래 '기초데이터 분석 결과' 창 — 등록 시 자동 수행분(또는 상세 캐시) 전달
+  const job = (deps.activeCanvasJobs?.() || []).find(item => item.companyId === companyId);
+  const baseAnalysis = ciBaseAnalysisForProfile(job, detail, companyId);
   return strip + profileNetworkLayout(
-    deps.canvasProfilePanel(), profileGraphTypeForCrimes(crimes && crimes.category.id), companyId);
+    deps.canvasProfilePanel(companyId, { baseAnalysis }),
+    profileGraphTypeForCrimes(crimes && crimes.category.id), companyId);
 }
 
 export const profileSubtab = {
@@ -61,6 +66,9 @@ export const profileSubtab = {
   label: "기업조사 프로파일",
   group: "work",
   enabledWhen: context => !!context.case,
+  disabledHint: context => context.baseAnalysisRunning
+    ? "기초데이터 분석 진행 중입니다 — 완료 후 진행할 수 있습니다"
+    : "조사 대상을 먼저 선택하세요",
   aiServices: ["db_cdw", "company"],
   render: renderProfilePanel,
 };

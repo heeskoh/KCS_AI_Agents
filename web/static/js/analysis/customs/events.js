@@ -1,4 +1,6 @@
-﻿export function registerCustomsEvents(ctx){
+﻿import { ciAutoBaseAnalysis, ciBaseAnalysisRunning } from "./base-analysis.js";
+
+export function registerCustomsEvents(ctx){
   document.addEventListener("click", (event) => {
     const invNewJobBtn = event.target.closest("[data-inv-new-job]");
     if(invNewJobBtn){
@@ -36,6 +38,9 @@
       ctx.scenarioInitialized = false;
       ctx.scenarioLoadedForCompany = null;
       ctx.showInvNewJobForm = false;
+      // 등록 즉시 기초데이터 분석을 백그라운드로 자동 수행 —
+      // 완료 전에는 카드에 "기초데이터 분석 진행중"이 표시되고 프로파일 이후 탭이 잠긴다.
+      ciAutoBaseAnalysis(ctx, companyId);
       // 탭 이동 없이 카드 등록 후 목록 유지
       ctx.saveCanvasState();
       ctx.render("investigation");
@@ -82,6 +87,10 @@
     const invCompanyCard = event.target.closest("[data-inv-company]");
     if(invCompanyCard && !event.target.closest("[data-inv-archive-job],[data-inv-restore-job],[data-inv-remove-job]")){
       const companyId = invCompanyCard.dataset.invCompany;
+      if(ciBaseAnalysisRunning(ctx.canvasJobs().find(item => item.companyId === companyId))){
+        alert("기초데이터 분석이 진행 중입니다. 분석이 완료되면 기업조사 프로파일로 진행할 수 있습니다.");
+        return;
+      }
       const targetTab = invCompanyCard.dataset.invTab || "profile";
       ctx.activeCanvasCompanyId = companyId;
       ctx.investigationTab = targetTab;
