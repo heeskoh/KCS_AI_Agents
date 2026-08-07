@@ -1,6 +1,108 @@
 {
   "customTemplates": [
     {
+      "id": "custom-8e5149b4-de4e-4dc5-8700-d0a91f55632a",
+      "name": "무역회사 전문 분석 템플릿",
+      "description": "2026. 8. 7. 저장 · 4단계",
+      "items": [
+        {
+          "id": "f7c0d393-d8c3-491a-819f-d974096649e2",
+          "key": "fund_trace",
+          "type": "fund_trace",
+          "label": "범죄자금내역 추적 AI 서비스",
+          "behaviors": [
+            "fund_flow"
+          ],
+          "behavior": "fund_flow",
+          "behaviorLabel": "자금흐름내역",
+          "order": 1,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "등록된 계좌이체·가상자산·현금 입출금 등 선택한 자금 소스를 기반으로 범죄자금 흐름을 추적\n\n중점 확인: 자금흐름내역",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "4468111c-2e19-4657-9d67-e44d20d8c26b",
+          "key": "report_generate",
+          "type": "report",
+          "label": "보고서 생성 AI 서비스",
+          "behaviors": [
+            "issue_report"
+          ],
+          "behavior": "issue_report",
+          "behaviorLabel": "쟁점 중심 보고서",
+          "order": 2,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "과세가격 쟁점 중심 조사보고서 초안 작성",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "2a8c7382-4a8a-4ab9-b2e4-23c8bd0ab4d3",
+          "key": "report_validate",
+          "type": "validation",
+          "label": "보고서 검증 AI 서비스",
+          "behaviors": [
+            "evidence_validation"
+          ],
+          "behavior": "evidence_validation",
+          "behaviorLabel": "근거 검증",
+          "order": 3,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "보고서의 근거 충실성과 누락 증빙 검증",
+          "extraPrompts": [],
+          "shareRecipients": [],
+          "share_recipients": [],
+          "webTargets": [],
+          "web_targets": [],
+          "ragId": "",
+          "ragName": "",
+          "behaviorPrompts": {},
+          "docRef": ""
+        },
+        {
+          "id": "f5634610-826b-4c77-a1f9-7aa37e34661b",
+          "key": "abnormal_trade",
+          "type": "abnormal_trade",
+          "label": "이상거래 검증 AI 서비스",
+          "behaviors": [
+            "price_pattern"
+          ],
+          "order": 4,
+          "targetType": "company",
+          "target_type": "company",
+          "instruction": "가격·거래상대방·신고패턴의 이상거래 징후를 검증\n\n중점 확인: 가격 패턴",
+          "shareRecipients": [],
+          "webTargets": [],
+          "share_recipients": [],
+          "web_targets": [],
+          "behavior": "price_pattern",
+          "behaviorLabel": "가격 패턴"
+        }
+      ],
+      "isCustom": true,
+      "ownerUserId": "u08",
+      "ownerName": "윤조사",
+      "shared": true
+    },
+    {
       "id": "custom-d10bea88-aed9-4117-9a13-1d985b165ac9",
       "name": "전자부품 관세분석 템플릿",
       "description": "2026. 8. 6. 저장 · 4단계",
