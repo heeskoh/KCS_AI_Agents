@@ -1778,6 +1778,25 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .profile-base-tab:hover{border-color:#7cb1e8;color:#134d8c}
 .profile-base-tab.active{background:#e0ecff;border-color:#5a9fd6;color:#1e40af}
 .profile-base-kv th{width:170px;text-align:left;color:var(--muted);font-weight:700}
+.profile-base-head{align-items:center}
+.profile-base-run-btn{margin-left:auto;flex:none;font-size:12px;padding:5px 13px}
+
+/* ── 기업조사 프로파일 3프레임(왼쪽 위: 기본/위험지표, 왼쪽 아래: 기초데이터 분석 결과) ── */
+.profile-net-left:has(> .profile-frames){display:flex;flex-direction:column;overflow:hidden;padding-right:4px}
+.profile-frames{display:flex;flex-direction:column;flex:1;min-height:0}
+.profile-frame{display:flex;flex-direction:column;min-height:0}
+.profile-frame-top{flex:0 1 auto;max-height:calc(100% - 170px)}
+.profile-frame-top .profile-frame-body{overflow-y:auto;min-height:0}
+.profile-frame-top.collapsed{flex:0 0 auto;max-height:none}
+.profile-frame-top.collapsed .profile-frame-body{display:none}
+.profile-frame-head{margin-bottom:10px}
+.profile-frame-top.collapsed .profile-frame-head{margin-bottom:0}
+.profile-frames>.resize-gutter.y{flex:none}
+.profile-frame-bottom{flex:1 1 0;min-height:120px}
+.profile-frame-bottom .profile-base-tabs{flex:none}
+.profile-frame-bottom .profile-base-body{flex:1;min-height:0;overflow-y:auto}
+.profile-frame-collapse{flex:none;border:1px solid var(--line);border-radius:999px;background:#fff;color:#475569;font-size:12px;font-weight:800;padding:5px 12px;cursor:pointer;white-space:nowrap;transition:.15s}
+.profile-frame-collapse:hover{border-color:#7cb1e8;color:#134d8c;background:#eef6ff}
 .canvas-context-badge{margin-left:auto;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-style:normal;font-weight:900;white-space:nowrap}
 .job-board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .job-card{border:1px solid var(--line);border-radius:15px;background:white;padding:15px;box-shadow:var(--shadow);cursor:pointer}
@@ -2063,9 +2082,24 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .scenario-workbench-v2 .scenario-board{position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:4px;padding:4px 10px;min-height:0;height:auto;overflow:visible}
 .scenario-board-progress{display:none}
 .scenario-list{min-height:66px;margin:0;padding:0 2px 4px;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;list-style:none;scrollbar-width:thin}
+/* 분석 보고서 탭 — 기초데이터 분석 결과 접이식 확인 창 */
+.report-base-results{margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0}
+.report-base-results summary{cursor:pointer;font-size:13px;font-weight:800;color:#134d8c;padding:11px 14px;user-select:none}
+.report-base-results summary:hover{color:#2f5fd6}
+.report-base-results-body{padding:0 14px 12px;max-height:420px;overflow-y:auto}
+
 /* 외부데이터 수집 — 데이터 수집 요청 버튼(URL 직접 등록 여부와 무관하게 표시) */
 .ci-ext-actions{display:flex;justify-content:flex-end;margin-top:10px}
 .ci-ext-actions .btn{font-size:12px;padding:6px 14px}
+/* 외부기관 칩 — 설명·확인사항·상태표시(요청중/완료) */
+.ci-ext-chip{justify-content:flex-start}
+.ci-ext-chip .ci-base-chip-side{margin-left:auto}
+.ci-ext-chip input[type=checkbox]{flex:none;margin:0 2px 0 0;cursor:pointer}
+.ci-ext-state{font-style:normal;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.ci-ext-state:empty{display:none}
+.ci-ext-state.running{background:#fff7ed;color:#c2410c}
+.ci-ext-state.done{background:#ecfdf5;color:#047857}
+.ci-ext-state.error{background:#fde7e7;color:#b91c1c}
 
 /* ── 관세조사 4단계 시나리오 스테이지 UI (분석 시나리오 확인 및 설정) ── */
 .ci-stage-workbench{display:flex;flex-direction:column;min-height:0}

@@ -2870,9 +2870,20 @@ async function loadCanvasState(){
     if(saved.agenticServicesByGroup && typeof saved.agenticServicesByGroup === "object") agenticServicesByGroup = saved.agenticServicesByGroup;
     if(saved.ciScenarioNotes && typeof saved.ciScenarioNotes === "object") ciScenarioNotesByCompany = saved.ciScenarioNotes;
     if(Array.isArray(saved.ciExtAgencies)) ciExtAgencyChecked = new Set(saved.ciExtAgencies);
+    if(saved.ciExtAgencyNotes && typeof saved.ciExtAgencyNotes === "object") ciExtAgencyNotes = saved.ciExtAgencyNotes;
     if(saved.ciExtUrlOpen === false) ciExtUrlOpen = false;
     if(Array.isArray(saved.ciBaseAiServices) && saved.ciBaseAiServices.length) ciBaseAiServices = saved.ciBaseAiServices;
     if(saved.ciBaseNotes && typeof saved.ciBaseNotes === "object") ciBaseNotesByCompany = saved.ciBaseNotes;
+    if(saved.ciBaseRunResultsByCompany && typeof saved.ciBaseRunResultsByCompany === "object"){
+      ciBaseRunResultsByCompany = saved.ciBaseRunResultsByCompany;
+      // 브라우저 이탈 등으로 중단된 실행중 항목 정규화 — 재실행 안내로 전환
+      Object.values(ciBaseRunResultsByCompany).forEach(entries => (entries || []).forEach(entry => {
+        if(entry.status === "running"){
+          entry.status = "error";
+          entry.output = entry.output || "실행이 중단되었습니다. 심층분석 탭에서 다시 실행하세요.";
+        }
+      }));
+    }
     if(saved.giStageScenarioNotes && typeof saved.giStageScenarioNotes === "object") gisScenarioNotesByCase = saved.giStageScenarioNotes;
     if(Array.isArray(saved.giStageExtAgencies)) gisExtAgencyChecked = new Set(saved.giStageExtAgencies);
     if(saved.giStageExtUrlOpen === false) gisExtUrlOpen = false;
@@ -2935,9 +2946,11 @@ function buildWorkspaceStatePayload(){
     agenticServicesByGroup,
     ciScenarioNotes: ciScenarioNotesByCompany,
     ciExtAgencies: [...ciExtAgencyChecked],
+    ciExtAgencyNotes,
     ciExtUrlOpen,
     ciBaseAiServices,
     ciBaseNotes: ciBaseNotesByCompany,
+    ciBaseRunResultsByCompany,
     giStageScenarioNotes: gisScenarioNotesByCase,
     giStageExtAgencies: [...gisExtAgencyChecked],
     giStageExtUrlOpen: gisExtUrlOpen,
@@ -4183,6 +4196,7 @@ function removeCanvasJobForCurrentUser(companyId){
     delete canvasJobOverrides[companyId];
     delete canvasRunArchives[companyId];
     delete companyScenarios[companyId];
+    delete ciBaseRunResultsByCompany[companyId];
   }
   const nextJob = activeCanvasJobs()[0] || null;
   if(activeCanvasCompanyId === companyId && nextJob){
@@ -4794,7 +4808,8 @@ function fmtAmount(v){
    기본 UI는 지표 그래프·점수만 표시하고, [AI위험지표 상세]를 누르면
    지표별 상세 원인(근거 bullet·권고)이 있는 상세 분석 뷰로 전환한다. */
 let profileRiskDetailOpen = false;
-let profileBaseResultTab = "summary";   // 상세 뷰 하단 '기초데이터 분석 결과' 창의 활성 탭
+let profileBaseResultTab = "summary";   // '기초데이터 분석 결과' 창의 활성 탭
+let profileTopCollapsed = false;        // 프로파일 왼쪽 위 프레임(기본/위험지표) 접힘 상태
 
 document.addEventListener("click", (event) => {
   if(event.target.closest("[data-profile-risk-detail]")){
@@ -4802,18 +4817,46 @@ document.addEventListener("click", (event) => {
     render(currentPage);
     return;
   }
+  if(event.target.closest("[data-profile-top-toggle]")){
+    profileTopCollapsed = !profileTopCollapsed;
+    render(currentPage);
+    return;
+  }
   const baseTab = event.target.closest("[data-profile-base-tab]");
   if(baseTab){
     profileBaseResultTab = baseTab.dataset.profileBaseTab;
     render(currentPage);
+    return;
+  }
+  // 프로파일 'AI분석 서비스결과' 탭 — 기초데이터 분석 배치 수동 실행(자동수행 도입 전 등록건·중단건)
+  if(event.target.closest("[data-profile-base-run]")){
+    ciRunBaseBatch();
+    render(currentPage);
   }
 });
 
-/* 기초데이터 분석 결과 창 — AI위험지표 상세 아래에 탭으로 연결(요약 대사표·수입신고 이력·AI분석 서비스결과).
+/* 기초데이터 분석 결과 창 — 탭으로 연결(요약 대사표·수입신고 이력·AI분석 서비스결과).
    baseAnalysis는 관세조사 등록 시 자동 수행분(customs/base-analysis.js)이 프로파일 옵션으로 전달하고,
-   AI분석 서비스결과 탭은 워크벤치 '1. 기초데이터 분석' 서비스별 결과(ciStageResultsHtml)를 공유한다. */
+   AI분석 서비스결과 탭은 워크벤치 '1. 기초데이터 분석' 서비스별 결과(ciStageResultsHtml)를 공유한다.
+   레거시(단일 컬럼) 뷰에서는 카드로 감싸 반환하고, 프로파일 3프레임의 왼쪽 아래 프레임은
+   profileBaseResultInnerHtml을 직접 사용한다(분석 미수행 시 안내 표시). */
 function profileBaseResultHtml(baseAnalysis, declarationRows, declCount){
   if(!baseAnalysis || baseAnalysis.status !== "done") return "";
+  return `
+    <div class="card profile-base-result">
+      ${profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount)}
+    </div>
+  `;
+}
+
+function profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount){
+  if(!baseAnalysis || baseAnalysis.status !== "done"){
+    return `
+      <div class="profile-base-head"><h3>기초데이터 분석 결과</h3></div>
+      <div class="profile-base-body"><div class="empty-state">기초데이터 분석이 아직 수행되지 않았습니다.<br>
+        <span class="muted">진행중인 관세조사에서 조사 대상을 등록하면 자동 수행됩니다.</span></div></div>
+    `;
+  }
   const tabs = [
     { id: "summary", label: "기초 대사 요약" },
     { id: "decl",    label: `수입신고 이력 (${declCount}건)` },
@@ -4837,22 +4880,27 @@ function profileBaseResultHtml(baseAnalysis, declarationRows, declCount){
       </table>` : `<p class="muted">수입신고 내역이 없습니다.</p>`;
   } else {
     // 워크벤치 '1. 기초데이터 분석'의 서비스별 결과 블록 공유 —
-    // 배치 실행 결과(ciBaseRunResults) + 시나리오 기초 단계 서비스의 저장 결과(stepOutputs)
+    // 배치 실행 결과(기업별 영속) + 시나리오 기초 단계 서비스의 저장 결과(stepOutputs)
     body = ciStageResultsHtml("base");
   }
+  // 실행/다시 실행 — 헤더 오른쪽 끝(실행 중에는 숨김). 자동수행 도입 전 등록건·중단건 대응
+  const entries = ciBaseResultEntries();
+  const running = entries.some(e => e.status === "running");
+  const runBtn = running ? "" : `
+    <button type="button" class="btn primary profile-base-run-btn" data-profile-base-run
+      title="AI 분석서비스 배치를 수행하고 결과를 저장합니다">▶ ${entries.length ? "기초데이터 분석 다시 실행" : "기초데이터 분석 실행"}</button>`;
   return `
-    <div class="card profile-base-result">
-      <div class="profile-base-head">
-        <h3>기초데이터 분석 결과</h3>
-        <span class="muted">조사 등록 시 자동 수행${baseAnalysis.ranLabel ? ` · ${escapeHtml(baseAnalysis.ranLabel)}` : ""}</span>
-      </div>
-      <div class="profile-base-tabs">
-        ${tabs.map(t => `
-          <button type="button" class="profile-base-tab${t.id === active ? " active" : ""}"
-            data-profile-base-tab="${t.id}">${escapeHtml(t.label)}</button>`).join("")}
-      </div>
-      <div class="profile-base-body">${body}</div>
+    <div class="profile-base-head">
+      <h3>기초데이터 분석 결과</h3>
+      <span class="muted">조사 등록 시 자동 수행${baseAnalysis.ranLabel ? ` · ${escapeHtml(baseAnalysis.ranLabel)}` : ""}</span>
+      ${runBtn}
     </div>
+    <div class="profile-base-tabs">
+      ${tabs.map(t => `
+        <button type="button" class="profile-base-tab${t.id === active ? " active" : ""}"
+          data-profile-base-tab="${t.id}">${escapeHtml(t.label)}</button>`).join("")}
+    </div>
+    <div class="profile-base-body">${body}</div>
   `;
 }
 
@@ -4922,33 +4970,95 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
       ${reasonHtml}${recoHtml}`;
   }).join("");
 
+  const detailToggleBtn = `
+    <button class="profile-risk-detail-btn${profileRiskDetailOpen ? " active" : ""}" data-profile-risk-detail type="button"
+      title="${profileRiskDetailOpen ? "기본 프로파일 보기로 돌아가기" : "지표별 상세 원인 보기"}">
+      ${profileRiskDetailOpen ? "← 기본 프로파일" : "AI위험지표 상세"}
+    </button>`;
+
   const headerHtml = `
     <div class="canvas-selected-company">
       <span>${escapeHtml(selectedLabel)}</span>
       <strong>${escapeHtml(c.company_name || companyId)} (${escapeHtml(companyId)})</strong>
-      <button class="profile-risk-detail-btn${profileRiskDetailOpen ? " active" : ""}" data-profile-risk-detail type="button"
-        title="${profileRiskDetailOpen ? "기본 프로파일 보기로 돌아가기" : "지표별 상세 원인 보기"}">
-        ${profileRiskDetailOpen ? "← 기본 프로파일" : "AI위험지표 상세"}
-      </button>
+      ${detailToggleBtn}
     </div>
   `;
+
+  // AI 위험 지표 분석 패널 — withDetail: 지표별 상세 원인·권고 포함 여부
+  const riskPanelHtml = (withDetail) => `
+    <div class="card risk-panel">
+      <div class="risk-panel-head">
+        <h3>AI 위험 지표 분석 <span class="muted" style="font-size:11.5px;font-weight:600">· ${escapeHtml(indicatorSetLabel(indicatorSetKey))}</span></h3>
+        <div class="risk-circle ${riskTone(riskLevel)}">
+          <strong>${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</strong>
+          <span>${riskLabel}</span>
+        </div>
+      </div>
+      <div class="risk-bars">
+        ${riskBarsHtml(withDetail)}
+      </div>
+    </div>
+  `;
+
+  /* ── 관세조사 3프레임 레이아웃(options.frames) ──
+     왼쪽 위: 기본 프로파일 ↔ AI 위험지표 상세 토글 + 접기, 왼쪽 아래: 기초데이터 분석 결과.
+     (오른쪽 관계분석 프레임과 함께 3프레임 — 좌우·상하 리사이즈 거터로 크기 조절) */
+  if(options.frames === true){
+    const topBody = profileRiskDetailOpen
+      ? riskPanelHtml(true)
+      : `
+        <div class="grid grid-4" style="margin-bottom:14px">
+          <div class="card"><span class="muted">위험등급</span><h2 class="${riskTone(riskLevel)}">${riskLabel}</h2></div>
+          <div class="card"><span class="muted">AI 위험점수</span><h2 class="${riskTone(riskLevel)}">${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</h2></div>
+          <div class="card"><span class="muted">연간 수입금액</span><h2>${fmtAmount(c.annual_import_amount)}</h2></div>
+          <div class="card"><span class="muted">신고 관세액</span><h2>${fmtAmount(c.declared_duty_amount)}</h2></div>
+        </div>
+        <div class="profile-grid">
+          <div class="card">
+            <h3>기업 기본정보</h3>
+            <div class="profile-info-grid">
+              <div><span class="muted">사업자번호</span><strong>${escapeHtml(c.business_registration_no || "-")}</strong></div>
+              <div><span class="muted">업종코드</span><strong>${escapeHtml(c.industry_code || "-")}</strong></div>
+              <div><span class="muted">설립연도</span><strong>${escapeHtml(String(c.founded_year || "-"))}</strong></div>
+              <div><span class="muted">직원수</span><strong>${c.employee_count != null ? `${Number(c.employee_count).toLocaleString()}명` : "-"}</strong></div>
+              <div><span class="muted">연매출</span><strong>${fmtAmount(c.annual_revenue)}</strong></div>
+              <div><span class="muted">최근환급</span><strong>${fmtAmount(c.recent_customs_refund)}</strong></div>
+              <div><span class="muted">FTA 감면율</span><strong>${c.fta_reduction_rate != null ? `${c.fta_reduction_rate}%` : "-"}</strong></div>
+              <div><span class="muted">최근 감사일</span><strong>${escapeHtml(String(c.last_audit_date || "-").slice(0,10))}</strong></div>
+              <div style="grid-column:1/-1"><span class="muted">주소</span><strong>${escapeHtml([c.address_postal_code ? `(${c.address_postal_code})` : "", c.address, c.address_detail].filter(Boolean).join(" ") || "-")}</strong></div>
+              <div><span class="muted">관세사</span><strong>${escapeHtml(c.customs_broker_firm || "-")}</strong></div>
+              <div><span class="muted">관계회사</span><strong>${escapeHtml(c.related_companies || "-")}</strong></div>
+              <div style="grid-column:3/-1"><span class="muted">주요 수출입국</span><strong>${escapeHtml(c.major_export_countries || "-")}</strong></div>
+            </div>
+          </div>
+          ${riskPanelHtml(false)}
+        </div>
+      `;
+    return `
+      <div class="profile-frames">
+        <section class="card profile-frame profile-frame-top${profileTopCollapsed ? " collapsed" : ""}">
+          <div class="canvas-selected-company profile-frame-head">
+            <span>${escapeHtml(selectedLabel)}</span>
+            <strong>${escapeHtml(c.company_name || companyId)} (${escapeHtml(companyId)})</strong>
+            ${detailToggleBtn}
+            <button class="profile-frame-collapse" data-profile-top-toggle type="button"
+              title="${profileTopCollapsed ? "프레임 펼치기" : "프레임 접기"}">${profileTopCollapsed ? "▾ 펼치기" : "▴ 접기"}</button>
+          </div>
+          <div class="profile-frame-body">${topBody}</div>
+        </section>
+        ${profileTopCollapsed ? "" : `<div class="resize-gutter y" data-resize-min="150" title="드래그하여 상·하 프레임 크기 조절"></div>`}
+        <section class="card profile-frame profile-frame-bottom profile-base-result">
+          ${profileBaseResultInnerHtml(options.baseAnalysis, declarationRows, declarations.length)}
+        </section>
+      </div>
+    `;
+  }
 
   // 상세 뷰 — AI 위험 지표 분석(지표별 상세 원인·권고)만 전체 폭으로 표시
   if(profileRiskDetailOpen){
     return `
       ${headerHtml}
-      <div class="card risk-panel">
-        <div class="risk-panel-head">
-          <h3>AI 위험 지표 분석 <span class="muted" style="font-size:11.5px;font-weight:600">· ${escapeHtml(indicatorSetLabel(indicatorSetKey))}</span></h3>
-          <div class="risk-circle ${riskTone(riskLevel)}">
-            <strong>${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</strong>
-            <span>${riskLabel}</span>
-          </div>
-        </div>
-        <div class="risk-bars">
-          ${riskBarsHtml(true)}
-        </div>
-      </div>
+      ${riskPanelHtml(true)}
       ${profileBaseResultHtml(options.baseAnalysis, declarationRows, declarations.length)}
     `;
   }
@@ -4983,18 +5093,7 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
       </div>
       </div>
 
-      <div class="card risk-panel">
-        <div class="risk-panel-head">
-          <h3>AI 위험 지표 분석 <span class="muted" style="font-size:11.5px;font-weight:600">· ${escapeHtml(indicatorSetLabel(indicatorSetKey))}</span></h3>
-          <div class="risk-circle ${riskTone(riskLevel)}">
-            <strong>${riskScore != null ? Number(riskScore).toFixed(1) : "-"}</strong>
-            <span>${riskLabel}</span>
-          </div>
-        </div>
-        <div class="risk-bars">
-          ${riskBarsHtml(false)}
-        </div>
-      </div>
+      ${riskPanelHtml(false)}
     </div>
 
     <div class="card">
@@ -5567,7 +5666,14 @@ function canvasReportPanel(){
   const company = activeCanvasCompany();
   const companyName = `${company.company_name} (${company.company_id})`;
   const ready = wbReportReady();
-  return commonAnalysisReportPanel({
+  // 기초데이터 분석 결과(기업별 영속) — 보고서 작성 시 근거 확인용 접이식 창
+  const baseEntries = ciBaseResultEntries(company.company_id);
+  const baseBlock = baseEntries.length ? `
+    <details class="report-base-results">
+      <summary>기초데이터 분석 결과 (${baseEntries.length}건 · 완료 ${baseEntries.filter(e => e.status === "done").length}건)</summary>
+      <div class="report-base-results-body">${ciStageResultsHtml("base")}</div>
+    </details>` : "";
+  return baseBlock + commonAnalysisReportPanel({
     selectedLabel: "선택 기업",
     targetText: escapeHtml(companyName),
     reportTitle: "분석 보고서",
@@ -6644,6 +6750,19 @@ const CI_BASE_AI_DEFAULTS = [
 ];
 let ciBaseAiServices = CI_BASE_AI_DEFAULTS.map(svc => ({ ...svc }));   // 영속
 let ciBaseNotesByCompany = {};                                         // 기초조사 착안사항(기업별·영속)
+/* 기초데이터 분석 서비스별 결과(기업별·영속) — { companyId: [{label,status,output,ranAt}] }
+   등록 시 자동 배치·워크벤치 수동 배치가 함께 기록하며 workspace_state(JSON)로 저장된다.
+   기업조사 프로파일·심층분석 결과 탭·분석 보고서 탭이 공유해 읽는다. */
+let ciBaseRunResultsByCompany = {};
+
+function ciBaseResultEntries(companyId = activeCanvasCompanyId){
+  return ciBaseRunResultsByCompany[companyId] || [];
+}
+
+/* 서비스 상태 아이콘용 — 실행 중 세션 상태 우선, 없으면 저장된 결과의 상태 */
+function ciBaseStatusOf(label){
+  return ciBaseRunStatus[label] || ciBaseResultEntries().find(e => e.label === label)?.status || "";
+}
 let ciBaseSelectedKey = null;                                          // 선택 칩(삭제 대상)
 let ciBaseDetailOpenKey = null;                                        // 상세 토글(칩 재클릭으로 접기)
 let ciBaseRunStatus = {};                                              // 기초 배치 실행 상태 { label: running|done|error }
@@ -6673,8 +6792,14 @@ function ciBaseStateIcon(state){
 
 function ciPaintBaseRunStatus(){
   document.querySelectorAll("[data-ci-base-state]").forEach(el => {
-    el.textContent = ciBaseStateIcon(ciBaseRunStatus[el.dataset.ciBaseState]);
+    el.textContent = ciBaseStateIcon(ciBaseStatusOf(el.dataset.ciBaseState));
   });
+  // 기업 프로파일의 'AI분석 서비스결과' 탭이 열려 있으면 결과 블록도 실시간 갱신
+  const profileTab = document.querySelector(".profile-base-tab.active");
+  if(profileTab && profileTab.dataset.profileBaseTab === "svc"){
+    const body = document.querySelector(".profile-base-body");
+    if(body) body.innerHTML = ciStageResultsHtml("base");
+  }
 }
 
 /* 기초 고정 서비스 박스의 선택 강조 — ciSelectedBase와 동기화 */
@@ -6694,8 +6819,12 @@ function ciTransientItem(key, label, instruction){
   };
 }
 
-/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 전체를 순차 수행 */
+/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 전체를 순차 수행.
+   결과는 기업별 영속 저장소(ciBaseRunResultsByCompany → workspace_state JSON)에 기록되어
+   기업조사 프로파일·심층분석 결과 탭·분석 보고서 탭에서 공통으로 확인할 수 있다. */
 async function ciRunBaseBatch(){
+  const companyId = activeCanvasCompanyId;
+  if(!companyId) return;
   const specs = [
     ...CI_BASE_FIXED_RUNS.map(fixed => ({ ...fixed })),
     ...ciBaseAiServices.map(svc => ({
@@ -6710,19 +6839,22 @@ async function ciRunBaseBatch(){
   ];
   ciBaseRunStatus = {};
   ciBaseRunResults = [];
+  ciBaseRunResultsByCompany[companyId] = ciBaseRunResults;   // 영속 저장소와 같은 배열 공유
   ciPaintBaseRunStatus();
   ciRenderResultTab();
   for(const spec of specs){
+    // 실행 도중 다른 기업으로 전환되면 이 배치는 중단(대상 불일치 실행 방지)
+    if(activeCanvasCompanyId !== companyId) return;
     const item = ciTransientItem(spec.key, spec.label, spec.instruction);
     if(!scenarioItemHasPermission(item)){
       ciBaseRunStatus[spec.label] = "error";
-      ciBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      ciBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다.", ranAt: Date.now() });
       ciPaintBaseRunStatus();
       ciRenderResultTab();
       continue;
     }
     ciBaseRunStatus[spec.label] = "running";
-    const entry = { label: spec.label, status: "running", output: "" };
+    const entry = { label: spec.label, status: "running", output: "", ranAt: Date.now() };
     ciBaseRunResults.push(entry);
     ciPaintBaseRunStatus();
     ciRenderResultTab();
@@ -6730,6 +6862,7 @@ async function ciRunBaseBatch(){
     entry.status = stepStatuses[item.id] === "오류" ? "error" : "done";
     entry.output = stepOutputs[item.id] || "";
     ciBaseRunStatus[spec.label] = entry.status;
+    saveCanvasState();   // 서비스 하나 완료될 때마다 JSON(workspace_state)으로 영속화
     ciPaintBaseRunStatus();
     ciRenderResultTab();
   }
@@ -6740,7 +6873,7 @@ function ciBaseAiListHtml(){
     <div class="ci-base-chip${svc.key === ciBaseSelectedKey ? " active" : ""}" data-ci-base-chip="${escapeHtml(svc.key)}">
       <strong>${escapeHtml(svc.label)}</strong>
       <span class="ci-base-chip-side">
-        <i class="ci-base-state" data-ci-base-state="${escapeHtml(svc.label)}">${ciBaseStateIcon(ciBaseRunStatus[svc.label])}</i>
+        <i class="ci-base-state" data-ci-base-state="${escapeHtml(svc.label)}">${ciBaseStateIcon(ciBaseStatusOf(svc.label))}</i>
         <i>${ciBaseDetailOpenKey === svc.key ? "▴" : "▾"}</i>
       </span>
     </div>
@@ -6759,15 +6892,55 @@ function ciRenderBaseAiList(){
     || `<div class="empty-state">등록된 AI 분석서비스가 없습니다.</div>`;
 }
 const CI_EXT_AGENCIES = [
-  { key: "dart",   label: "금융감독원 전자공시시스템(DART)" },
-  { key: "nice",   label: "NICE평가정보 BizLINE" },
-  { key: "cretop", label: "한국기업데이터 CRETOP" },
-  { key: "kpds",   label: "코리아PDS(KOREA PDS)" },
-  { key: "kpi",    label: "한국물가정보(KPI)" },
-  { key: "kipris", label: "특허정보넷(KIPRIS)" },
-  { key: "orbis",  label: "뷰로반다이크(ORBIS)" },
-  { key: "dnb",    label: "Dun&Bradstreet(D&B)" },
+  { key: "dart",   label: "금융감독원 전자공시시스템(DART)", desc: "공시·재무제표·지분 변동 등 상장/외감 기업 공시 정보를 수집합니다." },
+  { key: "nice",   label: "NICE평가정보 BizLINE",           desc: "기업 신용등급·재무·거래처 평가 정보를 수집합니다." },
+  { key: "cretop", label: "한국기업데이터 CRETOP",          desc: "기업 신용·재무·기업개요 정보를 수집합니다." },
+  { key: "kpds",   label: "코리아PDS(KOREA PDS)",           desc: "원자재·상품 국제 시세 정보를 수집합니다(신고가격 비교 근거)." },
+  { key: "kpi",    label: "한국물가정보(KPI)",              desc: "품목별 국내 물가·시세 정보를 수집합니다(신고가격 비교 근거)." },
+  { key: "kipris", label: "특허정보넷(KIPRIS)",             desc: "특허·상표·디자인 권리 정보를 수집합니다(지재권·로열티 검토)." },
+  { key: "orbis",  label: "뷰로반다이크(ORBIS)",            desc: "해외 법인·지배구조·특수관계망 정보를 수집합니다." },
+  { key: "dnb",    label: "Dun&Bradstreet(D&B)",            desc: "해외 거래처 신용·실체 확인 정보를 수집합니다." },
 ];
+/* 외부기관 수집 상태·확인사항 — 상태(요청중/완료)는 세션, 확인사항은 영속 */
+let ciExtAgencyStatus = {};      // { key: "running"|"done"|"error" }
+let ciExtAgencyNotes = {};       // { key: note } — 영속(workspace_state)
+let ciExtDetailOpenKey = null;   // 설명·확인사항 펼침 대상
+
+function ciExtAgencyStateLabel(state){
+  return state === "running" ? "요청중" : state === "done" ? "완료" : state === "error" ? "오류" : "";
+}
+
+function ciExtAgencyListHtml(){
+  return CI_EXT_AGENCIES.map(agency => `
+    <div class="ci-base-chip ci-ext-chip" data-ci-ext-chip="${escapeHtml(agency.key)}">
+      <input type="checkbox" data-ci-agency="${escapeHtml(agency.key)}" ${ciExtAgencyChecked.has(agency.key) ? "checked" : ""} title="수집 대상 선택">
+      <strong>${escapeHtml(agency.label)}</strong>
+      <span class="ci-base-chip-side">
+        <i class="ci-ext-state${ciExtAgencyStatus[agency.key] ? ` ${ciExtAgencyStatus[agency.key]}` : ""}" data-ci-ext-state="${escapeHtml(agency.key)}">${ciExtAgencyStateLabel(ciExtAgencyStatus[agency.key])}</i>
+        <i>${ciExtDetailOpenKey === agency.key ? "▴" : "▾"}</i>
+      </span>
+    </div>
+    ${ciExtDetailOpenKey === agency.key ? `
+    <div class="ci-base-chip-detail">
+      <p>${escapeHtml(agency.desc || "외부기관 데이터 수집에 포함됩니다.")}</p>
+      <textarea class="ci-stage-notes" data-ci-ext-note="${escapeHtml(agency.key)}" rows="2"
+        placeholder="조사 착안사항 및 확인사항">${escapeHtml(ciExtAgencyNotes[agency.key] || "")}</textarea>
+    </div>` : ""}
+  `).join("");
+}
+
+function ciRenderExtAgencyList(){
+  const box = document.getElementById("ciExtAgencyList");
+  if(box) box.innerHTML = ciExtAgencyListHtml();
+}
+
+function ciPaintExtAgencyStatus(){
+  document.querySelectorAll("[data-ci-ext-state]").forEach(el => {
+    const state = ciExtAgencyStatus[el.dataset.ciExtState] || "";
+    el.textContent = ciExtAgencyStateLabel(state);
+    el.className = `ci-ext-state${state ? ` ${state}` : ""}`;
+  });
+}
 let ciStageOpen = { base: false, ext: false, deep: true, report: false };   // 세션 UI 상태
 let ciDetailCollapsed = false;   // 선택 서비스 상세 접힘 — 활성 칩 재클릭으로 토글
 let ciExtAgencyChecked = new Set(["dart", "nice", "orbis"]);                // 외부기관 선택(영속)
@@ -6784,9 +6957,9 @@ document.addEventListener("click", (event) => {
     ciBaseDetailOpenKey = (ciBaseDetailOpenKey === key && ciBaseSelectedKey === key) ? null : key;
     ciBaseSelectedKey = key;
     ciRenderBaseAiList();
-    // '선택된 서비스 분석결과'가 이 기초 서비스의 결과를 가리키게 한다
+    // 열기(펼침)일 때만 '선택된 서비스 분석결과'가 이 서비스를 가리키게 한다 — 접기는 로그창 유지
     const svc = ciBaseAiServices.find(entry => entry.key === key);
-    if(svc){
+    if(svc && ciBaseDetailOpenKey === key){
       ciSelectedBase = svc.label;
       ciResultTab = "selected";
       ciRenderResultTab();
@@ -6794,6 +6967,33 @@ document.addEventListener("click", (event) => {
     }
     return;
   }
+  /* 외부기관 칩 — 클릭 시 설명·확인사항 펼침(체크박스 클릭은 수집 대상 선택 동작 유지) */
+  const extChip = event.target.closest("[data-ci-ext-chip]");
+  if(extChip){
+    if(event.target.closest("[data-ci-agency]")) return;
+    const key = extChip.dataset.ciExtChip;
+    ciExtDetailOpenKey = ciExtDetailOpenKey === key ? null : key;
+    ciRenderExtAgencyList();
+    // 열기(펼침)일 때만 로그창 연동 — 외부기관정보수집 서비스를 선택 결과로(없으면 수집 결과 탭)
+    if(ciExtDetailOpenKey === key){
+      const agencyItem = scenarioItems.find(item => item.key === "external_agency");
+      if(agencyItem){
+        selectedScenarioId = agencyItem.id;
+        ciSelectedBase = null;
+        ciResultTab = "selected";
+        renderScenarioList();
+        syncScenarioEditor();
+        if(scenarioReviewMode) renderScenarioSteps();
+        ciRenderResultTab();
+        ciPaintBaseSelection();
+      }else{
+        ciResultTab = "ext";
+        ciRenderResultTab();
+      }
+    }
+    return;
+  }
+
   // 기초데이터 분석 고정 서비스(CDW 조회 등) 클릭 → 해당 배치 결과를 선택 결과로 표시
   const baseFixed = event.target.closest("[data-ci-base-result]");
   if(baseFixed){
@@ -6847,6 +7047,12 @@ document.addEventListener("click", (event) => {
   ciStageOpen[key] = !ciStageOpen[key];
   const section = toggle.closest(".ci-stage");
   section?.classList.toggle("open", ciStageOpen[key]);
+  // 단계 헤더로 열 때 오른쪽 결과 창도 해당 단계 결과 탭으로 전환
+  // (단일 서비스 선택 시 '선택된 서비스 분석결과'로 바뀌는 기존 동작은 유지)
+  if(ciStageOpen[key] && CI_RESULT_TABS.some(t => t.key === key)){
+    ciResultTab = key;
+    ciRenderResultTab();
+  }
   if(key === "ext" && ciStageOpen.ext){
     const webItem = scenarioItems.find(item => item.key === "web_search");
     if(webItem && selectedScenarioId !== webItem.id){
@@ -6896,6 +7102,13 @@ document.addEventListener("input", (event) => {
   if(baseNote){
     const svc = ciBaseAiServices.find(entry => entry.key === baseNote.dataset.ciBaseNote);
     if(svc){ svc.note = baseNote.value; saveCanvasState(); }
+    return;
+  }
+  // 외부데이터 수집 — 기관별 조사 착안사항·확인사항
+  const extNote = event.target.closest?.("[data-ci-ext-note]");
+  if(extNote){
+    ciExtAgencyNotes[extNote.dataset.ciExtNote] = extNote.value;
+    saveCanvasState();
   }
 });
 
@@ -6927,7 +7140,8 @@ function ciResultBlockHtml(label, status, output){
 function ciStageResultsHtml(stageKey){
   const blocks = [];
   if(stageKey === "base"){
-    ciBaseRunResults.forEach(entry => blocks.push(ciResultBlockHtml(entry.label, entry.status, entry.output)));
+    // 기업별 영속 결과(등록 시 자동 배치·수동 배치 공통) — 실행 중에는 같은 배열이 실시간 갱신됨
+    ciBaseResultEntries().forEach(entry => blocks.push(ciResultBlockHtml(entry.label, entry.status, entry.output)));
   }
   if(stageKey === "ext"){
     ciExtRunResults.forEach(entry => blocks.push(ciResultBlockHtml(entry.label, entry.status, entry.output)));
@@ -6959,7 +7173,7 @@ function ciRenderResultTab(){
   accordion.style.display = selectedMode && !baseSelected ? "" : "none";
   body.style.display = selectedMode && !baseSelected ? "none" : "";
   if(baseSelected){
-    const entry = ciBaseRunResults.find(e => e.label === ciSelectedBase);
+    const entry = ciBaseResultEntries().find(e => e.label === ciSelectedBase);
     body.innerHTML = entry
       ? ciResultBlockHtml(entry.label, entry.status, entry.output)
       : `<section class="ci-result-block">
@@ -7011,20 +7225,34 @@ let ciExtRunResults = [];   // 외부데이터 배치 실행 결과(시나리오
 async function ciRunExtBatch(){
   ciExtRunResults = [];
   const agencyBehaviors = [...ciExtAgencyChecked].map(key => CI_AGENCY_BEHAVIOR[key]).filter(Boolean);
+  // 선택 기관 상태 → 요청중 (완료 시 done으로 전환)
+  ciExtAgencyStatus = {};
+  [...ciExtAgencyChecked].forEach(key => ciExtAgencyStatus[key] = "running");
+  ciPaintExtAgencyStatus();
+  // 기관별 확인사항(착안사항)을 수집 지시문에 포함
+  const agencyNoteText = [...ciExtAgencyChecked].map(key => {
+    const agency = CI_EXT_AGENCIES.find(a => a.key === key);
+    const note = (ciExtAgencyNotes[key] || "").trim();
+    return note ? `[${agency?.label || key} 확인사항]\n${note}` : "";
+  }).filter(Boolean).join("\n");
+  const withAgencyNotes = item => agencyNoteText
+    ? { ...item, instruction: `${item.instruction || ""}\n${agencyNoteText}`.trim() }
+    : item;
   const agencyItem = scenarioItems.find(item => item.key === "external_agency");
   const webItem = scenarioItems.find(item => item.key === "web_search");
   const specs = [
     {
       label: "외부기관정보수집 AI 서비스",
+      agency: true,
       transient: !agencyItem,
-      item: agencyItem
+      item: withAgencyNotes(agencyItem
         ? { ...agencyItem, behaviors: agencyBehaviors.length ? agencyBehaviors : agencyItem.behaviors }
         : (() => {
             const item = ciTransientItem("external_agency", "외부기관정보수집 AI 서비스",
               "선택한 외부기관 사이트의 공시·신용·시세·특허 정보를 수집하십시오.");
             if(agencyBehaviors.length) item.behaviors = agencyBehaviors;
             return item;
-          })(),
+          })()),
     },
     {
       label: "웹 정보수집 요청 AI 서비스",
@@ -7033,9 +7261,14 @@ async function ciRunExtBatch(){
         "등록된 URL·검색 키워드에 대한 수집 요청을 접수하십시오."),
     },
   ];
+  const markAgencies = state => {
+    [...ciExtAgencyChecked].forEach(key => ciExtAgencyStatus[key] = state);
+    ciPaintExtAgencyStatus();
+  };
   for(const spec of specs){
     if(!scenarioItemHasPermission(spec.item)){
       ciExtRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      if(spec.agency) markAgencies("error");
       ciRenderResultTab();
       continue;
     }
@@ -7052,8 +7285,10 @@ async function ciRunExtBatch(){
       if(scenarioReviewMode) renderScenarioSteps();
     }
     await new Promise(resolve => runSingleScenarioItem(spec.item, resolve));
+    const runStatus = stepStatuses[spec.item.id] === "오류" ? "error" : "done";
+    if(spec.agency) markAgencies(runStatus);
     if(entry){
-      entry.status = stepStatuses[spec.item.id] === "오류" ? "error" : "done";
+      entry.status = runStatus;
       entry.output = stepOutputs[spec.item.id] || "";
       ciRenderResultTab();
     }
@@ -7106,7 +7341,7 @@ function scenarioReviewWorkbench(){
     <ul class="ci-base-list">
       ${services.map(service => `
         <li class="ci-base-selectable" data-ci-base-result="${escapeHtml(service.label)}" title="클릭하면 이 서비스의 결과를 표시합니다">${escapeHtml(service.label)}
-          <i class="ci-base-state" data-ci-base-state="${escapeHtml(service.label)}">${ciBaseStateIcon(ciBaseRunStatus[service.label])}</i>
+          <i class="ci-base-state" data-ci-base-state="${escapeHtml(service.label)}">${ciBaseStateIcon(ciBaseStatusOf(service.label))}</i>
           ${service.items.length
             ? `<ul>${service.items.map(entry => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
             : ""}</li>
@@ -7125,11 +7360,9 @@ function scenarioReviewWorkbench(){
   `;
 
   const stage2 = `
-    <p class="ci-stage-note">데이터 수집이 필요한 외부 기관을 선택하세요.</p>
-    <div class="ci-agency-list">
-      ${CI_EXT_AGENCIES.map(agency => `
-        <label><input type="checkbox" data-ci-agency="${agency.key}" ${ciExtAgencyChecked.has(agency.key) ? "checked" : ""}> ${escapeHtml(agency.label)}</label>
-      `).join("")}
+    <p class="ci-stage-note">데이터 수집이 필요한 외부 기관을 선택하세요. 기관을 클릭하면 설명과 확인사항 입력이 열립니다.</p>
+    <div class="ci-base-ai-list" id="ciExtAgencyList">${ciExtAgencyListHtml()}</div>
+    <div class="ci-agency-list" style="margin-top:8px">
       <label><input type="checkbox" data-ci-url-toggle ${ciExtUrlOpen ? "checked" : ""}> URL 직접 등록</label>
     </div>
     <div id="ciExtWebPanel" class="ci-ext-web-panel" ${ciExtUrlOpen ? "" : "hidden"}></div>
@@ -9875,6 +10108,12 @@ function renderScenarioList(){
       ciSelectedBase = null;
       gisSelectedBase = null;
       gisSelectedEvItem = null;
+      // 열기(선택·상세 펼침)일 때만 로그창을 '선택된 서비스 분석결과'로 전환 — 접기는 로그창 유지
+      const detailOpened = stage4 ? !(isGisStage ? gisDetailCollapsed : ciDetailCollapsed) : true;
+      if(detailOpened){
+        if(document.getElementById("ciResultBody")) ciResultTab = "selected";
+        if(document.getElementById("gisResultBody")) gisResultTab = "selected";
+      }
       renderScenarioList();
       syncScenarioEditor();
       // 리뷰 모드: 우측 결과 패널이 선택된 AI 서비스를 따라가도록 갱신
@@ -11019,6 +11258,7 @@ registerCustomsEvents({
   removeCanvasJobForCurrentUser,
   render,
   restoreRunArchiveToWorkspace,
+  runBaseServiceBatch: ciRunBaseBatch,   // 등록 직후 기초데이터 분석 AI 서비스 배치(결과 영속)
   saveCanvasState,
   scenarioTemplateById,
   uid,

@@ -55,8 +55,10 @@ export function renderProfilePanel(deps){
   // AI위험지표 상세 아래 '기초데이터 분석 결과' 창 — 등록 시 자동 수행분(또는 상세 캐시) 전달
   const job = (deps.activeCanvasJobs?.() || []).find(item => item.companyId === companyId);
   const baseAnalysis = ciBaseAnalysisForProfile(job, detail, companyId);
+  // frames: 왼쪽 위(기본/위험지표 상세 토글·접기) + 왼쪽 아래(기초데이터 분석 결과) 2프레임 —
+  // 오른쪽 관계분석과 함께 3프레임, 좌우·상하 리사이즈 거터로 크기 조절
   return strip + profileNetworkLayout(
-    deps.canvasProfilePanel(companyId, { baseAnalysis }),
+    deps.canvasProfilePanel(companyId, { baseAnalysis, frames: true }),
     profileGraphTypeForCrimes(crimes && crimes.category.id), companyId);
 }
 

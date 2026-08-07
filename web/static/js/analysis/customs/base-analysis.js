@@ -68,4 +68,10 @@ export async function ciAutoBaseAnalysis(ctx, companyId){
   });
   // 관세조사 화면이 열려 있을 때만 갱신 — 다른 페이지 열람 중 강제 전환 방지
   if(document.querySelector(".ci-hub")) ctx.render("investigation");
+  // 기초데이터 분석 AI 서비스 배치를 이어서 백그라운드 수행 — 서비스별 결과가
+  // 기업별 JSON(workspace_state)에 저장되어 프로파일·심층분석·보고서 탭에서 확인된다.
+  // (프로파일 진입은 위 대사 완료 시점에 이미 열리며, 배치는 결과 창에 실시간 반영)
+  if(status === "done" && ctx.activeCanvasCompanyId === companyId){
+    try{ ctx.runBaseServiceBatch?.(); }catch(e){ console.warn("[ci] 기초 AI 서비스 배치 시작 실패", e); }
+  }
 }
