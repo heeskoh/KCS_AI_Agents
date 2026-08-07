@@ -13,3 +13,4 @@
 - [위험모델 v2 파이프라인](risk-model-v2-pipeline.md) — 기업(관세조사/수사)·개인 죄종기반 전면재구성 Phase 0~6 실행순서·스크립트, 마약/외환 기업=org 그래프
 - [관세조사 리뷰모드·사전분석결과](customs-review-prepared-results.md) — 탭4는 사전 준비 결과 표시(prepared_analysis_results.json), build_prepared_results.py로 생성, remapArchiveResults id 매칭
 - [DB 재구축 후 필수 후처리](global-hs-migration-required.md) — global_hs 마이그레이션→필수/선택항목 보강→Neo4j 재적재 순서 실행 + 서버 재시작(DuckDB 캐시)
+- [관세조사 70개사 의심유형 체계](audit-70-suspicion-v3.md) — audit 기업 70개·유형 30/23/7/12/25 분포, gen_audit_suspicion_v3.py, 종합점수=0.6·0.32·0.08 가중(6지표 평균 아님)

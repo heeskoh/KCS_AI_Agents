@@ -2212,15 +2212,15 @@ const RISK_DASH_FOCUS = {
   audit:    { label: "조사필요",             match: c => (c.risk_score || 0) >= 90 },
   // 심사필요 — 70~90점(카드 밴드 caution). 조사필요와 겹치지 않게 상한을 둔다
   review:   { label: "심사필요",             match: c => (c.risk_score || 0) >= 70 && (c.risk_score || 0) < 90 },
-  underval: { label: "신고가격오류 의심",    code: "undervaluation",
+  underval: { label: "저가신고 의심",        code: "undervaluation",
               match: riskRateAtLeast("undervaluation_suspicion_rate") },
-  hs:       { label: "품목분류 위장 의심",   code: "hs_classification",
+  hs:       { label: "품목분류 이상 의심",   code: "hs_classification",
               match: riskRateAtLeast("hs_classification_error_rate") },
-  royalty:  { label: "권리사용료 미신고",    code: "related_party",
+  royalty:  { label: "지식재산권 이상 의심", code: "related_party",
               match: riskRateAtLeast("related_party_anomaly_rate") },
-  forex:    { label: "외환 송금액 불일치",   code: "offshore_fund",
-              match: riskRateAtLeast("offshore_fund_concealment_suspicion_rate") },
-  refund:   { label: "환급금액 오신청 의심", code: "customs_refund",
+  origin:   { label: "원산지 우회 의심",     code: "fta_origin_misuse",
+              match: riskRateAtLeast("fta_origin_misuse_suspicion_rate") },
+  refund:   { label: "환급 이상 의심",       code: "customs_refund",
               match: riskRateAtLeast("customs_refund_anomaly_rate") },
 };
 
@@ -8372,7 +8372,7 @@ function riskDashboardContent(){
     underval : riskFocusStats("underval"),
     hs       : riskFocusStats("hs"),
     royalty  : riskFocusStats("royalty"),
-    forex    : riskFocusStats("forex"),
+    origin   : riskFocusStats("origin"),
     refund   : riskFocusStats("refund"),
   };
 
@@ -8407,11 +8407,11 @@ function riskDashboardContent(){
       <div class="ci-dw-result" id="ciDwResult" style="display:none"></div>
 
       <div class="risk-alert-strip">
-        ${riskAlertCard("underval", "신고가격오류 의심",   alertStats.underval, focusKey)}
-        ${riskAlertCard("hs",       "품목분류 위장 의심",  alertStats.hs,       focusKey)}
-        ${riskAlertCard("royalty",  "권리사용료 미신고",   alertStats.royalty,  focusKey)}
-        ${riskAlertCard("forex",    "외환 송금액 불일치",  alertStats.forex,    focusKey)}
-        ${riskAlertCard("refund",   "환급금액 오신청 의심", alertStats.refund,   focusKey)}
+        ${riskAlertCard("hs",       "품목분류 이상 의심",   alertStats.hs,       focusKey)}
+        ${riskAlertCard("underval", "저가신고 의심",        alertStats.underval, focusKey)}
+        ${riskAlertCard("origin",   "원산지 우회 의심",     alertStats.origin,   focusKey)}
+        ${riskAlertCard("royalty",  "지식재산권 이상 의심", alertStats.royalty,  focusKey)}
+        ${riskAlertCard("refund",   "환급 이상 의심",       alertStats.refund,   focusKey)}
       </div>
 
       ${focusKey === "all" ? "" : `
