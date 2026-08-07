@@ -174,6 +174,9 @@ export function registerGeneralInvestigationEvents(ctx){
       // 탭 이동 없이 목록에 카드만 등록
       ctx.saveCanvasState();
       ctx.render("generalinv");
+      // 지식 레지스트리 흐름: 사건 등록 즉시 기초데이터분석(G1 내부 보유자료 대사)을
+      // 백그라운드로 자동 수행 → 완료 시 사건 프로파일에 결과가 표시된다.
+      ctx.gisAutoBaseAnalysis?.(newCase);
       return;
     }
 

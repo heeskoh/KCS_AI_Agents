@@ -39,6 +39,9 @@ import { bindCiInsightChat } from "./analysis/customs/insight.js";              
 import { initInvCopilot, setEvidenceContextProvider } from "./pages/inv-copilot.js";   // 업무영역 별도 사이트(조사관·수사관·보고서) 공통 플랫폼 셸
 import { streamLlmText } from "./analysis/shared/llm-stream.js";   // 증거 결과 AI 분석/요약(관세수사 스테이지)
 import { crimeSummary } from "./analysis/general-investigation/crime-taxonomy.js";   // 요청서·검색 컨텍스트의 혐의 요약
+import {                                                             // 관세범죄 지식 레지스트리 — AI 수사 가이드라인(입증 체인 C→F→E→A+G)
+  loadCrimeRegistry, getCrimeRegistry, buildEvidenceGuide, guideProgress, gateBadge,
+} from "./analysis/general-investigation/knowledge-registry.js";
 import { isPlatformShellPage, isStandalonePlatform, platformBootPage } from "./core-engine/platform-sites.js";
 import "./core-engine/resize-gutters.js";   // 리사이즈 거터 — self-init, 전 사이트 공용(포털 전용 home-runtime에서 이동)
 import {
@@ -1466,6 +1469,8 @@ const genDeps = {
   // 수사정보 분석(insight) 탭 deps
   getUploadedFilesByCompany: companyId => uploadedFilesByCompany[companyId] || [],
   saveCanvasState,
+  // 지식 레지스트리 — 사건 등록 시 자동 수행되는 기초데이터분석(G1 대사)·수사 가이드
+  gisAutoBaseAnalysis,
 };
 const generalInvestigation = createGeneralInvestigation(genDeps);
 
@@ -7201,6 +7206,189 @@ const GIS_INTERVIEW_CATALOG = [
   { key: "suspect", label: "혐의자 - 신문", template: "혐의자 신문 내용\n일자 : \n참고인 : \n동행자 : \n수사관 : " },
 ];
 
+/* ═══ 지식 레지스트리 기반 AI 수사 가이드라인 ═══════════════════════════════
+   사건 등록 → 기초데이터분석(G1·A-01 내부 보유자료 대사) 자동 수행 → 사건
+   프로파일 표시 → 증거수집 단계에서 입증 체인(C 죄명→F 요증사실→E 증거→
+   A 수집행위+G 게이트) 가이드에 따라 증거를 등록·확보한다. */
+
+/* 사건 등록 직후 자동 수행되는 기초데이터분석 — 세관 내부 보유자료(G1) 대사.
+   DB 조회 결과로 대사표를 만들고, 확보 가능한 G1 증거항목(E-1xx)을 채운다. */
+async function gisAutoBaseAnalysis(aCase){
+  if(!aCase || aCase.baseAnalysis?.status === "running") return;
+  aCase.baseAnalysis = { status: "running", ranAt: Date.now() };
+  saveCanvasState();
+  const rows = [];
+  const secured = [];
+  const indicators = [];
+  try{
+    if(aCase.targetType === "person"){
+      const res = await fetch(`/api/risk-person-profile?person_id=${encodeURIComponent(aCase.personId || "")}`);
+      const detail = res.ok ? await res.json() : {};
+      const profile = detail.profile || {};
+      const cases = detail.cases || [];
+      rows.push(["대상(개인)", `${profile.name || aCase.targetName} · ${aCase.personId || "-"}`]);
+      rows.push(["위험도", `${profile.risk_score ?? "-"}점 (${profile.risk_level || "-"}) · ${profile.watch_status || "관찰중"}`]);
+      rows.push(["연계 사건 이력", `${cases.length}건`]);
+      rows.push(["관계망 연결", `${(detail.network || []).length}건 · 조직 ${(detail.orgs || []).length}개`]);
+      (detail.indicators || []).slice()
+        .sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3)
+        .forEach(row => indicators.push({ name: row.indicator_name || row.indicator_code, score: Math.round(row.score || 0) }));
+      if(cases.length){ secured.push("E-104", "E-105"); }   // 여행자 휴대품·특송/우편 통관 기록
+    } else {
+      const res = await fetch(`/api/company?company_id=${encodeURIComponent(aCase.companyId || "")}`);
+      const detail = res.ok ? await res.json() : {};
+      const company = detail.company || {};
+      const decls = detail.declarations || [];
+      const declSum = decls.reduce((sum, d) => sum + Number(d.declared_value || 0), 0);
+      rows.push(["대상(기업)", `${company.company_name || aCase.targetName} · ${aCase.companyId || "-"}`]);
+      rows.push(["위험도", `${company.risk_score ?? "-"}점 (${company.risk_level || "-"})`]);
+      rows.push(["수입신고 이력", `${decls.length}건 · 신고금액 합계 ${declSum ? (declSum / 1e8).toFixed(1) + "억원" : "-"}`]);
+      rows.push(["연간 수입액/납부세액", `${company.annual_import_amount ? (company.annual_import_amount / 1e8).toFixed(0) + "억원" : "-"} / ${company.declared_duty_amount ? (company.declared_duty_amount / 1e8).toFixed(1) + "억원" : "-"}`]);
+      Object.values(detail.risk_indicators || {}).slice()
+        .sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3)
+        .forEach(row => indicators.push({ name: row.indicator_name || row.indicator_code, score: Math.round(row.score || 0) }));
+      if(decls.length){ secured.push("E-101", "E-103", "E-108"); }   // 수입신고필증·적하목록·통관고유부호
+      if(Number(company.recent_customs_refund || 0) > 0) secured.push("E-106");   // 환급신청·지급내역
+    }
+    aCase.baseAnalysis = {
+      status: "done", ranAt: Date.now(), ranLabel: new Date().toLocaleString("ko-KR"),
+      gate: "G1", action: "A-01 내부 보유자료 조회·대사 (자동)",
+      rows, indicators, securedE: [...new Set(secured)],
+    };
+  } catch (e) {
+    console.warn("[gis] 기초데이터분석 자동 수행 실패", e);
+    aCase.baseAnalysis = { status: "error", ranAt: Date.now(), rows: [], indicators: [], securedE: [] };
+  }
+  saveCanvasState();
+  if(currentPage === "generalinv") render("generalinv");
+}
+
+/* 확보된 증거항목(E코드) — 기초분석 자동확보(G1) ∪ 결과 등록된 증거수집 항목 */
+function gisSecuredECodes(aCase){
+  const secured = new Set(aCase?.baseAnalysis?.securedE || []);
+  gisEvidenceItems(aCase).forEach(item => {
+    if(item.eCode && item.status === "결과 등록됨") secured.add(item.eCode);
+  });
+  return secured;
+}
+
+function gisPlannedECodes(aCase){
+  return new Set(gisEvidenceItems(aCase).map(item => item.eCode).filter(Boolean));
+}
+
+const GIS_FACT_LAYERS = [
+  { id: "F-O", label: "객관적 구성요건 (F-O)" },
+  { id: "F-S", label: "주관적 요건 — 고의·목적 (F-S)" },
+  { id: "F-P", label: "절차·양형 요건 (F-P)" },
+];
+
+/* 증거수집 단계 상단 — AI 수사 가이드라인 패널 */
+function gisGuidelineHtml(aCase){
+  if(!aCase) return "";
+  if(!aCase.crimes?.categoryId){
+    return `
+      <div class="gis-guide gis-guide-empty">
+        <strong>AI 수사 가이드라인</strong>
+        <p class="muted">혐의(관세범죄 유형·수법)를 지정하면 지식 레지스트리에 따라 죄명별 요증사실과
+        증거수집 계획이 자동 전개됩니다.</p>
+        <button type="button" class="btn secondary" data-gi-tab="cases">진행중인 수사에서 혐의 지정</button>
+      </div>`;
+  }
+  if(!getCrimeRegistry()){
+    loadCrimeRegistry(() => { if(currentPage === "generalinv") render("generalinv"); });
+    return `<div class="gis-guide"><strong>AI 수사 가이드라인</strong><p class="muted">지식 레지스트리 로딩 중...</p></div>`;
+  }
+  const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
+  if(!guide.ccodes?.length){
+    return `<div class="gis-guide"><strong>AI 수사 가이드라인</strong><p class="muted">혐의에 대응하는 죄명을 찾지 못했습니다.</p></div>`;
+  }
+  const secured = gisSecuredECodes(aCase);
+  const planned = gisPlannedECodes(aCase);
+  const progress = guideProgress(guide, secured);
+
+  const crimeChips = guide.ccodes.map(c => `
+    <span class="gis-guide-crime${c.developed ? "" : " undeveloped"}"
+      title="${escapeHtml(`${c.law} ${c.article} — ${c.conduct}${c.prosecution ? ` · 소추: ${c.prosecution}` : ""}`)}">
+      ${escapeHtml(c.code)} ${escapeHtml(c.name)}${c.developed ? "" : " (미전개)"}
+    </span>`).join("");
+
+  const branchNotes = (guide.branchRules || []).map(rule => `
+    <p class="gis-guide-branch">⚖️ <b>${escapeHtml(rule.id)} ${escapeHtml(rule.name)}</b> — ${escapeHtml(rule.text)}
+      <em>[${escapeHtml(rule.enforcement || "조사관 확인")}]</em></p>`).join("");
+
+  const warnNotes = (guide.planWarnings || []).map(warning =>
+    `<p class="gis-guide-warn">⚠ ${escapeHtml(warning)}</p>`).join("");
+
+  const evidenceChip = (fact, entry) => {
+    const isSecured = secured.has(entry.eCode);
+    const isPlanned = planned.has(entry.eCode);
+    const badge = gateBadge(entry.gate);
+    const stateCls = isSecured ? " secured" : isPlanned ? " planned" : "";
+    const tooltip = `${entry.eCode} · 보유주체 ${entry.holder || "-"} · ${entry.actionName}(${entry.action || "-"})`
+      + `${entry.actionLaw ? ` · ${entry.actionLaw}` : ""}${entry.duration ? ` · 소요 ${entry.duration}` : ""}`
+      + `${entry.note ? ` · ${entry.note}` : ""}`;
+    return `
+      <button type="button" class="gis-guide-ev${stateCls}" title="${escapeHtml(tooltip)}"
+        data-gis-guide-add="${escapeHtml(entry.eCode)}" data-gis-guide-fact="${escapeHtml(fact.code)}">
+        <b>${entry.required ? "◎" : "○"}</b> ${escapeHtml(entry.name)}
+        <i class="gis-gate ${badge.cls}">${escapeHtml(badge.label)}</i>
+        ${entry.volatility === "상" ? `<i class="gis-vol">휘발성 상</i>` : ""}
+        ${entry.immediate ? `<i class="gis-now">착수 당일 발송</i>` : ""}
+        ${isSecured ? `<i class="gis-ok">확보</i>` : isPlanned ? `<i class="gis-plan">수집 중</i>` : ""}
+      </button>`;
+  };
+
+  const factIcon = code => ({
+    done: `<i class="gis-fact-state done">●</i>`, partial: `<i class="gis-fact-state partial">◐</i>`,
+    none: `<i class="gis-fact-state none">○</i>`, procedural: `<i class="gis-fact-state proc">§</i>`,
+  })[progress.perFact[code] || "none"];
+
+  const layerBlocks = GIS_FACT_LAYERS.map(layer => {
+    const facts = guide.facts.filter(f => f.layer === layer.id);
+    if(!facts.length) return "";
+    return `
+      <div class="gis-guide-layer">
+        <h5>${escapeHtml(layer.label)}</h5>
+        ${facts.map(f => `
+          <div class="gis-guide-fact">
+            <div class="gis-guide-fact-head">
+              ${factIcon(f.code)}
+              <span class="gis-guide-fact-text">${escapeHtml(f.text)}</span>
+              <span class="gis-guide-fact-meta">${escapeHtml(f.code)}${f.difficulty ? ` · 난이도 ${escapeHtml(f.difficulty)}` : ""}${f.conditional ? ` · ${escapeHtml(f.conditional)}` : ""}</span>
+            </div>
+            ${f.note ? `<p class="gis-guide-fact-note">※ ${escapeHtml(f.note)}</p>` : ""}
+            ${f.warnings.length ? f.warnings.map(w => `<p class="gis-guide-warn small">⚠ ${escapeHtml(w)}</p>`).join("") : ""}
+            ${f.procedural
+              ? `<p class="muted" style="font-size:11px;margin:2px 0 0 22px">절차 확인 항목 — 증거수집 대상 아님</p>`
+              : `<div class="gis-guide-evs">${f.evidences.map(entry => evidenceChip(f, entry)).join("")}</div>`}
+          </div>`).join("")}
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="gis-guide" id="gisGuidePanel">
+      <div class="gis-guide-head">
+        <strong>AI 수사 가이드라인 <span class="muted">— 지식 레지스트리 입증 체인 (죄명→요증사실→증거→수집행위)</span></strong>
+        <div class="gis-guide-progress" title="요증사실 충족(필수 증거 확보 완료) / 전체">
+          <span>범죄 입증 진도</span>
+          <div class="gis-guide-bar"><i style="width:${progress.pct}%"></i></div>
+          <b>${progress.done}/${progress.total} · ${progress.pct}%</b>
+        </div>
+      </div>
+      <div class="gis-guide-crimes">${crimeChips}</div>
+      ${branchNotes}${warnNotes}
+      <p class="gis-guide-hint">증거항목을 클릭하면 아래 증거수집 목록에 등록됩니다.
+        <b>◎ 필수 / ○ 보강</b> · 휘발성 <b>상</b> 항목과 해외공조·원산지검증은 최우선 착수(R-E5·R-E6)</p>
+      ${layerBlocks}
+    </div>`;
+}
+
+function gisRenderGuideline(){
+  const panel = document.getElementById("gisGuideWrap");
+  const aCase = activeGenInvCase();
+  if(panel && aCase) panel.innerHTML = gisGuidelineHtml(aCase);
+}
+
 let gisBaseAiServices = GIS_BASE_AI_DEFAULTS.map(svc => ({ ...svc }));   // 영속
 let gisBaseNotesByCase = {};        // 기초조사 착안사항(사건별·영속)
 let gisScenarioNotesByCase = {};    // 수사 착안사항(사건별·영속)
@@ -7376,7 +7564,7 @@ function gisBuildRequestDoc(kind, item){
   return `[자료요청서 — 표준 형식]
 
 문서번호: KCS-수사-${aCase.caseId || "-"}-${String(Date.now()).slice(-4)}
-수신: ${GIS_EV_REQUEST_DEST[item.key] || "유관기관"}
+수신: ${GIS_EV_REQUEST_DEST[item.key] || item.holder || "유관기관"}
 발신: 관세청 조사국 (수사관: ${currentUser().name})
 시행일: ${today}
 제목: ${item.label} 자료 요청 (${aCase.targetName || "-"} 관련)
@@ -7461,6 +7649,7 @@ ${raw}`;
   item.resultAt = Date.now();   // 수사보고(결과 보고서) 작성일
   saveCanvasState();
   (kind === "ev" ? gisRenderEvidenceList : gisRenderInterviewList)();
+  gisRenderGuideline();   // 확보 증거 반영 → 요증사실 충족·입증 진도 갱신
   gisRenderResultTab();
 }
 
@@ -7997,6 +8186,7 @@ function giStageWorkbenchHtml(){
   `;
 
   const stage2 = `
+    <div id="gisGuideWrap">${gisGuidelineHtml(aCase)}</div>
     <div class="ci-stage-tools">
       <select id="gisEvidenceSelect" class="scenario-template-select">
         ${GIS_EVIDENCE_CATALOG.map(cat => `<option value="${escapeHtml(cat.key)}">${escapeHtml(cat.label)}</option>`).join("")}
@@ -8160,6 +8350,48 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  /* ── AI 수사 가이드라인 — 증거항목 클릭 → 증거수집 목록 등록 ── */
+  const guideAdd = event.target.closest("[data-gis-guide-add]");
+  if(guideAdd){
+    const aCase = activeGenInvCase();
+    const eCode = guideAdd.dataset.gisGuideAdd;
+    if(!aCase || !eCode) return;
+    const items = gisEvidenceItems(aCase);
+    if(items.some(item => item.eCode === eCode)){
+      // 이미 등록된 항목이면 해당 항목 선택으로 이동
+      const existing = items.find(item => item.eCode === eCode);
+      gisEvidenceSelectedId = existing.id;
+      gisSelectedEvItem = { kind: "ev", id: existing.id };
+      gisRenderEvidenceList();
+      return;
+    }
+    const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
+    let entry = null;
+    (guide.facts || []).some(f => {
+      entry = f.evidences.find(e => e.eCode === eCode) || null;
+      return !!entry;
+    });
+    if(!entry) return;
+    const badge = gateBadge(entry.gate);
+    items.push({
+      id: `gse_${uid()}`, key: `reg_${eCode}`, eCode,
+      label: `${entry.name} (${eCode})`,
+      desc: `${entry.actionName}${entry.action ? `(${entry.action})` : ""} · ${badge.label} — ${badge.desc}`
+        + `${entry.actionLaw ? ` · 근거 ${entry.actionLaw}` : ""}`
+        + `${entry.immediate ? " · 착수 당일 발송(R-E6)" : ""}`
+        + `${entry.volatility === "상" ? " · 휘발성 상 최우선 확보(R-E5)" : ""}`,
+      holder: entry.holder || "",
+      gate: entry.gate, required: entry.required,
+      note: "", status: entry.gate !== "G1" ? "신청 필요" : "", result: "",
+    });
+    gisEvidenceSelectedId = items[items.length - 1].id;
+    gisStageOpen.ext = true;
+    gisRenderEvidenceList();
+    gisRenderGuideline();
+    saveCanvasState();
+    return;
+  }
+
   /* ── 증거 수집(ev)·접견/신문(iv) 항목 — 등록/삭제/선택·접기/요청/결과 등록 ── */
   const evConf = {
     ev: { catalog: GIS_EVIDENCE_CATALOG, items: gisEvidenceItems, render: gisRenderEvidenceList,
@@ -8199,6 +8431,7 @@ document.addEventListener("click", (event) => {
       conf.setList(aCase, conf.items(aCase).filter(item => item.id !== selId));
       conf.setSel(null);
       conf.render();
+      if(kind === "ev") gisRenderGuideline();   // 가이드 칩의 '수집 중' 상태 해제
       saveCanvasState();
       return;
     }
@@ -10740,6 +10973,7 @@ registerGeneralInvestigationEvents({
   uid,
   giScenarioTemplates,
   updateGiStageDoc,   // 수사보고서 관리 [등록] — 증거요청/결과 보고서 수정 저장
+  gisAutoBaseAnalysis,   // 사건 등록 직후 기초데이터분석(G1 내부자료 대사) 자동 수행
 });
 
 registerSpecialInvestigationEvents({

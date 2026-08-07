@@ -1,0 +1,3199 @@
+{
+ "meta": {
+  "title": "관세범죄 지식 레지스트리",
+  "version": "v0.1",
+  "source": "관세범죄_지식레지스트리.xlsx",
+  "chains": {
+   "detection": "M 수법 → P 패턴 → 피처 → 적중",
+   "proof": "C 죄명 → F 요증사실 → E 증거 → A 수집행위(+G 게이트)"
+  }
+ },
+ "crimes": [
+  {
+   "code": "C-11",
+   "category": "관세수입 침해",
+   "name": "관세포탈",
+   "law": "관세법",
+   "article": "제270조①1",
+   "conduct": "세액결정에 영향을 미치기 위해 과세가격·관세율 등을 거짓신고하거나 신고하지 않고 수입",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-12",
+   "category": "관세수입 침해",
+   "name": "부정감면",
+   "law": "관세법",
+   "article": "제270조④",
+   "conduct": "부정한 방법으로 관세를 감면받거나 감면물품에 대한 관세 징수를 면탈",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-13",
+   "category": "관세수입 침해",
+   "name": "부정환급",
+   "law": "관세법",
+   "article": "제270조⑤",
+   "conduct": "부정한 방법으로 관세를 환급받음 (세관장은 해당 세액 즉시 징수)",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-14",
+   "category": "관세수입 침해",
+   "name": "가격조작",
+   "law": "관세법",
+   "article": "제270조의2",
+   "conduct": "재산상 이득 취득 목적으로 물품가격을 조작하여 신청·신고",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-21",
+   "category": "밀수출입",
+   "name": "밀수입",
+   "law": "관세법",
+   "article": "제269조②1·2",
+   "conduct": "무신고 수입 / 해당 수입물품과 다른 물품으로 신고하여 수입",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "몰수, 불능 시 국내도매가격 추징",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-22",
+   "category": "밀수출입",
+   "name": "밀수출·밀반송",
+   "law": "관세법",
+   "article": "제269조③1·2",
+   "conduct": "무신고 수출·반송 / 다른 물품으로 신고하여 수출·반송",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "몰수 대상",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-23",
+   "category": "밀수출입",
+   "name": "금지품 수출입",
+   "law": "관세법",
+   "article": "제269조① (제234조 각 호)",
+   "conduct": "수출입 금지품의 수출 또는 수입",
+   "aggravation": "특가법 제6조①",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "몰수 대상",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-24",
+   "category": "밀수출입",
+   "name": "밀수품 취득 등",
+   "law": "관세법",
+   "article": "제274조①",
+   "conduct": "밀수품의 취득·양도·운반·보관·알선 또는 감정",
+   "aggravation": "특가법 제6조",
+   "precedent": "C-21 / C-22 / C-23",
+   "prosecution": "세관장 고발",
+   "forfeiture": "몰수·추징 대상",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-31",
+   "category": "부정 통관·신고",
+   "name": "부정수입",
+   "law": "관세법",
+   "article": "제270조②",
+   "conduct": "수입에 필요한 허가·승인·추천·증명 등을 갖추지 않거나 부정한 방법으로 갖추어 수입",
+   "aggravation": "특가법 제6조",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-32",
+   "category": "부정 통관·신고",
+   "name": "부정수출",
+   "law": "관세법",
+   "article": "제270조③",
+   "conduct": "수출·반송에 필요한 요건을 갖추지 않거나 부정한 방법으로 갖추어 수출·반송",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-33",
+   "category": "부정 통관·신고",
+   "name": "분할수입 등 회피",
+   "law": "관세법",
+   "article": "제270조①3",
+   "conduct": "수입제한 회피 목적의 부분품 수입 또는 완제품 분할수입",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-34",
+   "category": "통관·절차 질서",
+   "name": "허위신고",
+   "law": "관세법",
+   "article": "제276조",
+   "conduct": "신고사항의 미신고 또는 허위신고 (세액·통관적정 주요사항 외)",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-41",
+   "category": "통관·절차 질서",
+   "name": "명의대여",
+   "law": "관세법",
+   "article": "제275조의3",
+   "conduct": "관세 회피·강제집행 면탈·재산상 이득 목적의 타인 명의 납세신고 및 그 허락",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-42",
+   "category": "통관·절차 질서",
+   "name": "강제징수 면탈",
+   "law": "관세법",
+   "article": "제275조의2",
+   "conduct": "재산 은닉·탈루 또는 거짓계약으로 강제징수를 면탈",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "세관장 고발",
+   "forfeiture": "해당 없음",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-51",
+   "category": "금지·제한 위반",
+   "name": "원산지표시 위반",
+   "law": "대외무역법",
+   "article": "제33조 등",
+   "conduct": "원산지 허위표시·오인표시, 표시의 손상·변경",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "소관 부처 확인 필요",
+   "forfeiture": "해당 없음",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-52",
+   "category": "금지·제한 위반",
+   "name": "지재권 침해물품 수입",
+   "law": "상표법·저작권법 등",
+   "article": "상표법 제230조 등",
+   "conduct": "침해물품의 수입·유통 (관세법 제235조 통관보류 연계)",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "권리자 고소 여부 확인",
+   "forfeiture": "몰수 가능",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-61",
+   "category": "외환수사",
+   "name": "신고 없는 지급방법",
+   "law": "외국환거래법",
+   "article": "제16조 등",
+   "conduct": "환치기 등 신고하지 않은 지급·수령 방법에 의한 자금이동",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "별도 확인",
+   "forfeiture": "몰수·추징 가능",
+   "factStatus": "완료"
+  },
+  {
+   "code": "C-62",
+   "category": "외환수사",
+   "name": "무등록 외국환업무",
+   "law": "외국환거래법",
+   "article": "제8조 등",
+   "conduct": "등록 없이 환전·송금 등 외국환업무 영위",
+   "aggravation": "－",
+   "precedent": "",
+   "prosecution": "별도 확인",
+   "forfeiture": "몰수·추징 가능",
+   "factStatus": "미전개(2차)"
+  },
+  {
+   "code": "C-63",
+   "category": "외환수사",
+   "name": "재산국외도피",
+   "law": "특경법",
+   "article": "제4조",
+   "conduct": "법령을 위반하여 재산을 국외로 이동하거나 국내로 반입하지 않음",
+   "aggravation": "특경법 자체 가중",
+   "precedent": "",
+   "prosecution": "별도 확인",
+   "forfeiture": "몰수·추징 대상",
+   "factStatus": "미전개(2차)"
+  }
+ ],
+ "facts": [
+  {
+   "code": "F-C11-01",
+   "crime": "C-11",
+   "layer": "F-O",
+   "text": "수입신고를 한 사실 (신고인·신고번호 특정)",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C11-02",
+   "crime": "C-11",
+   "layer": "F-O",
+   "text": "신고내용이 사실과 다름 — 과세가격·세번·세율·수량·원산지 중 무엇이 어떻게 다른지 특정",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C11-03",
+   "crime": "C-11",
+   "layer": "F-O",
+   "text": "물품의 동일성은 유지됨 (동일성 부정 시 C-21로 이동)",
+   "difficulty": "중",
+   "note": "R-C1 분기점"
+  },
+  {
+   "code": "F-C11-04",
+   "crime": "C-11",
+   "layer": "F-O",
+   "text": "정당세액과 신고세액의 차액 = 포탈세액",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C11-05",
+   "crime": "C-11",
+   "layer": "F-S",
+   "text": "세액결정에 영향을 미칠 목적 및 포탈의 고의",
+   "difficulty": "상",
+   "note": "핵심 쟁점"
+  },
+  {
+   "code": "F-C11-06",
+   "crime": "C-11",
+   "layer": "F-P",
+   "text": "연도별 포탈세액 합계 (특가법 기준액 판정)",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C11-07",
+   "crime": "C-11",
+   "layer": "F-P",
+   "text": "세관장 고발 (소추조건)",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C12-01",
+   "crime": "C-12",
+   "layer": "F-O",
+   "text": "관세 감면을 신청하여 승인받은 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C12-02",
+   "crime": "C-12",
+   "layer": "F-O",
+   "text": "부정한 방법의 존재 — 요건 허위, 사실 묵비, 서류 조작 중 특정",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C12-03",
+   "crime": "C-12",
+   "layer": "F-O",
+   "text": "감면세액 또는 면탈세액의 산정",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C12-04",
+   "crime": "C-12",
+   "layer": "F-S",
+   "text": "부정한 방법에 대한 인식",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C12-05",
+   "crime": "C-12",
+   "layer": "F-P",
+   "text": "사후관리 기간 및 위반 여부",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C13-01",
+   "crime": "C-13",
+   "layer": "F-O",
+   "text": "환급을 신청하고 수령한 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C13-02",
+   "crime": "C-13",
+   "layer": "F-O",
+   "text": "부정한 방법의 존재 — 소요량 과다, 수출사실 부존재, 원재료 불일치 중 특정",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C13-03",
+   "crime": "C-13",
+   "layer": "F-O",
+   "text": "정당환급액 산정 및 차액",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C13-04",
+   "crime": "C-13",
+   "layer": "F-S",
+   "text": "부정한 방법에 대한 인식",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C13-05",
+   "crime": "C-13",
+   "layer": "F-P",
+   "text": "즉시 징수 대상 세액 확정",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C14-01",
+   "crime": "C-14",
+   "layer": "F-O",
+   "text": "보정신청·수정신고·수출입신고 등 대상 신청·신고를 한 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C14-02",
+   "crime": "C-14",
+   "layer": "F-O",
+   "text": "가격을 조작한 사실 (실제가격과 신고가격의 괴리)",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C14-03",
+   "crime": "C-14",
+   "layer": "F-S",
+   "text": "부당하게 재물·재산상 이득을 취득할 목적",
+   "difficulty": "상",
+   "note": "C-11과의 분기점 (R-C2)"
+  },
+  {
+   "code": "F-C14-04",
+   "crime": "C-14",
+   "layer": "F-P",
+   "text": "물품원가 산정",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C21-01",
+   "crime": "C-21",
+   "layer": "F-O",
+   "text": "물품이 수입된 사실 (수입의 시기·장소)",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C21-02",
+   "crime": "C-21",
+   "layer": "F-O",
+   "text": "신고를 하지 않았거나(1호), 신고물품과 실제물품이 다름(2호)",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C21-03",
+   "crime": "C-21",
+   "layer": "F-O",
+   "text": "물품의 동일성 부정 — 신고물품과 실제물품이 사회통념상 별개 물품임",
+   "difficulty": "상",
+   "note": "R-C1 분기점"
+  },
+  {
+   "code": "F-C21-04",
+   "crime": "C-21",
+   "layer": "F-S",
+   "text": "무신고·허위신고의 고의",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C21-05",
+   "crime": "C-21",
+   "layer": "F-P",
+   "text": "물품원가 및 관세액 (벌금·가중 기준)",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C21-06",
+   "crime": "C-21",
+   "layer": "F-P",
+   "text": "몰수 대상물품 특정, 몰수 불능 시 추징액(국내도매가격)",
+   "difficulty": "중",
+   "note": "물품원가와 구분"
+  },
+  {
+   "code": "F-C24-01",
+   "crime": "C-24",
+   "layer": "F-O",
+   "text": "본범(C-21~C-23 등)의 성립",
+   "difficulty": "상",
+   "note": "선결 요건 (R-C3)"
+  },
+  {
+   "code": "F-C24-02",
+   "crime": "C-24",
+   "layer": "F-O",
+   "text": "취득·양도·운반·보관·알선·감정 중 어느 행위를 하였는지 특정",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C24-03",
+   "crime": "C-24",
+   "layer": "F-S",
+   "text": "밀수품이라는 정(情)의 인식",
+   "difficulty": "상",
+   "note": "핵심 쟁점"
+  },
+  {
+   "code": "F-C24-04",
+   "crime": "C-24",
+   "layer": "F-P",
+   "text": "물품원가, 몰수·추징",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C31-01",
+   "crime": "C-31",
+   "layer": "F-O",
+   "text": "해당 물품이 허가·승인·추천·증명 대상임 (근거법령 특정)",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C31-02",
+   "crime": "C-31",
+   "layer": "F-O",
+   "text": "요건을 갖추지 않았거나 부정한 방법으로 갖추었음",
+   "difficulty": "중",
+   "note": "발급기관 회신이 결정적"
+  },
+  {
+   "code": "F-C31-03",
+   "crime": "C-31",
+   "layer": "F-O",
+   "text": "수입이 이루어진 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C31-04",
+   "crime": "C-31",
+   "layer": "F-S",
+   "text": "요건 미비 또는 부정 취득에 대한 인식",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C41-01",
+   "crime": "C-41",
+   "layer": "F-O",
+   "text": "타인의 성명·상호로 납세신고가 이루어진 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C41-02",
+   "crime": "C-41",
+   "layer": "F-O",
+   "text": "실질 행위자와 명의자의 분리",
+   "difficulty": "중",
+   "note": "P-15 연결"
+  },
+  {
+   "code": "F-C41-03",
+   "crime": "C-41",
+   "layer": "F-S",
+   "text": "관세 회피·강제집행 면탈 또는 재산상 이득 목적",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-C41-04",
+   "crime": "C-41",
+   "layer": "F-O",
+   "text": "명의자의 허락 (허락자 처벌 시)",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C61-01",
+   "crime": "C-61",
+   "layer": "F-O",
+   "text": "거주자–비거주자 간 채권·채무의 발생",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C61-02",
+   "crime": "C-61",
+   "layer": "F-O",
+   "text": "신고대상 지급·수령 방법에 해당함",
+   "difficulty": "중",
+   "note": ""
+  },
+  {
+   "code": "F-C61-03",
+   "crime": "C-61",
+   "layer": "F-O",
+   "text": "국내 자금수수와 해외 자금이동의 대응관계",
+   "difficulty": "상",
+   "note": "입증의 핵심"
+  },
+  {
+   "code": "F-C61-04",
+   "crime": "C-61",
+   "layer": "F-O",
+   "text": "신고를 하지 않은 사실",
+   "difficulty": "하",
+   "note": ""
+  },
+  {
+   "code": "F-C61-05",
+   "crime": "C-61",
+   "layer": "F-S",
+   "text": "미신고에 대한 인식",
+   "difficulty": "상",
+   "note": ""
+  },
+  {
+   "code": "F-GEN-01",
+   "crime": "(공통)",
+   "layer": "F-S",
+   "text": "고의",
+   "difficulty": "상",
+   "note": "전 죄명 상속"
+  },
+  {
+   "code": "F-GEN-02",
+   "crime": "(공통)",
+   "layer": "F-O",
+   "text": "공동정범·교사·방조의 경우 공모 및 기여",
+   "difficulty": "상",
+   "note": "공범 존재 시"
+  },
+  {
+   "code": "F-GEN-03",
+   "crime": "(공통)",
+   "layer": "F-O",
+   "text": "법인 처벌 시 행위자의 업무 관련성 및 법인의 관리·감독 해태 (양벌규정)",
+   "difficulty": "중",
+   "note": "법인 피의자"
+  },
+  {
+   "code": "F-GEN-04",
+   "crime": "(공통)",
+   "layer": "F-P",
+   "text": "세관장 고발 (관세범의 소추조건)",
+   "difficulty": "하",
+   "note": "특가법 특례 확인 필요"
+  },
+  {
+   "code": "F-GEN-05",
+   "crime": "(공통)",
+   "layer": "F-P",
+   "text": "공소시효 기산점 및 도과 여부",
+   "difficulty": "하",
+   "note": "전 죄명 상속"
+  },
+  {
+   "code": "F-GEN-06",
+   "crime": "(공통)",
+   "layer": "F-P",
+   "text": "몰수 대상 특정, 몰수 불능 시 추징액",
+   "difficulty": "중",
+   "note": "몰수 규정 적용 죄명"
+  }
+ ],
+ "evidence": [
+  {
+   "code": "E-101",
+   "category": "신고·통관",
+   "name": "수입신고필증",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-102",
+   "category": "신고·통관",
+   "name": "수출신고필증",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-103",
+   "category": "신고·통관",
+   "name": "적하목록·화물관리번호 이력",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-104",
+   "category": "신고·통관",
+   "name": "여행자 휴대품 신고·검사기록",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-105",
+   "category": "신고·통관",
+   "name": "특송·우편 통관목록",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-106",
+   "category": "신고·통관",
+   "name": "환급신청·지급내역",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-107",
+   "category": "신고·통관",
+   "name": "감면승인·사후관리대장",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-108",
+   "category": "신고·통관",
+   "name": "통관고유부호 사용이력",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-109",
+   "category": "신고·통관",
+   "name": "요건확인 승인내역",
+   "holder": "세관/요건기관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": "진위는 발급기관 회신 필요"
+  },
+  {
+   "code": "E-110",
+   "category": "신고·통관",
+   "name": "사전심사 신청·회신 자료",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "code": "E-201",
+   "category": "거래·계약",
+   "name": "매매계약서·발주서",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-202",
+   "category": "거래·계약",
+   "name": "상업송장 원본·포장명세서",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-203",
+   "category": "거래·계약",
+   "name": "라이선스·기술도입 계약",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-204",
+   "category": "거래·계약",
+   "name": "가격합의문·견적서",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-205",
+   "category": "거래·계약",
+   "name": "별도송금·상계 약정",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-206",
+   "category": "거래·계약",
+   "name": "국내 판매계약·거래명세",
+   "holder": "업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-301",
+   "category": "회계·생산",
+   "name": "총계정원장·매입원장",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-302",
+   "category": "회계·생산",
+   "name": "재고수불부",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-303",
+   "category": "회계·생산",
+   "name": "지급전표·미지급금 명세",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-304",
+   "category": "회계·생산",
+   "name": "고정자산대장·처분전표",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-305",
+   "category": "회계·생산",
+   "name": "이전가격 보고서·그룹 거래정책",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": "#업종:전자 자동삽입"
+  },
+  {
+   "code": "E-306",
+   "category": "회계·생산",
+   "name": "세금계산서·매출자료",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-307",
+   "category": "회계·생산",
+   "name": "생산일지·작업지시서·BOM",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-308",
+   "category": "회계·생산",
+   "name": "소요량계산서·수율·불량률 자료",
+   "holder": "업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-401",
+   "category": "물류·운송",
+   "name": "선하증권·항공운송장",
+   "holder": "선사·항공사",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-402",
+   "category": "물류·운송",
+   "name": "검량(VGM)·중량증명",
+   "holder": "선사·검량업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-403",
+   "category": "물류·운송",
+   "name": "봉인번호·환적기록",
+   "holder": "선사·터미널",
+   "volatility": "상",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-404",
+   "category": "물류·운송",
+   "name": "보세구역 반출입기록·CCTV",
+   "holder": "보세구역 운영인",
+   "volatility": "상",
+   "gate": "G2",
+   "note": "보존연한 짧음 — 최우선"
+  },
+  {
+   "code": "E-405",
+   "category": "물류·운송",
+   "name": "창고 입출고전표",
+   "holder": "물류업체",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-406",
+   "category": "물류·운송",
+   "name": "배송 운송장 이력",
+   "holder": "택배·특송사",
+   "volatility": "상",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-501",
+   "category": "현품·감정",
+   "name": "현품 (유치·압수물)",
+   "holder": "세관",
+   "volatility": "상",
+   "gate": "G2/G4",
+   "note": "통관 완료 시 확보 곤란"
+  },
+  {
+   "code": "E-502",
+   "category": "현품·감정",
+   "name": "성분·구조 감정서",
+   "holder": "분석기관",
+   "volatility": "상",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-503",
+   "category": "현품·감정",
+   "name": "제품 사양서·카탈로그",
+   "holder": "업체·제조자",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-504",
+   "category": "현품·감정",
+   "name": "표시·광고물",
+   "holder": "업체·유통",
+   "volatility": "상",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-505",
+   "category": "현품·감정",
+   "name": "권리자 감정서",
+   "holder": "권리자",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-601",
+   "category": "금융·자금",
+   "name": "외국환 지급·수령내역",
+   "holder": "금융기관",
+   "volatility": "하",
+   "gate": "G3",
+   "note": "영장 필요"
+  },
+  {
+   "code": "E-602",
+   "category": "금융·자금",
+   "name": "계좌 거래내역",
+   "holder": "금융기관",
+   "volatility": "하",
+   "gate": "G3",
+   "note": "영장 필요"
+  },
+  {
+   "code": "E-603",
+   "category": "금융·자금",
+   "name": "신용장·T/T 증빙",
+   "holder": "금융기관·업체",
+   "volatility": "하",
+   "gate": "G2/G3",
+   "note": ""
+  },
+  {
+   "code": "E-604",
+   "category": "금융·자금",
+   "name": "FIU 특정금융거래정보",
+   "holder": "FIU",
+   "volatility": "하",
+   "gate": "G3",
+   "note": "요구권이 아닌 제공·통보 체계"
+  },
+  {
+   "code": "E-605",
+   "category": "금융·자금",
+   "name": "결제수단 명의자료",
+   "holder": "카드사·PG",
+   "volatility": "하",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "code": "E-701",
+   "category": "인적·관계",
+   "name": "법인등기부·주주명부",
+   "holder": "등기소·업체",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-702",
+   "category": "인적·관계",
+   "name": "사업자등록·설립서류",
+   "holder": "세무관서",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-703",
+   "category": "인적·관계",
+   "name": "임차계약·공과금 납부내역",
+   "holder": "임대인·공급기관",
+   "volatility": "중",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-704",
+   "category": "인적·관계",
+   "name": "사회보험 가입이력",
+   "holder": "공단",
+   "volatility": "하",
+   "gate": "G2/G3",
+   "note": ""
+  },
+  {
+   "code": "E-705",
+   "category": "인적·관계",
+   "name": "출입국기록",
+   "holder": "출입국관서",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-706",
+   "category": "인적·관계",
+   "name": "항공권 예약·결제자료(PNR)",
+   "holder": "항공사·발권사",
+   "volatility": "중",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "code": "E-801",
+   "category": "통신·디지털",
+   "name": "이메일·메신저",
+   "holder": "업체·개인",
+   "volatility": "상",
+   "gate": "G3/G4",
+   "note": "고의 입증 핵심"
+  },
+  {
+   "code": "E-802",
+   "category": "통신·디지털",
+   "name": "휴대전화 포렌식 산출물",
+   "holder": "개인",
+   "volatility": "상",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "code": "E-803",
+   "category": "통신·디지털",
+   "name": "내부 결재·회의자료",
+   "holder": "업체",
+   "volatility": "상",
+   "gate": "G4",
+   "note": "고의 입증 핵심"
+  },
+  {
+   "code": "E-804",
+   "category": "통신·디지털",
+   "name": "플랫폼 판매·정산내역",
+   "holder": "오픈마켓·플랫폼",
+   "volatility": "중",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "code": "E-901",
+   "category": "진술",
+   "name": "피의자 신문조서",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "code": "E-902",
+   "category": "진술",
+   "name": "참고인 진술조서",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-903",
+   "category": "진술",
+   "name": "확인서·문답서",
+   "holder": "세관",
+   "volatility": "하",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "code": "E-1001",
+   "category": "해외·공조",
+   "name": "수출국 수출신고자료",
+   "holder": "상대국 관세당국",
+   "volatility": "하",
+   "gate": "G3",
+   "note": "회신 장기 — 즉시 발송"
+  },
+  {
+   "code": "E-1002",
+   "category": "해외·공조",
+   "name": "원산지 검증 회신",
+   "holder": "상대국 검증기관",
+   "volatility": "하",
+   "gate": "G3",
+   "note": "회신 장기 — 즉시 발송"
+  },
+  {
+   "code": "E-1003",
+   "category": "해외·공조",
+   "name": "C/O 발급기관 확인 회신",
+   "holder": "발급기관",
+   "volatility": "하",
+   "gate": "G3",
+   "note": ""
+  }
+ ],
+ "actions": [
+  {
+   "code": "A-01",
+   "name": "내부 보유자료 조회·대사",
+   "law": "내부 보유자료",
+   "gate": "G1",
+   "output": "대사표",
+   "duration": "즉시",
+   "note": "자동화 대상"
+  },
+  {
+   "code": "A-02",
+   "name": "장부·자료 제출요구",
+   "law": "관세법 제266조",
+   "gate": "G2",
+   "output": "제출요구서·수령증",
+   "duration": "단기",
+   "note": ""
+  },
+  {
+   "code": "A-03",
+   "name": "관계기관 조회·원조요구",
+   "law": "관세법 제268조",
+   "gate": "G2",
+   "output": "회신문",
+   "duration": "단기",
+   "note": ""
+  },
+  {
+   "code": "A-04",
+   "name": "현품검사·시료채취·감정의뢰",
+   "law": "관세법 제246조·제265조",
+   "gate": "G2",
+   "output": "검사조서·감정서",
+   "duration": "중기",
+   "note": ""
+  },
+  {
+   "code": "A-05",
+   "name": "현장확인·실지조사",
+   "law": "관세법 제266조",
+   "gate": "G2",
+   "output": "실지조사 복명서",
+   "duration": "단기",
+   "note": ""
+  },
+  {
+   "code": "A-06",
+   "name": "참고인 진술청취",
+   "law": "관세법 제291조·제292조",
+   "gate": "G2",
+   "output": "진술조서·확인서",
+   "duration": "단기",
+   "note": ""
+  },
+  {
+   "code": "A-07",
+   "name": "해외세관 공조 요청",
+   "law": "CMAA·관세협력협정",
+   "gate": "G3",
+   "output": "공조 회신",
+   "duration": "장기",
+   "note": "R-E6 착수 당일 발송"
+  },
+  {
+   "code": "A-08",
+   "name": "원산지 검증 요청",
+   "law": "FTA관세특례법",
+   "gate": "G3",
+   "output": "검증 회신",
+   "duration": "장기",
+   "note": "R-E6 착수 당일 발송"
+  },
+  {
+   "code": "A-09",
+   "name": "금융거래정보 확보",
+   "law": "금융실명법 (영장)",
+   "gate": "G3",
+   "output": "계좌 거래내역",
+   "duration": "중기",
+   "note": ""
+  },
+  {
+   "code": "A-10",
+   "name": "통신사실확인자료 확보",
+   "law": "통신비밀보호법 (허가)",
+   "gate": "G3",
+   "output": "통신자료",
+   "duration": "중기",
+   "note": ""
+  },
+  {
+   "code": "A-11",
+   "name": "공적장부 조회",
+   "law": "관세법 제268조·등기 관련 법령",
+   "gate": "G2",
+   "output": "등기부·명부",
+   "duration": "즉시",
+   "note": ""
+  },
+  {
+   "code": "A-12",
+   "name": "수색·압수",
+   "law": "관세법 제296조 (판사 영장)",
+   "gate": "G4",
+   "output": "압수조서·압수목록",
+   "duration": "중기",
+   "note": "범칙전환 필요"
+  },
+  {
+   "code": "A-13",
+   "name": "디지털 포렌식",
+   "law": "관세법 제296조 (판사 영장)",
+   "gate": "G4",
+   "output": "이미징·해시·분석보고서",
+   "duration": "중기",
+   "note": "선별압수·참여권 보장"
+  },
+  {
+   "code": "A-14",
+   "name": "피의자 신문",
+   "law": "관세법 제290~292조",
+   "gate": "G4",
+   "output": "피의자 신문조서",
+   "duration": "단기",
+   "note": "진술거부권 고지"
+  },
+  {
+   "code": "A-15",
+   "name": "통관보류·유치",
+   "law": "관세법 제235조·제238조",
+   "gate": "G2",
+   "output": "보류통보·유치조서",
+   "duration": "즉시",
+   "note": "현품 확보 수단"
+  },
+  {
+   "code": "A-16",
+   "name": "FIU 정보 활용",
+   "law": "특정금융정보법",
+   "gate": "G3",
+   "output": "분석자료",
+   "duration": "중기",
+   "note": "제공·통보 체계"
+  }
+ ],
+ "map": [
+  {
+   "id": "MAP-0001",
+   "fact": "F-C11-01",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0002",
+   "fact": "F-C11-01",
+   "evidence": "E-103",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0003",
+   "fact": "F-C11-02",
+   "evidence": "E-1001",
+   "required": "◎",
+   "action": "A-07",
+   "gate": "G3",
+   "note": "착수 당일 발송"
+  },
+  {
+   "id": "MAP-0004",
+   "fact": "F-C11-02",
+   "evidence": "E-202",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0005",
+   "fact": "F-C11-02",
+   "evidence": "E-601",
+   "required": "◎",
+   "action": "A-09",
+   "gate": "G3",
+   "note": "영장 필요"
+  },
+  {
+   "id": "MAP-0006",
+   "fact": "F-C11-02",
+   "evidence": "E-204",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0007",
+   "fact": "F-C11-02",
+   "evidence": "E-603",
+   "required": "○",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0008",
+   "fact": "F-C11-03",
+   "evidence": "E-503",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0009",
+   "fact": "F-C11-03",
+   "evidence": "E-501",
+   "required": "○",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0010",
+   "fact": "F-C11-03",
+   "evidence": "E-502",
+   "required": "○",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0011",
+   "fact": "F-C11-04",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0012",
+   "fact": "F-C11-04",
+   "evidence": "E-301",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0013",
+   "fact": "F-C11-04",
+   "evidence": "E-206",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0014",
+   "fact": "F-C11-05",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-12",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0015",
+   "fact": "F-C11-05",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0016",
+   "fact": "F-C11-05",
+   "evidence": "E-205",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0017",
+   "fact": "F-C11-05",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0018",
+   "fact": "F-C11-06",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0019",
+   "fact": "F-C12-01",
+   "evidence": "E-107",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0020",
+   "fact": "F-C12-02",
+   "evidence": "E-107",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0021",
+   "fact": "F-C12-02",
+   "evidence": "E-902",
+   "required": "◎",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0022",
+   "fact": "F-C12-02",
+   "evidence": "E-801",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0023",
+   "fact": "F-C12-03",
+   "evidence": "E-107",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0024",
+   "fact": "F-C12-03",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0025",
+   "fact": "F-C12-04",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0026",
+   "fact": "F-C12-04",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0027",
+   "fact": "F-C12-05",
+   "evidence": "E-304",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0028",
+   "fact": "F-C12-05",
+   "evidence": "E-306",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0029",
+   "fact": "F-C12-05",
+   "evidence": "E-201",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0030",
+   "fact": "F-C13-01",
+   "evidence": "E-106",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0031",
+   "fact": "F-C13-01",
+   "evidence": "E-102",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0032",
+   "fact": "F-C13-02",
+   "evidence": "E-307",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0033",
+   "fact": "F-C13-02",
+   "evidence": "E-302",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0034",
+   "fact": "F-C13-02",
+   "evidence": "E-405",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0035",
+   "fact": "F-C13-02",
+   "evidence": "E-902",
+   "required": "○",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0036",
+   "fact": "F-C13-03",
+   "evidence": "E-308",
+   "required": "◎",
+   "action": "A-05",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0037",
+   "fact": "F-C13-03",
+   "evidence": "E-307",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0038",
+   "fact": "F-C13-04",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0039",
+   "fact": "F-C13-04",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0040",
+   "fact": "F-C13-04",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0041",
+   "fact": "F-C13-05",
+   "evidence": "E-106",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0042",
+   "fact": "F-C14-01",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0043",
+   "fact": "F-C14-01",
+   "evidence": "E-110",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0044",
+   "fact": "F-C14-01",
+   "evidence": "E-106",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0045",
+   "fact": "F-C14-02",
+   "evidence": "E-202",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0046",
+   "fact": "F-C14-02",
+   "evidence": "E-601",
+   "required": "◎",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0047",
+   "fact": "F-C14-02",
+   "evidence": "E-1001",
+   "required": "○",
+   "action": "A-07",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0048",
+   "fact": "F-C14-03",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "목적 입증"
+  },
+  {
+   "id": "MAP-0049",
+   "fact": "F-C14-03",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "목적 입증"
+  },
+  {
+   "id": "MAP-0050",
+   "fact": "F-C14-03",
+   "evidence": "E-306",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0051",
+   "fact": "F-C14-03",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0052",
+   "fact": "F-C14-04",
+   "evidence": "E-202",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0053",
+   "fact": "F-C14-04",
+   "evidence": "E-1001",
+   "required": "○",
+   "action": "A-07",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0054",
+   "fact": "F-C21-01",
+   "evidence": "E-103",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0055",
+   "fact": "F-C21-01",
+   "evidence": "E-401",
+   "required": "◎",
+   "action": "A-03",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0056",
+   "fact": "F-C21-01",
+   "evidence": "E-104",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0057",
+   "fact": "F-C21-01",
+   "evidence": "E-105",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0058",
+   "fact": "F-C21-02",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0059",
+   "fact": "F-C21-02",
+   "evidence": "E-501",
+   "required": "◎",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0060",
+   "fact": "F-C21-02",
+   "evidence": "E-404",
+   "required": "○",
+   "action": "A-03",
+   "gate": "G2",
+   "note": "보존연한 짧음"
+  },
+  {
+   "id": "MAP-0061",
+   "fact": "F-C21-03",
+   "evidence": "E-501",
+   "required": "◎",
+   "action": "A-15",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0062",
+   "fact": "F-C21-03",
+   "evidence": "E-502",
+   "required": "◎",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0063",
+   "fact": "F-C21-03",
+   "evidence": "E-503",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0064",
+   "fact": "F-C21-04",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0065",
+   "fact": "F-C21-04",
+   "evidence": "E-902",
+   "required": "◎",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0066",
+   "fact": "F-C21-04",
+   "evidence": "E-802",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0067",
+   "fact": "F-C21-05",
+   "evidence": "E-202",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0068",
+   "fact": "F-C21-05",
+   "evidence": "E-1001",
+   "required": "○",
+   "action": "A-07",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0069",
+   "fact": "F-C21-06",
+   "evidence": "E-501",
+   "required": "◎",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0070",
+   "fact": "F-C21-06",
+   "evidence": "E-206",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0071",
+   "fact": "F-C24-01",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": "선결죄명 F 세트 참조"
+  },
+  {
+   "id": "MAP-0072",
+   "fact": "F-C24-02",
+   "evidence": "E-206",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0073",
+   "fact": "F-C24-02",
+   "evidence": "E-405",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0074",
+   "fact": "F-C24-02",
+   "evidence": "E-406",
+   "required": "○",
+   "action": "A-03",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0075",
+   "fact": "F-C24-02",
+   "evidence": "E-902",
+   "required": "○",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0076",
+   "fact": "F-C24-03",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "정의 인식"
+  },
+  {
+   "id": "MAP-0077",
+   "fact": "F-C24-03",
+   "evidence": "E-802",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "정의 인식"
+  },
+  {
+   "id": "MAP-0078",
+   "fact": "F-C24-03",
+   "evidence": "E-602",
+   "required": "○",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0079",
+   "fact": "F-C24-03",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0080",
+   "fact": "F-C24-04",
+   "evidence": "E-501",
+   "required": "◎",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0081",
+   "fact": "F-C24-04",
+   "evidence": "E-206",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0082",
+   "fact": "F-C31-01",
+   "evidence": "E-109",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0083",
+   "fact": "F-C31-01",
+   "evidence": "E-503",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0084",
+   "fact": "F-C31-02",
+   "evidence": "E-109",
+   "required": "◎",
+   "action": "A-03",
+   "gate": "G2",
+   "note": "발급기관 회신 결정적"
+  },
+  {
+   "id": "MAP-0085",
+   "fact": "F-C31-02",
+   "evidence": "E-902",
+   "required": "○",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0086",
+   "fact": "F-C31-02",
+   "evidence": "E-801",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0087",
+   "fact": "F-C31-03",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0088",
+   "fact": "F-C31-03",
+   "evidence": "E-103",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0089",
+   "fact": "F-C31-04",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "고의 입증"
+  },
+  {
+   "id": "MAP-0090",
+   "fact": "F-C31-04",
+   "evidence": "E-901",
+   "required": "○",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0091",
+   "fact": "F-C41-01",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0092",
+   "fact": "F-C41-01",
+   "evidence": "E-702",
+   "required": "◎",
+   "action": "A-11",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0093",
+   "fact": "F-C41-01",
+   "evidence": "E-108",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0094",
+   "fact": "F-C41-02",
+   "evidence": "E-701",
+   "required": "◎",
+   "action": "A-11",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0095",
+   "fact": "F-C41-02",
+   "evidence": "E-703",
+   "required": "◎",
+   "action": "A-03",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0096",
+   "fact": "F-C41-02",
+   "evidence": "E-704",
+   "required": "◎",
+   "action": "A-03",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0097",
+   "fact": "F-C41-02",
+   "evidence": "E-602",
+   "required": "○",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0098",
+   "fact": "F-C41-02",
+   "evidence": "E-605",
+   "required": "○",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0099",
+   "fact": "F-C41-03",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "목적 입증"
+  },
+  {
+   "id": "MAP-0100",
+   "fact": "F-C41-03",
+   "evidence": "E-902",
+   "required": "◎",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0101",
+   "fact": "F-C41-03",
+   "evidence": "E-803",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0102",
+   "fact": "F-C41-04",
+   "evidence": "E-902",
+   "required": "◎",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0103",
+   "fact": "F-C41-04",
+   "evidence": "E-801",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0104",
+   "fact": "F-C61-01",
+   "evidence": "E-201",
+   "required": "◎",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0105",
+   "fact": "F-C61-01",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0106",
+   "fact": "F-C61-01",
+   "evidence": "E-206",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0107",
+   "fact": "F-C61-02",
+   "evidence": "E-601",
+   "required": "◎",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0108",
+   "fact": "F-C61-02",
+   "evidence": "E-603",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0109",
+   "fact": "F-C61-03",
+   "evidence": "E-602",
+   "required": "◎",
+   "action": "A-09",
+   "gate": "G3",
+   "note": "입증의 핵심"
+  },
+  {
+   "id": "MAP-0110",
+   "fact": "F-C61-03",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "입증의 핵심"
+  },
+  {
+   "id": "MAP-0111",
+   "fact": "F-C61-03",
+   "evidence": "E-604",
+   "required": "○",
+   "action": "A-16",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0112",
+   "fact": "F-C61-03",
+   "evidence": "E-802",
+   "required": "○",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0113",
+   "fact": "F-C61-04",
+   "evidence": "E-601",
+   "required": "◎",
+   "action": "A-03",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0114",
+   "fact": "F-C61-05",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0115",
+   "fact": "F-C61-05",
+   "evidence": "E-901",
+   "required": "◎",
+   "action": "A-14",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0116",
+   "fact": "F-GEN-01",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "전 죄명 상속"
+  },
+  {
+   "id": "MAP-0117",
+   "fact": "F-GEN-01",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": "전 죄명 상속"
+  },
+  {
+   "id": "MAP-0118",
+   "fact": "F-GEN-01",
+   "evidence": "E-901",
+   "required": "◎",
+   "action": "A-14",
+   "gate": "G4",
+   "note": "전 죄명 상속"
+  },
+  {
+   "id": "MAP-0119",
+   "fact": "F-GEN-02",
+   "evidence": "E-801",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0120",
+   "fact": "F-GEN-02",
+   "evidence": "E-902",
+   "required": "◎",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0121",
+   "fact": "F-GEN-02",
+   "evidence": "E-602",
+   "required": "○",
+   "action": "A-09",
+   "gate": "G3",
+   "note": ""
+  },
+  {
+   "id": "MAP-0122",
+   "fact": "F-GEN-03",
+   "evidence": "E-803",
+   "required": "◎",
+   "action": "A-13",
+   "gate": "G4",
+   "note": ""
+  },
+  {
+   "id": "MAP-0123",
+   "fact": "F-GEN-03",
+   "evidence": "E-701",
+   "required": "◎",
+   "action": "A-11",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0124",
+   "fact": "F-GEN-03",
+   "evidence": "E-902",
+   "required": "○",
+   "action": "A-06",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0125",
+   "fact": "F-GEN-05",
+   "evidence": "E-101",
+   "required": "◎",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0126",
+   "fact": "F-GEN-05",
+   "evidence": "E-106",
+   "required": "○",
+   "action": "A-01",
+   "gate": "G1",
+   "note": ""
+  },
+  {
+   "id": "MAP-0127",
+   "fact": "F-GEN-06",
+   "evidence": "E-501",
+   "required": "◎",
+   "action": "A-04",
+   "gate": "G2",
+   "note": ""
+  },
+  {
+   "id": "MAP-0128",
+   "fact": "F-GEN-06",
+   "evidence": "E-206",
+   "required": "○",
+   "action": "A-02",
+   "gate": "G2",
+   "note": ""
+  }
+ ],
+ "patterns": [
+  {
+   "code": "P-001",
+   "method": "M-C11-01",
+   "methodName": "저가신고",
+   "crime": "C-11",
+   "structure": "S1",
+   "subStructure": "S3",
+   "anchor": "수입자×HS6",
+   "condition": "신고단가 < 동종물품 하위 10분위 AND 동일 공급자 직전 단가 대비 급락",
+   "rebuttal": "미작성",
+   "axes": "A",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "12개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-002",
+   "method": "M-C11-02",
+   "methodName": "허위 인보이스",
+   "crime": "C-11",
+   "structure": "S4",
+   "subStructure": "",
+   "anchor": "거래쌍",
+   "condition": "인보이스 합계 ≠ 대외 지급액, 차액이 임계 초과",
+   "rebuttal": "미작성",
+   "axes": "A·C",
+   "gate": "G3",
+   "execType": "조사심화",
+   "windowType": "고정기간",
+   "windowValue": "90일",
+   "status": "초안"
+  },
+  {
+   "code": "P-003",
+   "method": "M-C11-03",
+   "methodName": "품명 위장",
+   "crime": "C-11",
+   "structure": "S3",
+   "subStructure": "",
+   "anchor": "수입자×공급자",
+   "condition": "동일 물품사양 유지 상태에서 신고세번만 저세율로 전환",
+   "rebuttal": "미작성",
+   "axes": "A·F",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "36개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-004",
+   "method": "M-C11-04",
+   "methodName": "수량 조작",
+   "crime": "C-11",
+   "structure": "S1",
+   "subStructure": "",
+   "anchor": "신고건",
+   "condition": "컨테이너 용적·총중량 대비 신고수량 환산 불일치",
+   "rebuttal": "미작성",
+   "axes": "A",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "단건",
+   "windowValue": "단건",
+   "status": "초안"
+  },
+  {
+   "code": "P-005",
+   "method": "M-C11-05",
+   "methodName": "원산지 세탁",
+   "crime": "C-11",
+   "structure": "S1",
+   "subStructure": "S3",
+   "anchor": "공급자×경유국",
+   "condition": "제조국–선적국 불일치 AND 특정 시점 이후 경유국 신설",
+   "rebuttal": "미작성",
+   "axes": "A·B",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "36개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-006",
+   "method": "M-C11-06",
+   "methodName": "가산요소 누락",
+   "crime": "C-11",
+   "structure": "S4",
+   "subStructure": "",
+   "anchor": "특수관계 거래쌍",
+   "condition": "로열티·지원비 지급 사실 존재 AND 신고 가산액 부재",
+   "rebuttal": "미작성",
+   "axes": "A·C·D",
+   "gate": "G2",
+   "execType": "조사심화",
+   "windowType": "고정기간",
+   "windowValue": "12개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-007",
+   "method": "M-C12-01",
+   "methodName": "자가사용 위장",
+   "crime": "C-12",
+   "structure": "S2",
+   "subStructure": "",
+   "anchor": "개인통관부호",
+   "condition": "면세 한도 직하 반복 반입, 동일 품목 누적 수량이 개인 소비 범위 초과",
+   "rebuttal": "미작성",
+   "axes": "D",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "90일",
+   "status": "초안"
+  },
+  {
+   "code": "P-008",
+   "method": "M-C12-02",
+   "methodName": "감면 목적 위반",
+   "crime": "C-12",
+   "structure": "S4",
+   "subStructure": "",
+   "anchor": "감면 승인건",
+   "condition": "감면 용도 신고 AND 사후관리 기간 내 국내 매출·양도 흔적 존재",
+   "rebuttal": "미작성",
+   "axes": "A·D·F",
+   "gate": "G2",
+   "execType": "조사심화",
+   "windowType": "이벤트기준",
+   "windowValue": "사후관리기간",
+   "status": "초안"
+  },
+  {
+   "code": "P-009",
+   "method": "M-C13-01",
+   "methodName": "부정환급",
+   "crime": "C-13",
+   "structure": "S4",
+   "subStructure": "",
+   "anchor": "환급 신청건",
+   "condition": "수입 원재료 ↔ 소요량 ↔ 수출품 3자 대사에서 연결 결손",
+   "rebuttal": "미작성",
+   "axes": "A·F",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "12개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-010",
+   "method": "M-C13-02",
+   "methodName": "과다 환급",
+   "crime": "C-13",
+   "structure": "S3",
+   "subStructure": "",
+   "anchor": "업체×품목",
+   "condition": "소요량 원단위가 동종업종 분포 상위 이탈 후 유지",
+   "rebuttal": "미작성",
+   "axes": "A",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "36개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-011",
+   "method": "M-C52-01",
+   "methodName": "분할 반입(지재권·요건)",
+   "crime": "C-52",
+   "structure": "S2",
+   "subStructure": "",
+   "anchor": "수취인×배송지",
+   "condition": "목록통관·요건 임계 직하 다건, 동일 품목 반복",
+   "rebuttal": "미작성",
+   "axes": "B·D",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "90일",
+   "status": "초안"
+  },
+  {
+   "code": "P-012",
+   "method": "M-C52-02",
+   "methodName": "전자상거래 악용",
+   "crime": "C-52",
+   "structure": "S5",
+   "subStructure": "",
+   "anchor": "배송지·연락처",
+   "condition": "상이한 통관부호 다수가 동일 배송지·연락처 공유",
+   "rebuttal": "미작성",
+   "axes": "D",
+   "gate": "G1",
+   "execType": "상시탐지",
+   "windowType": "고정기간",
+   "windowValue": "12개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-013",
+   "method": "M-C61-01",
+   "methodName": "환치기",
+   "crime": "C-61",
+   "structure": "S4",
+   "subStructure": "S2",
+   "anchor": "계좌군",
+   "condition": "국내 다계좌 소액 분산 입출금 AND 대응 해외송금 기록 부재",
+   "rebuttal": "미작성",
+   "axes": "C·D",
+   "gate": "G3",
+   "execType": "조사심화",
+   "windowType": "고정기간",
+   "windowValue": "90일",
+   "status": "초안"
+  },
+  {
+   "code": "P-014",
+   "method": "M-C21-01",
+   "methodName": "운반책 이용",
+   "crime": "C-21",
+   "structure": "S5",
+   "subStructure": "S2",
+   "anchor": "여행자",
+   "condition": "단기 왕복 반복 AND 항공권 결제자–탑승자 불일치 AND 동일 편 동반자 중복",
+   "rebuttal": "미작성",
+   "axes": "B·D",
+   "gate": "G3",
+   "execType": "조사심화",
+   "windowType": "고정기간",
+   "windowValue": "12개월",
+   "status": "초안"
+  },
+  {
+   "code": "P-015",
+   "method": "M-C41-01",
+   "methodName": "명의 전환(사업자 세탁)",
+   "crime": "C-41",
+   "structure": "S5",
+   "subStructure": "S3",
+   "anchor": "사업자 식별자군(대표자·주소·연락처·계좌)",
+   "condition": "적발·행정제재 이력 업체와 식별자를 공유하는 신규 사업자가 종전 업체의 거래 속성(공급자·HS·반입지)을 승계한 채 단기간 내 수입 재개",
+   "rebuttal": "적법한 사업 승계·합병·분할 / 정상 재창업 / 세무·통관 대리인 주소 / 공유오피스 주소",
+   "axes": "D·A·B",
+   "gate": "G2",
+   "execType": "조사심화",
+   "windowType": "이벤트기준",
+   "windowValue": "적발 시점 ±36개월",
+   "status": "초안"
+  }
+ ],
+ "tags": [
+  {
+   "axis": "#구조",
+   "value": "S1",
+   "desc": "동시조건형 — 단일 신고건 내 복수 조건 동시 충족",
+   "target": "패턴"
+  },
+  {
+   "axis": "#구조",
+   "value": "S2",
+   "desc": "반복·분할형 — 임계값 직하 소액·소량 다건 반복",
+   "target": "패턴"
+  },
+  {
+   "axis": "#구조",
+   "value": "S3",
+   "desc": "전환형 — 동일 앵커의 과거 행태 대비 급변",
+   "target": "패턴"
+  },
+  {
+   "axis": "#구조",
+   "value": "S4",
+   "desc": "결손·비대칭형 — 존재해야 할 대응 기록이 없음",
+   "target": "패턴"
+  },
+  {
+   "axis": "#구조",
+   "value": "S5",
+   "desc": "공유·군집형 — 독립적이어야 할 주체가 식별자 공유",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "수입자",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "거래쌍",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "HS6",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "개인통관부호",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "배송지",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "계좌군",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "여행자",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "사업자 식별자군",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "신고건",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "감면 승인건",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "환급 신청건",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#앵커",
+   "value": "공급자×경유국",
+   "desc": "패턴이 고정되는 주체·객체",
+   "target": "패턴"
+  },
+  {
+   "axis": "#축",
+   "value": "A",
+   "desc": "정합성 — 신고값과 증빙·실물의 일치 검증",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#축",
+   "value": "B",
+   "desc": "경로 — 물리적 이동·반입 채널",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#축",
+   "value": "C",
+   "desc": "자금 — 결제·송금 흐름",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#축",
+   "value": "D",
+   "desc": "관계 — 인적·자본·거래 네트워크",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#축",
+   "value": "E",
+   "desc": "패턴 — 수법 서명 조합층",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#축",
+   "value": "F",
+   "desc": "문서·지식 — 증빙 진위 및 수법 공급",
+   "target": "패턴·증거"
+  },
+  {
+   "axis": "#게이트",
+   "value": "G1",
+   "desc": "내부 보유자료 — 자동 수집",
+   "target": "수집행위·패턴"
+  },
+  {
+   "axis": "#게이트",
+   "value": "G2",
+   "desc": "임의조사 — 제출요구·현장확인",
+   "target": "수집행위·패턴"
+  },
+  {
+   "axis": "#게이트",
+   "value": "G3",
+   "desc": "별도 요건·허가 — 금융·통신·해외공조",
+   "target": "수집행위·패턴"
+  },
+  {
+   "axis": "#게이트",
+   "value": "G4",
+   "desc": "범칙조사 — 영장 기반 강제",
+   "target": "수집행위·패턴"
+  },
+  {
+   "axis": "#업종",
+   "value": "전자",
+   "desc": "이전가격 보고서·로열티 계약 자동 삽입",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#업종",
+   "value": "식품·건기식",
+   "desc": "요건기관 인증 DB 대조 삽입",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#업종",
+   "value": "어린이제품",
+   "desc": "KC 안전인증 진위 확인 삽입",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#업종",
+   "value": "화훼",
+   "desc": "경매가·공판장 시세 자료 삽입",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#업종",
+   "value": "농산물",
+   "desc": "TRQ 추천·도매시장 시세 자료 삽입",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#업종",
+   "value": "기타",
+   "desc": "기본 세트만 적용",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "일반수입",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "특송",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "우편",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "여행자",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "보세",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#채널",
+   "value": "전자상거래",
+   "desc": "수집 대상 자료의 분기 기준",
+   "target": "사건·가이드"
+  },
+  {
+   "axis": "#휘발성",
+   "value": "상",
+   "desc": "보존연한 짧음 — 최우선 확보",
+   "target": "증거항목"
+  },
+  {
+   "axis": "#휘발성",
+   "value": "중",
+   "desc": "통상 확보",
+   "target": "증거항목"
+  },
+  {
+   "axis": "#휘발성",
+   "value": "하",
+   "desc": "장기 보존",
+   "target": "증거항목"
+  },
+  {
+   "axis": "#상태",
+   "value": "초안",
+   "desc": "반증조건 미작성 등으로 운영 승인 전",
+   "target": "패턴"
+  },
+  {
+   "axis": "#상태",
+   "value": "검증",
+   "desc": "표본 검증 중",
+   "target": "패턴"
+  },
+  {
+   "axis": "#상태",
+   "value": "운영",
+   "desc": "상시 실행 중",
+   "target": "패턴"
+  },
+  {
+   "axis": "#상태",
+   "value": "재검토",
+   "desc": "정밀도 하한 미달로 자동 전환",
+   "target": "패턴"
+  },
+  {
+   "axis": "#상태",
+   "value": "폐기",
+   "desc": "실행 중단",
+   "target": "패턴"
+  }
+ ],
+ "gates": [
+  {
+   "gate": "G1",
+   "type": "세관 보유 행정자료 대사 (신고·화물·여행자·환급·과세자료)",
+   "basis": "내부 보유자료",
+   "nature": "－",
+   "auto": "가능",
+   "approval": "불요"
+  },
+  {
+   "gate": "G2",
+   "type": "장부·계약·회계자료 제출요구, 현품검사·감정, 관계기관 조회",
+   "basis": "관세법 제266조·제268조",
+   "nature": "임의조사",
+   "auto": "불가",
+   "approval": "내부 결재"
+  },
+  {
+   "gate": "G3",
+   "type": "금융거래정보, 통신자료, 해외 세관 공조·원산지 검증",
+   "basis": "금융실명법, 통신비밀보호법, FTA관세특례법, CMAA",
+   "nature": "별도 요건·허가",
+   "auto": "불가",
+   "approval": "영장·허가·공조 절차"
+  },
+  {
+   "gate": "G4",
+   "type": "사업장 수색·압수, 디지털 포렌식, 피의자 신문",
+   "basis": "관세법 제296조, 제290~292조",
+   "nature": "범칙조사(강제)",
+   "auto": "불가",
+   "approval": "범칙전환 + 영장"
+  }
+ ],
+ "rules": [
+  {
+   "id": "R1",
+   "group": "패턴",
+   "name": "단일수법",
+   "text": "1 패턴 = 1 수법. 복수 수법 결합은 「복합 시나리오」 계층에서 처리",
+   "enforcement": "등록 반려"
+  },
+  {
+   "id": "R2",
+   "group": "패턴",
+   "name": "구조배타",
+   "text": "주구조는 S1~S5 중 정확히 하나. 나머지는 부구조로 기재",
+   "enforcement": "등록 반려"
+  },
+  {
+   "id": "R3",
+   "group": "패턴",
+   "name": "게이트분리",
+   "text": "상시탐지형은 G1 데이터만 사용. G2 이상을 조건절에 쓰면 조사심화형으로 강제 분류",
+   "enforcement": "자동 재분류"
+  },
+  {
+   "id": "R4",
+   "group": "패턴",
+   "name": "반증조건 필수",
+   "text": "반증조건 없는 패턴은 운영 승인 불가 (초안 상태 고정)",
+   "enforcement": "승인 차단"
+  },
+  {
+   "id": "R5",
+   "group": "패턴",
+   "name": "관측창 표준",
+   "text": "단건 / 90일 / 12개월 / 36개월 / 이벤트기준(±n) 5종만 허용",
+   "enforcement": "등록 반려"
+  },
+  {
+   "id": "R6",
+   "group": "패턴",
+   "name": "임계 외부화",
+   "text": "조건절에 상수 하드코딩 금지, 파라미터 테이블 참조만 허용",
+   "enforcement": "등록 반려"
+  },
+  {
+   "id": "R7",
+   "group": "패턴",
+   "name": "죄명연결 필수",
+   "text": "죄명·요증사실에 미연결된 패턴은 증거가이드 생성 대상에서 제외",
+   "enforcement": "가이드 미생성"
+  },
+  {
+   "id": "R8",
+   "group": "패턴",
+   "name": "설명가능성",
+   "text": "조건절은 원자료로 환원 가능한 술어로만 구성. 학습모델 스코어는 보조지표로만 사용하며 단독 착수 근거 불가",
+   "enforcement": "착수 승인 차단"
+  },
+  {
+   "id": "R9",
+   "group": "패턴",
+   "name": "버전불변",
+   "text": "운영 중 조건·임계 변경 시 신규 버전 발번. 과거 적중건은 적용 버전 보존",
+   "enforcement": "자동 발번"
+  },
+  {
+   "id": "R10",
+   "group": "패턴",
+   "name": "감쇠관리",
+   "text": "정밀도가 하한 미달 시 자동 재검토 전환, n분기 연속 미달 시 폐기 상정",
+   "enforcement": "자동 전환"
+  },
+  {
+   "id": "R-C1",
+   "group": "죄명",
+   "name": "허위신고 3분법",
+   "text": "① 물품 동일성 부정 → C-21 밀수입 / ② 동일성은 인정되나 세액결정 영향 사항 허위 → C-11 관세포탈 / ③ 세액·통관적정 주요사항이 아닌 신고사항 허위 → C-34 허위신고. 동일성 판단은 자동화하지 않고 조사관 확인 항목으로 제시",
+   "enforcement": "조사관 확인 필수"
+  },
+  {
+   "id": "R-C2",
+   "group": "죄명",
+   "name": "목적 배타",
+   "text": "C-11(세액결정 영향 목적)과 C-14(재산상 이득 취득 목적)는 배타 선택. 자동 확정 금지",
+   "enforcement": "조사관 선택 필수"
+  },
+  {
+   "id": "R-C3",
+   "group": "죄명",
+   "name": "선결죄명",
+   "text": "C-24는 선결죄명(C-21~C-23)이 확정되어야 후보로 제시",
+   "enforcement": "후보 제외"
+  },
+  {
+   "id": "R-C4",
+   "group": "죄명",
+   "name": "병렬 성립",
+   "text": "관세법 죄명과 개별법(대외무역법·상표법·외국환거래법) 죄명은 병렬 성립 가능 — 배타 처리 금지",
+   "enforcement": "－"
+  },
+  {
+   "id": "R-C5",
+   "group": "죄명",
+   "name": "전개 완결성",
+   "text": "죄명 확정 시 F 세트 자동 전개. F-S 또는 F-P 계층 항목이 하나라도 미배정이면 증거계획을 미완성으로 표시",
+   "enforcement": "승인 차단"
+  },
+  {
+   "id": "R-E1",
+   "group": "증거",
+   "name": "커버리지",
+   "text": "각 F는 독립된 2개 이상의 증거원으로 뒷받침. 업체 제출자료(E-2xx·E-3xx)만으로 구성된 F는 커버리지 미달 표시",
+   "enforcement": "경고"
+  },
+  {
+   "id": "R-E2",
+   "group": "증거",
+   "name": "외부증거 우선",
+   "text": "대상자가 통제할 수 없는 증거(E-1001, E-602, E-404)가 하나도 없는 F는 취약 요증사실로 경고",
+   "enforcement": "경고"
+  },
+  {
+   "id": "R-E3",
+   "group": "증거",
+   "name": "고의 필수",
+   "text": "F-S 계층에 필수(◎) 증거가 하나도 배정되지 않은 증거계획은 승인 차단",
+   "enforcement": "승인 차단"
+  },
+  {
+   "id": "R-E4",
+   "group": "증거",
+   "name": "게이트 정합",
+   "text": "계획된 A의 게이트가 현재 조사단계를 초과하면 자동으로 「신청 필요」 상태 + 신청서식 연결",
+   "enforcement": "자동 표시"
+  },
+  {
+   "id": "R-E5",
+   "group": "증거",
+   "name": "휘발성 선행",
+   "text": "휘발성 「상」 항목(E-4xx, E-5xx, E-8xx)은 게이트 순서와 무관하게 최상단 배치",
+   "enforcement": "자동 정렬"
+  },
+  {
+   "id": "R-E6",
+   "group": "증거",
+   "name": "장기행위 즉시착수",
+   "text": "A-07(해외공조)·A-08(원산지검증)은 착수 당일 발송을 기본값으로 설정",
+   "enforcement": "자동 기한 설정"
+  },
+  {
+   "id": "R-E7",
+   "group": "증거",
+   "name": "채번 연동",
+   "text": "E 확보 시 증거목록 번호를 자동 채번하고 범죄일람표 「증거」란에 역참조",
+   "enforcement": "자동 연동"
+  }
+ ]
+}

@@ -2354,6 +2354,16 @@ class WorkflowHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/companies":
             self._send_json({"companies": list_companies()})
             return
+        if parsed.path == "/api/crime-registry":
+            # 관세범죄 지식 레지스트리 — data/crime_knowledge_registry.json
+            # (build_crime_registry.py 가 xlsx 마스터에서 생성; 수사 AI 가이드라인의 기준)
+            registry_path = DATA_DIR / "crime_knowledge_registry.json"
+            try:
+                self._send_json(json.loads(registry_path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError) as exc:
+                self._send_json({"error": f"crime registry unavailable: {exc}"},
+                                HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
         if parsed.path == "/api/risk-persons":
             self._send_json({"persons": list_risk_persons()})
             return
