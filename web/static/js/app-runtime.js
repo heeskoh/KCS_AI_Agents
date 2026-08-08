@@ -1424,6 +1424,9 @@ const genDeps = {
   // 사건 프로파일 '기초데이터 분석 결과' 창 — 사건별 영속 배치 결과 접근(관세조사와 대칭)
   gisBaseStageResultsHtml: () => gisStageResultsHtml("base"),
   gisBaseResultEntries: caseId => gisBaseResultEntries(caseId),
+  // 개인수사 프로파일 3프레임 — 공용 토글/접기/탭 상태 + 기초데이터 분석 상세로그 창
+  getProfileFrameState: () => ({ riskDetailOpen: profileRiskDetailOpen, topCollapsed: profileTopCollapsed }),
+  personBaseWindowHtml: (aCase, detail, summaryExtra) => gisPersonBaseWindowHtml(aCase, detail, summaryExtra),
   activeGenInvCase,
   genInvTypeById,
   allGenInvCases,
@@ -8533,6 +8536,72 @@ function gisEvStatusDetailHtml(aCase){
         <p class="muted" style="font-size:12px">수집 결과가 아직 등록되지 않았습니다. 원문을 등록하면 AI 분석/요약이 수행됩니다.</p>
         <div class="gis-ev-actions"><button type="button" class="gis-ev-btn" data-gis-ev-result="${escapeHtml(item.id)}">결과 등록</button></div>
       </div>`;
+}
+
+/* ── 개인수사 프로파일 — 왼쪽 아래 '기초데이터 분석 상세로그' 창(3프레임용) ──
+   기업 프로파일의 결과 창과 동일한 탭 UI(공용 profileBaseResultTab·data-profile-base-tab)를 쓰되,
+   개인 대상에 맞춰 수입신고 이력 대신 관련 사건 이력 탭을 제공한다. summaryExtra는
+   profile.js가 주요 위험지표·자동 확보 증거(G1) 블록을 전달한다. */
+function gisPersonBaseWindowHtml(aCase, detail, summaryExtra = ""){
+  const base = aCase?.baseAnalysis;
+  if(!base || base.status !== "done"){
+    return `
+      <div class="profile-base-head"><h3>기초데이터 분석 상세로그</h3></div>
+      <div class="profile-base-body"><div class="empty-state">기초데이터 분석이 아직 수행되지 않았습니다.<br>
+        <span class="muted">사건 등록(혐의 등록) 시 자동 수행됩니다.</span></div></div>
+    `;
+  }
+  const cases = detail?.cases || [];
+  const tabs = [
+    { id: "summary", label: "기초 대사 요약" },
+    { id: "cases",   label: `관련 사건 이력 (${cases.length}건)` },
+    { id: "svc",     label: "AI분석 서비스결과" },
+  ];
+  const active = tabs.some(t => t.id === profileBaseResultTab) ? profileBaseResultTab : "summary";
+  let body = "";
+  if(active === "summary"){
+    body = `
+      <table class="table profile-base-kv">
+        <tbody>
+          ${(base.rows || []).map(([key, value]) =>
+            `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(value))}</td></tr>`).join("")}
+        </tbody>
+      </table>${summaryExtra}`;
+  } else if(active === "cases"){
+    body = cases.length ? `
+      <table class="table">
+        <thead><tr><th>사건번호</th><th>유형</th><th>품목</th><th>채널</th><th>역할</th><th>증거</th></tr></thead>
+        <tbody>${cases.slice(0, 10).map(row => `
+          <tr>
+            <td>${escapeHtml(String(row.case_no || row.case_id || "-"))}</td>
+            <td>${escapeHtml(String(row.case_type || "-"))}</td>
+            <td>${escapeHtml(String(row.contraband_category || "-"))}</td>
+            <td>${escapeHtml(String(row.detection_channel || "-"))}</td>
+            <td>${escapeHtml(String(row.role_in_case || "-"))}</td>
+            <td>${escapeHtml(String(row.evidence_level || "-"))}</td>
+          </tr>`).join("")}</tbody>
+      </table>` : `<p class="muted">관련 사건 이력이 없습니다.</p>`;
+  } else {
+    body = gisStageResultsHtml("base");
+  }
+  const entries = gisBaseResultEntries(aCase.caseId);
+  const running = entries.some(e => e.status === "running");
+  const runBtn = running ? "" : `
+    <button type="button" class="btn primary profile-base-run-btn" data-gis-profile-base-run
+      title="AI 분석서비스 배치를 수행하고 결과를 저장합니다">▶ ${entries.length ? "기초데이터 분석 다시 실행" : "기초데이터 분석 실행"}</button>`;
+  return `
+    <div class="profile-base-head">
+      <h3>기초데이터 분석 상세로그</h3>
+      <span class="muted">사건 등록 시 자동 수행${base.ranLabel ? ` · ${escapeHtml(base.ranLabel)}` : ""}</span>
+      ${runBtn}
+    </div>
+    <div class="profile-base-tabs">
+      ${tabs.map(t => `
+        <button type="button" class="profile-base-tab${t.id === active ? " active" : ""}"
+          data-profile-base-tab="${t.id}">${escapeHtml(t.label)}</button>`).join("")}
+    </div>
+    <div class="profile-base-body">${body}</div>
+  `;
 }
 
 function gisRenderEvStatus(){
