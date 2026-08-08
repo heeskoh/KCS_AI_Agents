@@ -23,3 +23,6 @@ data/scenario_templates.backup-*
 
 # OCR 언어팩 (수십 MB 바이너리 — 스크립트로 내려받음)
 data/tessdata/
+
+# 데이터 백업 압축본 (git 미포함 — 용량 과다)
+*.zip
