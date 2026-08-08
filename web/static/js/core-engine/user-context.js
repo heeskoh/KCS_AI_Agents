@@ -28,10 +28,15 @@ export function currentUserGroup(){ const u = currentUser(); return userGroups.f
 export function isCurrentUserAdmin(){ return currentUserGroup().isAdmin === true; }
 export function isCurrentUserSuperAdmin(){ return isSuperAdminUser(currentUser()); }
 
+/* 전체 개방 페이지 — 권한 매트릭스와 무관하게 모든 사용자가 사용한다.
+   표준보고서 지원은 업무 구분 없이 쓰는 공용 작성 도구이므로 그룹 pages 설정과
+   별개로 항상 허용한다(그룹 설정을 바꿔도 잠기지 않는다). */
+export const PUBLIC_PAGES = ["report"];
+
 /* ── 페이지 접근권한 — 권한관리.pdf 매트릭스 기반: 그룹 pages 목록(슈퍼관리자는 전체) ── */
 export function currentUserPages(){
-  if(isCurrentUserSuperAdmin()) return [...ALL_INV_PAGES, "report"];
-  return currentUserGroup().pages || [];
+  if(isCurrentUserSuperAdmin()) return [...ALL_INV_PAGES, ...PUBLIC_PAGES];
+  return [...new Set([...(currentUserGroup().pages || []), ...PUBLIC_PAGES])];
 }
 export function pageAllowed(page){ return currentUserPages().includes(page); }
 

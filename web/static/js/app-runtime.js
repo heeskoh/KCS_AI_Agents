@@ -42,6 +42,7 @@ import { crimeSummary } from "./analysis/general-investigation/crime-taxonomy.js
 import {                                                             // 관세범죄 지식 레지스트리 — AI 수사 가이드라인(입증 체인 C→F→E→A+G)
   loadCrimeRegistry, getCrimeRegistry, buildEvidenceGuide, guideProgress, gateBadge,
 } from "./analysis/general-investigation/knowledge-registry.js";
+import { initReportSupport } from "./pages/report-support.js";   // 표준보고서 지원 — 서식 기반 작성 워크벤치(신규 모듈)
 import { isPlatformShellPage, isStandalonePlatform, platformBootPage } from "./core-engine/platform-sites.js";
 import "./core-engine/resize-gutters.js";   // 리사이즈 거터 — self-init, 전 사이트 공용(포털 전용 home-runtime에서 이동)
 import {
@@ -57,9 +58,83 @@ import {
 import { openRunEventStream, readSseResponse } from "./core-engine/sse-runner.js";
 import { emitHook } from "./core-engine/runtime-hooks.js";
 
+/* 표준보고서 지원 — 서식 기반 작성 워크벤치에 엔진 의존성 주입(작성 결과는 workspace_state 영속) */
+const { reportSupportPage } = initReportSupport({
+  render,
+  currentUser: () => currentUser(),
+  currentUserGroup: () => currentUserGroup(),
+  customsJobs: () => activeCanvasJobs(),
+  invCases: () => allGenInvCases(),
+  crimeSummaryOf: aCase => crimeSummary(aCase?.crimes),
+  getStore: () => reportSupportDocs,
+  save: () => saveCanvasState(),
+  // 보고서 근거 — 대상의 기초데이터 분석 결과·등록 증거를 초안/검증 프롬프트에 전달
+  targetContext: target => {
+    if(!target) return "";
+    const cut = (text, n = 700) => String(text || "").slice(0, n);
+    const parts = [];
+    // 기업 기본 정보(상세 캐시) — 보고서 기본 정보 자동 생성의 1차 근거
+    const companyBlock = companyId => {
+      const detail = companyDetailCache[companyId];
+      const company = detail?.company;
+      if(!company) return;
+      parts.push([
+        `[기업 기본정보]`,
+        `- 상호: ${company.company_name || "-"} (${companyId})`,
+        `- 사업자등록번호: ${company.business_registration_no || "-"}`,
+        `- 업종코드: ${company.industry_code || "-"} · 설립연도: ${company.founded_year || "-"}`,
+        `- 주소: ${[company.address, company.address_detail].filter(Boolean).join(" ") || "-"}`,
+        `- 관세사: ${company.customs_broker_firm || "-"} · 주요 수출입국: ${company.major_export_countries || "-"}`,
+        `- 위험등급: ${company.risk_level || "-"} (${company.risk_score ?? "-"}점)`,
+      ].join("\n"));
+      const decls = (detail.declarations || []).slice(0, 5);
+      if(decls.length){
+        parts.push(`[최근 수입신고]\n${decls.map(d =>
+          `- 신고번호 ${d.declaration_no || "-"} · HS ${d.hs_code || "-"} · 품명 ${d.item_name || "-"}`
+          + ` · 신고금액 ${d.declared_value ?? "-"} · 원산지 ${d.origin_country || "-"}`
+          + ` · 수입일 ${String(d.import_date || "-").slice(0, 10)}`).join("\n")}`);
+      }
+    };
+    if(target.kind === "customs"){
+      companyBlock(target.code);
+      ciBaseResultEntries(target.code).forEach(entry => {
+        if(entry.output) parts.push(`[기초데이터 분석: ${entry.label}]\n${cut(entry.output)}`);
+      });
+    }else{
+      const aCase = allGenInvCases().find(item => item.caseId === target.caseId);
+      if(aCase){
+        parts.push([
+          `[사건 정보]`,
+          `- 사건번호: ${aCase.caseId} · 수사 유형: ${genInvTypeById(aCase.invTypeId).label}`,
+          `- 수사 대상: ${aCase.targetName} (${aCase.companyId || aCase.personId || "-"})`,
+          `- 혐의: ${crimeSummary(aCase.crimes) || "미지정"}`,
+          `- 담당: ${aCase.investigator || "-"} · ${aCase.team || "-"}`,
+        ].join("\n"));
+        if(aCase.companyId) companyBlock(aCase.companyId);
+        (aCase.baseAnalysis?.rows || []).forEach(([key, value]) => parts.push(`- ${key}: ${value}`));
+        gisBaseResultEntries(aCase.caseId).forEach(entry => {
+          if(entry.output) parts.push(`[기초데이터 분석: ${entry.label}]\n${cut(entry.output)}`);
+        });
+        (gisEvidenceByCase[aCase.caseId] || []).forEach(item => {
+          if(item.result) parts.push(`[증거: ${item.label}]\n${cut(item.result, 400)}`);
+        });
+      }
+    }
+    return parts.join("\n\n").slice(0, 8000);
+  },
+  // 연계 대상 선택 시 기업 상세를 미리 적재해 기본 정보 자동 생성의 근거를 확보한다
+  ensureTargetDetail: target => {
+    const companyId = target?.kind === "customs"
+      ? target.code
+      : allGenInvCases().find(item => item.caseId === target?.caseId)?.companyId;
+    if(companyId && !companyDetailCache[companyId]) loadCompanyDetail(companyId);
+  },
+});
+
 const pages = createPageRegistry({
   activeAnalysisJobs,
   agenticServicePage,
+  reportSupportPage,
   analysisButtons: () => analysisButtonsForConfig(scenarioBuilderConfig),
   canvasPage,
   getCurrentUser: () => currentUser(),
@@ -2155,6 +2230,8 @@ let showScenarioCompanyPicker = false;
 let customCanvasJobs = [];
 let canvasJobOverrides = {};
 let canvasRunArchives = {};
+/* 표준보고서 지원 — 서식 기반 작성 결과(영속) { "대상::서식id": {body,memo,validation,registeredAt,updatedAt} } */
+let reportSupportDocs = {};
 // 사전 준비된 분석 결과(읽기전용, data/prepared_analysis_results.json) —
 // 관세조사 "분석 시나리오 확인 및 설정" 화면이 실시간 실행 없이 표시하는 아카이브.
 // 사용자가 직접 실행한 canvasRunArchives가 항상 우선한다.
@@ -2868,6 +2945,7 @@ async function loadCanvasState(){
     }
     if(saved.canvasJobOverrides && typeof saved.canvasJobOverrides === "object") canvasJobOverrides = saved.canvasJobOverrides;
     if(saved.canvasRunArchives && typeof saved.canvasRunArchives === "object") canvasRunArchives = saved.canvasRunArchives;
+    if(saved.reportSupportDocs && typeof saved.reportSupportDocs === "object") reportSupportDocs = saved.reportSupportDocs;
     // 사전 준비된 분석 결과 로드(서버 읽기전용 파일 — workspace_state에는 저장되지 않음)
     const prepared = await fetchJsonStore("/api/prepared_results");
     if(prepared && typeof prepared.archives === "object" && prepared.archives) preparedRunArchives = prepared.archives;
@@ -2957,6 +3035,7 @@ function buildWorkspaceStatePayload(){
     userPermissions,
     canvasJobOverrides,
     canvasRunArchives,
+    reportSupportDocs,
     hiddenCanvasJobsByUser,
     userWorkspaces,
     agenticServicesByGroup,

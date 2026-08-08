@@ -38,6 +38,7 @@ export function createPageRegistry({
   intlInfoPage,
   investigationPage,
   permissionApprovePage,
+  reportSupportPage,
   riskDashboard,
   riskScreeningPage,
   scenarioBuilderPage,
@@ -89,11 +90,11 @@ export function createPageRegistry({
       : customsOntologyPage(),
     rag: () => customsInfoPage(),
     case: () => intlInfoPage(),
-    // 표준보고서: 별도 사이트(report-support.html)에서는 셸로, 포털에서는 기존 페이지로
+    // 표준보고서 지원: 서식 기반 작성 워크벤치(3단) — 별도 사이트에서는 플랫폼 셸로 감싼다
     report: () => {
-      const body = simplePage("보고서 생성센터", "AI 캔버스 블록을 조합해 조사보고서를 생성합니다.", `<button class="btn">조사보고서 초안 생성</button>`);
+      const body = reportSupportPage();
       return isPlatformShellPage("report")
-        ? invPlatformShell(`<div class="inv-platform-page">${body}</div>`, platformUser())
+        ? invPlatformShell(body, platformUser())
         : body;
     },
     system: () => simplePage("시스템 관리", "연계시스템, 데이터 파이프라인, 사용자 권한, 보안정책을 관리합니다.", ""),
