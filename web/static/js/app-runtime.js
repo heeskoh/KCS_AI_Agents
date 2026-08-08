@@ -1421,6 +1421,9 @@ const genDeps = {
   getGeneralInvTab: () => generalInvestigationState.generalInvTab,
   getAnalysisScenarioConfig: page => scenarioConfigForPage(scenarioBuilderConfig, page),
   getScenarioBuilderConfig: () => scenarioBuilderConfig,
+  // 사건 프로파일 '기초데이터 분석 결과' 창 — 사건별 영속 배치 결과 접근(관세조사와 대칭)
+  gisBaseStageResultsHtml: () => gisStageResultsHtml("base"),
+  gisBaseResultEntries: caseId => gisBaseResultEntries(caseId),
   activeGenInvCase,
   genInvTypeById,
   allGenInvCases,
@@ -2889,6 +2892,16 @@ async function loadCanvasState(){
     if(saved.giStageExtUrlOpen === false) gisExtUrlOpen = false;
     if(Array.isArray(saved.giStageBaseAiServicesV2) && saved.giStageBaseAiServicesV2.length) gisBaseAiServices = saved.giStageBaseAiServicesV2;
     if(saved.giStageBaseNotes && typeof saved.giStageBaseNotes === "object") gisBaseNotesByCase = saved.giStageBaseNotes;
+    if(saved.gisBaseRunResultsByCase && typeof saved.gisBaseRunResultsByCase === "object"){
+      gisBaseRunResultsByCase = saved.gisBaseRunResultsByCase;
+      // 브라우저 이탈 등으로 중단된 실행중 항목 정규화 — 재실행 안내로 전환
+      Object.values(gisBaseRunResultsByCase).forEach(entries => (entries || []).forEach(entry => {
+        if(entry.status === "running" || entry.status === "wait"){
+          entry.status = "error";
+          entry.output = entry.output || "실행이 중단되었습니다. 프로파일에서 다시 실행하세요.";
+        }
+      }));
+    }
     if(saved.giStageEvidence && typeof saved.giStageEvidence === "object") gisEvidenceByCase = saved.giStageEvidence;
     if(saved.giStageInterview && typeof saved.giStageInterview === "object") gisInterviewByCase = saved.giStageInterview;
     if(saved.giStageEvidenceNotes && typeof saved.giStageEvidenceNotes === "object") gisEvidenceNotesByCase = saved.giStageEvidenceNotes;
@@ -2958,6 +2971,7 @@ function buildWorkspaceStatePayload(){
     // 구 키(giStageBaseAiServices)의 저장분이 새 기본값을 덮어쓰지 않도록 키를 올림
     giStageBaseAiServicesV2: gisBaseAiServices,
     giStageBaseNotes: gisBaseNotesByCase,
+    gisBaseRunResultsByCase,
     giStageEvidence: gisEvidenceByCase,
     giStageInterview: gisInterviewByCase,
     giStageEvidenceNotes: gisEvidenceNotesByCase,
@@ -4239,6 +4253,7 @@ function activeCanvasJobs(){
 function activeGeneralInvestigationJobs(){
   return allGenInvCases()
     .filter(item => !item.archived)
+    .filter(item => !item.draft)   // 상세 등록(혐의) 미완료 — 카드 생성 전
     .filter(item => !isCanvasJobHiddenForUser(item.caseId))
     .filter(item => {
       // 캔버스에는 로그인 사용자가 소유/담당한 수사만 표시 (소유자 없는 샘플 사건 제외)
@@ -4832,6 +4847,12 @@ document.addEventListener("click", (event) => {
   if(event.target.closest("[data-profile-base-run]")){
     ciRunBaseBatch();
     render(currentPage);
+    return;
+  }
+  // 관세수사 사건 프로파일 — 기초데이터 분석 배치 수동 실행(사건별 영속)
+  if(event.target.closest("[data-gis-profile-base-run]")){
+    gisRunBaseBatch();
+    render(currentPage);
   }
 });
 
@@ -4849,12 +4870,15 @@ function profileBaseResultHtml(baseAnalysis, declarationRows, declCount){
   `;
 }
 
-function profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount){
+/* windowOpts — 도메인별 주입(관세수사 등):
+   svcBody: 'AI분석 서비스결과' 탭 본문 대체, summaryExtra: 요약 탭 하단 추가 블록,
+   headNote: 수행 안내 문구(기본 '조사 등록 시 자동 수행') */
+function profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount, windowOpts = {}){
   if(!baseAnalysis || baseAnalysis.status !== "done"){
     return `
       <div class="profile-base-head"><h3>기초데이터 분석 결과</h3></div>
       <div class="profile-base-body"><div class="empty-state">기초데이터 분석이 아직 수행되지 않았습니다.<br>
-        <span class="muted">진행중인 관세조사에서 조사 대상을 등록하면 자동 수행됩니다.</span></div></div>
+        <span class="muted">대상을 등록하면 자동 수행됩니다.</span></div></div>
     `;
   }
   const tabs = [
@@ -4869,9 +4893,9 @@ function profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount){
       <table class="table profile-base-kv">
         <tbody>
           ${(baseAnalysis.rows || []).map(([key, value]) =>
-            `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(value)}</td></tr>`).join("")}
+            `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(value))}</td></tr>`).join("")}
         </tbody>
-      </table>`;
+      </table>${windowOpts.summaryExtra || ""}`;
   } else if(active === "decl"){
     body = declCount ? `
       <table class="table">
@@ -4880,19 +4904,20 @@ function profileBaseResultInnerHtml(baseAnalysis, declarationRows, declCount){
       </table>` : `<p class="muted">수입신고 내역이 없습니다.</p>`;
   } else {
     // 워크벤치 '1. 기초데이터 분석'의 서비스별 결과 블록 공유 —
-    // 배치 실행 결과(기업별 영속) + 시나리오 기초 단계 서비스의 저장 결과(stepOutputs)
-    body = ciStageResultsHtml("base");
+    // 배치 실행 결과(대상별 영속) + 시나리오 기초 단계 서비스의 저장 결과(stepOutputs)
+    body = windowOpts.svcBody != null ? windowOpts.svcBody : ciStageResultsHtml("base");
   }
   // 실행/다시 실행 — 헤더 오른쪽 끝(실행 중에는 숨김). 자동수행 도입 전 등록건·중단건 대응
-  const entries = ciBaseResultEntries();
+  const entries = windowOpts.entries || ciBaseResultEntries();
   const running = entries.some(e => e.status === "running");
+  const runAttr = windowOpts.runAttr || "data-profile-base-run";
   const runBtn = running ? "" : `
-    <button type="button" class="btn primary profile-base-run-btn" data-profile-base-run
+    <button type="button" class="btn primary profile-base-run-btn" ${runAttr}
       title="AI 분석서비스 배치를 수행하고 결과를 저장합니다">▶ ${entries.length ? "기초데이터 분석 다시 실행" : "기초데이터 분석 실행"}</button>`;
   return `
     <div class="profile-base-head">
       <h3>기초데이터 분석 결과</h3>
-      <span class="muted">조사 등록 시 자동 수행${baseAnalysis.ranLabel ? ` · ${escapeHtml(baseAnalysis.ranLabel)}` : ""}</span>
+      <span class="muted">${escapeHtml(windowOpts.headNote || "조사 등록 시 자동 수행")}${baseAnalysis.ranLabel ? ` · ${escapeHtml(baseAnalysis.ranLabel)}` : ""}</span>
       ${runBtn}
     </div>
     <div class="profile-base-tabs">
@@ -5048,7 +5073,7 @@ function canvasProfilePanel(companyIdOverride = activeCanvasCompanyId, options =
         </section>
         ${profileTopCollapsed ? "" : `<div class="resize-gutter y" data-resize-min="150" title="드래그하여 상·하 프레임 크기 조절"></div>`}
         <section class="card profile-frame profile-frame-bottom profile-base-result">
-          ${profileBaseResultInnerHtml(options.baseAnalysis, declarationRows, declarations.length)}
+          ${profileBaseResultInnerHtml(options.baseAnalysis, declarationRows, declarations.length, options.baseWindow || {})}
         </section>
       </div>
     `;
@@ -6794,9 +6819,9 @@ function ciPaintBaseRunStatus(){
   document.querySelectorAll("[data-ci-base-state]").forEach(el => {
     el.textContent = ciBaseStateIcon(ciBaseStatusOf(el.dataset.ciBaseState));
   });
-  // 기업 프로파일의 'AI분석 서비스결과' 탭이 열려 있으면 결과 블록도 실시간 갱신
+  // 기업 프로파일의 'AI분석 서비스결과' 탭이 열려 있으면 결과 블록도 실시간 갱신(관세조사 화면만)
   const profileTab = document.querySelector(".profile-base-tab.active");
-  if(profileTab && profileTab.dataset.profileBaseTab === "svc"){
+  if(profileTab && profileTab.dataset.profileBaseTab === "svc" && document.querySelector(".ci-hub")){
     const body = document.querySelector(".profile-base-body");
     if(body) body.innerHTML = ciStageResultsHtml("base");
   }
@@ -7512,6 +7537,12 @@ const GIS_RESULT_TABS = [
   { key: "deep",     label: "3. 접견/신문 결과" },
   { key: "report",   label: "4. 범죄일람표 결과" },
 ];
+/* AI 수사 가이드(개편) 우측 탭 — 개별 증거수집 결과(선택 항목 우선)·증거수집 현황(등록/관리)·가이드 분석 */
+const GIS_GUIDE_RESULT_TABS = [
+  { key: "ext",      label: "개별 증거수집 결과" },
+  { key: "evstatus", label: "증거수집 현황" },
+  { key: "guide",    label: "AI수사가이드 분석" },
+];
 const GIS_STAGE_BASE_KEYS = ["db_cdw", "ml", "db_external", "rag_audit", "declaration_verify",
   "customs_value", "hs_verify", "abnormal_trade", "law"];
 
@@ -7538,8 +7569,10 @@ const GIS_INTERVIEW_CATALOG = [
    A 수집행위+G 게이트) 가이드에 따라 증거를 등록·확보한다. */
 
 /* 사건 등록 직후 자동 수행되는 기초데이터분석 — 세관 내부 보유자료(G1) 대사.
-   DB 조회 결과로 대사표를 만들고, 확보 가능한 G1 증거항목(E-1xx)을 채운다. */
-async function gisAutoBaseAnalysis(aCase){
+   DB 조회 결과로 대사표를 만들고, 확보 가능한 G1 증거항목(E-1xx)을 채운다.
+   opts.runServices: 등록 흐름에서만 true — 대사 완료 후 기초데이터 분석 AI 서비스
+   배치(gisRunBaseBatch)를 이어서 백그라운드 수행·영속화한다(관세조사와 대칭). */
+async function gisAutoBaseAnalysis(aCase, opts = {}){
   if(!aCase || aCase.baseAnalysis?.status === "running") return;
   aCase.baseAnalysis = { status: "running", ranAt: Date.now() };
   saveCanvasState();
@@ -7587,6 +7620,10 @@ async function gisAutoBaseAnalysis(aCase){
   }
   saveCanvasState();
   if(currentPage === "generalinv") render("generalinv");
+  // 등록 흐름: 기초데이터 분석 AI 서비스 배치를 이어서 수행 — 사건별 JSON으로 결과 저장
+  if(opts.runServices && aCase.baseAnalysis?.status === "done"){
+    try{ gisRunBaseBatch(aCase); }catch(e){ console.warn("[gis] 기초 AI 서비스 배치 시작 실패", e); }
+  }
 }
 
 /* 확보된 증거항목(E코드) — 기초분석 자동확보(G1) ∪ 결과 등록된 증거수집 항목 */
@@ -7608,42 +7645,63 @@ const GIS_FACT_LAYERS = [
   { id: "F-P", label: "절차·양형 요건 (F-P)" },
 ];
 
-/* 증거수집 단계 상단 — AI 수사 가이드라인 패널 */
-function gisGuidelineHtml(aCase){
+/* ── AI 수사 가이드 — 상단 설명 배너(제목·진도·죄명·유의) + 좌측 구성요건별 프레임으로 분리 ──
+   배너는 워크벤치 상단 전체 폭을 차지하고, 구성요건(요증사실 계층) 프레임은 좌측 컬럼에 표시된다. */
+function gisGuideBannerHtml(aCase){
   if(!aCase) return "";
   if(!aCase.crimes?.categoryId){
     return `
-      <div class="gis-guide gis-guide-empty">
-        <strong>AI 수사 가이드라인</strong>
-        <p class="muted">혐의(관세범죄 유형·수법)를 지정하면 지식 레지스트리에 따라 죄명별 요증사실과
-        증거수집 계획이 자동 전개됩니다.</p>
+      <div class="gis-guide-banner empty">
+        <strong>AI 수사 가이드</strong>
+        <span class="muted">혐의(관세범죄 유형·수법)를 지정하면 지식 레지스트리에 따라 죄명별 요증사실과 증거수집 계획이 자동 전개됩니다.</span>
         <button type="button" class="btn secondary" data-gi-tab="cases">진행중인 수사에서 혐의 지정</button>
       </div>`;
   }
   if(!getCrimeRegistry()){
     loadCrimeRegistry(() => { if(currentPage === "generalinv") render("generalinv"); });
-    return `<div class="gis-guide"><strong>AI 수사 가이드라인</strong><p class="muted">지식 레지스트리 로딩 중...</p></div>`;
+    return `<div class="gis-guide-banner"><strong>AI 수사 가이드</strong><span class="muted">지식 레지스트리 로딩 중...</span></div>`;
   }
   const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
   if(!guide.ccodes?.length){
-    return `<div class="gis-guide"><strong>AI 수사 가이드라인</strong><p class="muted">혐의에 대응하는 죄명을 찾지 못했습니다.</p></div>`;
+    return `<div class="gis-guide-banner"><strong>AI 수사 가이드</strong><span class="muted">혐의에 대응하는 죄명을 찾지 못했습니다.</span></div>`;
   }
   const secured = gisSecuredECodes(aCase);
-  const planned = gisPlannedECodes(aCase);
   const progress = guideProgress(guide, secured);
-
   const crimeChips = guide.ccodes.map(c => `
     <span class="gis-guide-crime${c.developed ? "" : " undeveloped"}"
       title="${escapeHtml(`${c.law} ${c.article} — ${c.conduct}${c.prosecution ? ` · 소추: ${c.prosecution}` : ""}`)}">
       ${escapeHtml(c.code)} ${escapeHtml(c.name)}${c.developed ? "" : " (미전개)"}
     </span>`).join("");
-
   const branchNotes = (guide.branchRules || []).map(rule => `
     <p class="gis-guide-branch">⚖️ <b>${escapeHtml(rule.id)} ${escapeHtml(rule.name)}</b> — ${escapeHtml(rule.text)}
       <em>[${escapeHtml(rule.enforcement || "조사관 확인")}]</em></p>`).join("");
-
   const warnNotes = (guide.planWarnings || []).map(warning =>
     `<p class="gis-guide-warn">⚠ ${escapeHtml(warning)}</p>`).join("");
+  return `
+    <div class="gis-guide-banner">
+      <div class="gis-guide-head">
+        <strong>AI 수사 가이드 <span class="muted">— 지식 레지스트리 입증 체인 (죄명→요증사실→증거→수집행위)</span></strong>
+        <div class="gis-guide-progress" title="요증사실 충족(필수 증거 확보 완료) / 전체">
+          <span>범죄 입증 진도</span>
+          <div class="gis-guide-bar"><i style="width:${progress.pct}%"></i></div>
+          <b>${progress.done}/${progress.total} · ${progress.pct}%</b>
+        </div>
+      </div>
+      <div class="gis-guide-crimes">${crimeChips}</div>
+      ${branchNotes}${warnNotes}
+      <p class="gis-guide-hint">구성요건의 증거항목을 클릭하면 [증거수집 현황]에 등록됩니다.
+        <b>◎ 필수 / ○ 보강</b> · 휘발성 <b>상</b> 항목과 해외공조·원산지검증은 최우선 착수(R-E5·R-E6)</p>
+    </div>`;
+}
+
+/* 좌측 — 구성요건(요증사실 계층)별 프레임 */
+function gisGuideLayersHtml(aCase){
+  if(!aCase || !aCase.crimes?.categoryId || !getCrimeRegistry()) return "";
+  const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
+  if(!guide.ccodes?.length) return "";
+  const secured = gisSecuredECodes(aCase);
+  const planned = gisPlannedECodes(aCase);
+  const progress = guideProgress(guide, secured);
 
   const evidenceChip = (fact, entry) => {
     const isSecured = secured.has(entry.eCode);
@@ -7653,14 +7711,18 @@ function gisGuidelineHtml(aCase){
     const tooltip = `${entry.eCode} · 보유주체 ${entry.holder || "-"} · ${entry.actionName}(${entry.action || "-"})`
       + `${entry.actionLaw ? ` · ${entry.actionLaw}` : ""}${entry.duration ? ` · 소요 ${entry.duration}` : ""}`
       + `${entry.note ? ` · ${entry.note}` : ""}`;
+    // 한 줄 = 증거 1건(동일 폭) — 이름은 왼쪽, 게이트·상태 배지는 오른쪽 정렬
     return `
       <button type="button" class="gis-guide-ev${stateCls}" title="${escapeHtml(tooltip)}"
         data-gis-guide-add="${escapeHtml(entry.eCode)}" data-gis-guide-fact="${escapeHtml(fact.code)}">
-        <b>${entry.required ? "◎" : "○"}</b> ${escapeHtml(entry.name)}
-        <i class="gis-gate ${badge.cls}">${escapeHtml(badge.label)}</i>
-        ${entry.volatility === "상" ? `<i class="gis-vol">휘발성 상</i>` : ""}
-        ${entry.immediate ? `<i class="gis-now">착수 당일 발송</i>` : ""}
-        ${isSecured ? `<i class="gis-ok">확보</i>` : isPlanned ? `<i class="gis-plan">수집 중</i>` : ""}
+        <b>${entry.required ? "◎" : "○"}</b>
+        <span class="gis-guide-ev-name">${escapeHtml(entry.name)}</span>
+        <span class="gis-guide-ev-badges">
+          <i class="gis-gate ${badge.cls}">${escapeHtml(badge.label)}</i>
+          ${entry.volatility === "상" ? `<i class="gis-vol">휘발성 상</i>` : ""}
+          ${entry.immediate ? `<i class="gis-now">착수 당일 발송</i>` : ""}
+          ${isSecured ? `<i class="gis-ok">확보</i>` : isPlanned ? `<i class="gis-plan">수집 중</i>` : ""}
+        </span>
       </button>`;
   };
 
@@ -7672,10 +7734,13 @@ function gisGuidelineHtml(aCase){
   const layerBlocks = GIS_FACT_LAYERS.map(layer => {
     const facts = guide.facts.filter(f => f.layer === layer.id);
     if(!facts.length) return "";
+    const closed = !!gisGuideLayersClosed[layer.id];
     return `
-      <div class="gis-guide-layer">
-        <h5>${escapeHtml(layer.label)}</h5>
-        ${facts.map(f => `
+      <div class="gis-guide-layer gis-guide-frame${closed ? " closed" : ""}">
+        <h5 data-gis-layer-toggle="${escapeHtml(layer.id)}" role="button" tabindex="0" title="클릭하여 접기/펼치기">
+          ${escapeHtml(layer.label)} <i>${closed ? "▸" : "▾"}</i>
+        </h5>
+        ${closed ? "" : facts.map(f => `
           <div class="gis-guide-fact">
             <div class="gis-guide-fact-head">
               ${factIcon(f.code)}
@@ -7692,29 +7757,21 @@ function gisGuidelineHtml(aCase){
   }).join("");
 
   return `
-    <div class="gis-guide" id="gisGuidePanel">
-      <div class="gis-guide-head">
-        <strong>AI 수사 가이드라인 <span class="muted">— 지식 레지스트리 입증 체인 (죄명→요증사실→증거→수집행위)</span></strong>
-        <div class="gis-guide-progress" title="요증사실 충족(필수 증거 확보 완료) / 전체">
-          <span>범죄 입증 진도</span>
-          <div class="gis-guide-bar"><i style="width:${progress.pct}%"></i></div>
-          <b>${progress.done}/${progress.total} · ${progress.pct}%</b>
-        </div>
-      </div>
-      <div class="gis-guide-crimes">${crimeChips}</div>
-      ${branchNotes}${warnNotes}
-      <p class="gis-guide-hint">증거항목을 클릭하면 아래 증거수집 목록에 등록됩니다.
-        <b>◎ 필수 / ○ 보강</b> · 휘발성 <b>상</b> 항목과 해외공조·원산지검증은 최우선 착수(R-E5·R-E6)</p>
+    <div class="gis-guide gis-guide-frames" id="gisGuidePanel">
       ${layerBlocks}
     </div>`;
 }
 
 function gisRenderGuideline(){
-  const panel = document.getElementById("gisGuideWrap");
   const aCase = activeGenInvCase();
-  if(panel && aCase) panel.innerHTML = gisGuidelineHtml(aCase);
+  if(!aCase) return;
+  const banner = document.getElementById("gisGuideBannerWrap");
+  if(banner) banner.innerHTML = gisGuideBannerHtml(aCase);
+  const layers = document.getElementById("gisGuideLayersWrap");
+  if(layers) layers.innerHTML = gisGuideLayersHtml(aCase);
 }
 
+let gisGuideLayersClosed = {};      // AI 수사 가이드 — 구성요건 프레임 접힘 상태(세션)
 let gisBaseAiServices = GIS_BASE_AI_DEFAULTS.map(svc => ({ ...svc }));   // 영속
 let gisBaseNotesByCase = {};        // 기초조사 착안사항(사건별·영속)
 let gisScenarioNotesByCase = {};    // 수사 착안사항(사건별·영속)
@@ -7722,6 +7779,18 @@ let gisBaseSelectedKey = null;
 let gisBaseDetailOpenKey = null;
 let gisBaseRunStatus = {};
 let gisBaseRunResults = [];
+/* 기초데이터 분석 서비스별 결과(사건별·영속) — { caseId: [{label,status,output,ranAt}] }
+   사건 등록 시 자동 배치·워크벤치 수동 배치가 함께 기록하며 workspace_state(JSON)로 저장된다.
+   사건 프로파일·워크벤치 결과 탭·증거내 검색 컨텍스트가 공유해 읽는다(관세조사 ci*와 대칭). */
+let gisBaseRunResultsByCase = {};
+
+function gisBaseResultEntries(caseId = activeGenInvCase()?.caseId){
+  return gisBaseRunResultsByCase[caseId] || [];
+}
+
+function gisBaseStatusOf(label){
+  return gisBaseRunStatus[label] || gisBaseResultEntries().find(e => e.label === label)?.status || "";
+}
 let gisExtRunResults = [];
 let gisStageOpen = { base: false, ext: false, deep: true, report: false };   // ext=증거 수집, deep=접견/신문
 let gisDetailCollapsed = false;
@@ -7745,8 +7814,14 @@ function gisBaseStateIcon(state){
 
 function gisPaintBaseRunStatus(){
   document.querySelectorAll("[data-gis-base-state]").forEach(el => {
-    el.textContent = gisBaseStateIcon(gisBaseRunStatus[el.dataset.gisBaseState]);
+    el.textContent = gisBaseStateIcon(gisBaseStatusOf(el.dataset.gisBaseState));
   });
+  // 사건 프로파일의 'AI분석 서비스결과' 탭이 열려 있으면 결과 블록도 실시간 갱신
+  const profileTab = document.querySelector(".profile-base-tab.active");
+  if(profileTab && profileTab.dataset.profileBaseTab === "svc" && document.querySelector(".gi-hub")){
+    const body = document.querySelector(".profile-base-body");
+    if(body) body.innerHTML = gisStageResultsHtml("base");
+  }
 }
 
 function gisPaintBaseSelection(){
@@ -7836,6 +7911,7 @@ function gisRenderEvidenceList(){
   const box = document.getElementById("gisEvidenceList");
   const aCase = activeGenInvCase();
   if(box && aCase) box.innerHTML = gisEvidenceListHtml(aCase);
+  gisRenderEvStatus();   // 증거수집 현황(개편 탭) 목록·상세도 함께 갱신
 }
 
 function gisRenderInterviewList(){
@@ -7963,7 +8039,9 @@ ${raw}`;
   item.result = "";
   gisSelectedEvItem = { kind, id };
   gisSelectedBase = null;
-  gisResultTab = "selected";
+  // 증거수집 현황에서 시작한 경우 현황 탭에 머물며 [수집 결과] 서브탭으로 스트리밍 표시
+  if(gisResultTab === "evstatus") gisEvStatusView = "result";
+  else gisResultTab = document.querySelector("[data-gis-result-tab='ext']") ? "ext" : "selected";
   (kind === "ev" ? gisRenderEvidenceList : gisRenderInterviewList)();
   gisRenderResultTab();
   const answer = await streamLlmText(prompt, {
@@ -8024,7 +8102,7 @@ function gisEvidenceSearchContext(){
   gisInterviewItems(aCase).forEach(item => {
     parts.push(`[접견/신문: ${item.label}] 상태 ${item.status || "등록"}\n${cut(item.result || item.content)}`);
   });
-  gisBaseRunResults.forEach(entry => {
+  gisBaseResultEntries(aCase.caseId).forEach(entry => {
     if(entry.output) parts.push(`[기초데이터 분석: ${entry.label}]\n${cut(entry.output)}`);
   });
   scenarioItems.forEach(item => {
@@ -8167,9 +8245,11 @@ function gisStreamSteps(aCase, stepsToRun, opts = {}){
   });
 }
 
-/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 + 법령검토를 순차 수행 */
-async function gisRunBaseBatch(){
-  const aCase = activeGenInvCase();
+/* 기초 조사 분석 실행 — 고정 배치 5종 + 등록된 AI 분석서비스 + 법령검토를 순차 수행.
+   결과는 사건별 영속 저장소(gisBaseRunResultsByCase → workspace_state JSON)에 기록되어
+   사건 프로파일·워크벤치 결과 탭에서 공통으로 확인할 수 있다(관세조사와 대칭). */
+async function gisRunBaseBatch(aCaseParam = null){
+  const aCase = aCaseParam || activeGenInvCase();
   if(!aCase){ alert("수사 대상을 먼저 선택하세요."); return; }
   const specs = [
     ...GIS_BASE_FIXED_RUNS.map(fixed => ({ ...fixed })),
@@ -8185,15 +8265,16 @@ async function gisRunBaseBatch(){
   ];
   gisBaseRunStatus = {};
   gisBaseRunResults = [];
+  gisBaseRunResultsByCase[aCase.caseId] = gisBaseRunResults;   // 영속 저장소와 같은 배열 공유
   const runnable = [];
   specs.forEach(spec => {
     const step = gisTransientStep(spec.key, spec.label, spec.instruction);
     if(!scenarioItemHasPermission(step)){
       gisBaseRunStatus[spec.label] = "error";
-      gisBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다." });
+      gisBaseRunResults.push({ label: spec.label, status: "error", output: "권한이 없어 건너뛰었습니다.", ranAt: Date.now() });
       return;
     }
-    const entry = { label: spec.label, status: "wait", output: "" };
+    const entry = { label: spec.label, status: "wait", output: "", ranAt: Date.now() };
     gisBaseRunResults.push(entry);
     runnable.push({ step, entry });
   });
@@ -8213,6 +8294,8 @@ async function gisRunBaseBatch(){
         entry.status = "error"; entry.output = entry.output || output;
       }
       gisBaseRunStatus[entry.label] = entry.status === "wait" ? "" : entry.status;
+      // 서비스 하나 완료될 때마다 JSON(workspace_state)으로 영속화
+      if(entry.status === "done" || entry.status === "error") saveCanvasState();
       gisPaintBaseRunStatus();
       gisRenderResultTab();
     },
@@ -8224,7 +8307,7 @@ function gisBaseAiListHtml(){
     <div class="ci-base-chip${svc.key === gisBaseSelectedKey ? " active" : ""}" data-gis-base-chip="${escapeHtml(svc.key)}">
       <strong>${escapeHtml(svc.label)}</strong>
       <span class="ci-base-chip-side">
-        <i class="ci-base-state" data-gis-base-state="${escapeHtml(svc.label)}">${gisBaseStateIcon(gisBaseRunStatus[svc.label])}</i>
+        <i class="ci-base-state" data-gis-base-state="${escapeHtml(svc.label)}">${gisBaseStateIcon(gisBaseStatusOf(svc.label))}</i>
         <i>${gisBaseDetailOpenKey === svc.key ? "▴" : "▾"}</i>
       </span>
     </div>
@@ -8352,7 +8435,8 @@ function gisStageResultsHtml(stageKey){
   const blocks = [];
   const aCase = activeGenInvCase();
   if(stageKey === "base"){
-    gisBaseRunResults.forEach(entry => blocks.push(gisResultBlockHtml(entry.label, entry.status, entry.output)));
+    // 사건별 영속 결과(등록 시 자동 배치·수동 배치 공통) — 실행 중에는 같은 배열이 실시간 갱신됨
+    gisBaseResultEntries(aCase?.caseId).forEach(entry => blocks.push(gisResultBlockHtml(entry.label, entry.status, entry.output)));
   }
   // 증거 수집·접견/신문 — 등록 항목의 요청/결과 기록 표시
   if(stageKey === "ext" || stageKey === "deep"){
@@ -8381,12 +8465,226 @@ function gisStageResultsHtml(stageKey){
   return blocks.join("");
 }
 
+/* ── 증거수집 현황(개편 · 목업 반영) — 좌: 증거 수집 목록(상태 배지), 우: 요청/승인/수집 서브탭 ── */
+let gisEvStatusView = "request";   // "request"(요청 현황) | "approve"(승인 현황) | "result"(수집 결과)
+
+/* 항목 상태 배지 — 수집완료(결과 등록) > 분석 중 > 승인완료(요청서 발송) > 요청중 */
+function gisEvStatusBadge(item){
+  if(item.result || item.status === "결과 등록됨") return { label: "수집완료", cls: "done" };
+  if(item.status === "분석 중") return { label: "분석 중", cls: "running" };
+  if(item.request || item.status === "요청됨") return { label: "승인완료", cls: "approved" };
+  return { label: "요청중", cls: "pending" };
+}
+
+function gisEvStatusSelectedItem(aCase){
+  const items = gisEvidenceItems(aCase);
+  return items.find(item => item.id === gisEvidenceSelectedId) || items[0] || null;
+}
+
+function gisEvStatusListHtml(aCase){
+  const items = gisEvidenceItems(aCase);
+  if(!items.length) return `<div class="empty-state">증거 항목을 등록하세요.</div>`;
+  const selectedId = gisEvStatusSelectedItem(aCase)?.id;
+  return items.map(item => {
+    const badge = gisEvStatusBadge(item);
+    return `
+      <div class="gis-evstatus-row${item.id === selectedId ? " active" : ""}" data-gis-evstatus-select="${escapeHtml(item.id)}" role="button" tabindex="0">
+        <strong>${escapeHtml(item.label)}</strong>
+        <em class="gis-evstatus-badge ${badge.cls}">${badge.label}</em>
+      </div>`;
+  }).join("");
+}
+
+function gisEvStatusDetailHtml(aCase){
+  const item = gisEvStatusSelectedItem(aCase);
+  if(!item) return `<div class="empty-state">왼쪽에서 증거 항목을 등록·선택하세요.</div>`;
+  if(gisEvStatusView === "request"){
+    return item.request
+      ? gisResultBlockHtml(`${item.label} — 요청서`, "done", `\`\`\`\n${item.request}\n\`\`\``)
+      : `
+        <div class="gis-evstatus-pane">
+          <p class="gis-ev-desc">${escapeHtml(item.desc || "")}</p>
+          <textarea class="ci-stage-notes" data-gis-ev-note="${escapeHtml(item.id)}" rows="2"
+            placeholder="수사 착안사항 및 확인사항">${escapeHtml(item.note || "")}</textarea>
+          <p class="muted" style="font-size:12px">아직 요청서가 발송되지 않았습니다. [요청]으로 표준 요청서를 작성·발송하세요.</p>
+          <div class="gis-ev-actions"><button type="button" class="gis-ev-btn" data-gis-ev-request="${escapeHtml(item.id)}">요청</button></div>
+        </div>`;
+  }
+  if(gisEvStatusView === "approve"){
+    const badge = gateBadge(item.gate);
+    const approved = !!item.request || item.status === "요청됨";
+    return `
+      <div class="gis-evstatus-pane">
+        <table class="table profile-base-kv">
+          <tbody>
+            <tr><th>승인 게이트</th><td>${escapeHtml(badge.label)} — ${escapeHtml(badge.desc || "")}</td></tr>
+            <tr><th>보유 주체</th><td>${escapeHtml(item.holder || "-")}</td></tr>
+            <tr><th>승인 상태</th><td>${approved ? "✅ 승인 완료 — 요청서 발송됨" : "요청서 발송 전 (승인 절차 미진행)"}</td></tr>
+            <tr><th>승인·발송 시각</th><td>${item.requestedAt ? escapeHtml(new Date(item.requestedAt).toLocaleString("ko-KR")) : "-"}</td></tr>
+          </tbody>
+        </table>
+        ${approved ? "" : `<p class="muted" style="font-size:12px">[요청 현황] 탭에서 요청서를 발송하면 승인 정보가 기록됩니다.</p>`}
+      </div>`;
+  }
+  return (item.result || item.status === "분석 중")
+    ? gisResultBlockHtml(`${item.label} — 수집 결과`, item.status === "분석 중" ? "running" : "done", item.result || "")
+    : `
+      <div class="gis-evstatus-pane">
+        <p class="muted" style="font-size:12px">수집 결과가 아직 등록되지 않았습니다. 원문을 등록하면 AI 분석/요약이 수행됩니다.</p>
+        <div class="gis-ev-actions"><button type="button" class="gis-ev-btn" data-gis-ev-result="${escapeHtml(item.id)}">결과 등록</button></div>
+      </div>`;
+}
+
+function gisRenderEvStatus(){
+  const aCase = activeGenInvCase();
+  if(!aCase) return;
+  const list = document.getElementById("gisEvStatusList");
+  if(list) list.innerHTML = gisEvStatusListHtml(aCase);
+  const detail = document.getElementById("gisEvStatusDetail");
+  if(detail) detail.innerHTML = gisEvStatusDetailHtml(aCase);
+  document.querySelectorAll("[data-gis-evstatus-view]").forEach(btn =>
+    btn.classList.toggle("active", btn.dataset.gisEvstatusView === gisEvStatusView));
+}
+
+function gisEvidenceStatusHtml(aCase){
+  if(!aCase) return `<div class="empty-state">수사 대상을 먼저 선택하세요.</div>`;
+  const views = [["request", "요청 현황"], ["approve", "승인 현황"], ["result", "수집 결과"]];
+  return `
+    <div class="gis-evstatus-layout">
+      <div class="gis-evstatus-left">
+        <h5>증거 수집 목록</h5>
+        <div class="ci-stage-tools">
+          <select id="gisEvidenceSelect" class="scenario-template-select">
+            ${GIS_EVIDENCE_CATALOG.map(cat => `<option value="${escapeHtml(cat.key)}">${escapeHtml(cat.label)}</option>`).join("")}
+          </select>
+          <button type="button" class="btn scenario-template-apply-btn" data-gis-ev-add>등록</button>
+          <button type="button" class="btn secondary scenario-template-apply-btn" data-gis-ev-del>선택 삭제</button>
+        </div>
+        <div id="gisEvStatusList" class="gis-evstatus-list">${gisEvStatusListHtml(aCase)}</div>
+      </div>
+      <div class="resize-gutter x" data-resize-min="220" title="드래그하여 좌·우 영역 크기 조절"></div>
+      <div class="gis-evstatus-right">
+        <div class="gis-evstatus-subtabs">
+          ${views.map(([key, label]) => `
+            <button type="button" class="ci-result-tab${gisEvStatusView === key ? " active" : ""}"
+              data-gis-evstatus-view="${key}">${label}</button>`).join("")}
+        </div>
+        <div id="gisEvStatusDetail" class="gis-evstatus-detail">${gisEvStatusDetailHtml(aCase)}</div>
+      </div>
+    </div>`;
+}
+
+/* AI수사가이드 분석 — 지식 레지스트리 기준 입증 진도·구성요건 충족·미확보 필수 증거·우선 착수 권고 */
+function gisGuideAnalysisHtml(aCase){
+  if(!aCase?.crimes?.categoryId) return `<div class="empty-state">혐의를 지정하면 AI수사가이드 분석이 제공됩니다.</div>`;
+  if(!getCrimeRegistry()) return `<div class="empty-state">지식 레지스트리 로딩 중...</div>`;
+  const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
+  if(!guide.ccodes?.length) return `<div class="empty-state">혐의에 대응하는 죄명을 찾지 못했습니다.</div>`;
+  const secured = gisSecuredECodes(aCase);
+  const planned = gisPlannedECodes(aCase);
+  const progress = guideProgress(guide, secured);
+  const stateLabel = { done: "충족", partial: "일부 확보", none: "미착수", procedural: "절차 확인" };
+  const layerRows = GIS_FACT_LAYERS.map(layer => {
+    const facts = guide.facts.filter(f => f.layer === layer.id);
+    if(!facts.length) return "";
+    const done = facts.filter(f => progress.perFact[f.code] === "done").length;
+    return `
+      <tr>
+        <th>${escapeHtml(layer.label)}</th>
+        <td style="white-space:nowrap">${facts.length}건 중 충족 ${done}건</td>
+        <td>${facts.map(f => `<span class="gis-ana-fact ${progress.perFact[f.code] || "none"}">${escapeHtml(f.code)} ${stateLabel[progress.perFact[f.code]] || "미착수"}</span>`).join(" ")}</td>
+      </tr>`;
+  }).join("");
+  const missing = [];
+  guide.facts.forEach(fact => {
+    if(fact.procedural) return;
+    fact.evidences.forEach(entry => {
+      if(entry.required && !secured.has(entry.eCode)) missing.push({ fact, entry });
+    });
+  });
+  const priority = missing.filter(m => m.entry.volatility === "상" || m.entry.immediate);
+  return `
+    <div class="gis-guide-analysis">
+      <section class="ci-result-block">
+        <div class="ci-result-block-head"><span>범죄 입증 진도</span><em>${progress.done}/${progress.total} · ${progress.pct}%</em></div>
+        <div class="ci-result-block-body"><div class="gis-guide-bar" style="max-width:420px"><i style="width:${progress.pct}%"></i></div></div>
+      </section>
+      <section class="ci-result-block">
+        <div class="ci-result-block-head"><span>구성요건별 충족 현황</span></div>
+        <div class="ci-result-block-body"><table class="table gis-ana-table"><tbody>${layerRows}</tbody></table></div>
+      </section>
+      <section class="ci-result-block">
+        <div class="ci-result-block-head"><span>미확보 필수 증거</span><em>${missing.length}건</em></div>
+        <div class="ci-result-block-body">
+          ${missing.length ? `<ul class="gis-ana-missing">${missing.map(m => `
+            <li><b>${escapeHtml(m.entry.name)}</b> <span class="muted">(${escapeHtml(m.entry.eCode)} · ${escapeHtml(m.fact.code)})</span>
+              — ${escapeHtml(m.entry.actionName || "")}${m.entry.holder ? ` · 보유 ${escapeHtml(m.entry.holder)}` : ""}
+              ${planned.has(m.entry.eCode)
+                ? `<i class="gis-plan">수집 중</i>`
+                : `<button type="button" class="btn-inline-action" data-gis-guide-add="${escapeHtml(m.entry.eCode)}">수집 등록</button>`}
+            </li>`).join("")}</ul>` : `<p class="muted">필수 증거가 모두 확보되었습니다.</p>`}
+        </div>
+      </section>
+      ${priority.length ? `
+      <section class="ci-result-block">
+        <div class="ci-result-block-head"><span>우선 착수 권고</span><em>${priority.length}건</em></div>
+        <div class="ci-result-block-body"><ul class="gis-ana-missing">${priority.map(m =>
+          `<li>⚠ <b>${escapeHtml(m.entry.name)}</b> — ${[m.entry.volatility === "상" ? "휘발성 상(R-E5)" : "", m.entry.immediate ? "착수 당일 발송(R-E6)" : ""].filter(Boolean).join(" · ")}</li>`).join("")}</ul></div>
+      </section>` : ""}
+      ${(guide.branchRules || []).length ? `
+      <section class="ci-result-block">
+        <div class="ci-result-block-head"><span>법리 분기·유의</span></div>
+        <div class="ci-result-block-body">${(guide.branchRules || []).map(rule =>
+          `<p class="gis-guide-branch">⚖️ <b>${escapeHtml(rule.id)} ${escapeHtml(rule.name)}</b> — ${escapeHtml(rule.text)}</p>`).join("")}</div>
+      </section>` : ""}
+    </div>`;
+}
+
 function gisRenderResultTab(){
   const body = document.getElementById("gisResultBody");
   const accordion = document.getElementById("scenarioStepAccordion");
   if(!body || !accordion) return;
   document.querySelectorAll("[data-gis-result-tab]").forEach(tab =>
     tab.classList.toggle("active", tab.dataset.gisResultTab === gisResultTab));
+  // 개편 워크벤치 전용 탭 — 증거수집 현황 / AI수사가이드 분석
+  if(gisResultTab === "evstatus" || gisResultTab === "guide"){
+    accordion.style.display = "none";
+    body.style.display = "";
+    body.innerHTML = gisResultTab === "evstatus"
+      ? gisEvidenceStatusHtml(activeGenInvCase())
+      : gisGuideAnalysisHtml(activeGenInvCase());
+    return;
+  }
+  // 개별 증거수집 결과 — 선택된 증거 항목이 있으면 그 항목, 없으면 전체 항목 결과
+  if(gisResultTab === "ext"){
+    accordion.style.display = "none";
+    body.style.display = "";
+    if(gisSelectedEvItem){
+      const item = gisFindStageItem(gisSelectedEvItem.kind, gisSelectedEvItem.id);
+      if(item){
+        if(item.result || item.status === "분석 중"){
+          body.innerHTML = gisResultBlockHtml(item.label, item.status === "분석 중" ? "running" : "done", item.result || "");
+        }else if(item.request){
+          body.innerHTML = gisResultBlockHtml(item.label, "wait", `**요청서 발송됨(승인 완료)** — 결과 등록 대기\n\n\`\`\`\n${item.request}\n\`\`\``);
+        }else{
+          body.innerHTML = `
+            <section class="ci-result-block">
+              <div class="ci-result-block-head"><span>${escapeHtml(item.label)}</span><em>대기</em></div>
+              <div class="ci-result-block-body">
+                <div class="muted" style="font-size:12px">[요청]으로 표준 요청서를 발송하거나, [결과 등록]으로 원문을 등록하면 AI 분석/요약 결과가 표시됩니다.</div>
+              </div>
+            </section>`;
+        }
+        return;
+      }
+      gisSelectedEvItem = null;
+    }
+    const extHtml = gisStageResultsHtml("ext");
+    body.innerHTML = extHtml.includes("empty-state")
+      ? `<div class="empty-state">[증거수집 현황]에서 항목을 등록하고 [요청]·[결과 등록]을 진행하면 개별 결과가 여기에 표시됩니다.</div>`
+      : extHtml;
+    return;
+  }
   const selectedMode = gisResultTab === "selected";
   const evSelected = selectedMode && !!gisSelectedEvItem;
   const baseSelected = selectedMode && !evSelected && !!gisSelectedBase;
@@ -8412,7 +8710,7 @@ function gisRenderResultTab(){
     return;
   }
   if(baseSelected){
-    const entry = gisBaseRunResults.find(e => e.label === gisSelectedBase);
+    const entry = gisBaseResultEntries().find(e => e.label === gisSelectedBase);
     body.innerHTML = entry
       ? gisResultBlockHtml(entry.label, entry.status, entry.output)
       : `<section class="ci-result-block">
@@ -8483,91 +8781,17 @@ function giStageWorkbenchHtml(){
     ? `<span class="muted" style="font-size:12px">AI 분석 수행 결과 · 완료 ${doneCount}단계</span>`
     : `<span class="muted" style="font-size:12px">수행된 분석 결과가 없습니다</span>`;
 
-  const baseServiceList = services => `
-    <ul class="ci-base-list">
-      ${services.map(service => `
-        <li class="ci-base-selectable" data-gis-base-result="${escapeHtml(service.label)}" title="클릭하면 이 서비스의 결과를 표시합니다">${escapeHtml(service.label)}
-          <i class="ci-base-state" data-gis-base-state="${escapeHtml(service.label)}">${gisBaseStateIcon(gisBaseRunStatus[service.label])}</i>
-          ${service.items.length
-            ? `<ul>${service.items.map(entry => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
-            : ""}</li>
-      `).join("")}
-    </ul>
-  `;
-  const stage1 = `
-    <p class="ci-stage-note">다음 서비스를 배치(Batch)로 항시 수행합니다(default) — 로그 수준의 초안 보고서를 생성합니다.</p>
-    ${baseServiceList(GIS_BASE_BATCH_SERVICES)}
-    <div class="ci-base-ai">
-      <strong class="ci-base-ai-title">AI 분석서비스</strong>
-      <div class="ci-stage-tools">
-        <select id="gisBaseServiceSelect" class="scenario-template-select"></select>
-        <button type="button" class="btn scenario-template-apply-btn" data-gis-base-add>서비스 추가</button>
-        <button type="button" class="btn secondary scenario-template-apply-btn" data-gis-base-delete>선택 삭제</button>
-      </div>
-      <textarea id="gisBaseNotes" class="ci-stage-notes" rows="2"
-        placeholder="수사 착안사항 및 확인사항">${escapeHtml(gisBaseNotesByCase[aCase.caseId] || "")}</textarea>
-      <div class="ci-base-ai-list" id="gisBaseAiList">${gisBaseAiListHtml()}</div>
-    </div>
-    ${baseServiceList(GIS_BASE_TAIL_SERVICES)}
-  `;
-
-  const stage2 = `
-    <div id="gisGuideWrap">${gisGuidelineHtml(aCase)}</div>
-    <div class="ci-stage-tools">
-      <select id="gisEvidenceSelect" class="scenario-template-select">
-        ${GIS_EVIDENCE_CATALOG.map(cat => `<option value="${escapeHtml(cat.key)}">${escapeHtml(cat.label)}</option>`).join("")}
-      </select>
-      <button type="button" class="btn scenario-template-apply-btn" data-gis-ev-add>등록</button>
-      <button type="button" class="btn secondary scenario-template-apply-btn" data-gis-ev-del>선택 삭제</button>
-    </div>
-    <textarea id="gisEvidenceNotes" class="ci-stage-notes" rows="2"
-      placeholder="수사 착안사항 및 확인사항">${escapeHtml(gisEvidenceNotesByCase[aCase.caseId] || "")}</textarea>
-    <div id="gisEvidenceList" class="gis-ev-list">${gisEvidenceListHtml(aCase)}</div>
-  `;
-
-  const stage3 = `
-    <div class="ci-stage-tools">
-      <select id="gisInterviewSelect" class="scenario-template-select">
-        ${GIS_INTERVIEW_CATALOG.map(cat => `<option value="${escapeHtml(cat.key)}">${escapeHtml(cat.label)}</option>`).join("")}
-      </select>
-      <button type="button" class="btn scenario-template-apply-btn" data-gis-iv-add>등록</button>
-      <button type="button" class="btn secondary scenario-template-apply-btn" data-gis-iv-del>선택 삭제</button>
-    </div>
-    <textarea id="gisInterviewNotes" class="ci-stage-notes" rows="2"
-      placeholder="수사 착안사항 및 확인사항">${escapeHtml(gisInterviewNotesByCase[aCase.caseId] || "")}</textarea>
-    <div id="gisInterviewList" class="gis-ev-list">${gisInterviewListHtml(aCase)}</div>
-  `;
-
-  const stage4 = `
-    <p class="ci-stage-note">범죄일람표(보고서) 생성과 검증 서비스를 통합 실행하여 결과를 생성합니다.</p>
-    <ol id="gisStage4List" class="scenario-list ci-stage-list"></ol>
-    <div class="gis-engine-dock" style="display:none">
-      <select id="scenarioQuickSourceSelect"></select>
-      <ol id="scenarioList"></ol>
-    </div>
-  `;
-
-  // 실행 버튼은 기초데이터 분석·범죄일람표 작성에만 노출 — 증거 수집·접견/신문은 개별 등록 방식
-  const gisStageSection = (key, title, isDefault, bodyHtml, withRun = true) => `
-    <section class="ci-stage${gisStageOpen[key] ? " open" : ""}" data-gis-stage="${key}">
-      <div class="ci-stage-head" data-gis-stage-toggle="${key}" role="button" tabindex="0">
-        <span>${title}${isDefault ? ` <em>(default)</em>` : ""}</span>
-        ${withRun ? `
-        <span class="ci-stage-head-actions">
-          <button type="button" class="ci-stage-run" data-gis-stage-run="${key}" title="이 단계의 서비스를 순차 실행">▶ 실행</button>
-        </span>` : ""}
-      </div>
-      <div class="ci-stage-body">${bodyHtml}</div>
-    </section>
-  `;
-
+  /* 전면 개편(목업 기준): 상단 전체 폭 가이드 설명 배너 + 좌측 구성요건별 프레임 +
+     우측 결과 탭 3종(개별 증거수집 결과 · 증거수집 현황 · AI수사가이드 분석).
+     시나리오 목록(#scenarioList·#gisStage4List)은 실행 엔진 계약용으로 숨김 dock에 유지. */
+  if(!GIS_GUIDE_RESULT_TABS.some(t => t.key === gisResultTab)) gisResultTab = "ext";
   return `
     <section class="card scenario-workbench scenario-workbench-v2 scenario-review-mode ci-stage-workbench gis-stage-workbench">
       <div class="scenario-work-header">
         <div class="scenario-title-row">
           <div>
-            <h3>AI수사 증거 수집/분석</h3>
-            <p class="muted">기초데이터 분석 → 증거 수집 → 접견/신문 → 범죄일람표 작성의 4단계로 수사를 구성합니다. <em style="color:#0369a1;font-style:normal;font-weight:700">기초데이터 분석과 범죄일람표 작성은 기본(default)으로 수행되고, 증거·접견/신문은 항목별로 등록합니다.</em></p>
+            <h3>AI 수사 가이드</h3>
+            <p class="muted">지식 레지스트리 입증 체인(죄명→요증사실→증거→수집행위)에 따라 죄명별 요증사실을 확인하고 증거 수집을 진행합니다.</p>
           </div>
         </div>
         <div class="scenario-header-actions">
@@ -8575,24 +8799,28 @@ function giStageWorkbenchHtml(){
         </div>
       </div>
 
+      <div id="gisGuideBannerWrap">${gisGuideBannerHtml(aCase)}</div>
+
       <div class="ci-stage-layout">
-        <aside class="ci-stage-side">
-          ${gisStageSection("base",   "1. 기초데이터 분석", true,  stage1)}
-          ${gisStageSection("ext",    "2. 증거 수집", false, stage2, false)}
-          ${gisStageSection("deep",   "3. 접견/신문", false, stage3, false)}
-          ${gisStageSection("report", "4. 범죄일람표 작성", true, stage4)}
+        <aside class="ci-stage-side gis-guide-side">
+          <div id="gisGuideLayersWrap">${gisGuideLayersHtml(aCase)}</div>
+          <div class="gis-engine-dock" style="display:none">
+            <select id="scenarioQuickSourceSelect"></select>
+            <ol id="scenarioList"></ol>
+            <ol id="gisStage4List"></ol>
+          </div>
         </aside>
 
         <section class="scenario-log ci-stage-main">
           <div class="ci-result-tabs">
-            ${GIS_RESULT_TABS.map(tab => `
+            ${GIS_GUIDE_RESULT_TABS.map(tab => `
               <button type="button" class="ci-result-tab${gisResultTab === tab.key ? " active" : ""}"
                 data-gis-result-tab="${tab.key}">${escapeHtml(tab.label)}</button>
             `).join("")}
           </div>
           <div id="scenarioClarify" class="scenario-clarify-slot"></div>
-          <div id="scenarioStepAccordion" class="scenario-step-accordion" ${gisResultTab === "selected" ? "" : `style="display:none"`}></div>
-          <div id="gisResultBody" class="ci-result-body" ${gisResultTab === "selected" ? `style="display:none"` : ""}></div>
+          <div id="scenarioStepAccordion" class="scenario-step-accordion" style="display:none"></div>
+          <div id="gisResultBody" class="ci-result-body"></div>
         </section>
       </div>
     </section>
@@ -8601,6 +8829,30 @@ function giStageWorkbenchHtml(){
 
 /* ── 관세수사 스테이지 위임 핸들러(gis 전용 — 관세조사 ci 핸들러와 독립) ── */
 document.addEventListener("click", (event) => {
+  /* AI 수사 가이드 — 구성요건 프레임 접기/펼치기 */
+  const layerToggle = event.target.closest("[data-gis-layer-toggle]");
+  if(layerToggle){
+    const id = layerToggle.dataset.gisLayerToggle;
+    gisGuideLayersClosed[id] = !gisGuideLayersClosed[id];
+    gisRenderGuideline();
+    return;
+  }
+
+  /* 증거수집 현황(개편) — 목록 행 선택 / 요청·승인·수집 서브탭 전환 */
+  const evStatusSel = event.target.closest("[data-gis-evstatus-select]");
+  if(evStatusSel){
+    gisEvidenceSelectedId = evStatusSel.dataset.gisEvstatusSelect;
+    gisSelectedEvItem = { kind: "ev", id: gisEvidenceSelectedId };
+    gisRenderEvStatus();
+    return;
+  }
+  const evStatusView = event.target.closest("[data-gis-evstatus-view]");
+  if(evStatusView){
+    gisEvStatusView = evStatusView.dataset.gisEvstatusView;
+    gisRenderEvStatus();
+    return;
+  }
+
   const baseChip = event.target.closest("[data-gis-base-chip]");
   if(baseChip){
     const key = baseChip.dataset.gisBaseChip;
@@ -8684,11 +8936,13 @@ document.addEventListener("click", (event) => {
     if(!aCase || !eCode) return;
     const items = gisEvidenceItems(aCase);
     if(items.some(item => item.eCode === eCode)){
-      // 이미 등록된 항목이면 해당 항목 선택으로 이동
+      // 이미 등록된 항목이면 해당 항목의 개별 결과로 이동
       const existing = items.find(item => item.eCode === eCode);
       gisEvidenceSelectedId = existing.id;
       gisSelectedEvItem = { kind: "ev", id: existing.id };
+      gisResultTab = "ext";
       gisRenderEvidenceList();
+      gisRenderResultTab();
       return;
     }
     const guide = buildEvidenceGuide(aCase.crimes, { targetType: aCase.targetType || "company" });
@@ -8711,9 +8965,11 @@ document.addEventListener("click", (event) => {
       note: "", status: entry.gate !== "G1" ? "신청 필요" : "", result: "",
     });
     gisEvidenceSelectedId = items[items.length - 1].id;
-    gisStageOpen.ext = true;
+    // 등록 직후 [증거수집 현황] 탭으로 전환해 등록된 항목을 바로 보여준다
+    gisResultTab = "evstatus";
     gisRenderEvidenceList();
     gisRenderGuideline();
+    gisRenderResultTab();
     saveCanvasState();
     return;
   }
@@ -8769,7 +9025,7 @@ document.addEventListener("click", (event) => {
       else { conf.setSel(id); conf.closed[id] = !!conf.closed[id] ? false : conf.closed[id]; }
       gisSelectedEvItem = { kind, id };
       gisSelectedBase = null;
-      gisResultTab = "selected";
+      gisResultTab = document.querySelector("[data-gis-result-tab='ext']") ? "ext" : "selected";
       conf.render();
       gisRenderResultTab();
       return;
@@ -8807,7 +9063,9 @@ document.addEventListener("click", (event) => {
       gisRenderInterviewList();
       gisSelectedEvItem = { kind: approve.dataset.kind, id: approve.dataset.id };
       gisSelectedBase = null;
-      gisResultTab = "selected";
+      // 증거수집 현황에서 요청한 경우 현황 탭에 머물며 [승인 현황] 서브탭 표시
+      if(gisResultTab === "evstatus") gisEvStatusView = "approve";
+      else gisResultTab = document.querySelector("[data-gis-result-tab='ext']") ? "ext" : "selected";
       gisRenderResultTab();
     }
     gisCloseDocOverlay();
@@ -11307,6 +11565,7 @@ registerGeneralInvestigationEvents({
   giScenarioTemplates,
   updateGiStageDoc,   // 수사보고서 관리 [등록] — 증거요청/결과 보고서 수정 저장
   gisAutoBaseAnalysis,   // 사건 등록 직후 기초데이터분석(G1 내부자료 대사) 자동 수행
+  clearGisBaseResults: caseId => { delete gisBaseRunResultsByCase[caseId]; },   // 사건 삭제 시 저장 결과 정리
 });
 
 registerSpecialInvestigationEvents({

@@ -17,7 +17,8 @@ export function createGeneralInvestigation(deps){
     const profileLabel = !aCase
       ? "일반수사 프로파일"
       : aCase.targetType === "person" ? "개인수사 프로파일" : "기업수사 프로파일";
-    const tabContext = { case:aCase, profileLabel };
+    // 상세 등록 미완료(draft) 사건은 카드 생성 전 — 프로파일 이후 서브탭을 잠근다
+    const tabContext = { case: aCase && !aCase.draft ? aCase : null, profileLabel };
     const targetId = aCase
       ? (aCase.targetType === "person" ? (aCase.personId || aCase.caseId) : (aCase.companyId || aCase.caseId))
       : "";

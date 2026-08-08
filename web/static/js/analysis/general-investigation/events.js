@@ -168,15 +168,17 @@ export function registerGeneralInvestigationEvents(ctx){
         externalRequests: [],
         insightChat: [],
       };
+      // 카드 생성 전 상세 등록 단계 — draft 상태로 상세창을 먼저 연다.
+      // 혐의 등록(상세 등록)이 완료되면 카드가 생성되고 기초데이터 분석이 수행된다.
+      newCase.draft = true;
       ctx.customGenInvCases.unshift(newCase);
       ctx.showGenInvRegForm = false;
       ctx.giRegTargetType   = "company";
-      // 탭 이동 없이 목록에 카드만 등록
+      ctx.activeGenInvCaseId = caseId;
+      generalInvestigationState.giCaseDetailOpen = true;
+      generalInvestigationState.crimeDraft = null;
       ctx.saveCanvasState();
       ctx.render("generalinv");
-      // 지식 레지스트리 흐름: 사건 등록 즉시 기초데이터분석(G1 내부 보유자료 대사)을
-      // 백그라운드로 자동 수행 → 완료 시 사건 프로파일에 결과가 표시된다.
-      ctx.gisAutoBaseAnalysis?.(newCase);
       return;
     }
 
@@ -188,6 +190,7 @@ export function registerGeneralInvestigationEvents(ctx){
       if(idx !== -1) ctx.defaultGenInvCases.splice(idx, 1);
       const cidx = ctx.customGenInvCases.findIndex(c => c.caseId === caseId);
       if(cidx !== -1) ctx.customGenInvCases.splice(cidx, 1);
+      ctx.clearGisBaseResults?.(caseId);   // 저장된 기초데이터 분석 결과도 함께 정리
       if(ctx.activeGenInvCaseId === caseId){ ctx.activeGenInvCaseId = null; ctx.generalInvTab = "cases"; }
       ctx.saveCanvasState(); ctx.render("generalinv"); return;
     }
@@ -271,6 +274,12 @@ export function registerGeneralInvestigationEvents(ctx){
         if(proceed) giApplyCrimePlan(ctx, aCase, plan);
       }
       generalInvestigationState.crimeDraft = null;
+      // 상세 등록(혐의) 완료 — 신규 등록 건은 이 시점에 카드가 생성되고
+      // 기초데이터분석(G1 대사 + AI 서비스 배치)이 백그라운드로 수행·영속 저장된다.
+      if(aCase.draft){
+        delete aCase.draft;
+        ctx.gisAutoBaseAnalysis?.(aCase, { runServices: true });
+      }
       ctx.saveCanvasState();
       ctx.render("generalinv");
       return;
@@ -532,9 +541,19 @@ export function registerGeneralInvestigationEvents(ctx){
 
     const giDetailClose = event.target.closest("[data-gi-detail-close]");
     if(giDetailClose){
+      // 상세 등록 미완료(draft) 상태에서 닫으면 카드가 생성되지 않으므로 등록 자체를 취소한다
+      const aCase = ctx.activeGenInvCase?.();
+      if(aCase?.draft){
+        if(!confirm("혐의 등록이 완료되지 않아 수사 카드가 생성되지 않았습니다.\n수사 등록을 취소하시겠습니까?")) return;
+        const idx = ctx.customGenInvCases.findIndex(c => c.caseId === aCase.caseId);
+        if(idx !== -1) ctx.customGenInvCases.splice(idx, 1);
+        ctx.clearGisBaseResults?.(aCase.caseId);
+        ctx.activeGenInvCaseId = null;
+      }
       generalInvestigationState.giCaseDetailOpen = false;   // 닫으면 다시 카드로
       generalInvestigationState.activeLeadId = null;
       generalInvestigationState.crimeDraft = null;
+      ctx.saveCanvasState();
       ctx.render("generalinv");
       return;
     }

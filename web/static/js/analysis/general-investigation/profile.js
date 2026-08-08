@@ -185,9 +185,38 @@ function renderPersonFullProfile(aCase, person, detail, type){
   `;
 }
 
+const SECURED_NAMES = {
+  "E-101": "수입신고필증", "E-102": "수출신고필증", "E-103": "적하목록·화물관리번호",
+  "E-104": "여행자 휴대품 기록", "E-105": "특송·우편 통관목록", "E-106": "환급신청·지급내역",
+  "E-107": "감면승인·사후관리대장", "E-108": "통관고유부호 이력",
+};
+
+/* 기업 대상 3프레임의 '기초 대사 요약' 탭 하단 추가 블록 —
+   주요 위험지표·자동 확보 증거(G1)·증거수집 가이드 이동 버튼(기존 기초분석 패널의 측면부) */
+function baseSummaryExtraHtml(aCase){
+  const base = aCase.baseAnalysis;
+  if(!base || base.status !== "done") return "";
+  return `
+    <div class="gi-base-analysis-side" style="margin-top:10px">
+      ${(base.indicators || []).length ? `
+        <p class="gi-base-analysis-label">주요 위험지표</p>
+        ${(base.indicators || []).map(row =>
+          `<span class="gi-base-ind${row.score >= 50 ? " hot" : ""}">${escapeHtml(row.name)} <b>${row.score}점</b></span>`).join("")}
+      ` : ""}
+      <p class="gi-base-analysis-label">자동 확보 증거 (G1 — 세관 보유)</p>
+      ${(base.securedE || []).length
+        ? (base.securedE || []).map(code =>
+            `<span class="gi-base-secured" title="${escapeHtml(code)}">✓ ${escapeHtml(SECURED_NAMES[code] || code)}</span>`).join("")
+        : `<span class="muted">확보된 내부자료가 없습니다.</span>`}
+      <button type="button" class="btn secondary gi-base-guide-btn" data-gi-tab="workbench"
+        title="지식 레지스트리 기반 증거수집 가이드로 이동">AI 수사 가이드 — 증거 수집 진행</button>
+    </div>`;
+}
+
 /* ── 기초데이터 분석 패널 — 사건 등록 시 자동 수행(G1 · A-01 내부 보유자료 대사) ──
    지식 레지스트리 흐름의 1단계: 등록 즉시 세관 내부 보유자료를 대사해 사건
-   프로파일에 표시하고, 확보 가능한 G1 증거항목(수입신고필증 등)을 채운다. */
+   프로파일에 표시하고, 확보 가능한 G1 증거항목(수입신고필증 등)을 채운다.
+   (개인 대상 프로파일에서 사용 — 기업 대상은 3프레임 하단 결과 창으로 대체) */
 function baseAnalysisPanelHtml(aCase, deps){
   const base = aCase.baseAnalysis;
   if(!base){
@@ -213,11 +242,7 @@ function baseAnalysisPanelHtml(aCase, deps){
         <span class="muted">자동 수행 실패 — 프로파일을 다시 열면 재시도합니다.</span>
       </div>`;
   }
-  const securedNames = {
-    "E-101": "수입신고필증", "E-102": "수출신고필증", "E-103": "적하목록·화물관리번호",
-    "E-104": "여행자 휴대품 기록", "E-105": "특송·우편 통관목록", "E-106": "환급신청·지급내역",
-    "E-107": "감면승인·사후관리대장", "E-108": "통관고유부호 이력",
-  };
+  const securedNames = SECURED_NAMES;
   return `
     <div class="gi-base-analysis">
       <div class="gi-base-analysis-head">
@@ -241,7 +266,7 @@ function baseAnalysisPanelHtml(aCase, deps){
                 `<span class="gi-base-secured" title="${escapeHtml(code)}">✓ ${escapeHtml(securedNames[code] || code)}</span>`).join("")
             : `<span class="muted">확보된 내부자료가 없습니다.</span>`}
           <button type="button" class="btn secondary gi-base-guide-btn" data-gi-tab="workbench"
-            title="지식 레지스트리 기반 증거수집 가이드로 이동">AI 수사 가이드라인 — 증거 수집 진행</button>
+            title="지식 레지스트리 기반 증거수집 가이드로 이동">AI 수사 가이드 — 증거 수집 진행</button>
         </div>
       </div>
     </div>`;
@@ -275,7 +300,6 @@ export function renderProfilePanel(deps){
   const aCase = deps.activeGenInvCase();
   if(!aCase) return `<div class="profile-loading">수사 대상을 먼저 선택하세요.</div>`;
   const type = deps.genInvTypeById(aCase.invTypeId);
-  const crimeStrip = crimeBadgeStripHtml(aCase) + baseAnalysisPanelHtml(aCase, deps);
   if(aCase.targetType === "company"){
     const companyId = deps.generalInvCompanyId(aCase);
     if(!companyId){
@@ -289,23 +313,32 @@ export function renderProfilePanel(deps){
         </div>
       `;
     }
-    // 수사 기업 대상: 혐의 뱃지 + 좌측 대시보드/우측 관계망(60:40) — 프로파일이 전체 화면 사용
-    // (외부 정보 수집·정리 섹션은 기초자료 수집/등록 탭으로 이동)
-    // 프로파일 그래프는 죄명 기준으로 공유/분리: 관세포탈(c1)은 관세조사와 공용 스코프,
-    // 그 외 죄명은 crime-{categoryId} 스코프로 분리(profileGraphTypeForCrimes 참조)
-    // 위험지표도 죄명 기준으로 세트 전환: 밀수·금지품(c2·c4·c7)은 밀수 6종, 그 외는 심사 6종
-    return crimeStrip + profileNetworkLayout(
+    // 레거시 사건(자동 수행 이전 등록분): 프로파일 진입 시 기초 대사만 지연 수행(완료 시 재렌더)
+    if(!aCase.baseAnalysis) deps.gisAutoBaseAnalysis?.(aCase);
+    // 수사 기업 대상: 관세조사와 동일한 3프레임 — 왼쪽 위 기본/AI위험지표 상세(토글·접기),
+    // 왼쪽 아래 기초데이터 분석 결과(요약·수입신고 이력·AI 서비스 로그), 오른쪽 죄명별 관계 그래프.
+    // 관세포탈은 관세조사와 동일 구성이며, 밀수 등 그 외 죄명도 내부정보 수집(기초데이터 분석)
+    // 결과 창은 동일하게 제공하고 그래프·위험지표 세트만 죄명 기준으로 전환된다.
+    return crimeBadgeStripHtml(aCase) + profileNetworkLayout(
       deps.canvasProfilePanel(companyId, {
         selectedLabel: "수사 대상 기업",
         archive: null,
         changed: false,
         indicatorSet: indicatorSetForCase(aCase.crimes),
-        reportAction: `<button class="btn secondary" data-gi-tab="report">분석 보고서 보기</button>`,
-        scenarioAction: `<button class="btn" data-gi-tab="scenario">분석 시나리오 설정</button>`,
+        frames: true,
+        baseAnalysis: aCase.baseAnalysis?.status === "done" ? aCase.baseAnalysis : null,
+        baseWindow: {
+          headNote: "사건 등록 시 자동 수행",
+          entries: deps.gisBaseResultEntries?.(aCase.caseId) || [],
+          svcBody: deps.gisBaseStageResultsHtml?.() ?? "",
+          runAttr: "data-gis-profile-base-run",
+          summaryExtra: baseSummaryExtraHtml(aCase),
+        },
       }),
       profileGraphTypeForCrimes(aCase.crimes?.categoryId), companyId,
     );
   }
+  const crimeStrip = crimeBadgeStripHtml(aCase) + baseAnalysisPanelHtml(aCase, deps);
   const person = deps.riskPersonById(aCase.personId);
   const personId = person?.person_id || aCase.personId;
   if(!personId){

@@ -2160,6 +2160,64 @@ body.col-resizing{user-select:none;cursor:col-resize}
 .gis-iv-content{font-family:inherit;line-height:1.6}
 /* ── AI 수사 가이드라인(지식 레지스트리) — 증거수집 단계 상단 패널 ── */
 .gis-guide{border:1px solid #c7d7f0;border-radius:11px;background:#f8fbff;padding:10px 12px;display:grid;gap:7px;margin-bottom:4px}
+/* AI 수사 가이드 — 구성요건별 프레임 분리(상단 진도/죄명 + 요증사실 계층별 개별 프레임) */
+.gis-guide.gis-guide-frames{border:0;background:transparent;padding:0;gap:8px}
+.gis-guide-frame{border:1px solid #c7d7f0;border-radius:11px;background:#f8fbff;padding:10px 12px}
+.gis-guide-top{display:grid;gap:7px}
+.gis-guide-frames .gis-guide-layer h5{margin:0 0 2px;font-size:12px;color:#123c85;border-bottom:1px solid #c7d7f0;padding-bottom:5px}
+/* AI 수사 가이드 전면 개편 — 상단 설명 배너 + 좌측 구성요건 프레임 + 우측 탭 3종 */
+.gis-guide-side{display:grid;gap:8px;align-content:start;overflow-y:auto;min-height:0}
+.gis-guide-banner{display:grid;gap:6px;border:1.5px solid #f0c49a;border-radius:14px;background:#fff7ec;padding:12px 16px;margin-bottom:10px}
+.gis-guide-banner>strong{font-size:13px;color:#7c4a12}
+.gis-guide-banner.empty{grid-template-columns:auto 1fr auto;align-items:center}
+.gis-guide-banner .gis-guide-head strong{color:#7c4a12}
+/* 구성요건 프레임 — 초록 헤더 바(클릭 접기/펼치기) */
+.gis-guide-frames .gis-guide-layer{padding:0;overflow:hidden}
+.gis-guide-frames .gis-guide-layer h5{margin:0;padding:8px 12px;background:#e3f4dc;border:0;border-bottom:1px solid #cde7c2;font-size:12.5px;color:#2f5d1f;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.gis-guide-frames .gis-guide-layer h5:hover{background:#d8eecf}
+.gis-guide-frames .gis-guide-layer h5 i{font-style:normal;font-size:11px;color:#4a7a37}
+.gis-guide-frames .gis-guide-layer.closed h5{border-bottom:0}
+/* 증거목록 — 한 줄 1건(동일 폭), 이름 왼쪽·배지 오른쪽 정렬 */
+.gis-guide-frames .gis-guide-evs{display:grid;gap:4px;margin-left:22px}
+.gis-guide-frames .gis-guide-ev{display:flex;width:100%;align-items:center;gap:6px;text-align:left}
+.gis-guide-ev-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.gis-guide-ev-badges{flex:none;display:inline-flex;align-items:center;gap:4px}
+.gis-guide-frames .gis-guide-layer>*:not(h5){margin-left:12px;margin-right:12px}
+.gis-guide-frames .gis-guide-layer>*:last-child{margin-bottom:10px}
+.gis-guide-frames .gis-guide-layer .gis-guide-fact{margin-top:6px}
+/* 증거수집 현황(개편) — 좌: 목록(상태 배지) / 우: 요청·승인·수집 서브탭.
+   레이아웃이 결과 창 높이를 가득 채우고, 스크롤은 좌측 '목록'과 우측 '내용 창' 안에서만 생긴다
+   (좌측 상단 신규 수집항목 도구·우측 서브탭은 고정). */
+.ci-result-body:has(> .gis-evstatus-layout){overflow:hidden;padding-right:0}
+.gis-evstatus-layout{display:flex;align-items:stretch;gap:0;flex:1;min-height:0;height:100%}
+.gis-evstatus-left{flex:0 0 42%;min-width:220px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.gis-evstatus-left>h5{margin:0;font-size:13px;font-weight:800;color:#1d4ed8;flex:none}
+.gis-evstatus-left>.ci-stage-tools{flex:none}
+.gis-evstatus-list{flex:1;min-height:0;overflow-y:auto;display:grid;gap:7px;align-content:start;padding-right:3px}
+.gis-evstatus-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1.5px solid #9db9e8;border-radius:8px;background:#fff;padding:9px 12px;cursor:pointer;transition:.15s}
+.gis-evstatus-row:hover{border-color:#2f6fed;background:#f5f9ff}
+.gis-evstatus-row.active{border-color:#2f6fed;background:#eef4ff}
+.gis-evstatus-row strong{font-size:12.5px;color:#16305e;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.gis-evstatus-badge{flex:none;font-style:normal;font-size:11px;font-weight:800;border-radius:8px;padding:3px 10px;border:1.5px solid transparent}
+.gis-evstatus-badge.pending{background:#fff7ed;color:#c2410c;border-color:#f4c48f}
+.gis-evstatus-badge.approved{background:#eef4ff;color:#1e40af;border-color:#9db9e8}
+.gis-evstatus-badge.done{background:#ecfdf5;color:#047857;border-color:#9fd9bf}
+.gis-evstatus-badge.running{background:#fef3c7;color:#92400e;border-color:#eacd7f}
+.gis-evstatus-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0}
+.gis-evstatus-subtabs{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+.gis-evstatus-detail{flex:1;min-height:0;overflow-y:auto;border:1.5px solid #9db9e8;border-radius:10px;background:#fff;padding:12px}
+.gis-evstatus-pane{display:grid;gap:8px}
+.gis-evstatus-detail .ci-result-block{border:0;padding:0;margin:0}
+
+/* 증거수집 현황·가이드 분석(우측 탭 본문) */
+.gis-evidence-status{display:grid;gap:7px}
+.gis-guide-analysis{display:grid;gap:10px}
+.gis-ana-table th{width:190px;text-align:left;font-size:12px;color:#33507a}
+.gis-ana-fact{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;margin:1px 0;background:#f1f5f9;color:#475569}
+.gis-ana-fact.done{background:#ecfdf5;color:#047857}
+.gis-ana-fact.partial{background:#fef3c7;color:#92400e}
+.gis-ana-fact.proc,.gis-ana-fact.procedural{background:#f5f3ff;color:#6d28d9}
+.gis-ana-missing{margin:0;padding-left:18px;display:grid;gap:5px;font-size:12.5px}
 .gis-guide-empty{background:#f8fafc;border-color:var(--line)}
 .gis-guide>strong,.gis-guide-head strong{font-size:12.5px;color:#123c85}
 .gis-guide-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}

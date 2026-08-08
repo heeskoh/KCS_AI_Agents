@@ -15,11 +15,19 @@ export function renderCasesPanel(deps){
     deps.genInvTypeById(c.invTypeId).label.includes(q)
   ) : all;
 
+  // 상세 등록 미완료(draft) 사건은 카드로 노출하지 않는다 — 상세창을 자동으로 다시 연다
+  // (등록 → 상세창에서 혐의 등록 완료 시점에 카드가 생성되는 흐름)
+  const draftCase = all.find(c => c.draft);
+  if(draftCase && !generalInvestigationState.giCaseDetailOpen){
+    generalInvestigationState.giCaseDetailOpen = true;
+    generalInvestigationState.activeGenInvCaseId = draftCase.caseId;
+  }
+
   // 상세 열림: 선택 카드는 보드에서 숨기고 상세 패널을 가장 위쪽에 표시
   const detailCase = generalInvestigationState.giCaseDetailOpen
-    ? filtered.find(c => c.caseId === generalInvestigationState.activeGenInvCaseId)
+    ? all.find(c => c.caseId === generalInvestigationState.activeGenInvCaseId)
     : null;
-  const boardCases = detailCase ? filtered.filter(c => c !== detailCase) : filtered;
+  const boardCases = filtered.filter(c => c !== detailCase && !c.draft);
 
   return `
     <div class="gi-cases-panel">
@@ -143,9 +151,12 @@ function giCaseDetailHtml(deps, aCase){
           <span class="gi-type-chip ${type.cls}">${type.num} ${escapeHtml(type.label)}</span>
         </div>
         <div class="gi-case-detail-actions">
-          <button type="button" class="btn secondary" data-gi-tab="profile">수사 프로파일</button>
-          <button type="button" class="btn secondary" data-gi-tab="scenario">분석 시나리오</button>
-          <button type="button" class="btn" data-gi-detail-close title="상세를 닫고 카드로 돌아갑니다">✕ 닫기</button>
+          ${aCase.draft ? `
+            <span class="muted" style="font-size:12px">혐의 등록을 완료하면 수사 카드가 생성되고 기초데이터 분석이 시작됩니다</span>
+            <button type="button" class="btn" data-gi-detail-close title="혐의 등록 전 닫으면 수사 등록이 취소됩니다">✕ 닫기</button>
+          ` : `
+            <button type="button" class="btn" data-gi-detail-close title="상세를 닫고 카드로 돌아갑니다">✕ 닫기</button>
+          `}
         </div>
       </div>
 
